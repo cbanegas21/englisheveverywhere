@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+/* ── English Everywhere — Charcoal + Crimson Design System ────────── */
+
+:root {
+  /* Dark backgrounds */
+  --ee-dark:        #111111;
+  --ee-dark-2:      #1A1A1A;
+  --ee-dark-card:   #232323;
+  --ee-dark-border: rgba(255,255,255,0.07);
+
+  /* Light backgrounds */
+  --ee-bg:          #F9F9F9;
+  --ee-bg-card:     #FFFFFF;
+  --ee-bg-muted:    #F3F4F6;
+
+  /* Text on light */
+  --ee-ink:         #111111;
+  --ee-ink-2:       #4B5563;
+  --ee-ink-3:       #9CA3AF;
+
+  /* Text on dark */
+  --ee-dark-text:   #F9F9F9;
+  --ee-dark-text-2: rgba(249,249,249,0.6);
+  --ee-dark-text-3: rgba(249,249,249,0.35);
+
+  /* Accents */
+  --ee-crimson:       #C41E3A;
+  --ee-crimson-hover: #9E1830;
+  --ee-crimson-tint:  rgba(196,30,58,0.08);
+  --ee-gold:          #C5A028;
+  --ee-gold-tint:     rgba(197,160,40,0.10);
+
+  /* Borders */
+  --ee-border:    #E5E7EB;
+  --ee-border-2:  #D1D5DB;
+}
+
+/* ── Reset & Base ────────────────────────────────────────────────── */
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--ee-dark);
+  color: var(--ee-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #1A1A1A; }
+::-webkit-scrollbar-thumb { background: #3D3D3D; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+
+/* ── Animations ──────────────────────────────────────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Utility classes ─────────────────────────────────────────────── */
+
+/* Label — on dark bg */
+.ee-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ee-crimson);
+}
+
+/* Label variant — on light bg */
+.ee-label-light {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ee-crimson);
+}
+
+.ee-section-title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 900;
+  color: var(--ee-ink);
+  line-height: 1.1;
+}
+
+.ee-section-title-dark {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 900;
+  color: var(--ee-dark-text);
+  line-height: 1.1;
+}
+
+.ee-body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ee-ink-2);
+}
+
+.ee-body-dark {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ee-dark-text-2);
+}
+
+/* Primary CTA — crimson */
+.ee-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ee-crimson);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px 28px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  text-decoration: none;
+}
+.ee-btn-primary:hover {
+  background: var(--ee-crimson-hover);
+  transform: translateY(-1px);
+}
+
+/* Ghost on dark bg */
+.ee-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--ee-dark-text);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 11px 28px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  text-decoration: none;
+}
+.ee-btn-ghost:hover {
+  border-color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.05);
+}
+
+/* Ghost on light bg */
+.ee-btn-ghost-light {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--ee-ink);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 11px 28px;
+  border-radius: 4px;
+  border: 1px solid var(--ee-border-2);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  text-decoration: none;
+}
+.ee-btn-ghost-light:hover {
+  border-color: var(--ee-ink);
+  background: var(--ee-bg-muted);
+}
+
+.ee-card {
+  background: var(--ee-bg-card);
+  border: 1px solid var(--ee-border);
+  border-radius: 8px;
+}
+
+.ee-card-dark {
+  background: var(--ee-dark-card);
+  border: 1px solid var(--ee-dark-border);
+  border-radius: 8px;
+}

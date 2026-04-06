@@ -1,0 +1,410 @@
+'use client'
+
+import Link from 'next/link'
+import {
+  DollarSign, Calendar, Star, Users, ArrowRight,
+  Video, ChevronRight, Clock, ToggleLeft, ToggleRight,
+  CheckCircle2
+} from 'lucide-react'
+import { useState, useTransition } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import type { Locale } from '@/lib/i18n/translations'
+
+const t = {
+  en: {
+    greeting: 'Good morning',
+    greetingAfternoon: 'Good afternoon',
+    greetingEvening: 'Good evening',
+    subtitle: 'Your teaching overview for today.',
+    activeToggle: 'Accepting students',
+    inactiveToggle: 'Not accepting',
+    stats: {
+      earnings: 'This month',
+      sessions: 'Sessions this month',
+      total: 'Total sessions',
+      rating: 'Your rating',
+    },
+    upcoming: 'Upcoming sessions',
+    noUpcoming: 'No upcoming sessions scheduled.',
+    noUpcomingSub: 'Set your availability to start receiving bookings.',
+    setAvailability: 'Set availability',
+    with: 'with',
+    mins: 'min',
+    viewAll: 'View schedule',
+    quickActions: 'Quick actions',
+    actions: {
+      availability: { title: 'Set availability', sub: 'Define your open time slots', href: '/maestro/dashboard/disponibilidad' },
+      students: { title: 'My students', sub: 'View your active students', href: '/maestro/dashboard/estudiantes' },
+      earnings: { title: 'Earnings', sub: 'View your Stripe payouts', href: '/maestro/dashboard/ganancias' },
+    },
+    statusConfirmed: 'Confirmed',
+    statusPending: 'Pending',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    usd: 'USD',
+    specs: 'Specializations',
+    rate: 'Your rate',
+    perHour: '/hr',
+    earn85: 'You keep 85%',
+  },
+  es: {
+    greeting: 'Buenos días',
+    greetingAfternoon: 'Buenas tardes',
+    greetingEvening: 'Buenas noches',
+    subtitle: 'Tu resumen de enseñanza de hoy.',
+    activeToggle: 'Aceptando estudiantes',
+    inactiveToggle: 'No disponible',
+    stats: {
+      earnings: 'Este mes',
+      sessions: 'Sesiones este mes',
+      total: 'Total de sesiones',
+      rating: 'Tu calificación',
+    },
+    upcoming: 'Próximas sesiones',
+    noUpcoming: 'No tienes sesiones próximas.',
+    noUpcomingSub: 'Define tu disponibilidad para comenzar a recibir reservas.',
+    setAvailability: 'Definir disponibilidad',
+    with: 'con',
+    mins: 'min',
+    viewAll: 'Ver agenda',
+    quickActions: 'Acciones rápidas',
+    actions: {
+      availability: { title: 'Disponibilidad', sub: 'Define tus horarios libres', href: '/maestro/dashboard/disponibilidad' },
+      students: { title: 'Mis estudiantes', sub: 'Ver tus estudiantes activos', href: '/maestro/dashboard/estudiantes' },
+      earnings: { title: 'Ganancias', sub: 'Ver tus pagos de Stripe', href: '/maestro/dashboard/ganancias' },
+    },
+    statusConfirmed: 'Confirmada',
+    statusPending: 'Pendiente',
+    today: 'Hoy',
+    tomorrow: 'Mañana',
+    usd: 'USD',
+    specs: 'Especializaciones',
+    rate: 'Tu tarifa',
+    perHour: '/hr',
+    earn85: 'Ganas el 85%',
+  },
+}
+
+function getGreeting(lang: Locale) {
+  const h = new Date().getHours()
+  const tx = t[lang]
+  if (h < 12) return tx.greeting
+  if (h < 18) return tx.greetingAfternoon
+  return tx.greetingEvening
+}
+
+function formatDate(iso: string, lang: Locale) {
+  const d = new Date(iso)
+  const now = new Date()
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  const tx = t[lang]
+  if (d.toDateString() === now.toDateString()) return tx.today
+  if (d.toDateString() === tomorrow.toDateString()) return tx.tomorrow
+  return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  })
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+interface Session {
+  id: string
+  scheduled_at: string
+  duration_minutes: number
+  status: string
+  student?: { profile?: { full_name?: string } } | null
+}
+
+interface Props {
+  lang: Locale
+  profileId: string
+  userName: string
+  rating: number
+  totalSessions: number
+  isActive: boolean
+  hourlyRate: number
+  specializations: string[]
+  thisMonthSessions: number
+  thisMonthEarnings: number
+  upcomingSessions: Session[]
+}
+
+export default function TeacherDashboardClient({
+  lang,
+  profileId,
+  userName,
+  rating,
+  totalSessions,
+  isActive: initialActive,
+  hourlyRate,
+  specializations,
+  thisMonthSessions,
+  thisMonthEarnings,
+  upcomingSessions,
+}: Props) {
+  const tx = t[lang]
+  const firstName = userName.split(' ')[0]
+  const [active, setActive] = useState(initialActive)
+  const [isPending, startTransition] = useTransition()
+
+  function toggleActive() {
+    const supabase = createClient()
+    startTransition(async () => {
+      await supabase
+        .from('teachers')
+        .update({ is_active: !active })
+        .eq('profile_id', profileId)
+      setActive(!active)
+    })
+  }
+
+  return (
+    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+
+      {/* Top header bar */}
+      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>
+              {getGreeting(lang)}, {firstName}
+            </h1>
+            <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
+          </div>
+
+          {/* Active/inactive toggle */}
+          <button
+            onClick={toggleActive}
+            disabled={isPending}
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded text-[13px] font-semibold transition-all flex-shrink-0"
+            style={
+              active
+                ? { border: '1px solid #86EFAC', background: '#F0FDF4', color: '#16A34A' }
+                : { border: '1px solid #E5E7EB', background: '#fff', color: '#4B5563' }
+            }
+          >
+            {active
+              ? <ToggleRight className="h-4 w-4" style={{ color: '#16A34A' }} />
+              : <ToggleLeft className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+            }
+            {active ? tx.activeToggle : tx.inactiveToggle}
+          </button>
+        </div>
+      </div>
+
+      <div className="px-8 py-6 max-w-5xl mx-auto space-y-6">
+
+        {/* Rate + specializations info bar */}
+        <div
+          className="rounded-xl p-4 flex flex-wrap items-center gap-5"
+          style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+        >
+          <div>
+            <span
+              className="text-[11px] uppercase tracking-wider font-semibold block mb-0.5"
+              style={{ color: '#9CA3AF' }}
+            >
+              {tx.rate}
+            </span>
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-[20px] font-black" style={{ color: '#111111' }}>${hourlyRate}</span>
+              <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.perHour}</span>
+            </div>
+            <span className="text-[11px] font-medium" style={{ color: '#16A34A' }}>{tx.earn85}</span>
+          </div>
+
+          {specializations.length > 0 && (
+            <>
+              <div className="w-px h-10 hidden sm:block" style={{ background: '#E5E7EB' }} />
+              <div>
+                <span
+                  className="text-[11px] uppercase tracking-wider font-semibold block mb-1.5"
+                  style={{ color: '#9CA3AF' }}
+                >
+                  {tx.specs}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {specializations.slice(0, 5).map(s => (
+                    <span
+                      key={s}
+                      className="text-[11px] px-2.5 py-1 rounded font-medium"
+                      style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                  {specializations.length > 5 && (
+                    <span
+                      className="text-[11px] px-2.5 py-1 rounded"
+                      style={{ background: '#F3F4F6', color: '#9CA3AF' }}
+                    >
+                      +{specializations.length - 5}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: tx.stats.earnings, value: `$${thisMonthEarnings.toFixed(0)}`, icon: DollarSign, sub: tx.usd },
+            { label: tx.stats.sessions, value: thisMonthSessions, icon: Video },
+            { label: tx.stats.total, value: totalSessions, icon: CheckCircle2 },
+            { label: tx.stats.rating, value: rating > 0 ? rating.toFixed(1) : '—', icon: Star, isRating: true },
+          ].map(({ label, value, icon: Icon, isRating }) => (
+            <div
+              key={label}
+              className="rounded-xl p-5"
+              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded"
+                  style={{ background: '#F3F4F6' }}
+                >
+                  <Icon className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                {isRating && value !== '—' && (
+                  <Star className="h-4 w-4 flex-shrink-0" style={{ color: '#C41E3A', fill: '#C41E3A' }} />
+                )}
+                <span className="text-[24px] font-black" style={{ color: '#111111' }}>{value}</span>
+              </div>
+              <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Main content grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+          {/* Upcoming sessions — left 3/5 */}
+          <div
+            className="lg:col-span-3 rounded-xl overflow-hidden"
+            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+          >
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
+              <h2 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.upcoming}</h2>
+              <Link
+                href={`/${lang}/maestro/dashboard/agenda`}
+                className="text-[12px] flex items-center gap-1 transition-colors"
+                style={{ color: '#9CA3AF' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#111111')}
+                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#9CA3AF')}
+              >
+                {tx.viewAll}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            {upcomingSessions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
+                  style={{ background: '#F3F4F6' }}
+                >
+                  <Calendar className="h-6 w-6" style={{ color: '#9CA3AF' }} />
+                </div>
+                <p className="text-[13px] font-semibold mb-1" style={{ color: '#111111' }}>{tx.noUpcoming}</p>
+                <p className="text-[12px] mb-5" style={{ color: '#9CA3AF' }}>{tx.noUpcomingSub}</p>
+                <Link
+                  href={`/${lang}/maestro/dashboard/disponibilidad`}
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded font-semibold text-[12px] transition-all"
+                  style={{ background: '#C41E3A', color: '#fff' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                >
+                  {tx.setAvailability}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            ) : (
+              <ul>
+                {upcomingSessions.map((session) => (
+                  <li
+                    key={session.id}
+                    className="flex items-center gap-4 px-5 py-4"
+                    style={{ borderBottom: '1px solid #E5E7EB' }}
+                  >
+                    <div className="flex-shrink-0 text-center w-10">
+                      <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
+                        {formatDate(session.scheduled_at, lang).slice(0, 3)}
+                      </div>
+                      <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
+                        {new Date(session.scheduled_at).getDate()}
+                      </div>
+                    </div>
+
+                    <div
+                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
+                      style={{ background: '#F3F4F6' }}
+                    >
+                      <Video className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
+                        {tx.with} {(session.student as { profile?: { full_name?: string } } | null)?.profile?.full_name || 'Student'}
+                      </div>
+                      <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                        {formatTime(session.scheduled_at)} · {session.duration_minutes}{tx.mins}
+                      </div>
+                    </div>
+
+                    <span
+                      className="text-[10px] font-semibold px-2.5 py-1 rounded flex-shrink-0"
+                      style={
+                        session.status === 'confirmed'
+                          ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
+                          : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
+                      }
+                    >
+                      {session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Quick actions — right 2/5 */}
+          <div className="lg:col-span-2 space-y-3">
+            <h2 className="text-[14px] font-bold mb-1" style={{ color: '#111111' }}>{tx.quickActions}</h2>
+            {([
+              { href: tx.actions.availability.href, icon: Clock, title: tx.actions.availability.title, sub: tx.actions.availability.sub },
+              { href: tx.actions.students.href, icon: Users, title: tx.actions.students.title, sub: tx.actions.students.sub },
+              { href: tx.actions.earnings.href, icon: DollarSign, title: tx.actions.earnings.title, sub: tx.actions.earnings.sub },
+            ] as Array<{ href: string; icon: React.ElementType; title: string; sub: string }>).map(({ href, icon: Icon, title, sub }) => (
+              <Link key={href} href={`/${lang}${href}`}>
+                <div
+                  className="flex items-center gap-3.5 p-4 rounded-xl transition-all cursor-pointer"
+                  style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#111111')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                >
+                  <div
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
+                    style={{ background: '#F3F4F6' }}
+                  >
+                    <Icon className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{title}</div>
+                    <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{sub}</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" style={{ color: '#E5E7EB' }} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
