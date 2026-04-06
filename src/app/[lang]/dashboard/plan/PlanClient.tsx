@@ -6,7 +6,8 @@ import {
   CheckCircle2, Check, AlertCircle, ArrowRight,
   BookOpen, Star, Zap, X, CreditCard, Calendar,
 } from 'lucide-react'
-import { simulatePurchase, HNL_RATE } from '@/app/actions/purchase'
+import { simulatePurchase } from '@/app/actions/purchase'
+import { HNL_RATE } from '@/lib/plans'
 import type { Locale } from '@/lib/i18n/translations'
 import Link from 'next/link'
 
