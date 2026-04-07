@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { User, Mail, Clock, Lock, CheckCircle2 } from 'lucide-react'
 import TimezoneSelect, { type ITimezoneOption } from 'react-timezone-select'
@@ -51,7 +51,16 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
   const tx = t[lang]
   const [name, setName] = useState(fullName)
   const [selectedTz, setSelectedTz] = useState<ITimezoneOption | string>(timezone)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [now, setNow] = useState(new Date())
   const tzValue = typeof selectedTz === 'string' ? selectedTz : selectedTz.value
+
+  // Mount portal target and tick clock every minute
+  useEffect(() => {
+    setPortalTarget(document.body)
+    const id = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   function getLocalTime(tz: string) {
     try {
@@ -61,9 +70,24 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
         minute: '2-digit',
         hour12: true,
         weekday: 'short',
-      }).format(new Date())
+      }).format(now)
     } catch {
       return ''
+    }
+  }
+
+  function formatTzOption(tz: string) {
+    try {
+      const time = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).format(now)
+      const label = tz.replace(/_/g, ' ').split('/').slice(-1)[0]
+      return `${label} — ${time}`
+    } catch {
+      return tz
     }
   }
   const [saved, setSaved] = useState(false)
@@ -157,6 +181,12 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
               <TimezoneSelect
                 value={selectedTz}
                 onChange={setSelectedTz}
+                menuPortalTarget={portalTarget}
+                menuPosition="fixed"
+                getOptionLabel={(tz) => {
+                  const val = typeof tz === 'string' ? tz : tz.value
+                  return formatTzOption(val)
+                }}
                 styles={{
                   control: (base) => ({
                     ...base,
@@ -165,6 +195,8 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
                     boxShadow: 'none',
                     '&:hover': { borderColor: '#C41E3A' },
                   }),
+                  menu: (base) => ({ ...base, zIndex: 9999 }),
+                  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
                   option: (base, state) => ({
                     ...base,
                     fontSize: '13px',

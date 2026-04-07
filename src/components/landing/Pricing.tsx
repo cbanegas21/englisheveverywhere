@@ -10,13 +10,13 @@ import { PRICING_PLANS } from '@/lib/pricing'
 const t = {
   en: {
     label: 'Transparent pricing',
-    title: 'One price.\nNo surprises.',
-    sub: 'Pay once. No subscriptions, no auto-renewals, no hidden fees. Your classes never expire.',
+    title: 'Simple monthly\nplans.',
+    sub: 'Choose a monthly plan and get your classes every month. Cancel anytime. No hidden fees. Your unused classes carry over.',
     popular: 'Most popular',
     classes: 'classes',
     perClass: 'per class',
     cta: 'Get started',
-    note: '* Classes without 24-hour notice of cancellation are forfeited.',
+    note: '* Classes cancelled with less than 24-hour notice are forfeited. Monthly plans renew automatically — cancel anytime.',
     included: 'Included in every pack',
     features: [
       'Live 1-on-1 session via video',
@@ -34,13 +34,13 @@ const t = {
   },
   es: {
     label: 'Precios transparentes',
-    title: 'Un precio.\nSin sorpresas.',
-    sub: 'Paga una vez. Sin suscripciones, sin renovación automática, sin cargos ocultos. Tus clases nunca vencen.',
+    title: 'Planes mensuales\nsimples.',
+    sub: 'Elige tu plan mensual y recibe tus clases cada mes. Cancela cuando quieras. Sin cargos ocultos. Tus clases sin usar se acumulan.',
     popular: 'Más popular',
     classes: 'clases',
     perClass: 'por clase',
     cta: 'Comenzar',
-    note: '* Las clases sin aviso de cancelación de 24 horas se pierden.',
+    note: '* Las clases canceladas con menos de 24h de aviso se pierden. Los planes mensuales se renuevan automáticamente — cancela cuando quieras.',
     included: 'Incluido en todos los packs',
     features: [
       'Sesión 1-a-1 en vivo por video',

@@ -9,9 +9,9 @@ const t = {
     title: 'Bilingual.\nNear-native.\nHonduran.',
     body: 'Every teacher is hand-selected. All speak fluent English with a near-native accent — and because they are from Honduras, they understand exactly why you struggle, what works, and how to explain it so it actually clicks.',
     stats: [
-      { val: '100%', label: 'Near-native English' },
       { val: 'C1–C2', label: 'CEFR minimum' },
-      { val: 'HN', label: 'Based in Honduras' },
+      { val: 'Honduran', label: 'Native teachers' },
+      { val: '1-on-1', label: 'Every session' },
     ],
     active: 'Accepting students',
     soon: 'Coming soon',
@@ -21,9 +21,9 @@ const t = {
     title: 'Bilingüe.\nNear-native.\nHondureño.',
     body: 'Cada maestro es seleccionado a mano. Todos hablan inglés fluido con acento near-native — y como son de Honduras, entienden exactamente por qué te cuesta, qué funciona y cómo explicarlo para que realmente te haga clic.',
     stats: [
-      { val: '100%', label: 'Inglés near-native' },
       { val: 'C1–C2', label: 'Nivel CEFR mínimo' },
-      { val: 'HN', label: 'Basados en Honduras' },
+      { val: 'Hondureños', label: 'Maestros nativos' },
+      { val: '1-a-1', label: 'Cada sesión' },
     ],
     active: 'Aceptando estudiantes',
     soon: 'Próximamente',
@@ -34,8 +34,8 @@ function getTeachers(lang: Locale) {
   const soon = lang === 'en' ? 'Coming Soon' : 'Próximamente'
   return [
     {
-      initials: 'LB',
-      name: 'Lesly B.',
+      initials: 'LP',
+      name: 'Lesly Paz',
       level: 'CEFR C2',
       tags: lang === 'en'
         ? ['Business English', 'IELTS prep', 'Conversation']

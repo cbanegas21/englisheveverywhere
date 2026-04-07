@@ -47,7 +47,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
     }
     setSwitching(true)
     setTimeout(() => {
-      router.push(otherLocalePath)
+      router.push(otherLocalePath, { scroll: false })
     }, 130)
   }
 

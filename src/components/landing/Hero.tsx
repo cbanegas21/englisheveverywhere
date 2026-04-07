@@ -7,22 +7,22 @@ import { Boxes } from '@/components/ui/background-boxes'
 
 const t = {
   en: {
-    label: 'Live 1-on-1 classes · Honduras',
+    label: 'Live 1-on-1 classes · Latin America',
     title: 'English that\nactually sticks.',
-    body: 'Packs of 8–20 live classes with a bilingual, near-native Honduran teacher. One payment. No subscriptions. No auto-renewals.',
+    body: 'Monthly plans of 8–20 live 1-on-1 classes with a bilingual, near-native teacher. Cancel anytime. CEFR-tracked progress every 4 classes.',
     cta: 'See packs & pricing',
     ctaDashboard: 'Go to my Dashboard',
     ctaSecondary: 'How it works',
-    trust: ['No subscription', 'Near-native teachers', 'CEFR tracked'],
+    trust: ['Cancel anytime', 'Near-native teachers', 'CEFR tracked'],
   },
   es: {
-    label: 'Clases 1-a-1 en vivo · Honduras',
+    label: 'Clases 1-a-1 en vivo · Latinoamérica',
     title: 'Inglés que\nrealmente funciona.',
-    body: 'Packs de 8–20 clases en vivo con un maestro bilingüe near-native de Honduras. Un solo pago. Sin suscripciones. Sin renovación automática.',
+    body: 'Planes mensuales de 8–20 clases 1-a-1 en vivo con un maestro bilingüe near-native. Cancela cuando quieras. Nivel CEFR revisado cada 4 clases.',
     cta: 'Ver packs y precios',
     ctaDashboard: 'Ir a mi Dashboard',
     ctaSecondary: 'Cómo funciona',
-    trust: ['Sin suscripción', 'Maestros near-native', 'Nivel CEFR'],
+    trust: ['Cancela cuando quieras', 'Maestros near-native', 'Nivel CEFR'],
   },
 }
 

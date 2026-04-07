@@ -19,34 +19,64 @@ const countries = [
   { flag: '🇨🇷', name: 'Costa Rica' },
   { flag: '🇵🇦', name: 'Panamá' },
   { flag: '🇺🇾', name: 'Uruguay' },
+  { flag: '🇵🇾', name: 'Paraguay' },
+  { flag: '🇧🇷', name: 'Brasil' },
 ]
 
+// Duplicate for seamless loop
 const items = [...countries, ...countries]
 
 export default function TrustStrip({ lang }: { lang: Locale }) {
+  const label = lang === 'es' ? 'Estudiantes de todo el continente' : 'Students from across Latin America'
+
   return (
-    <div
-      className="py-4 overflow-hidden"
-      style={{ background: '#F9F9F9', borderBottom: '1px solid #E5E7EB' }}
-    >
-      <div
-        className="flex whitespace-nowrap"
-        style={{ animation: 'trust-marquee 36s linear infinite', width: 'max-content' }}
-      >
-        {items.map((c, i) => (
-          <span
-            key={i}
-            className="inline-flex items-center gap-2 text-[13px] font-semibold px-6 flex-shrink-0"
-            style={{ color: '#4B5563' }}
-          >
-            <span className="text-xl">{c.flag}</span>
-            {c.name}
-            <span className="w-1 h-1 rounded-full ml-4" style={{ background: '#C41E3A' }} />
-          </span>
-        ))}
+    <div style={{ background: '#F9F9F9', borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB' }}>
+      {/* Label row */}
+      <div className="text-center pt-5 pb-3">
+        <span
+          className="text-[10px] font-bold uppercase tracking-[0.15em]"
+          style={{ color: '#9CA3AF' }}
+        >
+          {label}
+        </span>
       </div>
+
+      {/* Marquee strip */}
+      <div className="overflow-hidden pb-5" style={{ maskImage: 'linear-gradient(to right, transparent, black 12%, black 88%, transparent)' }}>
+        <div
+          className="flex items-center"
+          style={{
+            animation: 'ee-marquee 42s linear infinite',
+            width: 'max-content',
+            willChange: 'transform',
+          }}
+        >
+          {items.map((c, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2.5 mx-4 flex-shrink-0"
+              style={{
+                padding: '8px 18px',
+                borderRadius: '999px',
+                background: '#fff',
+                border: '1px solid #E5E7EB',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+              }}
+            >
+              <span style={{ fontSize: '20px', lineHeight: 1 }}>{c.flag}</span>
+              <span
+                className="text-[12px] font-semibold whitespace-nowrap"
+                style={{ color: '#374151' }}
+              >
+                {c.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <style>{`
-        @keyframes trust-marquee {
+        @keyframes ee-marquee {
           0%   { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
