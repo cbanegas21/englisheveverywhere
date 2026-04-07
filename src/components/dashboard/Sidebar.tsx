@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutDashboard, Calendar, Users, BookOpen, CreditCard,
@@ -63,8 +63,24 @@ interface SidebarProps {
 
 export default function Sidebar({ lang, role, userName, userEmail, avatarInitials }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+  const other = lang === 'en' ? 'es' : 'en'
+  const otherLocalePath = pathname.replace(`/${lang}`, `/${other}`)
   const nav = role === 'teacher' ? teacherNav[lang] : studentNav[lang]
+
+  function handleLocaleSwitch() {
+    if (switching) return
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ee-locale', other)
+      document.cookie = `ee-locale=${other}; path=/; max-age=31536000; SameSite=Lax`
+    }
+    setSwitching(true)
+    setTimeout(() => {
+      router.push(otherLocalePath, { scroll: false })
+    }, 130)
+  }
 
   function isActive(href: string) {
     const full = `/${lang}${href}`
@@ -166,6 +182,16 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             <div className="text-[11px] truncate" style={{ color: 'rgba(249,249,249,0.4)' }}>{userEmail}</div>
           </div>
         </div>
+        <button
+          onClick={handleLocaleSwitch}
+          className="flex items-center gap-2 w-full px-3 py-2 mb-1 rounded text-[12px] transition-all"
+          style={{ color: 'rgba(249,249,249,0.4)', opacity: switching ? 0.5 : 1 }}
+          onMouseEnter={e => { if (!switching) e.currentTarget.style.color = '#F9F9F9' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(249,249,249,0.4)' }}
+        >
+          <span style={{ fontSize: '14px' }}>{other === 'en' ? '🇺🇸' : '🇪🇸'}</span>
+          <span>{other === 'en' ? 'Switch to English' : 'Cambiar a Español'}</span>
+        </button>
         <form action={signOut.bind(null, lang)}>
           <button
             type="submit"

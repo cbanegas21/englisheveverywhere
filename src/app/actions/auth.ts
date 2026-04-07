@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient()
@@ -28,10 +30,14 @@ export async function signUp(formData: FormData) {
   })
 
   if (error) {
+    console.log('[signUp] error:', error.message)
     const msg = error.message.toLowerCase()
     const isEmailIssue = msg.includes('email') || msg.includes('smtp') || msg.includes('sending') || msg.includes('rate limit')
     if (isEmailIssue) {
-      redirect(`/${lang}/registro?success=confirm`)
+      const emailError = lang === 'es'
+        ? 'No pudimos enviar el email de confirmación. Contacta a soporte: hola@englisheverywhere.com'
+        : "We couldn't send your confirmation email. Contact support: hola@englisheverywhere.com"
+      redirect(`/${lang}/registro?error=${encodeURIComponent(emailError)}`)
     }
     redirect(`/${lang}/registro?error=${encodeURIComponent(error.message)}`)
   }
@@ -39,6 +45,50 @@ export async function signUp(formData: FormData) {
   // If email confirmation is disabled, user is immediately logged in
   if (data.session) {
     redirect(`/${lang}/onboarding`)
+  }
+
+  // Send confirmation email directly via Resend (non-blocking)
+  try {
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'signup',
+      email,
+      password,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/${lang}/auth/callback`,
+      },
+    })
+
+    if (linkError) {
+      console.error('[signUp] generateLink error:', linkError.message)
+    } else {
+      const confirmationUrl = linkData?.properties?.action_link
+      if (confirmationUrl) {
+        const resend = new Resend(process.env.RESEND_API_KEY)
+        const { error: resendError } = await resend.emails.send({
+          from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+          to: email,
+          subject: 'Confirma tu cuenta — English Everywhere',
+          html: `
+            <h2>¡Bienvenido a English Everywhere!</h2>
+            <p>Haz clic en el siguiente enlace para confirmar tu cuenta:</p>
+            <a href="${confirmationUrl}">Confirmar mi cuenta</a>
+            <p>Si no creaste esta cuenta, ignora este email.</p>
+          `,
+        })
+        if (resendError) {
+          console.error('[signUp] Resend error:', resendError)
+        } else {
+          console.log('[signUp] Confirmation email sent via Resend to:', email)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[signUp] Email send failed (non-blocking):', err)
   }
 
   // Email confirmation required

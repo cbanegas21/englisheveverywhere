@@ -17,7 +17,7 @@ const t = {
       classesLeft: 'Classes remaining',
       completed: 'Completed sessions',
       level: 'Current level',
-      noLevel: 'Take placement test',
+      noLevel: 'Diagnostic call pending',
       totalTime: 'Total studied',
     },
     upcoming: 'Upcoming classes',
@@ -54,7 +54,7 @@ const t = {
       classesLeft: 'Clases disponibles',
       completed: 'Sesiones completadas',
       level: 'Nivel actual',
-      noLevel: 'Haz el placement test',
+      noLevel: 'Llamada diagnóstica pendiente',
       totalTime: 'Total estudiado',
     },
     upcoming: 'Próximas clases',
@@ -222,16 +222,19 @@ export default function StudentDashboardClient({
             },
             {
               label: level ? tx.stats.level : tx.stats.noLevel,
-              value: level || '—',
+              value: level || (placementTestDone ? (lang === 'es' ? 'Agendada ✓' : 'Scheduled ✓') : '—'),
               icon: TrendingUp,
-              link: !level ? `/${lang}/dashboard/progreso` : undefined,
+              link: (!level && !placementTestDone) ? `/${lang}/dashboard/placement` : undefined,
             },
             {
               label: tx.stats.totalTime,
-              value: `${completedSessions * 50}m`,
+              value: completedSessions > 0 ? `${completedSessions * 60}m` : '0m',
               icon: Clock,
+              note: completedSessions === 0
+                ? (lang === 'es' ? 'Completa tu primera clase' : 'Complete your first class')
+                : undefined,
             },
-          ].map(({ label, value, icon: Icon, urgent, link }) => (
+          ].map(({ label, value, icon: Icon, urgent, link, note }) => (
             <div
               key={label}
               className="rounded-xl p-5"
@@ -252,13 +255,16 @@ export default function StudentDashboardClient({
                 {value}
               </div>
               <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{label}</div>
+              {note && (
+                <p className="text-[10px] mt-1" style={{ color: '#9CA3AF' }}>{note}</p>
+              )}
               {link && (
                 <Link
                   href={link}
                   className="text-[11px] underline mt-1 block transition-colors"
                   style={{ color: '#C41E3A' }}
                 >
-                  {lang === 'es' ? 'Tomar test →' : 'Take test →'}
+                  {lang === 'es' ? 'Agendar llamada diagnóstica gratuita →' : 'Schedule your free diagnostic call →'}
                 </Link>
               )}
             </div>
@@ -316,7 +322,6 @@ export default function StudentDashboardClient({
                     className="flex items-center gap-4 px-5 py-4"
                     style={{ borderBottom: '1px solid #E5E7EB' }}
                   >
-                    {/* Date badge */}
                     <div className="flex-shrink-0 text-center w-10">
                       <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
                         {formatDate(booking.scheduled_at, lang).slice(0, 3)}

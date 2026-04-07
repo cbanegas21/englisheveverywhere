@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Star, CheckCircle2, ArrowRight, X, Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Star, CheckCircle2, ArrowRight, X, Calendar, Clock, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { createBooking } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -30,7 +30,11 @@ interface Props {
   studentId: string
   classesRemaining: number
   teachers: Teacher[]
+  existingBookings: string[]
 }
+
+const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i)
+const ROW_HEIGHT = 40
 
 const t = {
   en: {
@@ -147,7 +151,7 @@ interface SelectedSlot {
   slot: SlotWithTeacher
 }
 
-export default function AgendarClient({ lang, studentId, classesRemaining, teachers }: Props) {
+export default function AgendarClient({ lang, studentId, classesRemaining, teachers, existingBookings }: Props) {
   const tx = t[lang]
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -169,6 +173,29 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
     }
     return map
   }, [slotsThisWeek])
+
+  const gridRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.scrollTop = 6 * ROW_HEIGHT
+    }
+  }, [weekOffset])
+
+  const bookedSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const iso of existingBookings) {
+      const d = new Date(iso)
+      set.add(`${d.toDateString()}-${d.getHours()}`)
+    }
+    return set
+  }, [existingBookings])
+
+  function getSlotAt(date: Date, hour: number): SlotWithTeacher | undefined {
+    return slotsThisWeek.find(s =>
+      s.date.toDateString() === date.toDateString() &&
+      s.date.getHours() === hour
+    )
+  }
 
   function handleConfirm() {
     if (!selected) return
@@ -357,53 +384,62 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
               <p className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.noSlots}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-7 divide-x" style={{ borderColor: '#F3F4F6', minHeight: '320px' }}>
-              {weekDates.map((date, colIdx) => {
-                const dow = date.getDay()
-                const daySlots = (slotsByDay[dow] || []).filter(s => {
-                  // Match this specific date (not just day of week)
-                  return s.date.toDateString() === date.toDateString()
-                })
-
+            <div ref={gridRef} className="overflow-auto" style={{ maxHeight: '480px' }}>
+              {ALL_HOURS.map(hour => {
+                const timeLabel = hour === 0 ? '12 AM'
+                  : hour < 12 ? `${hour} AM`
+                  : hour === 12 ? '12 PM'
+                  : `${hour - 12} PM`
                 return (
-                  <div key={colIdx} className="p-2 space-y-1.5" style={{ borderRight: colIdx < 6 ? '1px solid #F3F4F6' : 'none' }}>
-                    {daySlots.map(slot => {
-                      const tName = slot.teacher.profile?.full_name || 'Teacher'
-                      const isSelected = selected?.slot.id === slot.id && selected?.slot.scheduledAt === slot.scheduledAt
-                      const isPast = slot.isPast
+                  <div
+                    key={hour}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '52px repeat(7, 1fr)',
+                      borderBottom: '1px solid #F3F4F6',
+                      minHeight: `${ROW_HEIGHT}px`,
+                    }}
+                  >
+                    <div className="flex items-center justify-end pr-3">
+                      <span className="text-[9px] font-medium" style={{ color: '#D1D5DB' }}>{timeLabel}</span>
+                    </div>
+                    {weekDates.map((date, colIdx) => {
+                      const cellKey = `${date.toDateString()}-${hour}`
+                      const isBooked = bookedSet.has(cellKey)
+                      const teacherSlot = getSlotAt(date, hour)
+                      const isPast = teacherSlot?.isPast ?? false
+                      const isSelected = !!(teacherSlot && selected?.slot.id === teacherSlot.id && selected?.slot.scheduledAt === teacherSlot.scheduledAt)
 
                       return (
-                        <button
-                          key={`${slot.id}-${slot.scheduledAt}`}
-                          onClick={() => {
-                            if (!isPast) {
-                              setSelected({ slot })
-                              setError('')
-                            }
-                          }}
-                          disabled={isPast}
-                          className="w-full rounded-lg p-2 text-left transition-all"
-                          style={
-                            isPast
-                              ? { background: '#F9FAFB', cursor: 'not-allowed', opacity: 0.4 }
-                              : isSelected
-                              ? { background: '#111111', color: '#F9F9F9' }
-                              : { background: 'rgba(196,30,58,0.06)', cursor: 'pointer' }
-                          }
-                        >
-                          <p
-                            className="text-[10px] font-bold"
-                            style={{ color: isSelected ? '#fff' : '#C41E3A' }}
-                          >
-                            {slot.start_time.slice(0, 5)}
-                          </p>
-                          <p
-                            className="text-[9px] truncate mt-0.5"
-                            style={{ color: isSelected ? 'rgba(255,255,255,0.7)' : '#9CA3AF' }}
-                          >
-                            {tName.split(' ')[0]}
-                          </p>
-                        </button>
+                        <div key={colIdx} className="p-1" style={{ borderLeft: '1px solid #F3F4F6' }}>
+                          {isBooked ? (
+                            <div
+                              className="w-full rounded flex items-center justify-center gap-1 text-[9px] font-medium"
+                              style={{ height: `${ROW_HEIGHT - 8}px`, background: '#F3F4F6', color: '#9CA3AF' }}
+                            >
+                              <Lock className="h-2.5 w-2.5" />
+                              {lang === 'es' ? 'Agendada' : 'Booked'}
+                            </div>
+                          ) : teacherSlot ? (
+                            <button
+                              onClick={() => { if (!isPast) { setSelected({ slot: teacherSlot }); setError('') } }}
+                              disabled={isPast}
+                              className="w-full rounded text-[9px] font-bold transition-all"
+                              style={{
+                                height: `${ROW_HEIGHT - 8}px`,
+                                ...(isPast
+                                  ? { background: '#F9FAFB', cursor: 'not-allowed', opacity: 0.4 }
+                                  : isSelected
+                                  ? { background: '#111111', color: '#F9F9F9' }
+                                  : { background: 'rgba(196,30,58,0.06)', cursor: 'pointer', color: '#C41E3A' })
+                              }}
+                              onMouseEnter={e => { if (!isPast && !isSelected) e.currentTarget.style.background = 'rgba(196,30,58,0.12)' }}
+                              onMouseLeave={e => { if (!isPast && !isSelected) e.currentTarget.style.background = 'rgba(196,30,58,0.06)' }}
+                            >
+                              {teacherSlot.teacher.profile?.full_name?.split(' ')[0] || 'T'}
+                            </button>
+                          ) : null}
+                        </div>
                       )
                     })}
                   </div>

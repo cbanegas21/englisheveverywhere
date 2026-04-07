@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { User, Mail, Clock, Lock, CheckCircle2 } from 'lucide-react'
-import TimezoneSelect, { type ITimezoneOption } from 'react-timezone-select'
+import { User, Mail, Clock, Lock, CheckCircle2, ChevronDown } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { updateStudentProfile } from '@/app/actions/profile'
 
@@ -21,7 +20,9 @@ const t = {
     save: 'Save changes',
     saved: 'Changes saved',
     namePlaceholder: 'Enter your full name',
-    timezonePlaceholder: 'e.g. America/Bogota',
+    tzSearch: 'Search timezone...',
+    tzNoResults: 'No results',
+    tzLocalTime: 'Local time:',
   },
   es: {
     title: 'Configuración',
@@ -36,7 +37,9 @@ const t = {
     save: 'Guardar cambios',
     saved: 'Cambios guardados',
     namePlaceholder: 'Ingresa tu nombre completo',
-    timezonePlaceholder: 'ej. America/Bogota',
+    tzSearch: 'Buscar zona horaria...',
+    tzNoResults: 'Sin resultados',
+    tzLocalTime: 'Hora local:',
   },
 }
 
@@ -50,17 +53,57 @@ interface Props {
 export default function ConfigStudentClient({ lang, fullName, timezone, email }: Props) {
   const tx = t[lang]
   const [name, setName] = useState(fullName)
-  const [selectedTz, setSelectedTz] = useState<ITimezoneOption | string>(timezone)
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [selectedTz, setSelectedTz] = useState(timezone)
+  const [tzSearch, setTzSearch] = useState('')
+  const [tzOpen, setTzOpen] = useState(false)
   const [now, setNow] = useState(new Date())
-  const tzValue = typeof selectedTz === 'string' ? selectedTz : selectedTz.value
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
-  // Mount portal target and tick clock every minute
   useEffect(() => {
-    setPortalTarget(document.body)
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
   }, [])
+
+  const allTimezones = useMemo(() => {
+    try {
+      return Intl.supportedValuesOf('timeZone') as string[]
+    } catch {
+      return ['America/Bogota', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'America/Mexico_City', 'America/Tegucigalpa', 'Europe/Madrid', 'UTC']
+    }
+  }, [])
+
+  function formatTzOption(tz: string) {
+    try {
+      const offsetParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        timeZoneName: 'shortOffset',
+      }).formatToParts(now)
+      const offset = offsetParts.find(p => p.type === 'timeZoneName')?.value || ''
+      const segments = tz.split('/')
+      const city = segments[segments.length - 1].replace(/_/g, ' ')
+      const time = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).format(now)
+      return `${offset} • ${city} • ${time}`
+    } catch {
+      return tz
+    }
+  }
+
+  const filteredTzs = useMemo(() => {
+    if (!tzSearch) return allTimezones
+    const q = tzSearch.toLowerCase()
+    return allTimezones.filter(tz =>
+      tz.toLowerCase().includes(q) ||
+      formatTzOption(tz).toLowerCase().includes(q)
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTimezones, tzSearch, now])
 
   function getLocalTime(tz: string) {
     try {
@@ -76,38 +119,12 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
     }
   }
 
-  function formatTzOption(tz: string) {
-    try {
-      const offsetParts = new Intl.DateTimeFormat('en-US', {
-        timeZone: tz,
-        timeZoneName: 'shortOffset',
-      }).formatToParts(now)
-      const offset = offsetParts.find(p => p.type === 'timeZoneName')?.value || ''
-
-      const segments = tz.split('/')
-      const city = segments[segments.length - 1].replace(/_/g, ' ')
-
-      const time = new Intl.DateTimeFormat('en-US', {
-        timeZone: tz,
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      }).format(now)
-
-      return `${offset} • ${city} • ${time}`
-    } catch {
-      return tz
-    }
-  }
-  const [saved, setSaved] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-
   async function handleSave() {
     setSaving(true)
     setSaveError('')
     try {
-      const result = await updateStudentProfile({ fullName: name, timezone: tzValue })
+      console.log('Saving timezone:', selectedTz)
+      const result = await updateStudentProfile({ fullName: name, timezone: selectedTz })
       if (result.success) {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
@@ -145,7 +162,6 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
   return (
     <div className="min-h-full" style={{ background: '#F9F9F9' }}>
 
-      {/* Header */}
       <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
         <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
         <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
@@ -165,7 +181,6 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
           </div>
 
           <div className="p-5 space-y-4">
-            {/* Full name */}
             <div>
               <label style={labelStyle}>{tx.fullName}</label>
               <input
@@ -179,7 +194,6 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
               />
             </div>
 
-            {/* Timezone */}
             <div>
               <label style={labelStyle}>
                 <span className="flex items-center gap-1.5">
@@ -187,38 +201,65 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
                   {tx.timezone}
                 </span>
               </label>
-              <TimezoneSelect
-                value={selectedTz}
-                onChange={setSelectedTz}
-                menuPortalTarget={portalTarget}
-                menuPosition="fixed"
-                getOptionLabel={(tz) => {
-                  const val = typeof tz === 'string' ? tz : tz.value
-                  return formatTzOption(val)
-                }}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderColor: '#E5E7EB',
-                    fontSize: '13px',
-                    boxShadow: 'none',
-                    '&:hover': { borderColor: '#C41E3A' },
-                  }),
-                  menu: (base) => ({ ...base, zIndex: 9999 }),
-                  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                  option: (base, state) => ({
-                    ...base,
-                    fontSize: '13px',
-                    background: state.isFocused ? 'rgba(196,30,58,0.06)' : '#fff',
-                    color: '#111111',
-                  }),
-                  singleValue: (base) => ({ ...base, color: '#111111' }),
-                }}
-              />
-              {tzValue && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => { setTzOpen(o => !o); setTzSearch('') }}
+                  className="w-full flex items-center justify-between"
+                  style={{ ...inputStyle, cursor: 'pointer', textAlign: 'left' as const }}
+                  onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
+                  onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                >
+                  <span className="truncate">{selectedTz ? formatTzOption(selectedTz) : '—'}</span>
+                  <ChevronDown
+                    className="h-4 w-4 flex-shrink-0 ml-2 transition-transform"
+                    style={{ color: '#9CA3AF', transform: tzOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
+                {tzOpen && (
+                  <div
+                    className="absolute z-50 w-full mt-1 rounded overflow-hidden shadow-lg"
+                    style={{ background: '#fff', border: '1px solid #E5E7EB', maxHeight: '260px', display: 'flex', flexDirection: 'column' }}
+                  >
+                    <input
+                      type="text"
+                      value={tzSearch}
+                      onChange={e => setTzSearch(e.target.value)}
+                      placeholder={tx.tzSearch}
+                      className="block w-full px-3 py-2 text-[12px]"
+                      style={{ outline: 'none', borderBottom: '1px solid #E5E7EB', color: '#111111' }}
+                      autoFocus
+                    />
+                    <div className="overflow-y-auto flex-1">
+                      {filteredTzs.slice(0, 150).map(tz => (
+                        <button
+                          key={tz}
+                          type="button"
+                          onClick={() => { setSelectedTz(tz); setTzOpen(false); setTzSearch('') }}
+                          className="w-full text-left px-3 py-2 text-[12px] transition-colors"
+                          style={{
+                            background: tz === selectedTz ? 'rgba(196,30,58,0.06)' : 'transparent',
+                            color: tz === selectedTz ? '#C41E3A' : '#111111',
+                          }}
+                          onMouseEnter={e => { if (tz !== selectedTz) e.currentTarget.style.background = '#F9FAFB' }}
+                          onMouseLeave={e => { if (tz !== selectedTz) e.currentTarget.style.background = 'transparent' }}
+                        >
+                          {formatTzOption(tz)}
+                        </button>
+                      ))}
+                      {filteredTzs.length === 0 && (
+                        <div className="p-3 text-[12px]" style={{ color: '#9CA3AF' }}>
+                          {tx.tzNoResults}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {selectedTz && (
                 <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: '#9CA3AF' }}>
                   <Clock className="h-3 w-3" />
-                  {lang === 'es' ? 'Hora local:' : 'Local time:'} {getLocalTime(tzValue)}
+                  {tx.tzLocalTime} {getLocalTime(selectedTz)}
                 </p>
               )}
             </div>
@@ -237,7 +278,6 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
           </div>
 
           <div className="p-5 space-y-4">
-            {/* Email read-only */}
             <div>
               <label style={labelStyle}>
                 <span className="flex items-center gap-1.5">
@@ -254,7 +294,6 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
               <p className="text-[11px] mt-1.5" style={{ color: '#9CA3AF' }}>{tx.emailReadOnly}</p>
             </div>
 
-            {/* Change password link */}
             <div>
               <Link
                 href={`/${lang}/login/reset`}
@@ -270,12 +309,10 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
           </div>
         </div>
 
-        {/* Save error */}
         {saveError && (
           <p className="text-[12px] text-right" style={{ color: '#C41E3A' }}>{saveError}</p>
         )}
 
-        {/* Save button */}
         <div className="flex justify-end">
           <button
             onClick={handleSave}

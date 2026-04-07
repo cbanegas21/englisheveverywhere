@@ -24,7 +24,7 @@ export default function TrustStrip({ lang }: { lang: Locale }) {
   const label = lang === 'es' ? 'Estudiantes de todo el continente' : 'Students from across Latin America'
 
   return (
-    <div style={{ background: '#F9F9F9', borderTop: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB' }}>
+    <div>
       {/* Label row */}
       <div className="text-center pt-5 pb-3">
         <span
@@ -43,7 +43,7 @@ export default function TrustStrip({ lang }: { lang: Locale }) {
         <div
           className="flex items-stretch"
           style={{
-            animation: 'ee-marquee 36s linear infinite',
+            animation: 'ee-marquee 40s linear infinite',
             width: 'max-content',
             willChange: 'transform',
           }}
@@ -53,10 +53,10 @@ export default function TrustStrip({ lang }: { lang: Locale }) {
               key={i}
               className="flex flex-col items-center justify-center flex-shrink-0 mx-5"
             >
-              <span style={{ fontSize: '28px', lineHeight: 1, display: 'block' }}>{c.flag}</span>
+              <span style={{ fontSize: '2.5rem', lineHeight: 1, display: 'block' }}>{c.flag}</span>
               <span
-                className="text-[10px] font-semibold whitespace-nowrap mt-1.5"
-                style={{ color: '#374151' }}
+                className="whitespace-nowrap mt-1.5"
+                style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.1em', color: '#374151' }}
               >
                 {c.name}
               </span>

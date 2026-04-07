@@ -7,7 +7,8 @@ import {
   BookOpen, Star, Zap, X, CreditCard, Calendar,
 } from 'lucide-react'
 import { simulatePurchase } from '@/app/actions/purchase'
-import { PRICING_PLANS, HNL_RATE } from '@/lib/pricing'
+import { PRICING_PLANS } from '@/lib/pricing'
+import { useCurrency, CURRENCIES, CURRENCY_INFO } from '@/lib/useCurrency'
 import type { Locale } from '@/lib/i18n/translations'
 import Link from 'next/link'
 
@@ -23,7 +24,6 @@ const t = {
   en: {
     title: 'Your Plan',
     subtitle: 'Monthly plans — classes renew every month. Cancel anytime.',
-    currentPlan: 'Current plan',
     classesLeft: 'classes remaining',
     choosePlan: 'Choose a plan',
     upgrade: 'Add more classes',
@@ -33,6 +33,7 @@ const t = {
     classes: 'classes',
     perClass: 'per class',
     popular: 'Most popular',
+    currency: 'Currency',
     plans: { spark: 'Spark', drive: 'Drive', ascent: 'Ascent', peak: 'Peak' },
     features: {
       spark:  ['8 classes included', 'All teacher access', 'Progress tracking', 'Chat support'],
@@ -40,17 +41,14 @@ const t = {
       ascent: ['16 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings', 'Dedicated advisor'],
       peak:   ['20 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings', 'Dedicated advisor', 'Monthly progress report'],
     },
-    // Payment modal
     confirmTitle: 'Confirm Purchase',
     confirmPlan: 'Plan',
     confirmClasses: 'Classes',
-    confirmPriceUsd: 'Price (USD)',
-    confirmPriceHnl: 'Price (HNL)',
+    confirmPrice: 'Price',
     confirmNote: 'This is a simulated purchase. No real charge is made.',
     payNow: 'Pay Now',
     paying: 'Processing…',
     cancelPay: 'Cancel',
-    // Success screen
     successTitle: 'Purchase Complete!',
     successSub: (n: number) => `${n} classes have been added to your account.`,
     successCta: 'Schedule Your First Class',
@@ -60,16 +58,16 @@ const t = {
   es: {
     title: 'Tu Plan',
     subtitle: 'Planes mensuales — las clases se renuevan cada mes. Cancela cuando quieras.',
-    currentPlan: 'Plan actual',
     classesLeft: 'clases disponibles',
     choosePlan: 'Elige un plan',
     upgrade: 'Agregar más clases',
     current: 'Plan actual',
     select: 'Empezar',
-    perMonth: '/ month',
+    perMonth: '/ mes',
     classes: 'clases',
     perClass: 'por clase',
     popular: 'Más popular',
+    currency: 'Moneda',
     plans: { spark: 'Chispa', drive: 'Impulso', ascent: 'Ascenso', peak: 'Cima' },
     features: {
       spark:  ['8 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte por chat'],
@@ -80,8 +78,7 @@ const t = {
     confirmTitle: 'Confirmar Compra',
     confirmPlan: 'Plan',
     confirmClasses: 'Clases',
-    confirmPriceUsd: 'Precio (USD)',
-    confirmPriceHnl: 'Precio (HNL)',
+    confirmPrice: 'Precio',
     confirmNote: 'Esta es una compra simulada. No se realizará ningún cargo real.',
     payNow: 'Pagar Ahora',
     paying: 'Procesando…',
@@ -107,6 +104,7 @@ interface PurchaseResult {
 
 export default function PlanClient({ lang, currentPlan, classesRemaining, intakeDone }: Props) {
   const tx = t[lang]
+  const { convert, currency, changeCurrency } = useCurrency()
   const [isPending, startTransition] = useTransition()
   const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null)
   const [purchaseResult, setPurchaseResult] = useState<PurchaseResult | null>(null)
@@ -150,7 +148,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
             className="w-full max-w-[420px] rounded-2xl overflow-hidden text-center"
             style={{ background: '#fff', border: '1px solid #E5E7EB', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}
           >
-            {/* Green top strip */}
             <div className="py-8 px-6" style={{ background: 'linear-gradient(135deg, #16A34A, #15803D)' }}>
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
@@ -163,7 +160,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
             </div>
 
             <div className="p-6 space-y-4">
-              {/* Classes counter */}
               <div
                 className="rounded-xl p-5"
                 style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
@@ -174,7 +170,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                 <div className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{tx.classesLeft}</div>
               </div>
 
-              {/* Plan info */}
               <div className="flex items-center justify-between text-[13px]">
                 <span style={{ color: '#9CA3AF' }}>{tx.confirmPlan}</span>
                 <span className="font-semibold" style={{ color: '#111111' }}>{purchaseResult.planName}</span>
@@ -184,7 +179,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                 <span className="font-semibold" style={{ color: '#16A34A' }}>+{purchaseResult.classesAdded}</span>
               </div>
 
-              {/* CTA */}
               <Link
                 href={intakeDone ? `/${lang}/dashboard/agendar` : `/${lang}/dashboard/intake`}
                 className="flex items-center justify-center gap-2 w-full py-3.5 rounded-lg font-bold text-[14px] transition-all"
@@ -213,6 +207,27 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
 
       <div className="px-8 py-6 max-w-4xl mx-auto space-y-6">
 
+        {/* Currency selector */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+            {tx.currency}
+          </span>
+          {CURRENCIES.map(c => (
+            <button
+              key={c}
+              onClick={() => changeCurrency(c)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold transition-all"
+              style={{
+                background: c === currency ? 'rgba(196,30,58,0.1)' : 'rgba(0,0,0,0.04)',
+                color: c === currency ? '#C41E3A' : '#4B5563',
+                border: `1px solid ${c === currency ? 'rgba(196,30,58,0.3)' : 'transparent'}`,
+              }}
+            >
+              {CURRENCY_INFO[c].flag} {c}
+            </button>
+          ))}
+        </div>
+
         {/* Current classes bar */}
         {classesRemaining > 0 && (
           <div
@@ -226,14 +241,13 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
               <BookOpen className="h-4 w-4" style={{ color: '#C41E3A' }} />
             </div>
             <div className="flex-1">
-              <span className="text-[11px] block mb-0.5" style={{ color: '#9CA3AF' }}>{tx.currentPlan}</span>
-              <span className="text-[14px] font-semibold" style={{ color: '#111111' }}>
-                {currentPlan ? tx.plans[currentPlan as keyof typeof tx.plans] : tx.choosePlan}
-              </span>
-            </div>
-            <div className="text-right">
-              <div className="text-[22px] font-black" style={{ color: '#111111' }}>{classesRemaining}</div>
-              <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.classesLeft}</div>
+              <p className="text-[14px]" style={{ color: '#111111' }}>
+                {lang === 'es' ? (
+                  <>Tienes <strong>{classesRemaining}</strong> clases disponibles{currentPlan ? <> del plan <strong>{tx.plans[currentPlan as keyof typeof tx.plans]}</strong></> : null}</>
+                ) : (
+                  <>You have <strong>{classesRemaining}</strong> classes remaining{currentPlan ? <> from your <strong>{tx.plans[currentPlan as keyof typeof tx.plans]}</strong> plan</> : null}</>
+                )}
+              </p>
             </div>
           </div>
         )}
@@ -244,8 +258,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
             const isCurrent = plan.key === currentPlan
             const features = tx.features[plan.key as keyof typeof tx.features]
             const planName = tx.plans[plan.key as keyof typeof tx.plans]
-            const priceHnl = Math.round(plan.priceUsd * HNL_RATE)
-            const pricePerClassUsd = (plan.priceUsd / plan.classes).toFixed(0)
 
             return (
               <div
@@ -268,22 +280,14 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                 <div className="p-6">
                   <h3 className="text-[15px] font-bold mb-3" style={{ color: '#111111' }}>{planName}</h3>
 
-                  {/* Price */}
                   <div className="flex items-baseline gap-1 mb-0.5">
-                    <span className="text-[32px] font-black" style={{ color: '#111111' }}>${plan.priceUsd}</span>
+                    <span className="text-[32px] font-black" style={{ color: '#111111' }}>{convert(plan.priceUsd)}</span>
                     <span className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.perMonth}</span>
                   </div>
-                  <p className="text-[11px] mb-0.5" style={{ color: '#9CA3AF' }}>
-                    {lang === 'es' ? '/ mes' : '/ month'}
-                  </p>
-                  <p className="text-[12px] mb-1" style={{ color: '#9CA3AF' }}>
-                    {plan.classes} {tx.classes} · ${pricePerClassUsd} {tx.perClass}
-                  </p>
-                  <p className="text-[11px] mb-5 font-medium" style={{ color: '#C41E3A' }}>
-                    ≈ L {priceHnl.toLocaleString()} HNL
+                  <p className="text-[12px] mb-5" style={{ color: '#9CA3AF' }}>
+                    {plan.classes} {tx.classes} · {convert(plan.priceUsd / plan.classes)} {tx.perClass}
                   </p>
 
-                  {/* CTA */}
                   <button
                     onClick={() => handleSelectPlan(plan)}
                     disabled={isCurrent}
@@ -308,7 +312,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                     }
                   </button>
 
-                  {/* Features */}
                   <ul className="space-y-2.5">
                     {features.map((f) => (
                       <li key={f} className="flex items-start gap-2.5">
@@ -347,7 +350,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[400px] rounded-2xl shadow-2xl z-50 overflow-hidden"
               style={{ background: '#fff' }}
             >
-              {/* Modal header */}
               <div
                 className="flex items-center justify-between px-6 py-4"
                 style={{ borderBottom: '1px solid #E5E7EB' }}
@@ -368,13 +370,11 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                 </button>
               </div>
 
-              {/* Plan summary */}
               <div className="px-6 pt-5 pb-4 space-y-3">
                 {[
                   [tx.confirmPlan, tx.plans[selectedPlan.key as keyof typeof tx.plans]],
                   [tx.confirmClasses, `${selectedPlan.classes} ${tx.classes}`],
-                  [tx.confirmPriceUsd, `$${selectedPlan.priceUsd} USD`],
-                  [tx.confirmPriceHnl, `L ${Math.round(selectedPlan.priceUsd * HNL_RATE).toLocaleString()} HNL`],
+                  [tx.confirmPrice, convert(selectedPlan.priceUsd)],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between text-[13px]">
                     <span style={{ color: '#9CA3AF' }}>{label}</span>
@@ -400,7 +400,6 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                 </div>
               )}
 
-              {/* Action buttons */}
               <div className="flex gap-3 px-6 pb-6">
                 <button
                   onClick={() => !isPending && setSelectedPlan(null)}

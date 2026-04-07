@@ -49,12 +49,21 @@ export default async function AgendarPage({ params }: Props) {
   // Only include teachers who have availability slots
   const teachers = (teachersRaw || []).filter((t: any) => (t.slots || []).length > 0)
 
+  // Fetch student's existing bookings to mark occupied slots
+  const { data: existingBookingsRaw } = await supabase
+    .from('bookings')
+    .select('scheduled_at')
+    .eq('student_id', student.id)
+    .neq('status', 'cancelled')
+  const existingBookings = (existingBookingsRaw || []).map((b: { scheduled_at: string }) => b.scheduled_at)
+
   return (
     <AgendarClient
       lang={lang as Locale}
       studentId={student.id}
       classesRemaining={student.classes_remaining || 0}
       teachers={teachers as any}
+      existingBookings={existingBookings}
     />
   )
 }

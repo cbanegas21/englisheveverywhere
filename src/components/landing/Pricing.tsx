@@ -145,7 +145,7 @@ export default function Pricing({ lang }: { lang: Locale }) {
                   >
                     {name}
                   </p>
-                  <div className="text-4xl font-black" style={{ color: hl ? '#F9F9F9' : '#111111' }}>
+                  <div className="text-4xl font-black" style={{ color: hl ? '#F9F9F9' : '#111111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {convert(pack.priceUsd)}
                   </div>
                   <p className="text-[11px] mt-0.5" style={{ color: hl ? 'rgba(255,255,255,0.3)' : '#9CA3AF' }}>

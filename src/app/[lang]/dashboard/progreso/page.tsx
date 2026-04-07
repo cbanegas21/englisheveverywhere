@@ -43,6 +43,8 @@ export default async function ProgresoPage({ params }: Props) {
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
+  console.log('[progreso] student:', student.id, 'level:', student.level, 'classes_remaining:', student.classes_remaining, 'placement_test_done:', student.placement_test_done)
+
   const [
     { count: completedTotal },
     { count: completedThisMonth },
@@ -53,12 +55,14 @@ export default async function ProgresoPage({ params }: Props) {
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('student_id', studentId)
+      .eq('type', 'class')
       .eq('status', 'completed'),
 
     supabase
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('student_id', studentId)
+      .eq('type', 'class')
       .eq('status', 'completed')
       .gte('scheduled_at', startOfMonth.toISOString()),
 
@@ -66,6 +70,7 @@ export default async function ProgresoPage({ params }: Props) {
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('student_id', studentId)
+      .eq('type', 'class')
       .in('status', ['confirmed', 'pending'])
       .gte('scheduled_at', new Date().toISOString()),
 
@@ -73,10 +78,13 @@ export default async function ProgresoPage({ params }: Props) {
       .from('bookings')
       .select('id, scheduled_at, duration_minutes, notes')
       .eq('student_id', studentId)
+      .eq('type', 'class')
       .eq('status', 'completed')
       .order('scheduled_at', { ascending: false })
       .limit(8),
   ])
+
+  console.log('[progreso] completedTotal:', completedTotal, 'completedThisMonth:', completedThisMonth, 'upcomingClasses:', upcomingClasses, 'recentBookings:', recentBookings?.length ?? 0)
 
   return (
     <ProgresoClient
