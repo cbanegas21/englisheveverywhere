@@ -50,11 +50,13 @@ export default async function StudentDashboardPage({ params }: Props) {
   console.log('[dashboard] completedCount:', completedCount)
 
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student'
+  const timezone = (user.user_metadata?.timezone as string) || 'America/Bogota'
 
   return (
     <StudentDashboardClient
       lang={lang as Locale}
       userName={name}
+      timezone={timezone}
       level={student?.level || null}
       classesRemaining={student?.classes_remaining || 0}
       placementTestDone={student?.placement_test_done || false}

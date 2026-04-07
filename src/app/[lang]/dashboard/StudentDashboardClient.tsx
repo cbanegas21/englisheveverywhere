@@ -84,8 +84,19 @@ const t = {
   },
 }
 
-function getGreeting(lang: Locale) {
-  const h = new Date().getHours()
+function getGreeting(lang: Locale, timezone: string) {
+  let h: number
+  try {
+    const hourStr = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone: timezone,
+    }).format(new Date())
+    h = parseInt(hourStr, 10)
+    if (isNaN(h)) h = new Date().getHours()
+  } catch {
+    h = new Date().getHours()
+  }
   const tx = t[lang]
   if (h < 12) return tx.greeting
   if (h < 18) return tx.greetingAfternoon
@@ -120,6 +131,7 @@ interface Booking {
 interface Props {
   lang: Locale
   userName: string
+  timezone: string
   level: string | null
   classesRemaining: number
   placementTestDone: boolean
@@ -130,6 +142,7 @@ interface Props {
 export default function StudentDashboardClient({
   lang,
   userName,
+  timezone,
   level,
   classesRemaining,
   placementTestDone,
@@ -145,7 +158,7 @@ export default function StudentDashboardClient({
       {/* Top greeting bar */}
       <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
         <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>
-          {getGreeting(lang)}, {firstName}
+          {getGreeting(lang, timezone)}, {firstName}
         </h1>
         <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
       </div>

@@ -54,6 +54,12 @@ const t = {
     successCta: 'Schedule Your First Class',
     successCtaIntake: 'Complete Your Learning Profile First',
     addMore: 'Add more classes',
+    addMoreTitle: 'Add more classes?',
+    addMoreBody: (n: number) => `You still have ${n} class${n === 1 ? '' : 'es'} remaining. Adding a new plan will stack on top of your current balance.`,
+    addMoreCurrent: 'Current balance',
+    addMoreNew: 'New plan classes',
+    addMoreConfirm: 'Yes, add classes',
+    addMoreCancel: 'Keep current plan',
   },
   es: {
     title: 'Tu Plan',
@@ -88,6 +94,12 @@ const t = {
     successCta: 'Agendar tu Primera Clase',
     successCtaIntake: 'Completa tu Perfil de Aprendizaje Primero',
     addMore: 'Agregar más clases',
+    addMoreTitle: '¿Agregar más clases?',
+    addMoreBody: (n: number) => `Aún tienes ${n} clase${n === 1 ? '' : 's'} disponibles. El nuevo plan se sumará a tu saldo actual.`,
+    addMoreCurrent: 'Saldo actual',
+    addMoreNew: 'Clases del nuevo plan',
+    addMoreConfirm: 'Sí, agregar clases',
+    addMoreCancel: 'Mantener plan actual',
   },
 }
 
@@ -107,12 +119,30 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
   const { convert, currency, changeCurrency } = useCurrency()
   const [isPending, startTransition] = useTransition()
   const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null)
+  const [pendingPlan, setPendingPlan] = useState<typeof PLANS[0] | null>(null)
+  const [showAddMoreConfirm, setShowAddMoreConfirm] = useState(false)
   const [purchaseResult, setPurchaseResult] = useState<PurchaseResult | null>(null)
   const [error, setError] = useState('')
 
   function handleSelectPlan(plan: typeof PLANS[0]) {
     setError('')
-    setSelectedPlan(plan)
+    if (classesRemaining > 0) {
+      setPendingPlan(plan)
+      setShowAddMoreConfirm(true)
+    } else {
+      setSelectedPlan(plan)
+    }
+  }
+
+  function handleConfirmAddMore() {
+    setShowAddMoreConfirm(false)
+    setSelectedPlan(pendingPlan)
+    setPendingPlan(null)
+  }
+
+  function handleCancelAddMore() {
+    setShowAddMoreConfirm(false)
+    setPendingPlan(null)
   }
 
   function handlePay() {
@@ -331,6 +361,83 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
           })}
         </div>
       </div>
+
+      {/* Add-more-classes confirmation modal */}
+      <AnimatePresence>
+        {showAddMoreConfirm && pendingPlan && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={handleCancelAddMore}
+              className="fixed inset-0 z-40"
+              style={{ background: 'rgba(17,17,17,0.5)', backdropFilter: 'blur(2px)' }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[380px] rounded-2xl shadow-2xl z-50 overflow-hidden"
+              style={{ background: '#fff' }}
+            >
+              <div className="px-6 pt-6 pb-4">
+                <div
+                  className="flex h-11 w-11 items-center justify-center rounded-xl mb-4"
+                  style={{ background: 'rgba(196,30,58,0.08)' }}
+                >
+                  <AlertCircle className="h-5 w-5" style={{ color: '#C41E3A' }} />
+                </div>
+                <h3 className="font-bold text-[16px] mb-2" style={{ color: '#111111' }}>{tx.addMoreTitle}</h3>
+                <p className="text-[13px] leading-relaxed mb-5" style={{ color: '#4B5563' }}>
+                  {tx.addMoreBody(classesRemaining)}
+                </p>
+
+                <div
+                  className="rounded-xl p-4 mb-5 space-y-2"
+                  style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                >
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span style={{ color: '#9CA3AF' }}>{tx.addMoreCurrent}</span>
+                    <span className="font-bold" style={{ color: '#111111' }}>{classesRemaining} {tx.classes}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span style={{ color: '#9CA3AF' }}>{tx.addMoreNew}</span>
+                    <span className="font-bold" style={{ color: '#16A34A' }}>+{pendingPlan.classes} {tx.classes}</span>
+                  </div>
+                  <div className="h-px" style={{ background: '#E5E7EB' }} />
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="font-semibold" style={{ color: '#111111' }}>Total</span>
+                    <span className="font-black" style={{ color: '#C41E3A' }}>
+                      {classesRemaining + pendingPlan.classes} {tx.classes}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelAddMore}
+                    className="flex-1 py-3 rounded font-medium text-[13px] transition-all"
+                    style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#F9F9F9' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#F9F9F9')}
+                  >
+                    {tx.addMoreCancel}
+                  </button>
+                  <button
+                    onClick={handleConfirmAddMore}
+                    className="flex-1 py-3 rounded font-bold text-[13px] transition-all"
+                    style={{ background: '#C41E3A', color: '#fff' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#9E1830')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#C41E3A')}
+                  >
+                    {tx.addMoreConfirm}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Payment confirmation modal */}
       <AnimatePresence>

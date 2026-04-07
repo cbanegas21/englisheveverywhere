@@ -170,8 +170,8 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
       <div className="px-8 py-6 max-w-xl mx-auto space-y-5">
 
         {/* Profile section */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          <div className="px-5 py-3" style={{ background: '#F3F4F6', borderBottom: '1px solid #E5E7EB' }}>
+        <div className="rounded-xl" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+          <div className="px-5 py-3" style={{ background: '#F3F4F6', borderBottom: '1px solid #E5E7EB', borderRadius: '0.75rem 0.75rem 0 0' }}>
             <div className="flex items-center gap-2">
               <User className="h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
               <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>

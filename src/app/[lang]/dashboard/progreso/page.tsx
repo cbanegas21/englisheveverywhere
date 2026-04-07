@@ -16,7 +16,7 @@ export default async function ProgresoPage({ params }: Props) {
 
   const { data: student } = await supabase
     .from('students')
-    .select('id, level, classes_remaining, current_plan, survey_answers, placement_test_done')
+    .select('id, level, classes_remaining, current_plan, survey_answers, placement_test_done, placement_scheduled')
     .eq('profile_id', user.id)
     .single()
 
@@ -29,6 +29,8 @@ export default async function ProgresoPage({ params }: Props) {
         currentPlan={null}
         surveyAnswers={null}
         placementTestDone={false}
+        placementScheduled={false}
+        placementBookingAt={null}
         completedTotal={0}
         completedThisMonth={0}
         upcomingClasses={0}
@@ -43,7 +45,15 @@ export default async function ProgresoPage({ params }: Props) {
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
-  console.log('[progreso] student:', student.id, 'level:', student.level, 'classes_remaining:', student.classes_remaining, 'placement_test_done:', student.placement_test_done)
+  console.log('[progreso] student:', student.id, 'level:', student.level, 'classes_remaining:', student.classes_remaining, 'placement_test_done:', student.placement_test_done, 'placement_scheduled:', student.placement_scheduled)
+
+  const { data: placementBooking } = await supabase
+    .from('bookings')
+    .select('scheduled_at')
+    .eq('student_id', studentId)
+    .eq('type', 'placement_test')
+    .in('status', ['confirmed', 'pending'])
+    .maybeSingle()
 
   const [
     { count: completedTotal },
@@ -94,6 +104,8 @@ export default async function ProgresoPage({ params }: Props) {
       currentPlan={(student.current_plan as string) || null}
       surveyAnswers={(student.survey_answers as Record<string, unknown>) || null}
       placementTestDone={student.placement_test_done ?? false}
+      placementScheduled={student.placement_scheduled ?? false}
+      placementBookingAt={placementBooking?.scheduled_at || null}
       completedTotal={completedTotal || 0}
       completedThisMonth={completedThisMonth || 0}
       upcomingClasses={upcomingClasses || 0}

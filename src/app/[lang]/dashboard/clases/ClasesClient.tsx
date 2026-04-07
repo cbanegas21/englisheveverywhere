@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
-import { Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X } from 'lucide-react'
+import { Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X, ChevronLeft, Stethoscope } from 'lucide-react'
 import { getSessionByBookingId } from '@/app/actions/video'
 import type { SessionSummary } from '@/app/actions/video'
 import type { Locale } from '@/lib/i18n/translations'
@@ -24,6 +24,7 @@ const t = {
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
     statusCompleted: 'Completed',
+    statusDiagnostic: 'Diagnostic scheduled',
     today: 'Today',
     tomorrow: 'Tomorrow',
     viewSummary: 'Summary',
@@ -36,6 +37,8 @@ const t = {
     noNotes: 'Your teacher did not leave notes for this session.',
     loadingSession: 'Loading session data...',
     close: 'Close',
+    calendarTitle: 'Monthly Overview',
+    days: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
   },
   es: {
     title: 'Mis Clases',
@@ -53,6 +56,7 @@ const t = {
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
     statusCompleted: 'Completada',
+    statusDiagnostic: 'Diagnóstico agendado',
     today: 'Hoy',
     tomorrow: 'Mañana',
     viewSummary: 'Resumen',
@@ -65,8 +69,13 @@ const t = {
     noNotes: 'Tu maestro no dejó notas para esta sesión.',
     loadingSession: 'Cargando datos de sesión...',
     close: 'Cerrar',
+    calendarTitle: 'Vista mensual',
+    days: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
   },
 }
+
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 function formatDate(iso: string, lang: Locale) {
   const d = new Date(iso)
@@ -87,8 +96,16 @@ function formatTime(iso: string) {
 
 function canJoinClass(iso: string) {
   const diff = new Date(iso).getTime() - Date.now()
-  // Match server window: from 15 minutes before start to 90 minutes after
   return diff >= -(90 * 60 * 1000) && diff <= 15 * 60 * 1000
+}
+
+function buildCalendarGrid(year: number, month: number): (number | null)[] {
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: (number | null)[] = Array(firstDay).fill(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  while (cells.length % 7 !== 0) cells.push(null)
+  return cells
 }
 
 interface Booking {
@@ -96,6 +113,7 @@ interface Booking {
   scheduled_at: string
   duration_minutes: number
   status: string
+  type?: string
   teacher?: { profile?: { full_name?: string; avatar_url?: string } } | null
 }
 
@@ -120,8 +138,49 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
   const [sessionData, setSessionData] = useState<SessionData | null>(null)
   const [loadingSession, setLoadingSession] = useState(false)
 
+  // Calendar state
+  const today = new Date()
+  const [calMonth, setCalMonth] = useState(today.getMonth())
+  const [calYear, setCalYear] = useState(today.getFullYear())
+
+  // Refs for scroll-to
+  const bookingRefs = useRef<Record<string, HTMLLIElement | null>>({})
+
+  const allBookings = [...upcomingBookings, ...pastBookings]
   const bookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings
   const isEmpty = bookings.length === 0
+
+  // Build set of booked days in current calendar month
+  const bookedDays = new Set<number>()
+  for (const b of allBookings) {
+    const d = new Date(b.scheduled_at)
+    if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+      bookedDays.add(d.getDate())
+    }
+  }
+
+  const calendarCells = buildCalendarGrid(calYear, calMonth)
+  const monthLabel = (lang === 'es' ? MONTHS_ES : MONTHS_EN)[calMonth]
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) }
+    else setCalMonth(m => m - 1)
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) }
+    else setCalMonth(m => m + 1)
+  }
+
+  function scrollToDay(day: number) {
+    // Find first booking on this day in the visible tab
+    const target = bookings.find(b => {
+      const d = new Date(b.scheduled_at)
+      return d.getDate() === day && d.getMonth() === calMonth && d.getFullYear() === calYear
+    })
+    if (target) {
+      bookingRefs.current[target.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }
 
   async function openSummary(bookingId: string) {
     setViewingBookingId(bookingId)
@@ -139,10 +198,36 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
 
   let parsedSummary: SessionSummary | null = null
   if (sessionData?.teacher_notes) {
-    try {
-      parsedSummary = JSON.parse(sessionData.teacher_notes)
-    } catch {
-      parsedSummary = null
+    try { parsedSummary = JSON.parse(sessionData.teacher_notes) } catch { parsedSummary = null }
+  }
+
+  function getBadge(booking: Booking) {
+    if (booking.type === 'placement_test') {
+      return {
+        label: tx.statusDiagnostic,
+        style: { background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' },
+        icon: <Stethoscope className="h-3 w-3" />,
+      }
+    }
+    if (booking.status === 'confirmed') {
+      return {
+        label: tx.statusConfirmed,
+        style: { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' },
+        icon: null,
+      }
+    }
+    if (booking.status === 'completed') {
+      return {
+        label: tx.statusCompleted,
+        style: { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' },
+        icon: null,
+      }
+    }
+    // pending
+    return {
+      label: tx.statusPending,
+      style: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' },
+      icon: null,
     }
   }
 
@@ -156,6 +241,75 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
       </div>
 
       <div className="px-8 py-6 max-w-3xl mx-auto space-y-5">
+
+        {/* Monthly calendar */}
+        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+          {/* Calendar header */}
+          <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
+            <button
+              onClick={prevMonth}
+              className="h-7 w-7 rounded flex items-center justify-center transition-colors"
+              style={{ color: '#9CA3AF' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <p className="text-[13px] font-bold" style={{ color: '#111111' }}>
+              {monthLabel} {calYear}
+            </p>
+            <button
+              onClick={nextMonth}
+              className="h-7 w-7 rounded flex items-center justify-center transition-colors"
+              style={{ color: '#9CA3AF' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Day names */}
+          <div className="grid grid-cols-7 px-4 pt-3 pb-1">
+            {tx.days.map((d, i) => (
+              <div key={i} className="text-center text-[10px] font-bold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar cells */}
+          <div className="grid grid-cols-7 px-4 pb-3 gap-y-1">
+            {calendarCells.map((day, i) => {
+              if (!day) return <div key={i} />
+              const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear()
+              const hasBooking = bookedDays.has(day)
+              return (
+                <button
+                  key={i}
+                  onClick={() => hasBooking && scrollToDay(day)}
+                  className="flex flex-col items-center py-1 rounded transition-colors"
+                  style={{ cursor: hasBooking ? 'pointer' : 'default' }}
+                  onMouseEnter={e => { if (hasBooking) e.currentTarget.style.background = '#F3F4F6' }}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span
+                    className="text-[12px] font-semibold w-7 h-7 flex items-center justify-center rounded-full"
+                    style={isToday ? { background: '#C41E3A', color: '#fff' } : { color: '#111111' }}
+                  >
+                    {day}
+                  </span>
+                  {hasBooking && (
+                    <span
+                      className="h-1 w-1 rounded-full mt-0.5"
+                      style={{ background: isToday ? '#fff' : '#C41E3A' }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-1 p-1 rounded" style={{ background: '#F3F4F6', width: 'fit-content' }}>
@@ -179,10 +333,7 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
         <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
           {isEmpty ? (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
-              >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl mb-4" style={{ background: 'rgba(196,30,58,0.08)' }}>
                 <Calendar className="h-6 w-6" style={{ color: '#C41E3A' }} />
               </div>
               <p className="text-[13px] font-semibold mb-1" style={{ color: '#111111' }}>
@@ -210,10 +361,12 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                 const canEnter = activeTab === 'upcoming' && canJoinClass(booking.scheduled_at)
                 const isCompleted = booking.status === 'completed'
                 const teacherName = (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || 'Teacher'
+                const badge = getBadge(booking)
 
                 return (
                   <li
                     key={booking.id}
+                    ref={el => { bookingRefs.current[booking.id] = el }}
                     className="flex items-center gap-4 px-5 py-4"
                     style={{ borderBottom: '1px solid #E5E7EB' }}
                   >
@@ -230,9 +383,11 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                     {/* Icon */}
                     <div
                       className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
-                      style={{ background: 'rgba(196,30,58,0.08)' }}
+                      style={{ background: booking.type === 'placement_test' ? '#EFF6FF' : 'rgba(196,30,58,0.08)' }}
                     >
-                      {activeTab === 'upcoming'
+                      {booking.type === 'placement_test'
+                        ? <Stethoscope className="h-4 w-4" style={{ color: '#1D4ED8' }} />
+                        : activeTab === 'upcoming'
                         ? <Video className="h-4 w-4" style={{ color: '#C41E3A' }} />
                         : <CheckCircle2 className="h-4 w-4" style={{ color: '#C41E3A' }} />
                       }
@@ -241,7 +396,10 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
-                        {tx.with} {teacherName}
+                        {booking.type === 'placement_test'
+                          ? (lang === 'es' ? 'Llamada diagnóstica' : 'Diagnostic call')
+                          : `${tx.with} ${teacherName}`
+                        }
                       </div>
                       <div className="flex items-center gap-2 text-[11px]" style={{ color: '#9CA3AF' }}>
                         <Clock className="h-3 w-3" />
@@ -252,23 +410,14 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                     {/* Right side: badge + CTA */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span
-                        className="text-[10px] font-semibold px-2.5 py-1 rounded"
-                        style={
-                          booking.status === 'confirmed'
-                            ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
-                            : booking.status === 'completed'
-                            ? { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }
-                            : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.2)' }
-                        }
+                        className="text-[10px] font-semibold px-2.5 py-1 rounded flex items-center gap-1"
+                        style={badge.style}
                       >
-                        {booking.status === 'confirmed'
-                          ? tx.statusConfirmed
-                          : booking.status === 'completed'
-                          ? tx.statusCompleted
-                          : tx.statusPending}
+                        {badge.icon}
+                        {badge.label}
                       </span>
 
-                      {canEnter && (
+                      {canEnter && booking.type !== 'placement_test' && (
                         <Link
                           href={`/${lang}/sala/${booking.id}`}
                           className="flex items-center gap-1 px-3 py-1.5 rounded text-[11px] font-semibold transition-all"
@@ -286,14 +435,8 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                           onClick={() => openSummary(booking.id)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded text-[11px] font-semibold transition-all"
                           style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.background = '#E5E7EB'
-                            e.currentTarget.style.color = '#111111'
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.background = '#F3F4F6'
-                            e.currentTarget.style.color = '#6B7280'
-                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#E5E7EB'; e.currentTarget.style.color = '#111111' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#6B7280' }}
                         >
                           <Sparkles className="h-3 w-3" />
                           {tx.viewSummary}
@@ -311,137 +454,72 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
       {/* Summary modal */}
       {viewingBookingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(17,17,17,0.5)' }}
-            onClick={closeSummary}
-          />
-
-          {/* Modal */}
-          <div
-            className="relative w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl"
-            style={{ background: '#fff' }}
-          >
-            {/* Header */}
-            <div
-              className="flex items-center justify-between px-6 py-5 sticky top-0 bg-white"
-              style={{ borderBottom: '1px solid #E5E7EB' }}
-            >
+          <div className="absolute inset-0" style={{ background: 'rgba(17,17,17,0.5)' }} onClick={closeSummary} />
+          <div className="relative w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: '#fff' }}>
+            <div className="flex items-center justify-between px-6 py-5 sticky top-0 bg-white" style={{ borderBottom: '1px solid #E5E7EB' }}>
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4" style={{ color: '#C41E3A' }} />
                 <span className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.summaryTitle}</span>
               </div>
-              <button
-                onClick={closeSummary}
-                className="transition-colors"
-                style={{ color: '#9CA3AF' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
-              >
+              <button onClick={closeSummary} className="transition-colors" style={{ color: '#9CA3AF' }} onMouseEnter={e => (e.currentTarget.style.color = '#111111')} onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}>
                 <X className="h-4 w-4" />
               </button>
             </div>
-
             <div className="p-6 space-y-5">
               {loadingSession ? (
                 <div className="flex items-center justify-center py-8 gap-3">
-                  <span
-                    className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin"
-                    style={{ borderColor: 'rgba(196,30,58,0.2)', borderTopColor: '#C41E3A' }}
-                  />
+                  <span className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(196,30,58,0.2)', borderTopColor: '#C41E3A' }} />
                   <p className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.loadingSession}</p>
                 </div>
               ) : (
                 <>
-                  {/* AI Summary */}
                   {parsedSummary ? (
                     <div className="space-y-4">
                       {parsedSummary.covered.length > 0 && (
                         <div>
-                          <p
-                            className="text-[10px] font-bold uppercase tracking-widest mb-2"
-                            style={{ color: '#9CA3AF' }}
-                          >
-                            {tx.covered}
-                          </p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>{tx.covered}</p>
                           <ul className="space-y-1.5">
                             {parsedSummary.covered.map((item, i) => (
                               <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: '#374151' }}>
-                                <span
-                                  className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0"
-                                  style={{ background: '#C41E3A' }}
-                                />
+                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#C41E3A' }} />
                                 {item}
                               </li>
                             ))}
                           </ul>
                         </div>
                       )}
-
                       {parsedSummary.nextTopics.length > 0 && (
                         <div>
-                          <p
-                            className="text-[10px] font-bold uppercase tracking-widest mb-2"
-                            style={{ color: '#9CA3AF' }}
-                          >
-                            {tx.nextTopics}
-                          </p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>{tx.nextTopics}</p>
                           <ul className="space-y-1.5">
                             {parsedSummary.nextTopics.map((item, i) => (
                               <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: '#374151' }}>
-                                <ChevronRight
-                                  className="mt-0.5 h-3.5 w-3.5 flex-shrink-0"
-                                  style={{ color: '#9CA3AF' }}
-                                />
+                                <ChevronRight className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
                                 {item}
                               </li>
                             ))}
                           </ul>
                         </div>
                       )}
-
                       {parsedSummary.progressNote && (
-                        <div
-                          className="rounded-xl p-4"
-                          style={{ background: 'rgba(196,30,58,0.05)', border: '1px solid rgba(196,30,58,0.1)' }}
-                        >
-                          <p
-                            className="text-[10px] font-bold uppercase tracking-widest mb-1.5"
-                            style={{ color: '#C41E3A' }}
-                          >
-                            {tx.progressNote}
-                          </p>
-                          <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>
-                            {parsedSummary.progressNote}
-                          </p>
+                        <div className="rounded-xl p-4" style={{ background: 'rgba(196,30,58,0.05)', border: '1px solid rgba(196,30,58,0.1)' }}>
+                          <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#C41E3A' }}>{tx.progressNote}</p>
+                          <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>{parsedSummary.progressNote}</p>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div
-                      className="rounded-xl p-5 text-center"
-                      style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
-                    >
+                    <div className="rounded-xl p-5 text-center" style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}>
                       <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.noSummary}</p>
                     </div>
                   )}
-
-                  {/* Teacher notes */}
                   {sessionData?.notes && (
                     <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '1.25rem' }}>
                       <div className="flex items-center gap-2 mb-3">
                         <FileText className="h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
-                        <p
-                          className="text-[10px] font-bold uppercase tracking-widest"
-                          style={{ color: '#9CA3AF' }}
-                        >
-                          {tx.teacherNotes}
-                        </p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>{tx.teacherNotes}</p>
                       </div>
-                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: '#374151' }}>
-                        {sessionData.notes}
-                      </p>
+                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: '#374151' }}>{sessionData.notes}</p>
                     </div>
                   )}
                 </>

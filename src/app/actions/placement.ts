@@ -90,10 +90,10 @@ export async function bookPlacementCall(
 
   if (error) return { error: error.message }
 
-  // Mark placement test as scheduled
+  // Mark placement call as scheduled (not yet completed)
   await supabase
     .from('students')
-    .update({ placement_test_done: true })
+    .update({ placement_scheduled: true })
     .eq('profile_id', user.id)
 
   // Send emails (non-blocking — never let this break the flow)

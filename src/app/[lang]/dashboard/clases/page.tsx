@@ -24,21 +24,21 @@ export default async function ClasesPage({ params }: Props) {
 
   const { data: upcomingBookings } = await supabase
     .from('bookings')
-    .select(`id, scheduled_at, duration_minutes, status, teacher:teachers(profile:profiles(full_name, avatar_url))`)
+    .select(`id, scheduled_at, duration_minutes, status, type, teacher:teachers(profile:profiles(full_name, avatar_url))`)
     .eq('student_id', studentId)
     .in('status', ['confirmed', 'pending'])
     .gte('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: true })
-    .limit(10)
+    .limit(20)
 
   const { data: pastBookings } = await supabase
     .from('bookings')
-    .select(`id, scheduled_at, duration_minutes, status, teacher:teachers(profile:profiles(full_name, avatar_url))`)
+    .select(`id, scheduled_at, duration_minutes, status, type, teacher:teachers(profile:profiles(full_name, avatar_url))`)
     .eq('student_id', studentId)
     .eq('status', 'completed')
     .lt('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: false })
-    .limit(20)
+    .limit(30)
 
   return (
     <ClasesClient

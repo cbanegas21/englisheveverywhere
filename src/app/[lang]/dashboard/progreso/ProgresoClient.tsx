@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { TrendingUp, BookOpen, Clock, Award, Calendar, User } from 'lucide-react'
+import { TrendingUp, BookOpen, Clock, Award, Calendar, User, Phone, CheckCircle2, ArrowRight } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { PRICING_MAP, type PricingPlanKey } from '@/lib/pricing'
 
@@ -84,6 +84,15 @@ const t = {
     cefrLabel: 'CEFR level progression',
     noLevel: 'Not set yet',
     noLevelSub: 'Complete your placement test to get your level.',
+    // Placement status
+    placementTitle: 'Diagnostic call',
+    placementNotScheduled: 'Schedule your free diagnostic call',
+    placementNotScheduledSub: 'We\'ll assess your level and build your personalized learning plan.',
+    placementNotScheduledCta: 'Schedule call',
+    placementScheduledTitle: 'Diagnostic call scheduled',
+    placementScheduledSub: (date: string) => `Your call is booked for ${date}.`,
+    placementDoneTitle: 'Diagnostic completed',
+    placementDoneSub: (level: string) => `Your level was assessed as ${level}.`,
   },
   es: {
     title: 'Mi Progreso',
@@ -116,6 +125,15 @@ const t = {
     cefrLabel: 'Progresión de nivel CEFR',
     noLevel: 'Aún no establecido',
     noLevelSub: 'Completa tu diagnóstico para conocer tu nivel.',
+    // Placement status
+    placementTitle: 'Llamada diagnóstica',
+    placementNotScheduled: 'Agenda tu llamada diagnóstica gratuita',
+    placementNotScheduledSub: 'Evaluaremos tu nivel y crearemos tu plan de aprendizaje personalizado.',
+    placementNotScheduledCta: 'Agendar llamada',
+    placementScheduledTitle: 'Llamada diagnóstica agendada',
+    placementScheduledSub: (date: string) => `Tu llamada está agendada para el ${date}.`,
+    placementDoneTitle: 'Diagnóstico completado',
+    placementDoneSub: (level: string) => `Tu nivel fue evaluado como ${level}.`,
   },
 }
 
@@ -128,6 +146,8 @@ interface Props {
   currentPlan: string | null
   surveyAnswers: Record<string, unknown> | null
   placementTestDone: boolean
+  placementScheduled: boolean
+  placementBookingAt: string | null
   completedTotal: number
   completedThisMonth: number
   upcomingClasses: number
@@ -153,7 +173,8 @@ function fmtTime(iso: string) {
 
 export default function ProgresoClient({
   lang, level, classesRemaining, currentPlan, surveyAnswers,
-  placementTestDone, completedTotal, completedThisMonth, upcomingClasses, recentBookings,
+  placementTestDone, placementScheduled, placementBookingAt,
+  completedTotal, completedThisMonth, upcomingClasses, recentBookings,
 }: Props) {
   const tx = t[lang]
   const activeIndex = level ? CEFR_LEVELS.indexOf(level as CefrLevel) : -1
@@ -224,6 +245,97 @@ export default function ProgresoClient({
             </div>
           ))}
         </div>
+
+        {/* ── Placement status card ─────────────────────────── */}
+        {(() => {
+          const placementDate = placementBookingAt
+            ? new Date(placementBookingAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+              })
+            : null
+
+          if (placementTestDone) {
+            return (
+              <div
+                className="rounded-xl p-4 flex items-center gap-4"
+                style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}
+              >
+                <div
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+                  style={{ background: '#DCFCE7' }}
+                >
+                  <CheckCircle2 className="h-5 w-5" style={{ color: '#16A34A' }} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[13px] font-bold" style={{ color: '#15803D' }}>{tx.placementDoneTitle}</p>
+                  {level && (
+                    <p className="text-[12px] mt-0.5" style={{ color: '#16A34A' }}>
+                      {tx.placementDoneSub(level)}
+                    </p>
+                  )}
+                </div>
+                <span
+                  className="text-[11px] font-bold px-2.5 py-1 rounded flex-shrink-0"
+                  style={{ background: '#DCFCE7', color: '#16A34A', border: '1px solid #86EFAC' }}
+                >
+                  {level || '—'}
+                </span>
+              </div>
+            )
+          }
+
+          if (placementScheduled) {
+            return (
+              <div
+                className="rounded-xl p-4 flex items-center gap-4"
+                style={{ background: '#EFF6FF', border: '1px solid #93C5FD' }}
+              >
+                <div
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+                  style={{ background: '#DBEAFE' }}
+                >
+                  <Phone className="h-5 w-5" style={{ color: '#2563EB' }} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[13px] font-bold" style={{ color: '#1D4ED8' }}>{tx.placementScheduledTitle} ✓</p>
+                  {placementDate && (
+                    <p className="text-[12px] mt-0.5" style={{ color: '#3B82F6' }}>
+                      {tx.placementScheduledSub(placementDate)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div
+              className="rounded-xl p-4 flex items-center gap-4"
+              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+            >
+              <div
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+                style={{ background: 'rgba(196,30,58,0.08)' }}
+              >
+                <Phone className="h-5 w-5" style={{ color: '#C41E3A' }} />
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.placementNotScheduled}</p>
+                <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.placementNotScheduledSub}</p>
+              </div>
+              <Link
+                href={`/${lang}/dashboard/placement`}
+                className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
+                style={{ background: '#C41E3A', color: '#fff' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
+                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+              >
+                {tx.placementNotScheduledCta}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          )
+        })()}
 
         {/* ── Section 2: CEFR level + plan ─────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
