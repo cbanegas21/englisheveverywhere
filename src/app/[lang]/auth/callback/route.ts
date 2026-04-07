@@ -17,6 +17,11 @@ export async function GET(
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser()
 
+      // If email is not yet confirmed, send them back to the confirmation screen
+      if (!user?.email_confirmed_at) {
+        return NextResponse.redirect(`${origin}/${lang}/registro?success=confirm`)
+      }
+
       // Read role from profiles table — authoritative for both email/password
       // and OAuth users (trigger sets default 'student' for OAuth signups)
       const { data: profile } = await supabase

@@ -11,6 +11,7 @@ const t = {
     title: 'English that\nactually sticks.',
     body: 'Packs of 8–20 live classes with a bilingual, near-native Honduran teacher. One payment. No subscriptions. No auto-renewals.',
     cta: 'See packs & pricing',
+    ctaDashboard: 'Go to my Dashboard',
     ctaSecondary: 'How it works',
     trust: ['No subscription', 'Near-native teachers', 'CEFR tracked'],
   },
@@ -19,6 +20,7 @@ const t = {
     title: 'Inglés que\nrealmente funciona.',
     body: 'Packs de 8–20 clases en vivo con un maestro bilingüe near-native de Honduras. Un solo pago. Sin suscripciones. Sin renovación automática.',
     cta: 'Ver packs y precios',
+    ctaDashboard: 'Ir a mi Dashboard',
     ctaSecondary: 'Cómo funciona',
     trust: ['Sin suscripción', 'Maestros near-native', 'Nivel CEFR'],
   },
@@ -29,7 +31,7 @@ const FADE = {
   show: (d: number) => ({ opacity: 1, y: 0, transition: { delay: d, duration: 0.55, ease: 'easeOut' as const } }),
 }
 
-export default function Hero({ lang }: { lang: Locale }) {
+export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLoggedIn?: boolean }) {
   const tx = t[lang]
 
   return (
@@ -90,8 +92,8 @@ export default function Hero({ lang }: { lang: Locale }) {
             variants={FADE}
             className="flex flex-col sm:flex-row gap-3 mb-10"
           >
-            <Link href="#pricing" className="ee-btn-primary text-[15px] !py-3.5 !px-8">
-              {tx.cta}
+            <Link href={isLoggedIn ? `/${lang}/dashboard` : "#pricing"} className="ee-btn-primary text-[15px] !py-3.5 !px-8">
+              {isLoggedIn ? tx.ctaDashboard : tx.cta}
             </Link>
             <Link href="#how-it-works" className="ee-btn-ghost text-[15px] !py-3.5 !px-8">
               {tx.ctaSecondary} →

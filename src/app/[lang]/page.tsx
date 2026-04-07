@@ -1,4 +1,5 @@
 import type { Locale } from '@/lib/i18n/translations'
+import { createClient } from '@/lib/supabase/server'
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
 import TrustStrip from '@/components/landing/TrustStrip'
@@ -14,11 +15,14 @@ type Props = { params: Promise<{ lang: string }> }
 
 export default async function LandingPage({ params }: Props) {
   const { lang } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isLoggedIn = !!user
 
   return (
     <main className="overflow-x-hidden">
-      <Navbar lang={lang as Locale} />
-      <Hero lang={lang as Locale} />
+      <Navbar lang={lang as Locale} isLoggedIn={isLoggedIn} />
+      <Hero lang={lang as Locale} isLoggedIn={isLoggedIn} />
       <TrustStrip lang={lang as Locale} />
       <HowItWorks lang={lang as Locale} />
       <Teachers lang={lang as Locale} />

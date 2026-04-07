@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Check } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { useCurrency } from '@/lib/useCurrency'
+import { PRICING_PLANS } from '@/lib/pricing'
 
 const t = {
   en: {
@@ -24,12 +25,12 @@ const t = {
       'CEFR level check every 4 classes',
       'Structured curriculum (Interchange + custom)',
     ],
-    packs: [
-      { classes: 8,  priceUSD: 129, name: 'Spark',    desc: 'Start the habit. See it work.' },
-      { classes: 12, priceUSD: 179, name: 'Drive',    desc: 'A full month of real consistency.' },
-      { classes: 16, priceUSD: 219, name: 'Ascent',   desc: 'Serious progress, serious results.', highlight: true },
-      { classes: 20, priceUSD: 259, name: 'Peak',     desc: 'Maximum exposure, maximum growth.' },
-    ],
+    packDescs: {
+      spark:  'Start the habit. See it work.',
+      drive:  'A full month of real consistency.',
+      ascent: 'Serious progress, serious results.',
+      peak:   'Maximum exposure, maximum growth.',
+    },
   },
   es: {
     label: 'Precios transparentes',
@@ -48,12 +49,12 @@ const t = {
       'Revisión de nivel CEFR cada 4 clases',
       'Currículo estructurado (Interchange + propio)',
     ],
-    packs: [
-      { classes: 8,  priceUSD: 129, name: 'Chispa',     desc: 'Empieza el hábito. Compruébalo.', },
-      { classes: 12, priceUSD: 179, name: 'Impulso',    desc: 'Un mes completo de constancia real.' },
-      { classes: 16, priceUSD: 219, name: 'Ascenso',    desc: 'Progreso serio, resultados serios.', highlight: true },
-      { classes: 20, priceUSD: 259, name: 'Cima',       desc: 'Máxima exposición, máximo crecimiento.' },
-    ],
+    packDescs: {
+      spark:  'Empieza el hábito. Compruébalo.',
+      drive:  'Un mes completo de constancia real.',
+      ascent: 'Progreso serio, resultados serios.',
+      peak:   'Máxima exposición, máximo crecimiento.',
+    },
   },
 }
 
@@ -106,9 +107,11 @@ export default function Pricing({ lang }: { lang: Locale }) {
 
         {/* Pack cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {tx.packs.map((pack, i) => {
-            const hl = (pack as any).highlight === true
-            const perClassUSD = (pack.priceUSD / pack.classes).toFixed(2)
+          {PRICING_PLANS.map((pack, i) => {
+            const hl = pack.highlight
+            const name = lang === 'es' ? pack.nameEs : pack.nameEn
+            const desc = tx.packDescs[pack.key as keyof typeof tx.packDescs]
+            const perClassUSD = (pack.priceUsd / pack.classes).toFixed(2)
             return (
               <motion.div
                 key={i}
@@ -140,10 +143,10 @@ export default function Pricing({ lang }: { lang: Locale }) {
                     className="text-[11px] font-bold uppercase tracking-widest mb-2"
                     style={{ color: hl ? 'rgba(255,255,255,0.4)' : '#9CA3AF' }}
                   >
-                    {pack.name}
+                    {name}
                   </p>
                   <div className="text-4xl font-black" style={{ color: hl ? '#F9F9F9' : '#111111' }}>
-                    {convert(pack.priceUSD)}
+                    {convert(pack.priceUsd)}
                   </div>
                   <p className="text-[12px] font-semibold mt-1" style={{ color: '#C41E3A' }}>
                     {currency === 'USD' ? `$${perClassUSD}` : convert(parseFloat(perClassUSD))} {tx.perClass}
@@ -162,7 +165,7 @@ export default function Pricing({ lang }: { lang: Locale }) {
                     {tx.classes}
                   </p>
                   <p className="text-[13px] leading-relaxed" style={{ color: hl ? 'rgba(255,255,255,0.45)' : '#4B5563' }}>
-                    {pack.desc}
+                    {desc}
                   </p>
                 </div>
 

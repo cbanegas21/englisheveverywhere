@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { User, Mail, Clock, Lock, CheckCircle2 } from 'lucide-react'
+import TimezoneSelect, { type ITimezoneOption } from 'react-timezone-select'
 import type { Locale } from '@/lib/i18n/translations'
 import { updateStudentProfile } from '@/app/actions/profile'
 
@@ -49,7 +50,22 @@ interface Props {
 export default function ConfigStudentClient({ lang, fullName, timezone, email }: Props) {
   const tx = t[lang]
   const [name, setName] = useState(fullName)
-  const [timezoneVal, setTimezoneVal] = useState(timezone)
+  const [selectedTz, setSelectedTz] = useState<ITimezoneOption | string>(timezone)
+  const tzValue = typeof selectedTz === 'string' ? selectedTz : selectedTz.value
+
+  function getLocalTime(tz: string) {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        weekday: 'short',
+      }).format(new Date())
+    } catch {
+      return ''
+    }
+  }
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -58,7 +74,7 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
     setSaving(true)
     setSaveError('')
     try {
-      const result = await updateStudentProfile({ fullName: name, timezone: timezoneVal })
+      const result = await updateStudentProfile({ fullName: name, timezone: tzValue })
       if (result.success) {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
@@ -138,15 +154,32 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
                   {tx.timezone}
                 </span>
               </label>
-              <input
-                type="text"
-                value={timezoneVal}
-                onChange={e => setTimezoneVal(e.target.value)}
-                placeholder={tx.timezonePlaceholder}
-                style={inputStyle}
-                onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+              <TimezoneSelect
+                value={selectedTz}
+                onChange={setSelectedTz}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderColor: '#E5E7EB',
+                    fontSize: '13px',
+                    boxShadow: 'none',
+                    '&:hover': { borderColor: '#C41E3A' },
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    fontSize: '13px',
+                    background: state.isFocused ? 'rgba(196,30,58,0.06)' : '#fff',
+                    color: '#111111',
+                  }),
+                  singleValue: (base) => ({ ...base, color: '#111111' }),
+                }}
               />
+              {tzValue && (
+                <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: '#9CA3AF' }}>
+                  <Clock className="h-3 w-3" />
+                  {lang === 'es' ? 'Hora local:' : 'Local time:'} {getLocalTime(tzValue)}
+                </p>
+              )}
             </div>
           </div>
         </div>

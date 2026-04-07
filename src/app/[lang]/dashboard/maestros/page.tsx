@@ -15,8 +15,11 @@ const t = {
     specialties: 'Specialties',
     viewProfile: 'View full profile',
     pendingTitle: 'Your teacher is being assigned',
-    pendingBody: "Our team is matching you with the best teacher for your level and goals. You'll receive an email within 24 hours.",
+    pendingBody: 'Our team is matching you with the best teacher for your level and goals.',
     pendingNote: 'Questions? Write us at hola@englisheverywhere.com',
+    placementTitle: 'Schedule your free placement call',
+    placementBody: 'Before we assign your teacher, complete your placement call so we can match you with the right level.',
+    placementCta: 'Schedule placement call',
     sessions: 'sessions taught',
     rating: 'rating',
   },
@@ -27,8 +30,11 @@ const t = {
     specialties: 'Especialidades',
     viewProfile: 'Ver perfil completo',
     pendingTitle: 'Tu maestro está siendo asignado',
-    pendingBody: 'Nuestro equipo te está emparejando con el mejor maestro para tu nivel y objetivos. Recibirás un correo en menos de 24 horas.',
+    pendingBody: 'Nuestro equipo te está emparejando con el mejor maestro para tu nivel y objetivos.',
     pendingNote: '¿Preguntas? Escríbenos a hola@englisheverywhere.com',
+    placementTitle: 'Agenda tu llamada de diagnóstico gratuita',
+    placementBody: 'Antes de asignarte un maestro, completa tu llamada de diagnóstico para poder emparejarte con el nivel correcto.',
+    placementCta: 'Agendar llamada de diagnóstico',
     sessions: 'clases impartidas',
     rating: 'calificación',
   },
@@ -42,14 +48,15 @@ export default async function MiMaestroPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
-  // Get student's UUID first
+  // Get student's UUID and placement status
   const { data: student } = await supabase
     .from('students')
-    .select('id')
+    .select('id, placement_test_done')
     .eq('profile_id', user.id)
     .single()
 
   const studentId = student?.id || ''
+  const placementDone = student?.placement_test_done ?? false
 
   // Get student's assigned teacher via bookings (most recent)
   const { data: booking } = await supabase
@@ -170,8 +177,8 @@ export default async function MiMaestroPage({ params }: Props) {
               </Link>
             </div>
           </div>
-        ) : (
-          /* No teacher assigned yet */
+        ) : placementDone ? (
+          /* Placement done, waiting for teacher assignment */
           <div
             className="rounded-xl p-10 text-center"
             style={{ background: '#fff', border: '1px solid #E5E7EB' }}
@@ -190,6 +197,35 @@ export default async function MiMaestroPage({ params }: Props) {
               {tx.pendingBody}
             </p>
             <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.pendingNote}</p>
+          </div>
+        ) : (
+          /* Placement call not yet done */
+          <div
+            className="rounded-xl p-10 text-center"
+            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+          >
+            <div
+              className="h-14 w-14 rounded mx-auto mb-5 flex items-center justify-center"
+              style={{ background: 'rgba(196,30,58,0.08)' }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.placementTitle}</h2>
+            <p className="text-[14px] leading-relaxed max-w-sm mx-auto mb-6" style={{ color: '#4B5563' }}>
+              {tx.placementBody}
+            </p>
+            <Link
+              href={`/${lang}/dashboard/agendar`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded font-bold text-[14px] transition-all"
+              style={{ background: '#C41E3A', color: '#fff' }}
+            >
+              {tx.placementCta} →
+            </Link>
           </div>
         )}
       </div>

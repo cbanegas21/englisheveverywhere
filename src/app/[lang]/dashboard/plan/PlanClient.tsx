@@ -7,7 +7,7 @@ import {
   BookOpen, Star, Zap, X, CreditCard, Calendar,
 } from 'lucide-react'
 import { simulatePurchase } from '@/app/actions/purchase'
-import { HNL_RATE } from '@/lib/plans'
+import { PRICING_PLANS, HNL_RATE } from '@/lib/pricing'
 import type { Locale } from '@/lib/i18n/translations'
 import Link from 'next/link'
 
@@ -33,11 +33,12 @@ const t = {
     classes: 'classes',
     perClass: 'per class',
     popular: 'Most popular',
-    plans: { starter: 'Starter', estandar: 'Standard', intensivo: 'Intensive' },
+    plans: { spark: 'Spark', drive: 'Drive', ascent: 'Ascent', peak: 'Peak' },
     features: {
-      starter:   ['4 classes included', 'All teacher access', 'Progress tracking', 'Chat support'],
-      estandar:  ['8 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings'],
-      intensivo: ['16 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings', 'Dedicated advisor'],
+      spark:  ['8 classes included', 'All teacher access', 'Progress tracking', 'Chat support'],
+      drive:  ['12 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings'],
+      ascent: ['16 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings', 'Dedicated advisor'],
+      peak:   ['20 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings', 'Dedicated advisor', 'Monthly progress report'],
     },
     // Payment modal
     confirmTitle: 'Confirm Purchase',
@@ -69,11 +70,12 @@ const t = {
     classes: 'clases',
     perClass: 'por clase',
     popular: 'Más popular',
-    plans: { starter: 'Inicial', estandar: 'Estándar', intensivo: 'Intensivo' },
+    plans: { spark: 'Chispa', drive: 'Impulso', ascent: 'Ascenso', peak: 'Cima' },
     features: {
-      starter:   ['4 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte por chat'],
-      estandar:  ['8 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones'],
-      intensivo: ['16 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones', 'Asesor dedicado'],
+      spark:  ['8 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte por chat'],
+      drive:  ['12 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones'],
+      ascent: ['16 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones', 'Asesor dedicado'],
+      peak:   ['20 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones', 'Asesor dedicado', 'Informe mensual de progreso'],
     },
     confirmTitle: 'Confirmar Compra',
     confirmPlan: 'Plan',
@@ -92,11 +94,10 @@ const t = {
   },
 }
 
-const PLANS = [
-  { key: 'starter',  priceUsd: 39,  classes: 4,  icon: BookOpen },
-  { key: 'estandar', priceUsd: 69,  classes: 8,  icon: Star, popular: true },
-  { key: 'intensivo',priceUsd: 119, classes: 16, icon: Zap },
-]
+const PLANS = PRICING_PLANS.map((p, i) => ({
+  ...p,
+  icon: [BookOpen, Star, Zap, Zap][i],
+}))
 
 interface PurchaseResult {
   classesAdded: number
@@ -252,10 +253,10 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                 className="rounded-xl overflow-hidden relative"
                 style={{
                   background: '#fff',
-                  border: `2px solid ${plan.popular ? '#111111' : '#E5E7EB'}`,
+                  border: `2px solid ${plan.highlight ? '#111111' : '#E5E7EB'}`,
                 }}
               >
-                {plan.popular && (
+                {plan.highlight && (
                   <div
                     className="text-[10px] font-bold text-center py-1.5 tracking-wide uppercase"
                     style={{ background: '#111111', color: '#F9F9F9' }}
@@ -285,16 +286,16 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                     disabled={isCurrent}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded font-semibold text-[13px] transition-all mb-5 disabled:opacity-60"
                     style={
-                      plan.popular
+                      plan.highlight
                         ? { background: '#111111', color: '#F9F9F9' }
                         : { border: '1px solid #E5E7EB', background: '#F9F9F9', color: '#111111' }
                     }
                     onMouseEnter={e => {
-                      if (!isCurrent && plan.popular) e.currentTarget.style.background = '#2D1F0A'
+                      if (!isCurrent && plan.highlight) e.currentTarget.style.background = '#2D1F0A'
                       else if (!isCurrent) e.currentTarget.style.background = '#F3F4F6'
                     }}
                     onMouseLeave={e => {
-                      if (!isCurrent && plan.popular) e.currentTarget.style.background = '#111111'
+                      if (!isCurrent && plan.highlight) e.currentTarget.style.background = '#111111'
                       else if (!isCurrent) e.currentTarget.style.background = '#F9F9F9'
                     }}
                   >

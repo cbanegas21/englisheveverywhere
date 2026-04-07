@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Menu, X, ChevronDown } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { useCurrency, CURRENCIES, CURRENCY_INFO } from '@/lib/useCurrency'
@@ -13,6 +14,7 @@ const t = {
     pricing: 'Pricing',
     login: 'Log in',
     cta: 'Get started',
+    dashboard: 'Go to Dashboard',
     updatingRates: 'Updating rates...',
   },
   es: {
@@ -21,16 +23,19 @@ const t = {
     pricing: 'Precios',
     login: 'Ingresar',
     cta: 'Comenzar',
+    dashboard: 'Ir al Dashboard',
     updatingRates: 'Actualizando tasas...',
   },
 }
 
-export default function Navbar({ lang }: { lang: Locale }) {
+export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isLoggedIn?: boolean }) {
   const tx = t[lang]
   const [open, setOpen] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   const other = lang === 'en' ? 'es' : 'en'
   const { currency, changeCurrency, loading } = useCurrency()
+  const pathname = usePathname()
+  const otherLocalePath = pathname.replace(`/${lang}`, `/${other}`)
 
   return (
     <header
@@ -125,7 +130,7 @@ export default function Navbar({ lang }: { lang: Locale }) {
 
           {/* Lang toggle */}
           <Link
-            href={`/${other}`}
+            href={otherLocalePath}
             className="px-3 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded transition-colors"
             style={{ color: 'rgba(249,249,249,0.4)' }}
             onMouseEnter={e => (e.currentTarget.style.color = '#F9F9F9')}
@@ -134,18 +139,23 @@ export default function Navbar({ lang }: { lang: Locale }) {
             {other}
           </Link>
 
-          <Link
-            href={`/${lang}/login`}
-            className="px-4 py-2 text-[14px] font-medium rounded transition-colors"
-            style={{ color: 'rgba(249,249,249,0.6)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#F9F9F9')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(249,249,249,0.6)')}
-          >
-            {tx.login}
-          </Link>
+          {!isLoggedIn && (
+            <Link
+              href={`/${lang}/login`}
+              className="px-4 py-2 text-[14px] font-medium rounded transition-colors"
+              style={{ color: 'rgba(249,249,249,0.6)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#F9F9F9')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(249,249,249,0.6)')}
+            >
+              {tx.login}
+            </Link>
+          )}
 
-          <Link href={`/${lang}/registro`} className="ee-btn-primary text-[13px] !py-2 !px-5">
-            {tx.cta}
+          <Link
+            href={isLoggedIn ? `/${lang}/dashboard` : `/${lang}/registro`}
+            className="ee-btn-primary text-[13px] !py-2 !px-5"
+          >
+            {isLoggedIn ? tx.dashboard : tx.cta}
           </Link>
         </div>
 
@@ -188,7 +198,7 @@ export default function Navbar({ lang }: { lang: Locale }) {
             { label: tx.how, href: '#how-it-works' },
             { label: tx.teachers, href: '#teachers' },
             { label: tx.pricing, href: '#pricing' },
-            { label: tx.login, href: `/${lang}/login` },
+            ...(!isLoggedIn ? [{ label: tx.login, href: `/${lang}/login` }] : []),
           ].map((item) => (
             <Link
               key={item.label}
@@ -201,11 +211,11 @@ export default function Navbar({ lang }: { lang: Locale }) {
             </Link>
           ))}
           <Link
-            href={`/${lang}/registro`}
+            href={isLoggedIn ? `/${lang}/dashboard` : `/${lang}/registro`}
             onClick={() => setOpen(false)}
             className="ee-btn-primary mt-4 justify-center"
           >
-            {tx.cta}
+            {isLoggedIn ? tx.dashboard : tx.cta}
           </Link>
         </div>
       )}

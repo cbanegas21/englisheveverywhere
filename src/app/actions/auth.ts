@@ -76,7 +76,10 @@ export async function resetPassword(formData: FormData) {
   const lang = (formData.get('lang') as string) || 'es'
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/${lang}/auth/callback`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/${lang}/login/new-password`,
+    // TODO: Supabase Dashboard → Auth → Email Templates → Reset Password
+    // Update Subject: "Reset your English Everywhere password"
+    // Set custom SMTP via Resend to use branded sender
   })
 
   if (error) {
