@@ -129,13 +129,10 @@ function generateBusinessDays(count = 7): BusinessDay[] {
     const dy = hn.getUTCDate()
 
     const slots: string[] = []
-    for (let h = 8; h <= 17; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        if (h === 17 && m > 0) break // last slot is 17:00 HN
-        // h AM HN = (h + 6) UTC
-        const slotMs = Date.UTC(yr, mo, dy, h + 6, m, 0)
-        if (slotMs > minMs) slots.push(new Date(slotMs).toISOString())
-      }
+    for (let h = 6; h <= 20; h++) {
+      // h AM HN = (h + 6) UTC
+      const slotMs = Date.UTC(yr, mo, dy, h + 6, 0, 0)
+      if (slotMs > minMs) slots.push(new Date(slotMs).toISOString())
     }
 
     if (slots.length > 0) {
@@ -187,7 +184,7 @@ const ui = {
     finish: 'Done',
     skip: 'Skip',
     transTitle: 'Perfect!',
-    transSub: "Now let's schedule your free 30-minute evaluation call.",
+    transSub: "Now let's schedule your free 60-minute evaluation call.",
     transBody: "Not sure what your level is? We'll figure it out together — no pressure, no judgment.",
     scheduleBtn: 'Schedule my call',
     scheduleTitle: 'Schedule your free evaluation call',
@@ -197,7 +194,7 @@ const ui = {
     confirmTitle: 'Confirm your call',
     confirmDate: 'Date & time',
     confirmDuration: 'Duration',
-    confirmDurationVal: '30 minutes · Free',
+    confirmDurationVal: '60 minutes · Free',
     confirmNote: 'We will contact you through the platform for the call.',
     confirmBtn: 'Confirm',
     confirming: 'Scheduling…',
@@ -219,7 +216,7 @@ const ui = {
     finish: 'Listo',
     skip: 'Omitir',
     transTitle: '¡Perfecto!',
-    transSub: 'Ahora agenda tu llamada de diagnóstico gratuita de 30 minutos.',
+    transSub: 'Ahora agenda tu llamada de diagnóstico gratuita de 60 minutos.',
     transBody: '¿No sabes cuál es tu nivel? Lo descubrimos juntos — sin presión, sin juicios.',
     scheduleBtn: 'Agendar mi llamada',
     scheduleTitle: 'Agenda tu llamada de diagnóstico gratuita',
@@ -229,7 +226,7 @@ const ui = {
     confirmTitle: 'Confirmar tu llamada',
     confirmDate: 'Fecha y hora',
     confirmDuration: 'Duración',
-    confirmDurationVal: '30 minutos · Gratis',
+    confirmDurationVal: '60 minutos · Gratis',
     confirmNote: 'Nos comunicaremos contigo a través de la plataforma para la llamada.',
     confirmBtn: 'Confirmar',
     confirming: 'Agendando…',

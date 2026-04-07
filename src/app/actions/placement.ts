@@ -64,7 +64,7 @@ export async function bookPlacementCall(
       student_id: student.id,
       teacher_id: null,
       scheduled_at: scheduledAt,
-      duration_minutes: 30,
+      duration_minutes: 60,
       status: 'confirmed',
       type: 'placement_test',
     })
@@ -127,7 +127,7 @@ function sendPlacementEmails(params: {
         <table>
           <tr><td><strong>Estudiante</strong></td><td>${params.studentName} (${params.studentEmail})</td></tr>
           <tr><td><strong>Fecha y hora</strong></td><td>${hnFormatted} (CST Honduras)</td></tr>
-          <tr><td><strong>Duración</strong></td><td>30 minutos</td></tr>
+          <tr><td><strong>Duración</strong></td><td>60 minutos</td></tr>
         </table>
       `,
     }),

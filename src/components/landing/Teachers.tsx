@@ -6,165 +6,107 @@ import type { Locale } from '@/lib/i18n/translations'
 const t = {
   en: {
     label: 'The team',
-    title: 'Bilingual.\nNear-native.\nHonduran.',
-    body: 'Every teacher is hand-selected. All speak fluent English with a near-native accent — and because they are from Honduras, they understand exactly why you struggle, what works, and how to explain it so it actually clicks.',
-    stats: [
-      { val: 'C1–C2', label: 'CEFR minimum' },
-      { val: 'Honduran', label: 'Native teachers' },
-      { val: '1-on-1', label: 'Every session' },
+    title: 'Teachers who genuinely care\nabout your progress',
+    body: 'All our teachers go through a rigorous selection process. They are bilingual, certified, and passionate about teaching English in a personalized way.',
+    cards: [
+      {
+        icon: '🏆',
+        title: 'Certified teachers',
+        desc: 'Every teacher holds a recognized teaching certification and meets a CEFR C1 minimum.',
+      },
+      {
+        icon: '🎯',
+        title: 'Personalized approach',
+        desc: 'No cookie-cutter lessons. Every class is adapted to your goals, level, and pace.',
+      },
+      {
+        icon: '⭐',
+        title: 'Quality guaranteed',
+        desc: 'We monitor every teaching relationship and act quickly if standards slip.',
+      },
     ],
-    active: 'Accepting students',
-    soon: 'Coming soon',
   },
   es: {
     label: 'El equipo',
-    title: 'Bilingüe.\nNear-native.\nHondureño.',
-    body: 'Cada maestro es seleccionado a mano. Todos hablan inglés fluido con acento near-native — y como son de Honduras, entienden exactamente por qué te cuesta, qué funciona y cómo explicarlo para que realmente te haga clic.',
-    stats: [
-      { val: 'C1–C2', label: 'Nivel CEFR mínimo' },
-      { val: 'Hondureños', label: 'Maestros nativos' },
-      { val: '1-a-1', label: 'Cada sesión' },
+    title: 'Maestros que realmente se\npreocupan por tu progreso',
+    body: 'Todos nuestros maestros pasan por un riguroso proceso de selección. Son bilingües, certificados y apasionados por enseñar inglés de manera personalizada.',
+    cards: [
+      {
+        icon: '🏆',
+        title: 'Maestros certificados',
+        desc: 'Cada maestro tiene una certificación de enseñanza reconocida y cumple con un mínimo de C1 en el CEFR.',
+      },
+      {
+        icon: '🎯',
+        title: 'Enfoque personalizado',
+        desc: 'Sin lecciones genéricas. Cada clase se adapta a tus objetivos, nivel y ritmo.',
+      },
+      {
+        icon: '⭐',
+        title: 'Calidad garantizada',
+        desc: 'Monitoreamos cada relación de enseñanza y actuamos rápido si los estándares bajan.',
+      },
     ],
-    active: 'Aceptando estudiantes',
-    soon: 'Próximamente',
   },
-}
-
-function getTeachers(lang: Locale) {
-  const soon = lang === 'en' ? 'Coming Soon' : 'Próximamente'
-  return [
-    {
-      initials: 'LP',
-      name: 'Lesly Paz',
-      level: 'CEFR C2',
-      tags: lang === 'en'
-        ? ['Business English', 'IELTS prep', 'Conversation']
-        : ['Inglés de negocios', 'Preparación IELTS', 'Conversación'],
-      active: true,
-    },
-    { initials: '–', name: soon, level: 'CEFR C1+', tags: [], active: false },
-    { initials: '–', name: soon, level: 'CEFR C1+', tags: [], active: false },
-    { initials: '–', name: soon, level: 'CEFR C1+', tags: [], active: false },
-  ]
 }
 
 export default function Teachers({ lang }: { lang: Locale }) {
   const tx = t[lang]
-  const teachers = getTeachers(lang)
 
   return (
     <section id="teachers" style={{ background: '#F9F9F9', borderTop: '1px solid #E5E7EB' }}>
       <div className="max-w-6xl mx-auto px-6 py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
 
-          {/* Left — copy + stats */}
-          <div className="lg:sticky lg:top-24">
-            <motion.p
-              className="ee-label-light mb-5"
-              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-            >
-              {tx.label}
-            </motion.p>
+        {/* Header */}
+        <div className="max-w-2xl mx-auto text-center mb-14">
+          <motion.p
+            className="ee-label-light mb-5"
+            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+          >
+            {tx.label}
+          </motion.p>
 
-            <motion.h2
-              className="font-black whitespace-pre-line mb-6"
-              style={{ fontSize: 'clamp(1.75rem, 4vw, 3rem)', color: '#111111', lineHeight: 1.05 }}
-              initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ delay: 0.05, duration: 0.5 }}
-            >
-              {tx.title}
-            </motion.h2>
+          <motion.h2
+            className="font-black whitespace-pre-line mb-6"
+            style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', color: '#111111', lineHeight: 1.1 }}
+            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }} transition={{ delay: 0.05, duration: 0.5 }}
+          >
+            {tx.title}
+          </motion.h2>
 
-            <motion.p
-              className="ee-body mb-10 max-w-sm"
-              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-              viewport={{ once: true }} transition={{ delay: 0.1 }}
-            >
-              {tx.body}
-            </motion.p>
-
-            {/* Stats */}
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-3 gap-3"
-              initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ delay: 0.15 }}
-            >
-              {tx.stats.map((s) => (
-                <div
-                  key={s.label}
-                  className="rounded p-4 text-center"
-                  style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-                >
-                  <div className="text-xl font-black mb-1" style={{ color: '#111111' }}>{s.val}</div>
-                  <div className="text-[10px] leading-tight" style={{ color: '#9CA3AF' }}>{s.label}</div>
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Right — teacher cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {teachers.map((teacher, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.07, duration: 0.4 }}
-                className="rounded p-5"
-                style={{
-                  background: teacher.active ? '#fff' : '#F3F4F6',
-                  border: teacher.active ? '1px solid #E5E7EB' : '1px solid #E5E7EB',
-                  opacity: teacher.active ? 1 : 0.55,
-                }}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div
-                    className="h-11 w-11 rounded flex items-center justify-center text-[14px] font-black"
-                    style={{
-                      background: teacher.active ? '#111111' : '#E5E7EB',
-                      color: teacher.active ? '#F9F9F9' : '#9CA3AF',
-                    }}
-                  >
-                    {teacher.initials}
-                  </div>
-                  <span
-                    className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded"
-                    style={{
-                      background: teacher.active ? 'rgba(196,30,58,0.08)' : '#E5E7EB',
-                      color: teacher.active ? '#C41E3A' : '#9CA3AF',
-                      border: `1px solid ${teacher.active ? 'rgba(196,30,58,0.15)' : 'transparent'}`,
-                    }}
-                  >
-                    {teacher.active ? tx.active : tx.soon}
-                  </span>
-                </div>
-
-                <p className="text-[15px] font-bold mb-0.5" style={{ color: teacher.active ? '#111111' : '#9CA3AF' }}>
-                  {teacher.name}
-                </p>
-                <p className="text-[12px] font-semibold mb-3" style={{ color: '#C41E3A' }}>
-                  {teacher.level}
-                </p>
-
-                {teacher.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {teacher.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[10px] font-semibold px-2 py-0.5 rounded"
-                        style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-
+          <motion.p
+            className="ee-body max-w-lg mx-auto"
+            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
+            viewport={{ once: true }} transition={{ delay: 0.1 }}
+          >
+            {tx.body}
+          </motion.p>
         </div>
+
+        {/* 3 icon cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-4xl mx-auto">
+          {tx.cards.map((card, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08, duration: 0.4 }}
+              className="rounded-xl p-7 text-center"
+              style={{ background: '#fff', border: '1px solid #E5E7EB', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+            >
+              <div className="text-[40px] mb-4 leading-none">{card.icon}</div>
+              <h3 className="text-[15px] font-black mb-2" style={{ color: '#111111' }}>
+                {card.title}
+              </h3>
+              <p className="text-[13px] leading-relaxed" style={{ color: '#6B7280' }}>
+                {card.desc}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+
       </div>
     </section>
   )

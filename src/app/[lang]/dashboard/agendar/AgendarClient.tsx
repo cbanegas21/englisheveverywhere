@@ -35,7 +35,7 @@ interface Props {
 const t = {
   en: {
     title: 'Schedule a Class',
-    subtitle: 'Pick a time that works for you. All classes are 50 minutes.',
+    subtitle: 'Pick a time that works for you. All classes are 60 minutes.',
     classesLeft: (n: number) => `${n} class${n !== 1 ? 'es' : ''} remaining`,
     prevWeek: 'Previous week',
     nextWeek: 'Next week',
@@ -45,7 +45,7 @@ const t = {
     confirmDate: 'Date',
     confirmTime: 'Time',
     confirmDuration: 'Duration',
-    confirmDurationVal: '50 min',
+    confirmDurationVal: '60 min',
     confirm: 'Confirm Booking',
     cancel: 'Cancel',
     booking: 'Booking…',
@@ -63,7 +63,7 @@ const t = {
   },
   es: {
     title: 'Agendar Clase',
-    subtitle: 'Elige un horario que funcione para ti. Todas las clases son de 50 minutos.',
+    subtitle: 'Elige un horario que funcione para ti. Todas las clases son de 60 minutos.',
     classesLeft: (n: number) => `${n} clase${n !== 1 ? 's' : ''} disponible${n !== 1 ? 's' : ''}`,
     prevWeek: 'Semana anterior',
     nextWeek: 'Semana siguiente',
@@ -73,7 +73,7 @@ const t = {
     confirmDate: 'Fecha',
     confirmTime: 'Hora',
     confirmDuration: 'Duración',
-    confirmDurationVal: '50 min',
+    confirmDurationVal: '60 min',
     confirm: 'Confirmar Reserva',
     cancel: 'Cancelar',
     booking: 'Reservando…',
@@ -178,7 +178,7 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
       fd.set('teacher_id', selected.slot.teacher.id)
       fd.set('slot_id', selected.slot.id)
       fd.set('scheduled_at', selected.slot.scheduledAt)
-      fd.set('duration_minutes', '50')
+      fd.set('duration_minutes', '60')
       fd.set('lang', lang)
       const result = await createBooking(fd)
       if (result?.error) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X, ChevronDown } from 'lucide-react'
@@ -39,9 +39,19 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
   const router = useRouter()
   const otherLocalePath = pathname.replace(`/${lang}`, `/${other}`)
 
+  // Restore scroll position after locale switch
+  useEffect(() => {
+    const saved = sessionStorage.getItem('ee-scroll')
+    if (saved) {
+      sessionStorage.removeItem('ee-scroll')
+      requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10)))
+    }
+  }, [pathname])
+
   function handleLocaleSwitch() {
     if (switching) return
     if (typeof window !== 'undefined') {
+      sessionStorage.setItem('ee-scroll', String(window.scrollY))
       localStorage.setItem('ee-locale', other)
       document.cookie = `ee-locale=${other}; path=/; max-age=31536000; SameSite=Lax`
     }
@@ -103,19 +113,21 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
                 border: '1px solid rgba(255,255,255,0.12)',
                 color: 'rgba(249,249,249,0.7)',
                 background: 'transparent',
+                width: '80px',
+                overflow: 'hidden',
               }}
               onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)')}
               onMouseLeave={e => !currencyOpen && (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
             >
-              <span>{CURRENCY_INFO[currency].flag}</span>
-              <span>{currency}</span>
-              <ChevronDown className="h-3 w-3" />
+              <span className="flex-shrink-0">{CURRENCY_INFO[currency].flag}</span>
+              <span className="truncate">{currency}</span>
+              <ChevronDown className="h-3 w-3 flex-shrink-0 ml-auto" />
             </button>
 
             {currencyOpen && (
               <div
-                className="absolute right-0 top-full mt-1 rounded overflow-hidden z-50 min-w-[120px]"
-                style={{ background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
+                className="absolute right-0 top-full mt-1 rounded overflow-hidden z-50"
+                style={{ background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', width: '90px' }}
               >
                 {CURRENCIES.map((c) => (
                   <button
@@ -129,8 +141,8 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
                     onMouseEnter={e => { if (c !== currency) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
                     onMouseLeave={e => { if (c !== currency) e.currentTarget.style.background = 'transparent' }}
                   >
-                    <span>{CURRENCY_INFO[c].flag}</span>
-                    <span>{c}</span>
+                    <span className="flex-shrink-0">{CURRENCY_INFO[c].flag}</span>
+                    <span className="truncate">{c}</span>
                   </button>
                 ))}
                 {loading && (

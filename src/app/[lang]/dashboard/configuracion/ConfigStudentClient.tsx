@@ -78,14 +78,23 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
 
   function formatTzOption(tz: string) {
     try {
+      const offsetParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        timeZoneName: 'shortOffset',
+      }).formatToParts(now)
+      const offset = offsetParts.find(p => p.type === 'timeZoneName')?.value || ''
+
+      const segments = tz.split('/')
+      const city = segments[segments.length - 1].replace(/_/g, ' ')
+
       const time = new Intl.DateTimeFormat('en-US', {
         timeZone: tz,
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
       }).format(now)
-      const label = tz.replace(/_/g, ' ').split('/').slice(-1)[0]
-      return `${label} — ${time}`
+
+      return `${offset} • ${city} • ${time}`
     } catch {
       return tz
     }

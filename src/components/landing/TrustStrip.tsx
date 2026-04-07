@@ -3,28 +3,22 @@
 import type { Locale } from '@/lib/i18n/translations'
 
 const countries = [
-  { flag: '🇭🇳', name: 'Honduras' },
   { flag: '🇲🇽', name: 'México' },
+  { flag: '🇭🇳', name: 'Honduras' },
+  { flag: '🇬🇹', name: 'Guatemala' },
+  { flag: '🇸🇻', name: 'El Salvador' },
+  { flag: '🇨🇷', name: 'Costa Rica' },
   { flag: '🇨🇴', name: 'Colombia' },
   { flag: '🇦🇷', name: 'Argentina' },
-  { flag: '🇵🇪', name: 'Perú' },
   { flag: '🇨🇱', name: 'Chile' },
-  { flag: '🇻🇪', name: 'Venezuela' },
-  { flag: '🇪🇨', name: 'Ecuador' },
-  { flag: '🇬🇹', name: 'Guatemala' },
-  { flag: '🇧🇴', name: 'Bolivia' },
-  { flag: '🇩🇴', name: 'Rep. Dominicana' },
-  { flag: '🇸🇻', name: 'El Salvador' },
-  { flag: '🇳🇮', name: 'Nicaragua' },
-  { flag: '🇨🇷', name: 'Costa Rica' },
-  { flag: '🇵🇦', name: 'Panamá' },
-  { flag: '🇺🇾', name: 'Uruguay' },
-  { flag: '🇵🇾', name: 'Paraguay' },
   { flag: '🇧🇷', name: 'Brasil' },
+  { flag: '🇵🇪', name: 'Perú' },
+  { flag: '🇪🇨', name: 'Ecuador' },
+  { flag: '🇵🇦', name: 'Panamá' },
 ]
 
-// Duplicate for seamless loop
-const items = [...countries, ...countries]
+// Triplicate for seamless loop
+const items = [...countries, ...countries, ...countries]
 
 export default function TrustStrip({ lang }: { lang: Locale }) {
   const label = lang === 'es' ? 'Estudiantes de todo el continente' : 'Students from across Latin America'
@@ -42,11 +36,14 @@ export default function TrustStrip({ lang }: { lang: Locale }) {
       </div>
 
       {/* Marquee strip */}
-      <div className="overflow-hidden pb-5" style={{ maskImage: 'linear-gradient(to right, transparent, black 12%, black 88%, transparent)' }}>
+      <div
+        className="overflow-hidden pb-5"
+        style={{ maskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)' }}
+      >
         <div
-          className="flex items-center"
+          className="flex items-stretch"
           style={{
-            animation: 'ee-marquee 42s linear infinite',
+            animation: 'ee-marquee 36s linear infinite',
             width: 'max-content',
             willChange: 'transform',
           }}
@@ -54,18 +51,19 @@ export default function TrustStrip({ lang }: { lang: Locale }) {
           {items.map((c, i) => (
             <div
               key={i}
-              className="flex items-center gap-2.5 mx-4 flex-shrink-0"
+              className="flex flex-col items-center justify-center flex-shrink-0 mx-3"
               style={{
-                padding: '8px 18px',
-                borderRadius: '999px',
+                padding: '10px 16px',
+                borderRadius: '12px',
                 background: '#fff',
                 border: '1px solid #E5E7EB',
                 boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                minWidth: '72px',
               }}
             >
-              <span style={{ fontSize: '20px', lineHeight: 1 }}>{c.flag}</span>
+              <span style={{ fontSize: '28px', lineHeight: 1, display: 'block' }}>{c.flag}</span>
               <span
-                className="text-[12px] font-semibold whitespace-nowrap"
+                className="text-[10px] font-semibold whitespace-nowrap mt-1.5"
                 style={{ color: '#374151' }}
               >
                 {c.name}
@@ -78,7 +76,7 @@ export default function TrustStrip({ lang }: { lang: Locale }) {
       <style>{`
         @keyframes ee-marquee {
           0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+          100% { transform: translateX(-33.333%); }
         }
       `}</style>
     </div>

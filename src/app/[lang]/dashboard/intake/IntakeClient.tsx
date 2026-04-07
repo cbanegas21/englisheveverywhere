@@ -19,8 +19,8 @@ const t = {
     questions: [
       {
         id: 'learning_goal',
-        label: 'Why do you want to learn English?',
-        placeholder: 'e.g. For work, traveling, moving abroad, passing an exam…',
+        label: 'What is your specific English learning goal?',
+        placeholder: 'e.g. Pass the IELTS B2 by December, get a promotion, move to Canada…',
         type: 'textarea',
       },
       {
@@ -64,8 +64,8 @@ const t = {
     questions: [
       {
         id: 'learning_goal',
-        label: '¿Por qué quieres aprender inglés?',
-        placeholder: 'Ej: Para trabajo, viajar, vivir en otro país, pasar un examen…',
+        label: '¿Cuál es tu objetivo específico de inglés?',
+        placeholder: 'Ej: Pasar el IELTS B2 en diciembre, conseguir ascenso, emigrar a Canadá…',
         type: 'textarea',
       },
       {
