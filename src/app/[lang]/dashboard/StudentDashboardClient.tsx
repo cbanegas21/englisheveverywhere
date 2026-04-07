@@ -30,13 +30,13 @@ const t = {
     quickActions: 'Quick actions',
     actions: {
       book: { title: 'Schedule a class', sub: 'Pick a time with your teacher', href: '/dashboard/agendar' },
-      test: { title: 'Placement test', sub: 'Find your exact level', href: '/dashboard/progreso' },
+      test: { title: 'Placement test', sub: 'Find your exact level', href: '/dashboard/placement' },
       progress: { title: 'My progress', sub: 'Track your improvement', href: '/dashboard/progreso' },
     },
     placementBanner: {
-      title: 'Take the placement test',
-      sub: "Find your exact English level in 10 minutes — your teacher will use this to personalize classes.",
-      cta: 'Start test',
+      title: 'Schedule your free evaluation call',
+      sub: "Not sure what your level is? Let us figure it out together — free, no pressure, no judgment.",
+      cta: 'Get started',
     },
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
@@ -67,13 +67,13 @@ const t = {
     quickActions: 'Acciones rápidas',
     actions: {
       book: { title: 'Agendar clase', sub: 'Elige tu horario', href: '/dashboard/agendar' },
-      test: { title: 'Placement test', sub: 'Encuentra tu nivel exacto', href: '/dashboard/progreso' },
+      test: { title: 'Placement test', sub: 'Encuentra tu nivel exacto', href: '/dashboard/placement' },
       progress: { title: 'Mi progreso', sub: 'Sigue tu mejora', href: '/dashboard/progreso' },
     },
     placementBanner: {
-      title: 'Haz el placement test',
-      sub: 'Encuentra tu nivel exacto en 10 minutos — tu maestro usará esto para personalizar tus clases.',
-      cta: 'Comenzar test',
+      title: 'Agenda tu llamada de diagnóstico gratuita',
+      sub: '¿No sabes cuál es tu nivel? Lo descubrimos juntos — gratis, sin presión, sin juicios.',
+      cta: 'Comenzar',
     },
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
@@ -169,7 +169,7 @@ export default function StudentDashboardClient({
               <div className="text-[12px] mt-0.5 leading-relaxed" style={{ color: '#9CA3AF' }}>{tx.placementBanner.sub}</div>
             </div>
             <Link
-              href={`/${lang}/dashboard/progreso`}
+              href={`/${lang}/dashboard/placement`}
               className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
               style={{ background: '#C41E3A', color: '#fff' }}
               onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}

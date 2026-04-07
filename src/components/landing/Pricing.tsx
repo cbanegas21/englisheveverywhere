@@ -148,6 +148,9 @@ export default function Pricing({ lang }: { lang: Locale }) {
                   <div className="text-4xl font-black" style={{ color: hl ? '#F9F9F9' : '#111111' }}>
                     {convert(pack.priceUsd)}
                   </div>
+                  <p className="text-[11px] mt-0.5" style={{ color: hl ? 'rgba(255,255,255,0.3)' : '#9CA3AF' }}>
+                    {lang === 'es' ? '/ mes' : '/ month'}
+                  </p>
                   <p className="text-[12px] font-semibold mt-1" style={{ color: '#C41E3A' }}>
                     {currency === 'USD' ? `$${perClassUSD}` : convert(parseFloat(perClassUSD))} {tx.perClass}
                   </p>

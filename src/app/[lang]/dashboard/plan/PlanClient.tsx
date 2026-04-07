@@ -273,6 +273,9 @@ export default function PlanClient({ lang, currentPlan, classesRemaining, intake
                     <span className="text-[32px] font-black" style={{ color: '#111111' }}>${plan.priceUsd}</span>
                     <span className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.perMonth}</span>
                   </div>
+                  <p className="text-[11px] mb-0.5" style={{ color: '#9CA3AF' }}>
+                    {lang === 'es' ? '/ mes' : '/ month'}
+                  </p>
                   <p className="text-[12px] mb-1" style={{ color: '#9CA3AF' }}>
                     {plan.classes} {tx.classes} · ${pricePerClassUsd} {tx.perClass}
                   </p>

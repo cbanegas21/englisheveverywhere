@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X, ChevronDown } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { useCurrency, CURRENCIES, CURRENCY_INFO } from '@/lib/useCurrency'
@@ -32,10 +32,24 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
   const tx = t[lang]
   const [open, setOpen] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const other = lang === 'en' ? 'es' : 'en'
   const { currency, changeCurrency, loading } = useCurrency()
   const pathname = usePathname()
+  const router = useRouter()
   const otherLocalePath = pathname.replace(`/${lang}`, `/${other}`)
+
+  function handleLocaleSwitch() {
+    if (switching) return
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ee-locale', other)
+      document.cookie = `ee-locale=${other}; path=/; max-age=31536000; SameSite=Lax`
+    }
+    setSwitching(true)
+    setTimeout(() => {
+      router.push(otherLocalePath)
+    }, 130)
+  }
 
   return (
     <header
@@ -128,16 +142,42 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
             )}
           </div>
 
-          {/* Lang toggle */}
-          <Link
-            href={otherLocalePath}
-            className="px-3 py-1.5 text-[12px] font-bold uppercase tracking-widest rounded transition-colors"
-            style={{ color: 'rgba(249,249,249,0.4)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#F9F9F9')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(249,249,249,0.4)')}
+          {/* Lang toggle switch */}
+          <button
+            onClick={handleLocaleSwitch}
+            aria-label={`Switch to ${other.toUpperCase()}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,0.12)',
+              overflow: 'hidden',
+              opacity: switching ? 0 : 1,
+              transition: 'opacity 130ms ease',
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
           >
-            {other}
-          </Link>
+            {(['es', 'en'] as const).map(l => (
+              <span
+                key={l}
+                style={{
+                  display: 'inline-block',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  background: lang === l ? 'rgba(255,255,255,0.12)' : 'transparent',
+                  color: lang === l ? '#F9F9F9' : 'rgba(249,249,249,0.35)',
+                  borderRight: l === 'es' ? '1px solid rgba(255,255,255,0.12)' : 'none',
+                  transition: 'background 130ms, color 130ms',
+                }}
+              >
+                {l}
+              </span>
+            ))}
+          </button>
 
           {!isLoggedIn && (
             <Link
@@ -176,6 +216,44 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
           className="md:hidden border-t px-6 py-5 flex flex-col gap-1"
           style={{ background: '#1A1A1A', borderColor: 'rgba(255,255,255,0.07)' }}
         >
+          {/* Lang toggle — mobile */}
+          <div className="flex items-center justify-between pb-3 mb-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(249,249,249,0.4)' }}>
+              {lang === 'es' ? 'Idioma' : 'Language'}
+            </span>
+            <button
+              onClick={() => { setOpen(false); handleLocaleSwitch() }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                borderRadius: '6px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                overflow: 'hidden',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}
+            >
+              {(['es', 'en'] as const).map(l => (
+                <span
+                  key={l}
+                  style={{
+                    display: 'inline-block',
+                    padding: '5px 12px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    background: lang === l ? 'rgba(255,255,255,0.15)' : 'transparent',
+                    color: lang === l ? '#F9F9F9' : 'rgba(249,249,249,0.35)',
+                    borderRight: l === 'es' ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                  }}
+                >
+                  {l}
+                </span>
+              ))}
+            </button>
+          </div>
+
           {/* Currency — mobile */}
           <div className="flex gap-2 flex-wrap pb-3 mb-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             {CURRENCIES.map(c => (
