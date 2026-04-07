@@ -58,6 +58,23 @@ export async function bookPlacementCall(
     }
   }
 
+  // Prevent booking at same time as any other booking
+  const { data: timeConflict } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('student_id', student.id)
+    .eq('scheduled_at', scheduledAt)
+    .neq('status', 'cancelled')
+    .maybeSingle()
+
+  if (timeConflict) {
+    return {
+      error: lang === 'es'
+        ? 'Ya tienes una clase agendada para ese horario.'
+        : 'You already have a class booked for that time slot.',
+    }
+  }
+
   const { data: booking, error } = await supabase
     .from('bookings')
     .insert({
@@ -72,6 +89,12 @@ export async function bookPlacementCall(
     .single()
 
   if (error) return { error: error.message }
+
+  // Mark placement test as scheduled
+  await supabase
+    .from('students')
+    .update({ placement_test_done: true })
+    .eq('profile_id', user.id)
 
   // Send emails (non-blocking — never let this break the flow)
   sendPlacementEmails({

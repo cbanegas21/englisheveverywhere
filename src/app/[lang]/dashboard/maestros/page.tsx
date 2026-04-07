@@ -72,6 +72,7 @@ export default async function MiMaestroPage({ params }: Props) {
       )
     `)
     .eq('student_id', studentId)
+    .eq('type', 'class')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -220,7 +221,7 @@ export default async function MiMaestroPage({ params }: Props) {
               {tx.placementBody}
             </p>
             <Link
-              href={`/${lang}/dashboard/agendar`}
+              href={`/${lang}/dashboard/placement`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded font-bold text-[14px] transition-all"
               style={{ background: '#C41E3A', color: '#fff' }}
             >

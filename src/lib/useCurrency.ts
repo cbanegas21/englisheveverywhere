@@ -62,6 +62,8 @@ export function useCurrency() {
     const rate = rates[currency.toLowerCase()]
     if (!rate) return `${info.symbol}${usdAmount}`
     const converted = Math.round(usdAmount * rate)
+    if (converted >= 1_000_000) return `${info.symbol}${(converted / 1_000_000).toFixed(1)}M`
+    if (converted >= 10_000) return `${info.symbol}${(converted / 1_000).toFixed(1)}K`
     return `${info.symbol}${converted.toLocaleString()}`
   }, [currency, rates])
 

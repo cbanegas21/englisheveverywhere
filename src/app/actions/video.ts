@@ -233,16 +233,18 @@ export async function completeSession(
   }
 
   if (sid) {
-    await adminClient
+    const { error: sessionErr } = await adminClient
       .from('sessions')
       .update({ ended_at: new Date().toISOString() })
       .eq('id', sid)
+    console.log('[completeSession] session ended_at update', { sid, error: sessionErr?.message })
   }
 
-  await adminClient
+  const { error: bookingErr } = await adminClient
     .from('bookings')
     .update({ status: 'completed' })
     .eq('id', bookingId)
+  console.log('[completeSession] booking completed', { bookingId, error: bookingErr?.message })
 
   const teacherId = (booking.teacher as any)?.id
   const studentId = (booking.student as any)?.id

@@ -31,6 +31,7 @@ export default async function ProgresoPage({ params }: Props) {
         placementTestDone={false}
         completedTotal={0}
         completedThisMonth={0}
+        upcomingClasses={0}
         recentBookings={[]}
       />
     )
@@ -45,6 +46,7 @@ export default async function ProgresoPage({ params }: Props) {
   const [
     { count: completedTotal },
     { count: completedThisMonth },
+    { count: upcomingClasses },
     { data: recentBookings },
   ] = await Promise.all([
     supabase
@@ -59,6 +61,13 @@ export default async function ProgresoPage({ params }: Props) {
       .eq('student_id', studentId)
       .eq('status', 'completed')
       .gte('scheduled_at', startOfMonth.toISOString()),
+
+    supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('student_id', studentId)
+      .in('status', ['confirmed', 'pending'])
+      .gte('scheduled_at', new Date().toISOString()),
 
     supabase
       .from('bookings')
@@ -79,6 +88,7 @@ export default async function ProgresoPage({ params }: Props) {
       placementTestDone={student.placement_test_done ?? false}
       completedTotal={completedTotal || 0}
       completedThisMonth={completedThisMonth || 0}
+      upcomingClasses={upcomingClasses || 0}
       recentBookings={(recentBookings || []) as {
         id: string
         scheduled_at: string

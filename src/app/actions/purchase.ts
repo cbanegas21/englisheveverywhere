@@ -36,7 +36,7 @@ export async function simulatePurchase(planKey: string, lang: string) {
 
   const { error: updateErr } = await supabase
     .from('students')
-    .update({ classes_remaining: newCount })
+    .update({ classes_remaining: newCount, current_plan: planKey })
     .eq('id', student.id)
 
   if (updateErr) return { error: updateErr.message }

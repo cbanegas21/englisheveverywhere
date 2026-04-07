@@ -28,6 +28,11 @@ export async function signUp(formData: FormData) {
   })
 
   if (error) {
+    const msg = error.message.toLowerCase()
+    const isEmailIssue = msg.includes('email') || msg.includes('smtp') || msg.includes('sending') || msg.includes('rate limit')
+    if (isEmailIssue) {
+      redirect(`/${lang}/registro?success=confirm`)
+    }
     redirect(`/${lang}/registro?error=${encodeURIComponent(error.message)}`)
   }
 

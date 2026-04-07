@@ -85,6 +85,23 @@ export async function createBooking(formData: FormData) {
     }
   }
 
+  // ── Conflict check ───────────────────────────────────────────
+  const { data: conflicting } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('student_id', student.id)
+    .eq('scheduled_at', scheduledAt)
+    .neq('status', 'cancelled')
+    .maybeSingle()
+
+  if (conflicting) {
+    return {
+      error: lang === 'es'
+        ? 'Ya tienes una clase agendada para ese horario.'
+        : 'You already have a class booked for that time slot.',
+    }
+  }
+
   // ── Create booking ────────────────────────────────────────────
   const { data: booking, error } = await supabase
     .from('bookings')
@@ -100,11 +117,8 @@ export async function createBooking(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  // ── Decrement classes_remaining ───────────────────────────────
-  await supabase
-    .from('students')
-    .update({ classes_remaining: student.classes_remaining - 1 })
-    .eq('id', student.id)
+  // ── Atomic decrement classes_remaining ───────────────────────
+  await supabase.rpc('decrement_classes', { p_student_id: student.id })
 
   // ── Notify admin via email (non-blocking) ────────────────────
   const { data: profile } = await supabase

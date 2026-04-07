@@ -51,15 +51,7 @@ export default function TrustStrip({ lang }: { lang: Locale }) {
           {items.map((c, i) => (
             <div
               key={i}
-              className="flex flex-col items-center justify-center flex-shrink-0 mx-3"
-              style={{
-                padding: '10px 16px',
-                borderRadius: '12px',
-                background: '#fff',
-                border: '1px solid #E5E7EB',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                minWidth: '72px',
-              }}
+              className="flex flex-col items-center justify-center flex-shrink-0 mx-5"
             >
               <span style={{ fontSize: '28px', lineHeight: 1, display: 'block' }}>{c.flag}</span>
               <span

@@ -57,6 +57,7 @@ const t = {
       hours: 'Hours learned',
       level: 'Current level',
       remaining: 'Classes remaining',
+      upcoming: 'Upcoming classes',
       noLevel: 'Pending placement',
     },
     // Plan
@@ -92,6 +93,7 @@ const t = {
       hours: 'Horas aprendidas',
       level: 'Nivel actual',
       remaining: 'Clases disponibles',
+      upcoming: 'Clases próximas',
       noLevel: 'Pendiente de diagnóstico',
     },
     planTitle: 'Plan actual',
@@ -128,6 +130,7 @@ interface Props {
   placementTestDone: boolean
   completedTotal: number
   completedThisMonth: number
+  upcomingClasses: number
   recentBookings: {
     id: string
     scheduled_at: string
@@ -150,7 +153,7 @@ function fmtTime(iso: string) {
 
 export default function ProgresoClient({
   lang, level, classesRemaining, currentPlan, surveyAnswers,
-  placementTestDone, completedTotal, completedThisMonth, recentBookings,
+  placementTestDone, completedTotal, completedThisMonth, upcomingClasses, recentBookings,
 }: Props) {
   const tx = t[lang]
   const activeIndex = level ? CEFR_LEVELS.indexOf(level as CefrLevel) : -1
@@ -168,9 +171,9 @@ export default function ProgresoClient({
       icon: BookOpen,
     },
     {
-      label: tx.stats.hours,
-      value: `${hoursLearned}h`,
-      icon: Clock,
+      label: tx.stats.upcoming,
+      value: upcomingClasses,
+      icon: Calendar,
     },
     {
       label: level ? tx.stats.level : tx.stats.noLevel,
