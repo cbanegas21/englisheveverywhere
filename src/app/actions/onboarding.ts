@@ -7,7 +7,6 @@ export async function completeStudentOnboarding(data: {
   userId: string
   timezone: string
   preferredLanguage: 'es' | 'en'
-  level: string | null
 }): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,8 +23,6 @@ export async function completeStudentOnboarding(data: {
     .from('students')
     .upsert({
       profile_id: data.userId,
-      level: data.level || null,
-      placement_test_done: !!data.level,
     }, { onConflict: 'profile_id' })
 
   if (studentError) return { success: false, error: studentError.message }

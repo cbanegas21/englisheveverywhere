@@ -20,7 +20,21 @@ export default async function ProgresoPage({ params }: Props) {
     .eq('profile_id', user.id)
     .single()
 
-  if (!student) redirect(`/${lang}/onboarding`)
+  if (!student) {
+    return (
+      <ProgresoClient
+        lang={lang as Locale}
+        level={null}
+        classesRemaining={0}
+        currentPlan={null}
+        surveyAnswers={null}
+        placementTestDone={false}
+        completedTotal={0}
+        completedThisMonth={0}
+        recentBookings={[]}
+      />
+    )
+  }
 
   const studentId = student.id
 

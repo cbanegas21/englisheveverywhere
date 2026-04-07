@@ -138,7 +138,7 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const totalSteps = role === 'teacher' ? 3 : 2
+  const totalSteps = role === 'teacher' ? 3 : 1
   const [step, setStep] = useState(1)
   const [done, setDone] = useState(false)
 
@@ -166,7 +166,7 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
     startTransition(async () => {
       let result
       if (role === 'student') {
-        result = await completeStudentOnboarding({ userId, timezone, preferredLanguage: preferredLang, level })
+        result = await completeStudentOnboarding({ userId, timezone, preferredLanguage: preferredLang })
       } else {
         result = await completeTeacherOnboarding({ userId, timezone, preferredLanguage: preferredLang, bio, specializations: specs, hourlyRate: parseFloat(rate) || 20 })
       }
@@ -315,15 +315,28 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
                   </div>
                 </div>
 
+                {!isTeacher && finishError && (
+                  <p className="mt-4 text-[13px] text-center" style={{ color: '#DC2626' }}>{finishError}</p>
+                )}
                 <button
-                  onClick={() => setStep(2)}
-                  className="mt-8 flex items-center justify-center gap-2 w-full py-3.5 rounded font-semibold text-[14px] transition-all"
+                  onClick={isTeacher ? () => setStep(2) : handleFinish}
+                  disabled={isPending}
+                  className="mt-8 flex items-center justify-center gap-2 w-full py-3.5 rounded font-semibold text-[14px] transition-all disabled:opacity-60"
                   style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#9E1830')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#C41E3A')}
+                  onMouseEnter={e => { if (!isPending) (e.currentTarget as HTMLButtonElement).style.background = '#9E1830' }}
+                  onMouseLeave={e => { if (!isPending) (e.currentTarget as HTMLButtonElement).style.background = '#C41E3A' }}
                 >
-                  {tx.step1.next}
-                  <ArrowRight className="h-4 w-4" />
+                  {isPending && !isTeacher ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      {tx.finishing}
+                    </span>
+                  ) : (
+                    <>
+                      {tx.step1.next}
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </motion.div>
             )}
