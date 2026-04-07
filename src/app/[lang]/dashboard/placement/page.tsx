@@ -23,28 +23,21 @@ export default async function PlacementPage({ params }: Props) {
 
   if (!student) redirect(`/${lang}/onboarding`)
 
-  // Call completed, level assigned — nothing to do
-  if (student.placement_test_done) redirect(`/${lang}/dashboard`)
-
-  // Check for an existing placement booking
+  // Check for an existing placement booking (include completed — needed when placement_test_done = true)
   const { data: existingBooking } = await supabase
     .from('bookings')
     .select('id, scheduled_at, status')
     .eq('student_id', student.id)
     .eq('type', 'placement_test')
-    .in('status', ['confirmed', 'pending'])
+    .neq('status', 'cancelled')
     .maybeSingle()
 
-  // Call booked but not yet completed — show status screen
-  if (student.placement_scheduled) {
+  // Call booked or already completed — show status screen, never auto-redirect
+  if (student.placement_scheduled || student.placement_test_done) {
     return (
       <PlacementScheduledScreen
         lang={lang as Locale}
-        booking={
-          existingBooking
-            ? { id: existingBooking.id, scheduledAt: existingBooking.scheduled_at, status: existingBooking.status }
-            : null
-        }
+        scheduledAt={existingBooking?.scheduled_at || null}
       />
     )
   }

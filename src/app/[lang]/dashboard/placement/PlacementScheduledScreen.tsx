@@ -1,13 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { Calendar, Clock, CheckCircle2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { CheckCircle2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 
 interface Props {
   lang: Locale
-  booking: { id: string; scheduledAt: string; status: string } | null
+  scheduledAt: string | null
 }
 
 function formatDate(iso: string, lang: Locale) {
@@ -20,27 +19,10 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function getCountdown(iso: string): string | null {
-  const diff = new Date(iso).getTime() - Date.now()
-  if (diff <= 0) return null
-  if (diff > 24 * 60 * 60 * 1000) return null // only show if within 24h
-  const hours = Math.floor(diff / (60 * 60 * 1000))
-  const mins = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000))
-  return `${hours}h ${mins}m`
-}
-
-export default function PlacementScheduledScreen({ lang, booking }: Props) {
-  const [countdown, setCountdown] = useState<string | null>(
-    booking ? getCountdown(booking.scheduledAt) : null
-  )
-
-  useEffect(() => {
-    if (!booking) return
-    const id = setInterval(() => setCountdown(getCountdown(booking.scheduledAt)), 60_000)
-    return () => clearInterval(id)
-  }, [booking])
-
+export default function PlacementScheduledScreen({ lang, scheduledAt }: Props) {
   const isEs = lang === 'es'
+  const date = scheduledAt ? formatDate(scheduledAt, lang) : null
+  const time = scheduledAt ? formatTime(scheduledAt) : null
 
   return (
     <div className="min-h-full" style={{ background: '#F9F9F9' }}>
@@ -66,67 +48,34 @@ export default function PlacementScheduledScreen({ lang, booking }: Props) {
             >
               <CheckCircle2 className="h-8 w-8 text-white" />
             </div>
-            <h2 className="text-[20px] font-black text-white mb-2">
-              {isEs ? '¡Tu llamada diagnóstica está agendada!' : 'Your diagnostic call is scheduled!'}
-            </h2>
-            <p className="text-[13px] text-white/75">
+            <h2 className="text-[20px] font-black text-white">
               {isEs
-                ? 'Un maestro evaluará tu nivel de inglés en una llamada de 30 minutos.'
-                : 'A teacher will assess your English level in a 30-minute call.'}
-            </p>
+                ? '¡Tu llamada diagnóstica está agendada! ✓'
+                : 'Your diagnostic call is scheduled! ✓'}
+            </h2>
           </div>
 
-          {/* Details */}
-          <div className="p-6 space-y-4">
-            {booking && (
-              <>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-[13px]">
-                    <span className="flex items-center gap-2" style={{ color: '#9CA3AF' }}>
-                      <Calendar className="h-3.5 w-3.5" />
-                      {isEs ? 'Fecha' : 'Date'}
-                    </span>
-                    <span className="font-semibold" style={{ color: '#111111' }}>
-                      {formatDate(booking.scheduledAt, lang)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[13px]">
-                    <span className="flex items-center gap-2" style={{ color: '#9CA3AF' }}>
-                      <Clock className="h-3.5 w-3.5" />
-                      {isEs ? 'Hora' : 'Time'}
-                    </span>
-                    <span className="font-semibold" style={{ color: '#111111' }}>
-                      {formatTime(booking.scheduledAt)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[13px]">
-                    <span style={{ color: '#9CA3AF' }}>{isEs ? 'Duración' : 'Duration'}</span>
-                    <span className="font-semibold" style={{ color: '#111111' }}>30 min</span>
-                  </div>
-                </div>
-
-                {countdown && (
-                  <div
-                    className="rounded-xl p-4 text-center"
-                    style={{ background: 'rgba(196,30,58,0.05)', border: '1px solid rgba(196,30,58,0.15)' }}
-                  >
-                    <p className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: '#C41E3A' }}>
-                      {isEs ? '¡Empieza en' : 'Starting in'}
-                    </p>
-                    <p className="text-[28px] font-black" style={{ color: '#C41E3A' }}>{countdown}</p>
-                  </div>
-                )}
-
-                <div
-                  className="rounded-xl p-4 text-[12px] leading-relaxed"
-                  style={{ background: '#F9F9F9', border: '1px solid #E5E7EB', color: '#6B7280' }}
-                >
-                  {isEs
-                    ? 'No necesitas preparar nada — solo conéctate a tiempo. Te asignaremos un maestro dentro de las 24 horas siguientes a tu llamada.'
-                    : 'No preparation needed — just show up on time. We\'ll assign your teacher within 24 hours after your call.'}
-                </div>
-              </>
-            )}
+          {/* Body */}
+          <div className="p-6 space-y-5">
+            <p className="text-[14px] leading-relaxed" style={{ color: '#374151' }}>
+              {isEs ? (
+                <>
+                  Tu sesión está programada para{' '}
+                  <strong>{date}</strong> a las <strong>{time}</strong>.{' '}
+                  Un miembro de nuestro equipo se unirá contigo en la plataforma
+                  para evaluar tu nivel de inglés en una sesión de 30 minutos.
+                  No necesitas preparar nada — solo conectarte a tiempo.
+                </>
+              ) : (
+                <>
+                  Your session is scheduled for{' '}
+                  <strong>{date}</strong> at <strong>{time}</strong>.{' '}
+                  A member of our team will join you on the platform
+                  to assess your English level in a 30-minute session.
+                  No preparation needed — just show up on time.
+                </>
+              )}
+            </p>
 
             <Link
               href={`/${lang}/dashboard`}

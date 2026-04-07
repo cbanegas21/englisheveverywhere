@@ -82,7 +82,7 @@ export async function bookPlacementCall(
       teacher_id: null,
       scheduled_at: scheduledAt,
       duration_minutes: 60,
-      status: 'confirmed',
+      status: 'pending',
       type: 'placement_test',
     })
     .select()

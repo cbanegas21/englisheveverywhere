@@ -69,8 +69,13 @@ export async function signUp(formData: FormData) {
       const confirmationUrl = linkData?.properties?.action_link
       if (confirmationUrl) {
         const resend = new Resend(process.env.RESEND_API_KEY)
+        const fromAddr = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+        const maskedKey = (process.env.RESEND_API_KEY || '').slice(0, 8) + '...'
+        console.log(`[signUp] Sending confirmation email — to: ${email}, from: ${fromAddr}, key: ${maskedKey}`)
+        // NOTE: onboarding@resend.dev (sandbox) only delivers to Resend account owner.
+        // For other recipients to receive email, verify a custom domain in Resend dashboard.
         const { error: resendError } = await resend.emails.send({
-          from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+          from: fromAddr,
           to: email,
           subject: 'Confirma tu cuenta — English Everywhere',
           html: `

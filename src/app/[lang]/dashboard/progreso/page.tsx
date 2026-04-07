@@ -29,8 +29,7 @@ export default async function ProgresoPage({ params }: Props) {
         currentPlan={null}
         surveyAnswers={null}
         placementTestDone={false}
-        placementScheduled={false}
-        placementBookingAt={null}
+        placementBooking={null}
         completedTotal={0}
         completedThisMonth={0}
         upcomingClasses={0}
@@ -49,10 +48,10 @@ export default async function ProgresoPage({ params }: Props) {
 
   const { data: placementBooking } = await supabase
     .from('bookings')
-    .select('scheduled_at')
+    .select('id, scheduled_at, status')
     .eq('student_id', studentId)
     .eq('type', 'placement_test')
-    .in('status', ['confirmed', 'pending'])
+    .neq('status', 'cancelled')
     .maybeSingle()
 
   const [
@@ -104,8 +103,7 @@ export default async function ProgresoPage({ params }: Props) {
       currentPlan={(student.current_plan as string) || null}
       surveyAnswers={(student.survey_answers as Record<string, unknown>) || null}
       placementTestDone={student.placement_test_done ?? false}
-      placementScheduled={student.placement_scheduled ?? false}
-      placementBookingAt={placementBooking?.scheduled_at || null}
+      placementBooking={(placementBooking as { id: string; scheduled_at: string; status: string } | null) || null}
       completedTotal={completedTotal || 0}
       completedThisMonth={completedThisMonth || 0}
       upcomingClasses={upcomingClasses || 0}

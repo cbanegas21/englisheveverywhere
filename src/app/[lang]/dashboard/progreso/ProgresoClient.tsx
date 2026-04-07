@@ -139,6 +139,12 @@ const t = {
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
+interface PlacementBooking {
+  id: string
+  scheduled_at: string
+  status: string
+}
+
 interface Props {
   lang: Locale
   level: string | null
@@ -146,8 +152,7 @@ interface Props {
   currentPlan: string | null
   surveyAnswers: Record<string, unknown> | null
   placementTestDone: boolean
-  placementScheduled: boolean
-  placementBookingAt: string | null
+  placementBooking: PlacementBooking | null
   completedTotal: number
   completedThisMonth: number
   upcomingClasses: number
@@ -173,7 +178,7 @@ function fmtTime(iso: string) {
 
 export default function ProgresoClient({
   lang, level, classesRemaining, currentPlan, surveyAnswers,
-  placementTestDone, placementScheduled, placementBookingAt,
+  placementTestDone, placementBooking,
   completedTotal, completedThisMonth, upcomingClasses, recentBookings,
 }: Props) {
   const tx = t[lang]
@@ -248,10 +253,13 @@ export default function ProgresoClient({
 
         {/* ── Placement status card ─────────────────────────── */}
         {(() => {
-          const placementDate = placementBookingAt
-            ? new Date(placementBookingAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-                weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+          const placementDate = placementBooking
+            ? new Date(placementBooking.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                weekday: 'long', month: 'long', day: 'numeric',
               })
+            : null
+          const placementTime = placementBooking
+            ? new Date(placementBooking.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : null
 
           if (placementTestDone) {
@@ -284,7 +292,7 @@ export default function ProgresoClient({
             )
           }
 
-          if (placementScheduled) {
+          if (placementBooking) {
             return (
               <div
                 className="rounded-xl p-4 flex items-center gap-4"
@@ -298,9 +306,11 @@ export default function ProgresoClient({
                 </div>
                 <div className="flex-1">
                   <p className="text-[13px] font-bold" style={{ color: '#1D4ED8' }}>{tx.placementScheduledTitle} ✓</p>
-                  {placementDate && (
+                  {placementDate && placementTime && (
                     <p className="text-[12px] mt-0.5" style={{ color: '#3B82F6' }}>
-                      {tx.placementScheduledSub(placementDate)}
+                      {lang === 'es'
+                        ? `Llamada diagnóstica agendada para el ${placementDate} a las ${placementTime}.`
+                        : `Diagnostic call scheduled for ${placementDate} at ${placementTime}.`}
                     </p>
                   )}
                 </div>

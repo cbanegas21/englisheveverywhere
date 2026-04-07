@@ -409,7 +409,12 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
                           <span>{hourLabel(hour)}</span>
                           <span className="text-[7px] font-normal opacity-70">{tx.available}</span>
                         </button>
-                      ) : null}
+                      ) : (
+                        <div
+                          className="w-full rounded"
+                          style={{ height: `${ROW_HEIGHT - 8}px`, background: '#F9FAFB' }}
+                        />
+                      )}
                     </div>
                   )
                 })}
