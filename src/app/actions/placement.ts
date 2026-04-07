@@ -58,20 +58,16 @@ export async function bookPlacementCall(
     }
   }
 
-  const coordinatorId = process.env.PLACEMENT_COORDINATOR_ID
-
-  const insertData: Record<string, unknown> = {
-    student_id: student.id,
-    scheduled_at: scheduledAt,
-    duration_minutes: 30,
-    status: 'confirmed',
-    type: 'placement_test',
-  }
-  if (coordinatorId) insertData.teacher_id = coordinatorId
-
   const { data: booking, error } = await supabase
     .from('bookings')
-    .insert(insertData)
+    .insert({
+      student_id: student.id,
+      teacher_id: null,
+      scheduled_at: scheduledAt,
+      duration_minutes: 30,
+      status: 'confirmed',
+      type: 'placement_test',
+    })
     .select()
     .single()
 

@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { PRICING_PLANS } from '@/lib/pricing'
 
 // Lazy-load Stripe to avoid issues when key is placeholder
 function getStripe() {
@@ -11,11 +12,20 @@ function getStripe() {
   return new Stripe(key, { apiVersion: '2025-01-27.acacia' })
 }
 
-const PLANS = {
-  starter: { name: 'Starter', price: 3900, classes: 4, priceId: process.env.STRIPE_PRICE_STARTER || '' },
-  estandar: { name: 'Estándar', price: 6900, classes: 8, priceId: process.env.STRIPE_PRICE_STANDARD || '' },
-  intensivo: { name: 'Intensivo', price: 11900, classes: 16, priceId: process.env.STRIPE_PRICE_INTENSIVE || '' },
+// Map plan key → Stripe price ID env var
+const STRIPE_PRICE_IDS: Record<string, string> = {
+  spark:  process.env.STRIPE_PRICE_SPARK  || '',
+  drive:  process.env.STRIPE_PRICE_DRIVE  || '',
+  ascent: process.env.STRIPE_PRICE_ASCENT || '',
+  peak:   process.env.STRIPE_PRICE_PEAK   || '',
 }
+
+const PLANS = Object.fromEntries(
+  PRICING_PLANS.map(p => [
+    p.key,
+    { name: p.nameEn, price: p.priceUsd * 100, classes: p.classes, priceId: STRIPE_PRICE_IDS[p.key] },
+  ])
+)
 
 export async function createCheckoutSession(planKey: string, lang: string = 'es') {
   const supabase = await createClient()
