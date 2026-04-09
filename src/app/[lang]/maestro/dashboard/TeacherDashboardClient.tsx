@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import {
-  DollarSign, Calendar, Star, Users, ArrowRight,
+  Calendar, Star, Users, ArrowRight,
   Video, ChevronRight, Clock, ToggleLeft, ToggleRight,
-  CheckCircle2
+  CheckCircle2, BarChart3
 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -19,7 +19,6 @@ const t = {
     activeToggle: 'Accepting students',
     inactiveToggle: 'Not accepting',
     stats: {
-      earnings: 'This month',
       sessions: 'Sessions this month',
       total: 'Total sessions',
       rating: 'Your rating',
@@ -35,17 +34,13 @@ const t = {
     actions: {
       availability: { title: 'Set availability', sub: 'Define your open time slots', href: '/maestro/dashboard/disponibilidad' },
       students: { title: 'My students', sub: 'View your active students', href: '/maestro/dashboard/estudiantes' },
-      earnings: { title: 'Earnings', sub: 'View your Stripe payouts', href: '/maestro/dashboard/ganancias' },
+      sessions: { title: 'Session history', sub: 'View completed sessions', href: '/maestro/dashboard/ganancias' },
     },
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
     today: 'Today',
     tomorrow: 'Tomorrow',
-    usd: 'USD',
     specs: 'Specializations',
-    rate: 'Your rate',
-    perHour: '/hr',
-    earn85: 'You keep 85%',
   },
   es: {
     greeting: 'Buenos días',
@@ -55,7 +50,6 @@ const t = {
     activeToggle: 'Aceptando estudiantes',
     inactiveToggle: 'No disponible',
     stats: {
-      earnings: 'Este mes',
       sessions: 'Sesiones este mes',
       total: 'Total de sesiones',
       rating: 'Tu calificación',
@@ -71,17 +65,13 @@ const t = {
     actions: {
       availability: { title: 'Disponibilidad', sub: 'Define tus horarios libres', href: '/maestro/dashboard/disponibilidad' },
       students: { title: 'Mis estudiantes', sub: 'Ver tus estudiantes activos', href: '/maestro/dashboard/estudiantes' },
-      earnings: { title: 'Ganancias', sub: 'Ver tus pagos de Stripe', href: '/maestro/dashboard/ganancias' },
+      sessions: { title: 'Historial de sesiones', sub: 'Ver clases completadas', href: '/maestro/dashboard/ganancias' },
     },
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
     today: 'Hoy',
     tomorrow: 'Mañana',
-    usd: 'USD',
     specs: 'Especializaciones',
-    rate: 'Tu tarifa',
-    perHour: '/hr',
-    earn85: 'Ganas el 85%',
   },
 }
 
@@ -125,10 +115,8 @@ interface Props {
   rating: number
   totalSessions: number
   isActive: boolean
-  hourlyRate: number
   specializations: string[]
   thisMonthSessions: number
-  thisMonthEarnings: number
   upcomingSessions: Session[]
 }
 
@@ -139,10 +127,8 @@ export default function TeacherDashboardClient({
   rating,
   totalSessions,
   isActive: initialActive,
-  hourlyRate,
   specializations,
   thisMonthSessions,
-  thisMonthEarnings,
   upcomingSessions,
 }: Props) {
   const tx = t[lang]
@@ -196,63 +182,43 @@ export default function TeacherDashboardClient({
 
       <div className="px-8 py-6 max-w-5xl mx-auto space-y-6">
 
-        {/* Rate + specializations info bar */}
-        <div
-          className="rounded-xl p-4 flex flex-wrap items-center gap-5"
-          style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-        >
-          <div>
+        {/* Specializations info bar */}
+        {specializations.length > 0 && (
+          <div
+            className="rounded-xl p-4 flex flex-wrap items-center gap-3"
+            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+          >
             <span
-              className="text-[11px] uppercase tracking-wider font-semibold block mb-0.5"
+              className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0"
               style={{ color: '#9CA3AF' }}
             >
-              {tx.rate}
+              {tx.specs}
             </span>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-[20px] font-black" style={{ color: '#111111' }}>${hourlyRate}</span>
-              <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.perHour}</span>
-            </div>
-            <span className="text-[11px] font-medium" style={{ color: '#16A34A' }}>{tx.earn85}</span>
-          </div>
-
-          {specializations.length > 0 && (
-            <>
-              <div className="w-px h-10 hidden sm:block" style={{ background: '#E5E7EB' }} />
-              <div>
+            <div className="flex flex-wrap gap-1.5">
+              {specializations.slice(0, 5).map(s => (
                 <span
-                  className="text-[11px] uppercase tracking-wider font-semibold block mb-1.5"
-                  style={{ color: '#9CA3AF' }}
+                  key={s}
+                  className="text-[11px] px-2.5 py-1 rounded font-medium"
+                  style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}
                 >
-                  {tx.specs}
+                  {s}
                 </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {specializations.slice(0, 5).map(s => (
-                    <span
-                      key={s}
-                      className="text-[11px] px-2.5 py-1 rounded font-medium"
-                      style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}
-                    >
-                      {s}
-                    </span>
-                  ))}
-                  {specializations.length > 5 && (
-                    <span
-                      className="text-[11px] px-2.5 py-1 rounded"
-                      style={{ background: '#F3F4F6', color: '#9CA3AF' }}
-                    >
-                      +{specializations.length - 5}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+              ))}
+              {specializations.length > 5 && (
+                <span
+                  className="text-[11px] px-2.5 py-1 rounded"
+                  style={{ background: '#F3F4F6', color: '#9CA3AF' }}
+                >
+                  +{specializations.length - 5}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { label: tx.stats.earnings, value: `$${thisMonthEarnings.toFixed(0)}`, icon: DollarSign, sub: tx.usd },
             { label: tx.stats.sessions, value: thisMonthSessions, icon: Video },
             { label: tx.stats.total, value: totalSessions, icon: CheckCircle2 },
             { label: tx.stats.rating, value: rating > 0 ? rating.toFixed(1) : '—', icon: Star, isRating: true },
@@ -379,7 +345,7 @@ export default function TeacherDashboardClient({
             {([
               { href: tx.actions.availability.href, icon: Clock, title: tx.actions.availability.title, sub: tx.actions.availability.sub },
               { href: tx.actions.students.href, icon: Users, title: tx.actions.students.title, sub: tx.actions.students.sub },
-              { href: tx.actions.earnings.href, icon: DollarSign, title: tx.actions.earnings.title, sub: tx.actions.earnings.sub },
+              { href: tx.actions.sessions.href, icon: BarChart3, title: tx.actions.sessions.title, sub: tx.actions.sessions.sub },
             ] as Array<{ href: string; icon: React.ElementType; title: string; sub: string }>).map(({ href, icon: Icon, title, sub }) => (
               <Link key={href} href={`/${lang}${href}`}>
                 <div

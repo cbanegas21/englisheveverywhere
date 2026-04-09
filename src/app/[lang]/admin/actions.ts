@@ -86,6 +86,19 @@ export async function assignAndConfirmBooking(bookingId: string, teacherId: stri
   revalidatePath('/', 'layout')
 }
 
+export async function setTeacherRate(teacherId: string, rate: number) {
+  await assertAdmin()
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from('teachers')
+    .update({ hourly_rate: rate })
+    .eq('id', teacherId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/', 'layout')
+}
+
 export async function cancelBooking(bookingId: string) {
   await assertAdmin()
   const admin = createAdminClient()

@@ -17,7 +17,7 @@ export default async function TeacherDashboardPage({ params }: Props) {
   // Fetch teacher data
   const { data: teacher } = await supabase
     .from('teachers')
-    .select('id, rating, total_sessions, hourly_rate, is_active, specializations')
+    .select('id, rating, total_sessions, is_active, specializations')
     .eq('profile_id', user.id)
     .single()
 
@@ -46,9 +46,6 @@ export default async function TeacherDashboardPage({ params }: Props) {
     .eq('status', 'completed')
     .gte('scheduled_at', startOfMonth.toISOString())
 
-  // Fetch this month's earnings (85% of sessions * rate)
-  const thisMonthEarnings = ((thisMonthCount || 0) * (teacher?.hourly_rate || 0) * 0.85)
-
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
 
   return (
@@ -59,10 +56,8 @@ export default async function TeacherDashboardPage({ params }: Props) {
       rating={teacher?.rating || 0}
       totalSessions={teacher?.total_sessions || 0}
       isActive={teacher?.is_active || false}
-      hourlyRate={teacher?.hourly_rate || 0}
       specializations={teacher?.specializations || []}
       thisMonthSessions={thisMonthCount || 0}
-      thisMonthEarnings={thisMonthEarnings}
       upcomingSessions={(upcomingSessions as any) || []}
     />
   )

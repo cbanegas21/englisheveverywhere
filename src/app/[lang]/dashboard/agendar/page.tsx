@@ -35,7 +35,22 @@ export default async function AgendarPage({ params }: Props) {
     redirect(`/${lang}/dashboard/intake`)
   }
 
-  // Fetch all active teachers with their availability slots
+  // Find assigned teacher from most recent confirmed class booking
+  const { data: assignedBooking } = await supabase
+    .from('bookings')
+    .select('teacher_id')
+    .eq('student_id', student.id)
+    .eq('type', 'class')
+    .in('status', ['confirmed', 'completed'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!assignedBooking?.teacher_id) {
+    redirect(`/${lang}/dashboard/maestros`)
+  }
+
+  // Fetch only the assigned teacher with their availability slots
   const { data: teachersRaw } = await supabase
     .from('teachers')
     .select(`
@@ -48,8 +63,8 @@ export default async function AgendarPage({ params }: Props) {
       profile:profiles(full_name, avatar_url),
       slots:availability_slots(id, day_of_week, start_time, end_time)
     `)
+    .eq('id', assignedBooking.teacher_id)
     .eq('is_active', true)
-    .order('rating', { ascending: false })
 
   // Only include teachers who have availability slots
   const teachers = (teachersRaw || []).filter((t: any) => (t.slots || []).length > 0)

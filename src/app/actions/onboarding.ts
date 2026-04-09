@@ -37,7 +37,7 @@ export async function completeTeacherOnboarding(data: {
   preferredLanguage: 'es' | 'en'
   bio: string
   specializations: string[]
-  hourlyRate: number
+  certifications?: string[]
 }): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -56,7 +56,8 @@ export async function completeTeacherOnboarding(data: {
       profile_id: data.userId,
       bio: data.bio,
       specializations: data.specializations,
-      hourly_rate: data.hourlyRate,
+      certifications: data.certifications || [],
+      hourly_rate: 0,
       is_active: false,
     }, { onConflict: 'profile_id' })
 

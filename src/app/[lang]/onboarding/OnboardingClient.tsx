@@ -45,16 +45,17 @@ const t = {
     },
     step2Teacher: {
       headline: 'What do you specialise in?',
-      sub: 'Select all that apply. Students will see this on your profile.',
+      sub: 'Select all that apply.',
       next: 'Continue',
     },
     step3Teacher: {
-      headline: 'Tell students about yourself',
-      sub: 'Write a short bio. This is the first thing students read on your profile.',
+      headline: 'Tell us about yourself',
+      sub: 'Write a short bio. Our team uses this to match you with the right students.',
       bioLabel: 'About you',
       bioPlaceholder: 'I am a certified TESOL teacher with 5 years of experience helping Latin American professionals achieve their language goals...',
-      rateLabel: 'Hourly rate (USD)',
-      ratePlaceholder: '20',
+      certLabel: 'Certifications (optional)',
+      certPlaceholder: 'TESOL, CELTA, IELTS Examiner…',
+      certHint: 'Separate with commas',
       next: 'Complete setup',
     },
     finishing: 'Setting up your account…',
@@ -89,16 +90,17 @@ const t = {
     },
     step2Teacher: {
       headline: '¿En qué te especializas?',
-      sub: 'Selecciona todas las que apliquen. Los estudiantes verán esto en tu perfil.',
+      sub: 'Selecciona todas las que apliquen.',
       next: 'Continuar',
     },
     step3Teacher: {
-      headline: 'Cuéntales a los estudiantes sobre ti',
-      sub: 'Escribe una bio corta. Es lo primero que los estudiantes leen en tu perfil.',
+      headline: 'Cuéntanos sobre ti',
+      sub: 'Escribe una bio corta. Nuestro equipo la usa para emparejarte con los estudiantes correctos.',
       bioLabel: 'Sobre ti',
       bioPlaceholder: 'Soy maestro certificado TESOL con 5 años de experiencia ayudando a profesionales latinoamericanos...',
-      rateLabel: 'Tarifa por hora (USD)',
-      ratePlaceholder: '20',
+      certLabel: 'Certificaciones (opcional)',
+      certPlaceholder: 'TESOL, CELTA, Examinador IELTS…',
+      certHint: 'Separa con comas',
       next: 'Completar configuración',
     },
     finishing: 'Configurando tu cuenta…',
@@ -143,7 +145,7 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
   const [level, setLevel] = useState<Level | null>(null)
   const [specs, setSpecs] = useState<string[]>([])
   const [bio, setBio] = useState('')
-  const [rate, setRate] = useState('20')
+  const [certifications, setCertifications] = useState('')
   const [finishError, setFinishError] = useState<string | null>(null)
 
   const isTeacher = role === 'teacher'
@@ -159,7 +161,7 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
       if (role === 'student') {
         result = await completeStudentOnboarding({ userId, timezone, preferredLanguage: preferredLang })
       } else {
-        result = await completeTeacherOnboarding({ userId, timezone, preferredLanguage: preferredLang, bio, specializations: specs, hourlyRate: parseFloat(rate) || 20 })
+        result = await completeTeacherOnboarding({ userId, timezone, preferredLanguage: preferredLang, bio, specializations: specs, certifications: certifications.trim() ? certifications.split(',').map(s => s.trim()).filter(Boolean) : [] })
       }
       if (result.error) {
         setFinishError(result.error)
@@ -462,7 +464,7 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
               </motion.div>
             )}
 
-            {/* Step 3 — Teacher: Bio + rate */}
+            {/* Step 3 — Teacher: Bio + certifications */}
             {!done && step === 3 && isTeacher && (
               <motion.div
                 key="step3teacher"
@@ -493,26 +495,22 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
                   </div>
 
                   <div>
-                    <label className="block text-[12px] font-semibold mb-2" style={{ color: '#4B5563' }}>{tx.step3Teacher.rateLabel}</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] font-semibold" style={{ color: '#9CA3AF' }}>$</span>
-                      <input
-                        type="number"
-                        value={rate}
-                        onChange={(e) => setRate(e.target.value)}
-                        min="5"
-                        max="200"
-                        placeholder={tx.step3Teacher.ratePlaceholder}
-                        className="w-full rounded pl-8 pr-4 py-3 text-[14px] outline-none transition-all"
-                        style={{
-                          border: '1px solid #E5E7EB',
-                          color: '#111111',
-                          background: '#fff',
-                        }}
-                        onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                        onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                      />
-                    </div>
+                    <label className="block text-[12px] font-semibold mb-1" style={{ color: '#4B5563' }}>{tx.step3Teacher.certLabel}</label>
+                    <p className="text-[11px] mb-2" style={{ color: '#9CA3AF' }}>{tx.step3Teacher.certHint}</p>
+                    <input
+                      type="text"
+                      value={certifications}
+                      onChange={(e) => setCertifications(e.target.value)}
+                      placeholder={tx.step3Teacher.certPlaceholder}
+                      className="w-full rounded px-4 py-3 text-[14px] outline-none transition-all"
+                      style={{
+                        border: '1px solid #E5E7EB',
+                        color: '#111111',
+                        background: '#fff',
+                      }}
+                      onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
+                      onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                    />
                   </div>
                 </div>
 

@@ -14,7 +14,7 @@ const t = {
     timeline: 'Typical review time: 24–48 hours',
     whatNext: 'What happens next?',
     steps: [
-      'Our team reviews your bio, specializations, and rate',
+      'Our team reviews your bio, specializations, and certifications',
       'You receive an activation email',
       'You gain full access to your teacher dashboard',
     ],
@@ -30,7 +30,7 @@ const t = {
     timeline: 'Tiempo de revisión típico: 24–48 horas',
     whatNext: '¿Qué sigue?',
     steps: [
-      'Nuestro equipo revisa tu bio, especializaciones y tarifa',
+      'Nuestro equipo revisa tu bio, especializaciones y certificaciones',
       'Recibes un correo de activación',
       'Obtienes acceso completo a tu dashboard de maestro',
     ],

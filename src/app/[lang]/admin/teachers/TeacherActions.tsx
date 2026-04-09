@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { CheckCircle, XCircle, ToggleLeft, ToggleRight } from 'lucide-react'
-import { approveTeacher, rejectTeacher, toggleTeacherActive } from '../actions'
+import { approveTeacher, rejectTeacher, toggleTeacherActive, setTeacherRate } from '../actions'
 
 // ── Approve / Reject (for pending applications) ───────────────────────────────
 
@@ -82,6 +82,67 @@ export function ApproveRejectButtons({
         <XCircle className="h-3.5 w-3.5" />
         Reject
       </button>
+    </div>
+  )
+}
+
+// ── Rate editor (for active teachers) ────────────────────────────────────────
+
+export function RateEditor({
+  teacherId,
+  initialRate,
+}: {
+  teacherId: string
+  initialRate: number
+}) {
+  const [isPending, startTransition] = useTransition()
+  const [rate, setRate] = useState(String(initialRate || 0))
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  function handleSave() {
+    const parsed = parseFloat(rate)
+    if (isNaN(parsed) || parsed < 0) { setError('Invalid'); return }
+    setError('')
+    setSaved(false)
+    startTransition(async () => {
+      try {
+        await setTeacherRate(teacherId, parsed)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } catch (e: any) {
+        setError(e.message)
+      }
+    })
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative">
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[12px]" style={{ color: '#9CA3AF' }}>$</span>
+        <input
+          type="number"
+          value={rate}
+          onChange={e => { setRate(e.target.value); setSaved(false) }}
+          min="0"
+          className="w-20 rounded pl-5 pr-2 py-1 text-[12px] outline-none"
+          style={{ border: '1px solid #E5E7EB', color: '#111111' }}
+          onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
+          onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+        />
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={isPending}
+        className="px-2 py-1 rounded text-[11px] font-semibold transition-all disabled:opacity-50"
+        style={{
+          background: saved ? 'rgba(5,150,105,0.1)' : 'rgba(196,30,58,0.08)',
+          color: saved ? '#059669' : '#C41E3A',
+        }}
+      >
+        {isPending ? '…' : saved ? '✓' : 'Save'}
+      </button>
+      {error && <span className="text-[11px]" style={{ color: '#DC2626' }}>{error}</span>}
     </div>
   )
 }

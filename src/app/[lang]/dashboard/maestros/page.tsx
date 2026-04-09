@@ -70,8 +70,6 @@ export default async function MiMaestroPage({ params }: Props) {
             id,
             bio,
             specializations,
-            rating,
-            total_sessions,
             profile:profiles(full_name, avatar_url)
           )
         `)
@@ -183,18 +181,6 @@ export default async function MiMaestroPage({ params }: Props) {
                     <h2 className="text-[18px] font-black mb-1" style={{ color: '#111111' }}>
                       {teacher.profile?.full_name || 'Your Teacher'}
                     </h2>
-                    <div className="flex items-center gap-4 flex-wrap">
-                      {teacher.rating && (
-                        <span className="text-[13px]" style={{ color: '#4B5563' }}>
-                          ★ {teacher.rating.toFixed(1)} {tx.rating}
-                        </span>
-                      )}
-                      {teacher.total_sessions > 0 && (
-                        <span className="text-[13px]" style={{ color: '#9CA3AF' }}>
-                          {teacher.total_sessions} {tx.sessions}
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
 
@@ -223,15 +209,6 @@ export default async function MiMaestroPage({ params }: Props) {
                   </div>
                 )}
 
-                <Link
-                  href={`/${lang}/dashboard/maestros/${teacher.id}`}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[13px] transition-all"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-                >
-                  {tx.viewProfile} →
-                </Link>
               </div>
             </div>
           ) : (

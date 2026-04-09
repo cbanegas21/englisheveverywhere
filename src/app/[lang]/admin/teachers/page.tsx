@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Star } from 'lucide-react'
-import { ApproveRejectButtons, ActiveToggle } from './TeacherActions'
+import { ApproveRejectButtons, ActiveToggle, RateEditor } from './TeacherActions'
 
 interface Props { params: Promise<{ lang: string }> }
 
@@ -184,8 +184,8 @@ export default async function AdminTeachersPage({ params }: Props) {
                       )}
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-[13px] font-medium" style={{ color: '#111111' }}>
-                    ${t.hourly_rate}/hr
+                  <td className="px-5 py-3.5">
+                    <RateEditor teacherId={t.id} initialRate={t.hourly_rate || 0} />
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1">
