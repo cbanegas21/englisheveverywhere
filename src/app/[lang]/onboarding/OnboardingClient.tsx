@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Globe, Clock, Check } from 'lucide-react'
 import { completeStudentOnboarding, completeTeacherOnboarding } from '@/app/actions/onboarding'
 import type { Locale } from '@/lib/i18n/translations'
+import TimezoneSelect from '@/components/TimezoneSelect'
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
 type Level = (typeof LEVELS)[number]
@@ -24,16 +25,6 @@ const TEACHER_SPECS = {
   es: ['Inglés General', 'Inglés de Negocios', 'IELTS / TOEFL', 'Pronunciación', 'Conversación', 'Niños y Adolescentes', 'Gramática'],
 }
 
-const TIMEZONES = [
-  { label: 'México (CDT)', value: 'America/Mexico_City' },
-  { label: 'Colombia / Ecuador / Perú (COT)', value: 'America/Bogota' },
-  { label: 'Argentina / Chile (ART)', value: 'America/Argentina/Buenos_Aires' },
-  { label: 'Venezuela (VET)', value: 'America/Caracas' },
-  { label: 'Brasil (BRT)', value: 'America/Sao_Paulo' },
-  { label: 'Uruguay (UYT)', value: 'America/Montevideo' },
-  { label: 'Bolivia (BOT)', value: 'America/La_Paz' },
-  { label: 'Panama (EST)', value: 'America/Panama' },
-]
 
 const t = {
   en: {
@@ -271,22 +262,12 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
                       <Clock className="h-3.5 w-3.5" />
                       {tx.step1.timezone}
                     </label>
-                    <select
+                    <TimezoneSelect
                       value={timezone}
-                      onChange={(e) => setTimezone(e.target.value)}
-                      className="w-full rounded px-4 py-3 text-[14px] outline-none transition-all"
-                      style={{
-                        border: '1px solid #E5E7EB',
-                        color: '#111111',
-                        background: '#fff',
-                      }}
-                      onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                      onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                    >
-                      {TIMEZONES.map((tz) => (
-                        <option key={tz.value} value={tz.value}>{tz.label}</option>
-                      ))}
-                    </select>
+                      onChange={setTimezone}
+                      lang={lang}
+                      inputStyle={{ padding: '10px 16px', fontSize: '14px', borderRadius: '6px' }}
+                    />
                   </div>
 
                   {/* Language */}

@@ -63,7 +63,7 @@ export default async function MiMaestroPage({ params }: Props) {
 
     let teacher = null
     if (level && studentId) {
-      const { data: booking } = await supabase
+      const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .select(`
           teacher:teachers(
@@ -81,7 +81,11 @@ export default async function MiMaestroPage({ params }: Props) {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      teacher = (booking?.teacher as any) || null
+      if (bookingError) {
+        console.error('[maestros] Teacher lookup error:', bookingError.code, bookingError.message)
+      } else {
+        teacher = (booking?.teacher as any) || null
+      }
     }
 
     function getInitials(name?: string) {

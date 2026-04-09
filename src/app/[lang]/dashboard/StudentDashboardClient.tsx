@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import {
   Calendar, ArrowRight, Star, Clock, BookOpen, TrendingUp,
-  Video, ChevronRight, AlertCircle, CheckCircle2
+  Video, ChevronRight, AlertCircle, CheckCircle2, Sparkles
 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -28,15 +28,15 @@ const t = {
     mins: 'min',
     viewAll: 'View all',
     quickActions: 'Quick actions',
-    actions: {
-      book: { title: 'Schedule a class', sub: 'Pick a time with your teacher', href: '/dashboard/agendar' },
-      test: { title: 'Placement test', sub: 'Find your exact level', href: '/dashboard/placement' },
-      progress: { title: 'My progress', sub: 'Track your improvement', href: '/dashboard/progreso' },
-    },
     placementBanner: {
       title: 'Schedule your free evaluation call',
       sub: "Not sure what your level is? Let us figure it out together — free, no pressure, no judgment.",
       cta: 'Get started',
+    },
+    placementScheduledBanner: {
+      title: '✓ Your diagnostic call is scheduled',
+      sub: 'View your session details',
+      cta: 'View',
     },
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
@@ -44,6 +44,14 @@ const t = {
     tomorrow: 'Tomorrow',
     upgrade: 'Get more classes',
     noClassesBanner: "You've used all your classes. Get a new pack to keep learning.",
+    firstPlanBanner: 'Get your first plan to start learning',
+    firstPlanCta: 'See plans',
+    actions: {
+      book: { title: 'Schedule a class', sub: 'Pick a time with your teacher', href: '/dashboard/agendar' },
+      test: { title: 'Placement test', sub: 'Find your exact level', href: '/dashboard/placement' },
+      testScheduled: { title: 'View diagnostic call', sub: 'See your scheduled session', href: '/dashboard/placement' },
+      progress: { title: 'My progress', sub: 'Track your improvement', href: '/dashboard/progreso' },
+    },
   },
   es: {
     greeting: 'Buenos días',
@@ -65,15 +73,15 @@ const t = {
     mins: 'min',
     viewAll: 'Ver todas',
     quickActions: 'Acciones rápidas',
-    actions: {
-      book: { title: 'Agendar clase', sub: 'Elige tu horario', href: '/dashboard/agendar' },
-      test: { title: 'Placement test', sub: 'Encuentra tu nivel exacto', href: '/dashboard/placement' },
-      progress: { title: 'Mi progreso', sub: 'Sigue tu mejora', href: '/dashboard/progreso' },
-    },
     placementBanner: {
       title: 'Agenda tu llamada de diagnóstico gratuita',
       sub: '¿No sabes cuál es tu nivel? Lo descubrimos juntos — gratis, sin presión, sin juicios.',
       cta: 'Comenzar',
+    },
+    placementScheduledBanner: {
+      title: '✓ Tu llamada diagnóstica está agendada',
+      sub: 'Ver detalles de tu sesión',
+      cta: 'Ver',
     },
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
@@ -81,6 +89,14 @@ const t = {
     tomorrow: 'Mañana',
     upgrade: 'Obtener más clases',
     noClassesBanner: 'Usaste todas tus clases. Obtén un nuevo pack para seguir aprendiendo.',
+    firstPlanBanner: 'Adquiere tu primer plan para comenzar a aprender',
+    firstPlanCta: 'Ver planes',
+    actions: {
+      book: { title: 'Agendar clase', sub: 'Elige tu horario', href: '/dashboard/agendar' },
+      test: { title: 'Placement test', sub: 'Encuentra tu nivel exacto', href: '/dashboard/placement' },
+      testScheduled: { title: 'Ver llamada diagnóstica', sub: 'Ver tu sesión agendada', href: '/dashboard/placement' },
+      progress: { title: 'Mi progreso', sub: 'Sigue tu mejora', href: '/dashboard/progreso' },
+    },
   },
 }
 
@@ -134,7 +150,9 @@ interface Props {
   timezone: string
   level: string | null
   classesRemaining: number
+  currentPlan: string | null
   placementTestDone: boolean
+  placementScheduled: boolean
   completedSessions: number
   upcomingBookings: Booking[]
 }
@@ -145,7 +163,9 @@ export default function StudentDashboardClient({
   timezone,
   level,
   classesRemaining,
+  currentPlan,
   placementTestDone,
+  placementScheduled,
   completedSessions,
   upcomingBookings,
 }: Props) {
@@ -165,8 +185,8 @@ export default function StudentDashboardClient({
 
       <div className="px-8 py-6 max-w-5xl mx-auto space-y-6">
 
-        {/* Placement test banner */}
-        {!placementTestDone && (
+        {/* Placement banner — 3 states */}
+        {!placementTestDone && !placementScheduled && (
           <div
             className="rounded-xl p-4 flex items-center gap-4"
             style={{ background: '#fff', border: '1px solid #E5E7EB' }}
@@ -193,9 +213,59 @@ export default function StudentDashboardClient({
             </Link>
           </div>
         )}
+        {!placementTestDone && placementScheduled && (
+          <div
+            className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: '#fff', border: '1px solid #86EFAC' }}
+          >
+            <div
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+              style={{ background: '#F0FDF4' }}
+            >
+              <CheckCircle2 className="h-5 w-5" style={{ color: '#16A34A' }} />
+            </div>
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.placementScheduledBanner.title}</div>
+              <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.placementScheduledBanner.sub}</div>
+            </div>
+            <Link
+              href={`/${lang}/dashboard/placement`}
+              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
+              style={{ background: '#16A34A', color: '#fff' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#15803D')}
+              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#16A34A')}
+            >
+              {tx.placementScheduledBanner.cta}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        )}
 
-        {/* No classes banner */}
-        {classesRemaining === 0 && (
+        {/* No classes banner — fresh account vs used up */}
+        {classesRemaining === 0 && !currentPlan && completedSessions === 0 && (
+          <div
+            className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+          >
+            <div
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+              style={{ background: '#F3F4F6' }}
+            >
+              <Sparkles className="h-5 w-5" style={{ color: '#9CA3AF' }} />
+            </div>
+            <p className="flex-1 text-[13px]" style={{ color: '#4B5563' }}>{tx.firstPlanBanner}</p>
+            <Link
+              href={`/${lang}/dashboard/plan`}
+              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
+              style={{ background: '#C41E3A', color: '#fff' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
+              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+            >
+              {tx.firstPlanCta}
+            </Link>
+          </div>
+        )}
+        {classesRemaining === 0 && (currentPlan !== null || completedSessions > 0) && (
           <div
             className="rounded-xl p-4 flex items-center gap-4"
             style={{ background: '#fff', border: '1px solid #FCA5A5' }}
@@ -381,7 +451,15 @@ export default function StudentDashboardClient({
             <h2 className="text-[14px] font-bold mb-1" style={{ color: '#111111' }}>{tx.quickActions}</h2>
             {([
               { href: tx.actions.book.href, icon: Video, title: tx.actions.book.title, sub: tx.actions.book.sub },
-              { href: tx.actions.test.href, icon: Star, title: tx.actions.test.title, sub: tx.actions.test.sub },
+              ...(placementTestDone
+                ? []
+                : [{
+                    href: placementScheduled ? tx.actions.testScheduled.href : tx.actions.test.href,
+                    icon: Star,
+                    title: placementScheduled ? tx.actions.testScheduled.title : tx.actions.test.title,
+                    sub: placementScheduled ? tx.actions.testScheduled.sub : tx.actions.test.sub,
+                  }]
+              ),
               { href: tx.actions.progress.href, icon: TrendingUp, title: tx.actions.progress.title, sub: tx.actions.progress.sub },
             ] as Array<{ href: string; icon: React.ElementType; title: string; sub: string }>).map(({ href, icon: Icon, title, sub }) => (
               <Link key={title} href={`/${lang}${href}`}>

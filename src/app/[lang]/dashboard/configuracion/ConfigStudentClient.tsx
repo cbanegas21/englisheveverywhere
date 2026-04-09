@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import Link from 'next/link'
-import { User, Mail, Clock, Lock, CheckCircle2, ChevronDown } from 'lucide-react'
+import { User, Mail, Clock, Lock, CheckCircle2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { updateStudentProfile } from '@/app/actions/profile'
+import TimezoneSelect from '@/components/TimezoneSelect'
 
 const t = {
   en: {
@@ -55,87 +55,9 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
   const tx = t[lang]
   const [name, setName] = useState(fullName)
   const [selectedTz, setSelectedTz] = useState(timezone)
-  const [tzSearch, setTzSearch] = useState('')
-  const [tzOpen, setTzOpen] = useState(false)
-  const [now, setNow] = useState(new Date())
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
-  const [mounted, setMounted] = useState(false)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  const portalRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => { setMounted(true) }, [])
-
-  useEffect(() => {
-    if (!tzOpen) return
-    function handleClick(e: MouseEvent) {
-      const target = e.target as Node
-      if (buttonRef.current?.contains(target) || portalRef.current?.contains(target)) return
-      setTzOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [tzOpen])
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(id)
-  }, [])
-
-  const allTimezones = useMemo(() => {
-    try {
-      return Intl.supportedValuesOf('timeZone') as string[]
-    } catch {
-      return ['America/Bogota', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'America/Mexico_City', 'America/Tegucigalpa', 'Europe/Madrid', 'UTC']
-    }
-  }, [])
-
-  function formatTzOption(tz: string) {
-    try {
-      const offsetParts = new Intl.DateTimeFormat('en-US', {
-        timeZone: tz,
-        timeZoneName: 'shortOffset',
-      }).formatToParts(now)
-      const offset = offsetParts.find(p => p.type === 'timeZoneName')?.value || ''
-      const segments = tz.split('/')
-      const city = segments[segments.length - 1].replace(/_/g, ' ')
-      const time = new Intl.DateTimeFormat('en-US', {
-        timeZone: tz,
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      }).format(now)
-      return `${offset} • ${city} • ${time}`
-    } catch {
-      return tz
-    }
-  }
-
-  const filteredTzs = useMemo(() => {
-    if (!tzSearch) return allTimezones
-    const q = tzSearch.toLowerCase()
-    return allTimezones.filter(tz =>
-      tz.toLowerCase().includes(q) ||
-      formatTzOption(tz).toLowerCase().includes(q)
-    )
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allTimezones, tzSearch, now])
-
-  function getLocalTime(tz: string) {
-    try {
-      return new Intl.DateTimeFormat('en-US', {
-        timeZone: tz,
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        weekday: 'short',
-      }).format(now)
-    } catch {
-      return ''
-    }
-  }
 
   async function handleSave() {
     setSaving(true)
@@ -219,98 +141,7 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
                   {tx.timezone}
                 </span>
               </label>
-              <div className="relative">
-                <button
-                  ref={buttonRef}
-                  type="button"
-                  onClick={() => {
-                    if (tzOpen) {
-                      setTzOpen(false)
-                    } else {
-                      if (buttonRef.current) {
-                        const rect = buttonRef.current.getBoundingClientRect()
-                        setDropdownPos({
-                          top: rect.bottom + window.scrollY + 4,
-                          left: rect.left + window.scrollX,
-                          width: rect.width,
-                        })
-                      }
-                      setTzOpen(true)
-                      setTzSearch('')
-                    }
-                  }}
-                  className="w-full flex items-center justify-between"
-                  style={{ ...inputStyle, cursor: 'pointer', textAlign: 'left' as const }}
-                  onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                  onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                >
-                  <span className="truncate">{selectedTz ? formatTzOption(selectedTz) : '—'}</span>
-                  <ChevronDown
-                    className="h-4 w-4 flex-shrink-0 ml-2 transition-transform"
-                    style={{ color: '#9CA3AF', transform: tzOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                  />
-                </button>
-                {mounted && tzOpen && dropdownPos && createPortal(
-                  <div
-                    ref={portalRef}
-                    style={{
-                      position: 'absolute',
-                      top: dropdownPos.top,
-                      left: dropdownPos.left,
-                      width: dropdownPos.width,
-                      zIndex: 9999,
-                      background: '#fff',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '4px',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                      maxHeight: '260px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <input
-                      type="text"
-                      value={tzSearch}
-                      onChange={e => setTzSearch(e.target.value)}
-                      placeholder={tx.tzSearch}
-                      className="block w-full px-3 py-2 text-[12px]"
-                      style={{ outline: 'none', borderBottom: '1px solid #E5E7EB', color: '#111111', flexShrink: 0 }}
-                      autoFocus
-                    />
-                    <div className="overflow-y-auto flex-1">
-                      {filteredTzs.slice(0, 150).map(tz => (
-                        <button
-                          key={tz}
-                          type="button"
-                          onClick={() => { setSelectedTz(tz); setTzOpen(false); setTzSearch('') }}
-                          className="w-full text-left px-3 py-2 text-[12px] transition-colors"
-                          style={{
-                            background: tz === selectedTz ? 'rgba(196,30,58,0.06)' : 'transparent',
-                            color: tz === selectedTz ? '#C41E3A' : '#111111',
-                          }}
-                          onMouseEnter={e => { if (tz !== selectedTz) e.currentTarget.style.background = '#F9FAFB' }}
-                          onMouseLeave={e => { if (tz !== selectedTz) e.currentTarget.style.background = 'transparent' }}
-                        >
-                          {formatTzOption(tz)}
-                        </button>
-                      ))}
-                      {filteredTzs.length === 0 && (
-                        <div className="p-3 text-[12px]" style={{ color: '#9CA3AF' }}>
-                          {tx.tzNoResults}
-                        </div>
-                      )}
-                    </div>
-                  </div>,
-                  document.body
-                )}
-              </div>
-              {selectedTz && (
-                <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: '#9CA3AF' }}>
-                  <Clock className="h-3 w-3" />
-                  {tx.tzLocalTime} {getLocalTime(selectedTz)}
-                </p>
-              )}
+              <TimezoneSelect value={selectedTz} onChange={setSelectedTz} lang={lang} />
             </div>
           </div>
         </div>

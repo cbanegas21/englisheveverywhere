@@ -7,22 +7,28 @@ import type { Locale } from '@/lib/i18n/translations'
 interface Props {
   lang: Locale
   scheduledAt: string | null
+  timezone: string
 }
 
-function formatDate(iso: string, lang: Locale) {
+function formatDate(iso: string, lang: Locale, timezone: string) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
+    timeZone: timezone || 'America/Tegucigalpa',
   })
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatTime(iso: string, timezone: string) {
+  return new Date(iso).toLocaleTimeString('en-US', {
+    timeZone: timezone || 'America/Tegucigalpa',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-export default function PlacementScheduledScreen({ lang, scheduledAt }: Props) {
+export default function PlacementScheduledScreen({ lang, scheduledAt, timezone }: Props) {
   const isEs = lang === 'es'
-  const date = scheduledAt ? formatDate(scheduledAt, lang) : null
-  const time = scheduledAt ? formatTime(scheduledAt) : null
+  const date = scheduledAt ? formatDate(scheduledAt, lang, timezone) : null
+  const time = scheduledAt ? formatTime(scheduledAt, timezone) : null
 
   return (
     <div className="min-h-full" style={{ background: '#F9F9F9' }}>

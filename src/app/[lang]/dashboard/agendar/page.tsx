@@ -14,7 +14,7 @@ export default async function AgendarPage({ params }: Props) {
 
   const { data: student } = await supabase
     .from('students')
-    .select('id, classes_remaining, intake_done')
+    .select('id, classes_remaining, intake_done, placement_test_done')
     .eq('profile_id', user.id)
     .single()
 
@@ -23,6 +23,11 @@ export default async function AgendarPage({ params }: Props) {
   // No classes → buy first
   if ((student.classes_remaining || 0) <= 0) {
     redirect(`/${lang}/dashboard/plan`)
+  }
+
+  // Placement call not yet completed → finish diagnostic first
+  if (!student.placement_test_done) {
+    redirect(`/${lang}/dashboard/placement`)
   }
 
   // Intake not done → complete profile first

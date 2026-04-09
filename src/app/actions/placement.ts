@@ -104,9 +104,7 @@ export async function bookPlacementCall(
     lang,
   })
 
-  revalidatePath(`/${lang}/dashboard`)
-  revalidatePath(`/${lang}/dashboard/placement`)
-  revalidatePath(`/${lang}/dashboard/maestros`)
+  revalidatePath('/', 'layout')
   return { success: true, bookingId: booking.id }
 }
 

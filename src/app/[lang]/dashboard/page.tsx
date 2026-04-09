@@ -17,7 +17,7 @@ export default async function StudentDashboardPage({ params }: Props) {
   // Fetch student data
   const { data: student } = await supabase
     .from('students')
-    .select('id, level, classes_remaining, placement_test_done, current_plan')
+    .select('id, level, classes_remaining, placement_test_done, placement_scheduled, current_plan')
     .eq('profile_id', user.id)
     .single()
 
@@ -59,7 +59,9 @@ export default async function StudentDashboardPage({ params }: Props) {
       timezone={timezone}
       level={student?.level || null}
       classesRemaining={student?.classes_remaining || 0}
+      currentPlan={(student?.current_plan as string) || null}
       placementTestDone={student?.placement_test_done || false}
+      placementScheduled={student?.placement_scheduled || false}
       completedSessions={completedCount || 0}
       upcomingBookings={(upcomingBookings as any) || []}
     />

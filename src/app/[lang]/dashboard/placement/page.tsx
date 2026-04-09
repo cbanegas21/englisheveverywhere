@@ -32,12 +32,15 @@ export default async function PlacementPage({ params }: Props) {
     .neq('status', 'cancelled')
     .maybeSingle()
 
+  const timezone = (user.user_metadata?.timezone as string) || 'America/Tegucigalpa'
+
   // Call booked or already completed — show status screen, never auto-redirect
   if (student.placement_scheduled || student.placement_test_done) {
     return (
       <PlacementScheduledScreen
         lang={lang as Locale}
         scheduledAt={existingBooking?.scheduled_at || null}
+        timezone={timezone}
       />
     )
   }

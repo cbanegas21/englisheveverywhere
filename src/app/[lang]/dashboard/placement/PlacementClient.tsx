@@ -109,27 +109,24 @@ interface BusinessDay {
   slots: string[] // ISO UTC strings
 }
 
-function generateBusinessDays(count = 7): BusinessDay[] {
+function generateBusinessDays(count = 14): BusinessDay[] {
   const days: BusinessDay[] = []
   const nowMs = Date.now()
   const minMs = nowMs + 24 * 60 * 60 * 1000 // 24h notice
 
   let offset = 1
-  while (days.length < count && offset <= 30) {
+  while (days.length < count && offset <= 45) {
     // Get date in Honduras timezone (CST = UTC-6)
     const targetMs = nowMs + offset * 86400000
     const hnMs = targetMs - 6 * 3600000 // UTC-6: subtract 6h to get HN time
     const hn = new Date(hnMs)
-
-    const dow = hn.getUTCDay()
-    if (dow === 0 || dow === 6) { offset++; continue } // skip weekends
 
     const yr = hn.getUTCFullYear()
     const mo = hn.getUTCMonth()
     const dy = hn.getUTCDate()
 
     const slots: string[] = []
-    for (let h = 6; h <= 20; h++) {
+    for (let h = 6; h <= 22; h++) {
       // h AM HN = (h + 6) UTC
       const slotMs = Date.UTC(yr, mo, dy, h + 6, 0, 0)
       if (slotMs > minMs) slots.push(new Date(slotMs).toISOString())

@@ -41,9 +41,7 @@ export async function simulatePurchase(planKey: string, lang: string) {
 
   if (updateErr) return { error: updateErr.message }
 
-  revalidatePath(`/${lang}/dashboard`)
-  revalidatePath(`/${lang}/dashboard/plan`)
-  revalidatePath(`/${lang}/dashboard/agendar`)
+  revalidatePath('/', 'layout')
 
   return {
     success: true,

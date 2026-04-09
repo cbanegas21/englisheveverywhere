@@ -111,6 +111,7 @@ export async function createBooking(formData: FormData) {
       scheduled_at: scheduledAt,
       duration_minutes: durationMinutes,
       status: 'pending',
+      type: 'class',
     })
     .select()
     .single()
@@ -142,10 +143,7 @@ export async function createBooking(formData: FormData) {
     lang,
   })
 
-  revalidatePath(`/${lang}/dashboard`)
-  revalidatePath(`/${lang}/dashboard/clases`)
-  revalidatePath(`/${lang}/dashboard/agendar`)
-  revalidatePath(`/${lang}/dashboard/maestros`)
+  revalidatePath('/', 'layout')
   return { success: true, bookingId: booking.id }
 }
 
@@ -187,6 +185,16 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
 
   if (!teacher) return { error: 'Teacher profile not found' }
 
+  // Fetch student_id before cancelling so we can restore their class
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('student_id')
+    .eq('id', bookingId)
+    .eq('teacher_id', teacher.id)
+    .single()
+
+  if (!booking) return { error: 'Booking not found' }
+
   const { error } = await supabase
     .from('bookings')
     .update({ status: 'cancelled' })
@@ -194,6 +202,9 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
     .eq('teacher_id', teacher.id)
 
   if (error) return { error: error.message }
+
+  // Restore the student's class
+  await supabase.rpc('increment_classes', { p_student_id: booking.student_id })
 
   revalidatePath(`/${lang}/maestro/dashboard/agenda`)
   return { success: true }
