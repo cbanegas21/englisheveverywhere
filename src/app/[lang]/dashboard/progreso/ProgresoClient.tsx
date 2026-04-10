@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { TrendingUp, BookOpen, Clock, Award, Calendar, User, Phone, CheckCircle2, ArrowRight } from 'lucide-react'
+import { TrendingUp, BookOpen, Clock, Award, Calendar, User, Phone, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { PRICING_MAP, type PricingPlanKey } from '@/lib/pricing'
 
@@ -293,6 +293,36 @@ export default function ProgresoClient({
           }
 
           if (placementBooking) {
+            const isPast = new Date(placementBooking.scheduled_at) < new Date()
+
+            if (isPast) {
+              return (
+                <div
+                  className="rounded-xl p-4 flex items-center gap-4"
+                  style={{ background: '#FFFBEB', border: '1px solid #FCD34D' }}
+                >
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+                    style={{ background: '#FEF3C7' }}
+                  >
+                    <AlertCircle className="h-5 w-5" style={{ color: '#D97706' }} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[13px] font-bold" style={{ color: '#92400E' }}>
+                      {lang === 'es' ? 'Tu llamada diagnóstica ya pasó' : 'Your diagnostic call has passed'}
+                    </p>
+                    {placementDate && placementTime && (
+                      <p className="text-[12px] mt-0.5" style={{ color: '#B45309' }}>
+                        {lang === 'es'
+                          ? `Estaba agendada para el ${placementDate} a las ${placementTime}. Contáctanos: hola@englisheverywhere.com`
+                          : `It was scheduled for ${placementDate} at ${placementTime}. Contact us: hola@englisheverywhere.com`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
             return (
               <div
                 className="rounded-xl p-4 flex items-center gap-4"

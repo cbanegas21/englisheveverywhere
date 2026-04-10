@@ -38,6 +38,11 @@ const t = {
       sub: 'View your session details',
       cta: 'View',
     },
+    placementPastBanner: {
+      title: 'Your diagnostic call has passed',
+      sub: (date: string) => `It was scheduled for ${date}. Please contact us to reschedule.`,
+      contact: 'hola@englisheverywhere.com',
+    },
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
     today: 'Today',
@@ -82,6 +87,11 @@ const t = {
       title: '✓ Tu llamada diagnóstica está agendada',
       sub: 'Ver detalles de tu sesión',
       cta: 'Ver',
+    },
+    placementPastBanner: {
+      title: 'Tu llamada diagnóstica ya pasó',
+      sub: (date: string) => `Estaba agendada para el ${date}. Contáctanos para reagendar.`,
+      contact: 'hola@englisheverywhere.com',
     },
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
@@ -153,6 +163,7 @@ interface Props {
   currentPlan: string | null
   placementTestDone: boolean
   placementScheduled: boolean
+  placementScheduledAt: string | null
   completedSessions: number
   upcomingBookings: Booking[]
 }
@@ -166,6 +177,7 @@ export default function StudentDashboardClient({
   currentPlan,
   placementTestDone,
   placementScheduled,
+  placementScheduledAt,
   completedSessions,
   upcomingBookings,
 }: Props) {
@@ -213,33 +225,69 @@ export default function StudentDashboardClient({
             </Link>
           </div>
         )}
-        {!placementTestDone && placementScheduled && (
-          <div
-            className="rounded-xl p-4 flex items-center gap-4"
-            style={{ background: '#fff', border: '1px solid #86EFAC' }}
-          >
+        {!placementTestDone && placementScheduled && (() => {
+          const isPast = placementScheduledAt ? new Date(placementScheduledAt) < new Date() : false
+          const formattedDate = placementScheduledAt
+            ? new Date(placementScheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                weekday: 'long', month: 'long', day: 'numeric',
+              })
+            : ''
+
+          if (isPast) {
+            return (
+              <div
+                className="rounded-xl p-4 flex items-center gap-4"
+                style={{ background: '#FFFBEB', border: '1px solid #FCD34D' }}
+              >
+                <div
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+                  style={{ background: '#FEF3C7' }}
+                >
+                  <AlertCircle className="h-5 w-5" style={{ color: '#D97706' }} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-[13px] font-semibold" style={{ color: '#92400E' }}>{tx.placementPastBanner.title}</div>
+                  <div className="text-[12px] mt-0.5" style={{ color: '#B45309' }}>{tx.placementPastBanner.sub(formattedDate)}</div>
+                </div>
+                <a
+                  href={`mailto:${tx.placementPastBanner.contact}`}
+                  className="flex-shrink-0 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
+                  style={{ background: '#D97706', color: '#fff' }}
+                >
+                  {lang === 'es' ? 'Contactar' : 'Contact us'}
+                </a>
+              </div>
+            )
+          }
+
+          return (
             <div
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-              style={{ background: '#F0FDF4' }}
+              className="rounded-xl p-4 flex items-center gap-4"
+              style={{ background: '#fff', border: '1px solid #86EFAC' }}
             >
-              <CheckCircle2 className="h-5 w-5" style={{ color: '#16A34A' }} />
+              <div
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+                style={{ background: '#F0FDF4' }}
+              >
+                <CheckCircle2 className="h-5 w-5" style={{ color: '#16A34A' }} />
+              </div>
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.placementScheduledBanner.title}</div>
+                <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.placementScheduledBanner.sub}</div>
+              </div>
+              <Link
+                href={`/${lang}/dashboard/placement`}
+                className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
+                style={{ background: '#16A34A', color: '#fff' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#15803D')}
+                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#16A34A')}
+              >
+                {tx.placementScheduledBanner.cta}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <div className="flex-1">
-              <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.placementScheduledBanner.title}</div>
-              <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.placementScheduledBanner.sub}</div>
-            </div>
-            <Link
-              href={`/${lang}/dashboard/placement`}
-              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-              style={{ background: '#16A34A', color: '#fff' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#15803D')}
-              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#16A34A')}
-            >
-              {tx.placementScheduledBanner.cta}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        )}
+          )
+        })()}
 
         {/* No classes banner — fresh account vs used up */}
         {classesRemaining === 0 && !currentPlan && completedSessions === 0 && (

@@ -17,6 +17,8 @@ const t = {
     pendingTitle: 'Your teacher is being assigned',
     pendingBody: 'Our team is matching you with the best teacher for your level and goals.',
     pendingNote: 'Questions? Write us at hola@englisheverywhere.com',
+    assignedSoonTitle: 'Your teacher will be assigned soon',
+    assignedSoonBody: "Once you complete your diagnostic call and purchase classes, we'll assign the perfect teacher for you based on your level and goals.",
     placementTitle: 'Schedule your free placement call',
     placementBody: 'Before we assign your teacher, complete your placement call so we can match you with the right level.',
     placementCta: 'Schedule placement call',
@@ -33,6 +35,8 @@ const t = {
     pendingTitle: 'Tu maestro está siendo asignado',
     pendingBody: 'Nuestro equipo te está emparejando con el mejor maestro para tu nivel y objetivos.',
     pendingNote: '¿Preguntas? Escríbenos a hola@englisheverywhere.com',
+    assignedSoonTitle: 'Tu maestra será asignada pronto',
+    assignedSoonBody: 'Una vez que completes tu llamada diagnóstica y paguéis por clases, asignaremos a la mejor maestra para ti según tu nivel y objetivos.',
     placementTitle: 'Agenda tu llamada de diagnóstico gratuita',
     placementBody: 'Antes de asignarte un maestro, completa tu llamada de diagnóstico para poder emparejarte con el nivel correcto.',
     placementCta: 'Agendar llamada de diagnóstico',
@@ -226,9 +230,9 @@ export default async function MiMaestroPage({ params }: Props) {
                   <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                 </svg>
               </div>
-              <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.pendingTitle}</h2>
+              <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.assignedSoonTitle}</h2>
               <p className="text-[14px] leading-relaxed max-w-sm mx-auto mb-4" style={{ color: '#4B5563' }}>
-                {tx.pendingBody}
+                {tx.assignedSoonBody}
               </p>
               <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.pendingNote}</p>
             </div>

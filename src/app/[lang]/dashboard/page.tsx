@@ -23,6 +23,15 @@ export default async function StudentDashboardPage({ params }: Props) {
 
   console.log('[dashboard] student:', student?.id, 'classes_remaining:', student?.classes_remaining, 'placement_test_done:', student?.placement_test_done)
 
+  // Fetch placement booking scheduled_at (to detect past calls)
+  const { data: placementBooking } = await supabase
+    .from('bookings')
+    .select('scheduled_at')
+    .eq('student_id', student?.id || '')
+    .eq('type', 'placement_test')
+    .neq('status', 'cancelled')
+    .maybeSingle()
+
   // Fetch upcoming bookings (class type only)
   const { data: upcomingBookings } = await supabase
     .from('bookings')
@@ -62,6 +71,7 @@ export default async function StudentDashboardPage({ params }: Props) {
       currentPlan={(student?.current_plan as string) || null}
       placementTestDone={student?.placement_test_done || false}
       placementScheduled={student?.placement_scheduled || false}
+      placementScheduledAt={placementBooking?.scheduled_at || null}
       completedSessions={completedCount || 0}
       upcomingBookings={(upcomingBookings as any) || []}
     />

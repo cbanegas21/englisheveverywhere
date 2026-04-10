@@ -270,6 +270,20 @@ function LoginForm({ lang }: { lang: Locale }) {
               {tx.register}
             </Link>
           </p>
+
+          {/* Admin access — subtle, for internal use */}
+          <p className="mt-4 text-center text-[11px]" style={{ color: '#D1D5DB' }}>
+            {lang === 'es' ? '¿Eres administrador? ' : 'Are you an admin? '}
+            <Link
+              href={`/${lang}/admin`}
+              className="underline underline-offset-2 transition-colors"
+              style={{ color: '#9CA3AF' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#4B5563')}
+              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#9CA3AF')}
+            >
+              {lang === 'es' ? 'Accede aquí' : 'Login here'}
+            </Link>
+          </p>
         </div>
       </div>
     </div>

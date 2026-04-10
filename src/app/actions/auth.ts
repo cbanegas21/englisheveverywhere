@@ -120,6 +120,9 @@ export async function signIn(formData: FormData) {
   if (role === 'teacher') {
     redirect(`/${lang}/maestro/dashboard`)
   }
+  if (role === 'admin') {
+    redirect(`/${lang}/admin`)
+  }
   redirect(`/${lang}/dashboard`)
 }
 
