@@ -7,7 +7,7 @@ import {
   Clock, X, ArrowRight,
 } from 'lucide-react'
 import Link from 'next/link'
-import { saveSurveyAnswers, bookPlacementCall } from '@/app/actions/placement'
+import { saveSurveyAnswers, bookPlacementCall, reschedulePlacementCall } from '@/app/actions/placement'
 import type { Locale } from '@/lib/i18n/translations'
 
 // ─── Question definitions ─────────────────────────────────────────────────
@@ -246,6 +246,7 @@ interface Props {
   studentId: string
   existingAnswers: Record<string, unknown> | null
   existingBooking: { id: string; scheduledAt: string; status: string } | null
+  isReschedule?: boolean
 }
 
 type Answers = Record<string, string | string[]>
@@ -257,12 +258,13 @@ export default function PlacementClient({
   lang,
   existingAnswers,
   existingBooking,
+  isReschedule,
 }: Props) {
   const tx = ui[lang]
 
   const initialStage: Stage = existingBooking
     ? 'confirmed'
-    : existingAnswers
+    : isReschedule || existingAnswers
     ? 'schedule'
     : 'survey'
 
@@ -343,7 +345,9 @@ export default function PlacementClient({
     if (!selectedSlot) return
     setError('')
     startTransition(async () => {
-      const result = await bookPlacementCall(selectedSlot, lang)
+      const result = isReschedule
+        ? await reschedulePlacementCall(selectedSlot, lang)
+        : await bookPlacementCall(selectedSlot, lang)
       if (result?.error) {
         setError(result.error)
       } else {

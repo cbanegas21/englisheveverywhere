@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -59,34 +60,45 @@ export default async function MiMaestroPage({ params }: Props) {
       .from('students')
       .select('id, placement_test_done, level')
       .eq('profile_id', user.id)
-      .single()
+      .maybeSingle()
 
-    const studentId = student?.id || ''
-    const placementDone = student?.placement_test_done ?? false
-    const level = student?.level || null
+    if (!student) redirect(`/${lang}/onboarding`)
 
-    let teacher = null
+    const studentId = student.id
+    const placementDone = student.placement_test_done ?? false
+    const level = student.level || null
+
+    let teacher: { id: string; bio: string | null; specializations: string[]; profile: { full_name: string | null; avatar_url: string | null } | null } | null = null
     if (level && studentId) {
+      // Get teacher ID from most recent confirmed/completed class booking
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
-        .select(`
-          teacher:teachers(
-            id,
-            bio,
-            specializations,
-            profile:profiles(full_name, avatar_url)
-          )
-        `)
+        .select('teacher_id')
         .eq('student_id', studentId)
         .eq('type', 'class')
         .in('status', ['confirmed', 'completed'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
       if (bookingError) {
-        console.error('[maestros] Teacher lookup error:', bookingError.code, bookingError.message)
-      } else {
-        teacher = (booking?.teacher as any) || null
+        console.error('[maestros] Booking lookup error:', bookingError.code, bookingError.message)
+      } else if (booking?.teacher_id) {
+        // Use admin client to bypass profiles RLS and read teacher profile
+        const admin = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        const { data: teacherRow, error: teacherError } = await admin
+          .from('teachers')
+          .select('id, bio, specializations, profile:profiles(full_name, avatar_url)')
+          .eq('id', booking.teacher_id)
+          .maybeSingle()
+        if (teacherError) {
+          console.error('[maestros] Teacher fetch error:', teacherError.message)
+        } else {
+          teacher = teacherRow as typeof teacher
+        }
       }
     }
 
@@ -240,7 +252,8 @@ export default async function MiMaestroPage({ params }: Props) {
         </div>
       </div>
     )
-  } catch {
+  } catch (err) {
+    console.error('[maestros] Unexpected error:', err)
     return (
       <div className="min-h-full" style={{ background: '#F9F9F9' }}>
         <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
@@ -248,7 +261,14 @@ export default async function MiMaestroPage({ params }: Props) {
         </div>
         <div className="px-8 py-6 max-w-2xl mx-auto">
           <div className="rounded-xl p-8 text-center" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <p className="text-[14px]" style={{ color: '#9CA3AF' }}>{tx.errorMsg}</p>
+            <p className="text-[14px] mb-4" style={{ color: '#9CA3AF' }}>{tx.errorMsg}</p>
+            <Link
+              href={`/${lang}/dashboard/maestros`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[13px] transition-all"
+              style={{ background: '#C41E3A', color: '#fff' }}
+            >
+              {lang === 'es' ? 'Intentar de nuevo' : 'Try again'}
+            </Link>
           </div>
         </div>
       </div>

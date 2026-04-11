@@ -27,7 +27,7 @@ export async function completeStudentOnboarding(data: {
 
   if (studentError) return { success: false, error: studentError.message }
 
-  revalidatePath(`/${data.preferredLanguage}/dashboard`)
+  revalidatePath('/', 'layout')
   return { success: true }
 }
 
@@ -63,6 +63,6 @@ export async function completeTeacherOnboarding(data: {
 
   if (teacherError) return { success: false, error: teacherError.message }
 
-  revalidatePath(`/${data.preferredLanguage}/maestro/dashboard`)
+  revalidatePath('/', 'layout')
   return { success: true }
 }

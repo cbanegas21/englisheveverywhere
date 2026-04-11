@@ -168,7 +168,7 @@ export async function confirmBooking(bookingId: string, lang: string = 'es') {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/${lang}/maestro/dashboard/agenda`)
+  revalidatePath('/', 'layout')
   return { success: true }
 }
 
@@ -206,7 +206,7 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
   // Restore the student's class
   await supabase.rpc('increment_classes', { p_student_id: booking.student_id })
 
-  revalidatePath(`/${lang}/maestro/dashboard/agenda`)
+  revalidatePath('/', 'layout')
   return { success: true }
 }
 
@@ -233,7 +233,7 @@ export async function saveAvailabilitySlots(
     .eq('teacher_id', teacher.id)
 
   if (slots.length === 0) {
-    revalidatePath(`/${lang}/maestro/dashboard/disponibilidad`)
+    revalidatePath('/', 'layout')
     return { success: true }
   }
 
@@ -247,6 +247,6 @@ export async function saveAvailabilitySlots(
   const { error } = await supabase.from('availability_slots').insert(toInsert)
   if (error) return { error: error.message }
 
-  revalidatePath(`/${lang}/maestro/dashboard/disponibilidad`)
+  revalidatePath('/', 'layout')
   return { success: true }
 }

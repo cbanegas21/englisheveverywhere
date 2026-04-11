@@ -18,8 +18,7 @@ export async function saveSurveyAnswers(
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/${lang}/dashboard/placement`)
-  revalidatePath(`/${lang}/dashboard/progreso`)
+  revalidatePath('/', 'layout')
   return { success: true }
 }
 
@@ -106,6 +105,101 @@ export async function bookPlacementCall(
 
   revalidatePath('/', 'layout')
   return { success: true, bookingId: booking.id }
+}
+
+export async function reschedulePlacementCall(
+  newScheduledAt: string,
+  lang: string
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const [{ data: student }, { data: profile }] = await Promise.all([
+    supabase.from('students').select('id').eq('profile_id', user.id).single(),
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+  ])
+
+  if (!student) {
+    return { error: lang === 'es' ? 'Perfil no encontrado.' : 'Student profile not found.' }
+  }
+
+  // Cancel all existing non-cancelled placement bookings
+  await supabase
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('student_id', student.id)
+    .eq('type', 'placement_test')
+    .neq('status', 'cancelled')
+
+  // Create new booking
+  const { data: booking, error } = await supabase
+    .from('bookings')
+    .insert({
+      student_id: student.id,
+      teacher_id: null,
+      scheduled_at: newScheduledAt,
+      duration_minutes: 60,
+      status: 'pending',
+      type: 'placement_test',
+    })
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+
+  // Keep placement_scheduled = true
+  await supabase
+    .from('students')
+    .update({ placement_scheduled: true })
+    .eq('profile_id', user.id)
+
+  // Notify admin (non-blocking)
+  sendRescheduleNotification({
+    studentEmail: user.email || '',
+    studentName: profile?.full_name || user.email || 'Student',
+    newScheduledAt,
+    lang,
+  })
+
+  revalidatePath('/', 'layout')
+  return { success: true, bookingId: booking.id }
+}
+
+function sendRescheduleNotification(params: {
+  studentEmail: string
+  studentName: string
+  newScheduledAt: string
+  lang: string
+}) {
+  const apiKey = process.env.RESEND_API_KEY
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englisheverywhere.com'
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+
+  if (!apiKey || apiKey === 're_placeholder') return
+
+  const hnFormatted = new Date(params.newScheduledAt).toLocaleString('es-HN', {
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Tegucigalpa',
+  })
+
+  fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: adminEmail,
+      subject: `Llamada de diagnóstico reagendada — ${params.studentName}`,
+      html: `
+        <p>Un estudiante reagendó su llamada de diagnóstico.</p>
+        <table>
+          <tr><td><strong>Estudiante</strong></td><td>${params.studentName} (${params.studentEmail})</td></tr>
+          <tr><td><strong>Nueva fecha</strong></td><td>${hnFormatted} (CST Honduras)</td></tr>
+        </table>
+      `,
+    }),
+  }).catch(() => {})
 }
 
 function sendPlacementEmails(params: {

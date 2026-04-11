@@ -6,10 +6,12 @@ import PlacementScheduledScreen from './PlacementScheduledScreen'
 
 interface Props {
   params: Promise<{ lang: string }>
+  searchParams: Promise<{ reschedule?: string }>
 }
 
-export default async function PlacementPage({ params }: Props) {
+export default async function PlacementPage({ params, searchParams }: Props) {
   const { lang } = await params
+  const { reschedule } = await searchParams
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,14 +35,30 @@ export default async function PlacementPage({ params }: Props) {
     .maybeSingle()
 
   const timezone = (user.user_metadata?.timezone as string) || 'America/Tegucigalpa'
+  const isPast = existingBooking?.scheduled_at
+    ? new Date(existingBooking.scheduled_at) < new Date()
+    : false
 
-  // Call booked or already completed — show status screen, never auto-redirect
+  // Call booked or already completed
   if (student.placement_scheduled || student.placement_test_done) {
+    // If booking is in the past and student wants to reschedule — show the scheduling flow
+    if (isPast && reschedule === '1') {
+      return (
+        <PlacementClient
+          lang={lang as Locale}
+          studentId={student.id}
+          existingAnswers={student.survey_answers as Record<string, unknown> | null}
+          existingBooking={null}
+          isReschedule
+        />
+      )
+    }
     return (
       <PlacementScheduledScreen
         lang={lang as Locale}
         scheduledAt={existingBooking?.scheduled_at || null}
         timezone={timezone}
+        isPast={isPast}
       />
     )
   }

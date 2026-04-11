@@ -44,8 +44,7 @@ export async function saveIntake(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/${lang}/dashboard`)
-  revalidatePath(`/${lang}/dashboard/agendar`)
+  revalidatePath('/', 'layout')
 
   return { success: true, lang }
 }
