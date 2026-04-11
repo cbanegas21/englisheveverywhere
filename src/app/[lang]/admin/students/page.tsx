@@ -1,16 +1,23 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import StudentsTableClient from './StudentsTableClient'
 
 interface Props { params: Promise<{ lang: string }> }
 
-const LEVEL_COLORS: Record<string, { bg: string; color: string }> = {
-  A1: { bg: 'rgba(156,163,175,0.15)', color: '#6B7280' },
-  A2: { bg: 'rgba(96,165,250,0.15)',  color: '#2563EB' },
-  B1: { bg: 'rgba(52,211,153,0.15)',  color: '#059669' },
-  B2: { bg: 'rgba(167,139,250,0.15)', color: '#7C3AED' },
-  C1: { bg: 'rgba(251,146,60,0.15)',  color: '#EA580C' },
-  C2: { bg: 'rgba(196,30,58,0.15)',   color: '#C41E3A' },
+export interface StudentRow {
+  id: string
+  level: string | null
+  classes_remaining: number
+  current_plan: string | null
+  placement_test_done: boolean
+  placement_scheduled: boolean
+  created_at: string
+  profile: { id: string; full_name: string | null; email: string | null; timezone: string | null } | null
+  completedCount: number
+  upcomingCount: number
+  teacherName: string | null
+  teacherId: string | null
 }
 
 export default async function AdminStudentsPage({ params }: Props) {
@@ -22,105 +29,100 @@ export default async function AdminStudentsPage({ params }: Props) {
 
   const admin = createAdminClient()
 
-  const { data: students } = await admin
+  // Fetch students with profiles
+  const { data: rawStudents } = await admin
     .from('students')
     .select(`
-      id,
-      level,
-      classes_remaining,
-      created_at,
-      profile:profiles(id, full_name, email, created_at)
+      id, level, classes_remaining, current_plan,
+      placement_test_done, placement_scheduled, admin_notes, created_at,
+      profile:profiles(id, full_name, email, timezone)
     `)
     .order('created_at', { ascending: false })
 
-  const { count: total } = await admin
-    .from('students')
-    .select('id', { count: 'exact', head: true })
+  const students = rawStudents || []
+  const studentIds = students.map((s) => s.id)
+
+  // Fetch bookings and teachers in parallel
+  const [bookingsResult, teachersResult] = await Promise.all([
+    studentIds.length > 0
+      ? admin
+          .from('bookings')
+          .select('student_id, teacher_id, status, type')
+          .in('student_id', studentIds)
+          .in('status', ['confirmed', 'completed', 'pending'])
+      : Promise.resolve({ data: [] }),
+    admin
+      .from('teachers')
+      .select('id, profile:profiles(full_name)')
+      .eq('is_active', true),
+  ])
+
+  const bookings = bookingsResult.data || []
+  const teacherMap = new Map<string, string>()
+  for (const t of teachersResult.data || []) {
+    const rawProfile = t.profile
+    let fullName: string | null = null
+    if (Array.isArray(rawProfile)) {
+      fullName = (rawProfile as { full_name: string | null }[])[0]?.full_name ?? null
+    } else if (rawProfile && typeof rawProfile === 'object') {
+      fullName = (rawProfile as { full_name: string | null }).full_name ?? null
+    }
+    teacherMap.set(t.id, fullName || 'Unknown Teacher')
+  }
+
+  // Build enriched student rows
+  const enriched: StudentRow[] = students.map((s) => {
+    const sBookings = bookings.filter((b) => b.student_id === s.id)
+    const completedCount = sBookings.filter((b) => b.status === 'completed' && b.type === 'class').length
+    const upcomingCount = sBookings.filter(
+      (b) => (b.status === 'confirmed' || b.status === 'pending') && b.type === 'class'
+    ).length
+
+    // Find most recent confirmed class booking teacher
+    const confirmedClassBookings = sBookings.filter(
+      (b) => b.status === 'confirmed' && b.type === 'class' && b.teacher_id
+    )
+    const teacherId = confirmedClassBookings[0]?.teacher_id || null
+    const teacherName = teacherId ? (teacherMap.get(teacherId) || null) : null
+
+    type ProfileShape = { id: string; full_name: string | null; email: string | null; timezone: string | null }
+    const rawSProfile = s.profile
+    let profileData: ProfileShape | null = null
+    if (Array.isArray(rawSProfile)) {
+      profileData = (rawSProfile as unknown as ProfileShape[])[0] ?? null
+    } else if (rawSProfile && typeof rawSProfile === 'object') {
+      profileData = rawSProfile as unknown as ProfileShape
+    }
+
+    return {
+      id: s.id,
+      level: s.level,
+      classes_remaining: s.classes_remaining || 0,
+      current_plan: s.current_plan,
+      placement_test_done: s.placement_test_done || false,
+      placement_scheduled: s.placement_scheduled || false,
+      created_at: s.created_at,
+      profile: profileData,
+      completedCount,
+      upcomingCount,
+      teacherName,
+      teacherId,
+    }
+  })
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-black" style={{ color: '#111111' }}>Students</h1>
           <p className="text-[13px] mt-1" style={{ color: '#6B7280' }}>
-            {total ?? 0} registered student{total !== 1 ? 's' : ''}
+            {enriched.length} registered student{enriched.length !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
 
-      {/* Table */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-      >
-        <table className="w-full">
-          <thead>
-            <tr style={{ background: '#F9FAFB' }}>
-              {['Name', 'Email', 'Level', 'Classes Left', 'Joined'].map(h => (
-                <th
-                  key={h}
-                  className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider"
-                  style={{ color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(students || []).length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-[13px]" style={{ color: '#9CA3AF' }}>
-                  No students yet.
-                </td>
-              </tr>
-            ) : (students || []).map((s: any) => {
-              const lc = LEVEL_COLORS[s.level] || { bg: 'rgba(156,163,175,0.1)', color: '#6B7280' }
-              return (
-                <tr key={s.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                  <td className="px-6 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                        style={{ background: '#C41E3A' }}
-                      >
-                        {(s.profile?.full_name || '?').charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-[13px] font-medium" style={{ color: '#111111' }}>
-                        {s.profile?.full_name || 'Unknown'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
-                    {s.profile?.email || '—'}
-                  </td>
-                  <td className="px-6 py-3.5">
-                    {s.level ? (
-                      <span
-                        className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold"
-                        style={{ background: lc.bg, color: lc.color }}
-                      >
-                        {s.level}
-                      </span>
-                    ) : (
-                      <span className="text-[12px]" style={{ color: '#9CA3AF' }}>Not set</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
-                    {s.classes_remaining ?? 0}
-                  </td>
-                  <td className="px-6 py-3.5 text-[12px]" style={{ color: '#9CA3AF' }}>
-                    {new Date(s.created_at).toLocaleDateString('en-US', {
-                      month: 'short', day: 'numeric', year: 'numeric',
-                    })}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      <StudentsTableClient students={enriched} lang={lang} />
     </div>
   )
 }
