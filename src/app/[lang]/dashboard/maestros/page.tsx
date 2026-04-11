@@ -1,11 +1,30 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 
 interface Props {
   params: Promise<{ lang: string }>
+}
+
+interface TeacherProfile {
+  full_name: string | null
+  avatar_url: string | null
+}
+
+// Supabase PostgREST returns foreign-key joins as arrays; we normalize to single object after fetch
+interface TeacherRow {
+  id: string
+  bio: string | null
+  specializations: string[] | null
+  profile: TeacherProfile | null
+}
+
+interface TeacherQueryResult {
+  id: string
+  bio: string | null
+  specializations: string[] | null
+  profile: TeacherProfile[] | TeacherProfile | null
 }
 
 const t = {
@@ -47,6 +66,11 @@ const t = {
   },
 }
 
+function getInitials(name?: string | null): string {
+  if (!name) return '?'
+  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+}
+
 export default async function MiMaestroPage({ params }: Props) {
   const { lang } = await params
   const tx = t[lang as Locale]
@@ -68,8 +92,7 @@ export default async function MiMaestroPage({ params }: Props) {
     const placementDone = student.placement_test_done ?? false
     const level = student.level || null
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let teacher: any = null
+    let teacher: TeacherRow | null = null
     if (level && studentId) {
       // Get teacher ID from most recent confirmed/completed class booking
       const { data: booking, error: bookingError } = await supabase
@@ -85,27 +108,21 @@ export default async function MiMaestroPage({ params }: Props) {
       if (bookingError) {
         console.error('[maestros] Booking lookup error:', bookingError.code, bookingError.message)
       } else if (booking?.teacher_id) {
-        // Use admin client to bypass profiles RLS and read teacher profile
-        const admin = createAdminClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        )
-        const { data: teacherRow, error: teacherError } = await admin
+        // RLS policy "Students can read teacher profiles" allows this join for enrolled students
+        const { data: teacherRow, error: teacherError } = await supabase
           .from('teachers')
           .select('id, bio, specializations, profile:profiles(full_name, avatar_url)')
           .eq('id', booking.teacher_id)
           .maybeSingle()
         if (teacherError) {
           console.error('[maestros] Teacher fetch error:', teacherError.message)
-        } else {
-          teacher = teacherRow
+        } else if (teacherRow) {
+          const raw = teacherRow as TeacherQueryResult
+          // Normalize profile: PostgREST may return array or object depending on relationship type
+          const profileData = Array.isArray(raw.profile) ? (raw.profile[0] ?? null) : raw.profile
+          teacher = { ...raw, profile: profileData } as TeacherRow
         }
       }
-    }
-
-    function getInitials(name?: string) {
-      if (!name) return '?'
-      return name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
     }
 
     return (
@@ -139,10 +156,7 @@ export default async function MiMaestroPage({ params }: Props) {
               </p>
               <Link
                 href={`/${lang}/dashboard/placement`}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded font-bold text-[14px] transition-all"
-                style={{ background: '#C41E3A', color: '#fff' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded font-bold text-[14px] transition-colors bg-[#C41E3A] hover:bg-[#9E1830] text-white"
               >
                 {tx.placementCta} →
               </Link>
@@ -207,13 +221,13 @@ export default async function MiMaestroPage({ params }: Props) {
                   </p>
                 )}
 
-                {teacher.specializations?.length > 0 && (
+                {(teacher.specializations?.length ?? 0) > 0 && (
                   <div className="mb-6">
                     <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>
                       {tx.specialties}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {teacher.specializations.map((s: string) => (
+                      {teacher.specializations!.map((s) => (
                         <span
                           key={s}
                           className="text-[11px] font-semibold px-2.5 py-1 rounded"
@@ -265,8 +279,7 @@ export default async function MiMaestroPage({ params }: Props) {
             <p className="text-[14px] mb-4" style={{ color: '#9CA3AF' }}>{tx.errorMsg}</p>
             <Link
               href={`/${lang}/dashboard/maestros`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[13px] transition-all"
-              style={{ background: '#C41E3A', color: '#fff' }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[13px] transition-colors bg-[#C41E3A] hover:bg-[#9E1830] text-white"
             >
               {lang === 'es' ? 'Intentar de nuevo' : 'Try again'}
             </Link>
