@@ -68,7 +68,8 @@ export default async function MiMaestroPage({ params }: Props) {
     const placementDone = student.placement_test_done ?? false
     const level = student.level || null
 
-    let teacher: { id: string; bio: string | null; specializations: string[]; profile: { full_name: string | null; avatar_url: string | null } | null } | null = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let teacher: any = null
     if (level && studentId) {
       // Get teacher ID from most recent confirmed/completed class booking
       const { data: booking, error: bookingError } = await supabase
@@ -97,7 +98,7 @@ export default async function MiMaestroPage({ params }: Props) {
         if (teacherError) {
           console.error('[maestros] Teacher fetch error:', teacherError.message)
         } else {
-          teacher = teacherRow as typeof teacher
+          teacher = teacherRow
         }
       }
     }
