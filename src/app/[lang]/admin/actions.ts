@@ -505,3 +505,14 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
 
   revalidatePath('/', 'layout')
 }
+
+export async function bulkAssignTeacher(bookingIds: string[], teacherId: string) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('bookings')
+    .update({ teacher_id: teacherId, status: 'confirmed' })
+    .in('id', bookingIds)
+  if (error) throw new Error(error.message)
+  revalidatePath('/', 'layout')
+}

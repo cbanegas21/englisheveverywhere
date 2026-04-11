@@ -1,222 +1,218 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import BookingAssign from './BookingAssign'
+import BookingCalendarClient from './BookingCalendarClient'
 
-interface Props { params: Promise<{ lang: string }> }
-
-const STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  pending:   { bg: 'rgba(245,158,11,0.1)',  color: '#D97706', label: 'Pending' },
-  confirmed: { bg: 'rgba(16,185,129,0.1)',  color: '#059669', label: 'Confirmed' },
-  completed: { bg: 'rgba(59,130,246,0.1)',  color: '#2563EB', label: 'Completed' },
-  cancelled: { bg: 'rgba(107,114,128,0.1)', color: '#6B7280', label: 'Cancelled' },
+interface Props {
+  params: Promise<{ lang: string }>
+  searchParams: Promise<{ weekStart?: string }>
 }
 
-export default async function AdminBookingsPage({ params }: Props) {
+export default async function AdminBookingsPage({ params, searchParams }: Props) {
   const { lang } = await params
+  const { weekStart: weekStartParam } = await searchParams
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
   const admin = createAdminClient()
 
-  // Pending bookings that need assignment/confirmation
-  const { data: pendingBookings } = await admin
-    .from('bookings')
-    .select(`
-      id, scheduled_at, duration_minutes, status,
-      student:students(id, profile:profiles(full_name, email)),
-      teacher:teachers(id, profile:profiles(full_name))
-    `)
-    .eq('status', 'pending')
-    .order('scheduled_at', { ascending: true })
+  // Compute week range (Monday 00:00 UTC → Sunday 23:59 UTC)
+  const now = new Date()
 
-  // All active teachers (for the assignment dropdown)
-  const { data: allTeachers } = await admin
-    .from('teachers')
-    .select('id, profile:profiles(full_name)')
-    .eq('is_active', true)
+  function getMondayOf(d: Date): Date {
+    const day = d.getUTCDay() // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day
+    const monday = new Date(d)
+    monday.setUTCDate(d.getUTCDate() + diff)
+    monday.setUTCHours(0, 0, 0, 0)
+    return monday
+  }
 
-  const teachers = (allTeachers || []).map((t: any) => ({
+  const weekStart = weekStartParam
+    ? new Date(weekStartParam + 'T00:00:00Z')
+    : getMondayOf(now)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 7)
+
+  const todayStart = new Date(now)
+  todayStart.setUTCHours(0, 0, 0, 0)
+  const todayEnd = new Date(now)
+  todayEnd.setUTCHours(23, 59, 59, 999)
+
+  const [
+    bookingsResult,
+    teachersResult,
+    allStudentsResult,
+    availSlotsResult,
+    sessionsResult,
+    todayCountResult,
+    pendingCountResult,
+    weekConfirmedResult,
+  ] = await Promise.all([
+    admin
+      .from('bookings')
+      .select(`
+        id, student_id, teacher_id, scheduled_at, duration_minutes,
+        status, type, meeting_notes, video_room_url,
+        student:students(id, level, profile:profiles(full_name, email)),
+        teacher:teachers(id, profile:profiles(full_name))
+      `)
+      .gte('scheduled_at', weekStart.toISOString())
+      .lt('scheduled_at', weekEnd.toISOString())
+      .neq('status', 'cancelled')
+      .order('scheduled_at', { ascending: true }),
+
+    admin
+      .from('teachers')
+      .select('id, profile:profiles(full_name)')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true }),
+
+    admin
+      .from('students')
+      .select('id, profile:profiles(full_name, email)'),
+
+    admin
+      .from('availability_slots')
+      .select('teacher_id, day_of_week, start_time, end_time'),
+
+    admin
+      .from('sessions')
+      .select('booking_id, teacher_notes, student_rating')
+      .gte('created_at', weekStart.toISOString())
+      .lt('created_at', weekEnd.toISOString()),
+
+    admin
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .gte('scheduled_at', todayStart.toISOString())
+      .lte('scheduled_at', todayEnd.toISOString())
+      .neq('status', 'cancelled'),
+
+    admin
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .is('teacher_id', null),
+
+    admin
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'confirmed')
+      .gte('scheduled_at', weekStart.toISOString())
+      .lt('scheduled_at', weekEnd.toISOString()),
+  ])
+
+  type SessionData = { teacher_notes: string | null; student_rating: number | null }
+  const sessionMap = new Map<string, SessionData>()
+  for (const s of sessionsResult.data || []) {
+    sessionMap.set(s.booking_id, { teacher_notes: s.teacher_notes, student_rating: s.student_rating })
+  }
+
+  type BookingEntry = {
+    id: string
+    student_id: string
+    teacher_id: string | null
+    scheduled_at: string
+    duration_minutes: number | null
+    status: string
+    type: string
+    meeting_notes: string | null
+    video_room_url: string | null
+    student_name: string | null
+    student_email: string | null
+    student_level: string | null
+    teacher_name: string | null
+    ai_summary: string | null
+    student_rating: number | null
+  }
+
+  function getName(profile: unknown): string | null {
+    if (!profile) return null
+    if (Array.isArray(profile)) return (profile as { full_name: string | null }[])[0]?.full_name ?? null
+    return (profile as { full_name: string | null }).full_name ?? null
+  }
+  function getEmail(profile: unknown): string | null {
+    if (!profile) return null
+    if (Array.isArray(profile)) return (profile as { email: string | null }[])[0]?.email ?? null
+    return (profile as { email: string | null }).email ?? null
+  }
+
+  const bookings: BookingEntry[] = (bookingsResult.data || []).map((b) => {
+    const rawStudent = b.student as { id: string; level: string | null; profile: unknown } | { id: string; level: string | null; profile: unknown }[] | null
+    const studentObj = Array.isArray(rawStudent) ? rawStudent[0] : rawStudent
+    const rawTeacher = b.teacher as { id: string; profile: unknown } | { id: string; profile: unknown }[] | null
+    const teacherObj = Array.isArray(rawTeacher) ? rawTeacher[0] : rawTeacher
+
+    const session = sessionMap.get(b.id)
+    return {
+      id: b.id,
+      student_id: b.student_id,
+      teacher_id: b.teacher_id,
+      scheduled_at: b.scheduled_at,
+      duration_minutes: b.duration_minutes,
+      status: b.status,
+      type: b.type,
+      meeting_notes: b.meeting_notes,
+      video_room_url: b.video_room_url,
+      student_name: getName(studentObj?.profile),
+      student_email: getEmail(studentObj?.profile),
+      student_level: studentObj?.level ?? null,
+      teacher_name: getName(teacherObj?.profile),
+      ai_summary: session?.teacher_notes ?? null,
+      student_rating: session?.student_rating ?? null,
+    }
+  })
+
+  type TeacherEntry = { id: string; name: string }
+  const teachers: TeacherEntry[] = (teachersResult.data || []).map((t) => ({
     id: t.id,
-    name: t.profile?.full_name || 'Unknown',
+    name: getName(t.profile) ?? 'Unknown',
   }))
 
-  // Recent confirmed/completed bookings for context
-  const { data: recentBookings } = await admin
+  type StudentEntry = { id: string; name: string; email: string }
+  const allStudents: StudentEntry[] = (allStudentsResult.data || []).map((s) => ({
+    id: s.id,
+    name: getName((s as { id: string; profile: unknown }).profile) ?? 'Unknown',
+    email: getEmail((s as { id: string; profile: unknown }).profile) ?? '',
+  }))
+
+  const { data: allPending } = await admin
     .from('bookings')
     .select(`
-      id, scheduled_at, duration_minutes, status,
-      student:students(profile:profiles(full_name)),
-      teacher:teachers(profile:profiles(full_name))
+      id, student_id, scheduled_at, duration_minutes, type, status,
+      student:students(profile:profiles(full_name))
     `)
-    .in('status', ['confirmed', 'completed', 'cancelled'])
-    .order('scheduled_at', { ascending: false })
-    .limit(10)
+    .eq('status', 'pending')
+    .is('teacher_id', null)
+    .order('scheduled_at', { ascending: true })
+
+  type PendingEntry = { id: string; student_id: string; scheduled_at: string; duration_minutes: number | null; type: string; student_name: string | null }
+  const pendingBookings: PendingEntry[] = (allPending || []).map((b) => ({
+    id: b.id,
+    student_id: b.student_id,
+    scheduled_at: b.scheduled_at,
+    duration_minutes: b.duration_minutes,
+    type: b.type,
+    student_name: getName(((b.student as unknown) as { profile: unknown } | null)?.profile),
+  }))
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-[22px] font-black" style={{ color: '#111111' }}>Bookings</h1>
-        <p className="text-[13px] mt-1" style={{ color: '#6B7280' }}>
-          {pendingBookings?.length ?? 0} pending assignment
-        </p>
-      </div>
-
-      {/* Pending — needs assignment */}
-      <section className="mb-8">
-        <div className="flex items-center gap-2.5 mb-4">
-          {(pendingBookings?.length ?? 0) > 0 && (
-            <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: '#C41E3A' }} />
-          )}
-          <h2 className="text-[14px] font-bold" style={{ color: '#111111' }}>Needs Assignment</h2>
-          {(pendingBookings?.length ?? 0) > 0 && (
-            <span
-              className="text-[11px] px-2 py-0.5 rounded-full font-bold"
-              style={{ background: 'rgba(196,30,58,0.1)', color: '#C41E3A' }}
-            >
-              {pendingBookings?.length}
-            </span>
-          )}
-        </div>
-
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-        >
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: '#F9FAFB' }}>
-                {['Student', 'Scheduled', 'Duration', 'Current Teacher', 'Assign & Confirm'].map(h => (
-                  <th
-                    key={h}
-                    className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider"
-                    style={{ color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(pendingBookings || []).length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-[13px]" style={{ color: '#9CA3AF' }}>
-                    No pending bookings. All caught up!
-                  </td>
-                </tr>
-              ) : (pendingBookings || []).map((b: any) => (
-                <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                  <td className="px-5 py-3.5">
-                    <p className="text-[13px] font-medium" style={{ color: '#111111' }}>
-                      {b.student?.profile?.full_name || '—'}
-                    </p>
-                    <p className="text-[11px]" style={{ color: '#9CA3AF' }}>{b.student?.profile?.email}</p>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <p className="text-[13px]" style={{ color: '#111111' }}>
-                      {new Date(b.scheduled_at).toLocaleDateString('en-US', {
-                        weekday: 'short', month: 'short', day: 'numeric',
-                      })}
-                    </p>
-                    <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                      {new Date(b.scheduled_at).toLocaleTimeString('en-US', {
-                        hour: '2-digit', minute: '2-digit',
-                      })}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
-                    {b.duration_minutes} min
-                  </td>
-                  <td className="px-5 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
-                    {b.teacher?.profile?.full_name || (
-                      <span style={{ color: '#9CA3AF' }}>Unassigned</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <BookingAssign
-                      bookingId={b.id}
-                      currentTeacherId={b.teacher?.id || null}
-                      teachers={teachers}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Recent activity */}
-      <section>
-        <h2 className="text-[14px] font-bold mb-4" style={{ color: '#111111' }}>Recent Activity</h2>
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-        >
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: '#F9FAFB' }}>
-                {['Student', 'Teacher', 'Scheduled', 'Duration', 'Status'].map(h => (
-                  <th
-                    key={h}
-                    className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider"
-                    style={{ color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(recentBookings || []).length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-[13px]" style={{ color: '#9CA3AF' }}>
-                    No booking history yet.
-                  </td>
-                </tr>
-              ) : (recentBookings || []).map((b: any) => {
-                const sc = STATUS_COLORS[b.status] || STATUS_COLORS.pending
-                return (
-                  <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                    <td className="px-5 py-3.5 text-[13px] font-medium" style={{ color: '#111111' }}>
-                      {b.student?.profile?.full_name || '—'}
-                    </td>
-                    <td className="px-5 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
-                      {b.teacher?.profile?.full_name || '—'}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className="text-[13px]" style={{ color: '#111111' }}>
-                        {new Date(b.scheduled_at).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric',
-                        })}
-                      </p>
-                      <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                        {new Date(b.scheduled_at).toLocaleTimeString('en-US', {
-                          hour: '2-digit', minute: '2-digit',
-                        })}
-                      </p>
-                    </td>
-                    <td className="px-5 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
-                      {b.duration_minutes} min
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                        style={{ background: sc.bg, color: sc.color }}
-                      >
-                        {sc.label}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+    <BookingCalendarClient
+      lang={lang}
+      weekStart={weekStart.toISOString().slice(0, 10)}
+      bookings={bookings}
+      teachers={teachers}
+      allStudents={allStudents}
+      availSlots={availSlotsResult.data || []}
+      pendingBookings={pendingBookings}
+      stats={{
+        todayCount: todayCountResult.count ?? 0,
+        pendingCount: pendingCountResult.count ?? 0,
+        weekConfirmed: weekConfirmedResult.count ?? 0,
+        availableSlots: (availSlotsResult.data || []).length,
+      }}
+    />
   )
 }
