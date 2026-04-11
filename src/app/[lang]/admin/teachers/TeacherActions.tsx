@@ -2,29 +2,36 @@
 
 import { useState, useTransition } from 'react'
 import { CheckCircle, XCircle, ToggleLeft, ToggleRight } from 'lucide-react'
-import { approveTeacher, rejectTeacher, toggleTeacherActive, setTeacherRate } from '../actions'
+import { approveTeacherWithEmail, rejectTeacherWithEmail, toggleTeacherActive, setTeacherRate } from '../actions'
 
 // ── Approve / Reject (for pending applications) ───────────────────────────────
 
 export function ApproveRejectButtons({
   teacherId,
   profileId,
+  teacherName,
+  teacherEmail,
 }: {
   teacherId: string
   profileId: string
+  teacherName?: string
+  teacherEmail?: string
 }) {
   const [isPending, startTransition] = useTransition()
   const [done, setDone] = useState<'approved' | 'rejected' | null>(null)
   const [error, setError] = useState('')
 
+  void teacherName
+  void teacherEmail
+
   function handleApprove() {
     setError('')
     startTransition(async () => {
       try {
-        await approveTeacher(teacherId)
+        await approveTeacherWithEmail(teacherId, profileId)
         setDone('approved')
-      } catch (e: any) {
-        setError(e.message)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error')
       }
     })
   }
@@ -34,10 +41,10 @@ export function ApproveRejectButtons({
     setError('')
     startTransition(async () => {
       try {
-        await rejectTeacher(teacherId, profileId)
+        await rejectTeacherWithEmail(teacherId, profileId)
         setDone('rejected')
-      } catch (e: any) {
-        setError(e.message)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error')
       }
     })
   }
@@ -63,10 +70,8 @@ export function ApproveRejectButtons({
       <button
         onClick={handleApprove}
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50 hover:bg-green-100"
         style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}
-        onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = 'rgba(5,150,105,0.2)' }}
-        onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = 'rgba(5,150,105,0.1)' }}
       >
         <CheckCircle className="h-3.5 w-3.5" />
         {isPending ? '…' : 'Approve'}
@@ -74,10 +79,8 @@ export function ApproveRejectButtons({
       <button
         onClick={handleReject}
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50 hover:bg-red-100"
         style={{ background: 'rgba(220,38,38,0.08)', color: '#DC2626' }}
-        onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = 'rgba(220,38,38,0.16)' }}
-        onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = 'rgba(220,38,38,0.08)' }}
       >
         <XCircle className="h-3.5 w-3.5" />
         Reject
@@ -110,8 +113,8 @@ export function RateEditor({
         await setTeacherRate(teacherId, parsed)
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
-      } catch (e: any) {
-        setError(e.message)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error')
       }
     })
   }
@@ -167,8 +170,8 @@ export function ActiveToggle({
       try {
         await toggleTeacherActive(teacherId, next)
         setActive(next)
-      } catch (e: any) {
-        setError(e.message)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error')
       }
     })
   }

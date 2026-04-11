@@ -14,6 +14,7 @@ import {
   resetStudentPassword,
   updateStudentRole,
 } from '../../actions'
+import MeetingScheduler from '@/components/admin/MeetingScheduler'
 
 const LEVEL_COLORS: Record<string, { bg: string; color: string }> = {
   A1: { bg: 'rgba(156,163,175,0.15)', color: '#6B7280' },
@@ -66,6 +67,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview')
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+  const [showScheduler, setShowScheduler] = useState(false)
 
   // Sidebar state
   const [addClassCount, setAddClassCount] = useState(1)
@@ -252,6 +254,9 @@ export default function StudentProfileClient({ student, lang }: Props) {
         <div style={cardStyle}>
           <span style={labelStyle}>Quick Actions</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button style={btnSecondary} onClick={() => setShowScheduler(true)}>
+              Schedule a call
+            </button>
             {student.profile?.email && (
               <a
                 href={`mailto:${student.profile.email}`}
@@ -746,6 +751,20 @@ export default function StudentProfileClient({ student, lang }: Props) {
   return (
     <>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
+
+      {showScheduler && (
+        <MeetingScheduler
+          type="student_call"
+          studentId={student.id}
+          studentName={student.profile?.full_name || ''}
+          allStudents={[{ id: student.id, name: student.profile?.full_name || '', email: student.profile?.email || '' }]}
+          allTeachers={student.teachers.map(t => ({ id: t.id, name: t.name }))}
+          existingBookings={student.bookings.map(b => ({ scheduled_at: b.scheduled_at, teacher_id: b.teacher_id, student_id: student.id }))}
+          onClose={() => setShowScheduler(false)}
+          onSuccess={() => { setShowScheduler(false); router.refresh() }}
+          lang={lang}
+        />
+      )}
 
       {/* Back link */}
       <div style={{ marginBottom: 20 }}>

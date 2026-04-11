@@ -274,3 +274,234 @@ export async function updateStudentRole(profileId: string, role: string) {
   if (error) throw new Error(error.message)
   revalidatePath('/', 'layout')
 }
+
+// ── Teacher profile CRM actions ───────────────────────────────────────────────
+
+export async function updateTeacherProfile(
+  teacherId: string,
+  profileId: string,
+  fields: {
+    bio?: string
+    specializations?: string[]
+    certifications?: string[]
+    timezone?: string
+    full_name?: string
+  }
+) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const teacherFields: Record<string, unknown> = {}
+  const profileFields: Record<string, string> = {}
+  if (fields.bio !== undefined) teacherFields.bio = fields.bio
+  if (fields.specializations !== undefined) teacherFields.specializations = fields.specializations
+  if (fields.certifications !== undefined) teacherFields.certifications = fields.certifications
+  if (fields.timezone !== undefined) profileFields.timezone = fields.timezone
+  if (fields.full_name !== undefined) profileFields.full_name = fields.full_name
+  if (Object.keys(teacherFields).length > 0) {
+    const { error } = await admin.from('teachers').update(teacherFields).eq('id', teacherId)
+    if (error) throw new Error(error.message)
+  }
+  if (Object.keys(profileFields).length > 0) {
+    const { error } = await admin.from('profiles').update(profileFields).eq('id', profileId)
+    if (error) throw new Error(error.message)
+  }
+  revalidatePath('/', 'layout')
+}
+
+export async function saveTeacherAdminNotes(teacherId: string, notes: string) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const { error } = await admin.from('teachers').update({ admin_notes: notes }).eq('id', teacherId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/', 'layout')
+}
+
+export async function deleteTeacher(teacherId: string, profileId: string) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const { error } = await admin.from('teachers').delete().eq('id', teacherId)
+  if (error) throw new Error(error.message)
+  await admin.from('profiles').update({ role: 'student' }).eq('id', profileId)
+  revalidatePath('/', 'layout')
+}
+
+// ── Meeting scheduler action ───────────────────────────────────────────────────
+
+export async function createAdminBooking(
+  studentId: string,
+  teacherId: string | null,
+  scheduledAt: string,
+  type: string,
+  durationMinutes: number,
+  notes: string
+) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const { data: booking, error } = await admin
+    .from('bookings')
+    .insert({
+      student_id: studentId,
+      teacher_id: teacherId || null,
+      scheduled_at: scheduledAt,
+      duration_minutes: durationMinutes,
+      status: 'confirmed',
+      type,
+      meeting_notes: notes || null,
+    })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+
+  // Send email notifications (non-blocking)
+  sendBookingEmails({ studentId, teacherId, scheduledAt, type, bookingId: booking.id })
+
+  revalidatePath('/', 'layout')
+  return { success: true, bookingId: booking.id }
+}
+
+function sendBookingEmails(params: {
+  studentId: string
+  teacherId: string | null
+  scheduledAt: string
+  type: string
+  bookingId: string
+}) {
+  const apiKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  if (!apiKey || apiKey === 're_placeholder') return
+
+  const admin = createAdminClient()
+  const formatted = new Date(params.scheduledAt).toLocaleString('es-HN', {
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Tegucigalpa',
+  })
+
+  const headers: Record<string, string> = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+
+  // Get student email
+  void Promise.resolve(
+    admin.from('students').select('profile:profiles(email, full_name)').eq('id', params.studentId).single()
+  ).then(({ data }) => {
+    const rawProfile = data?.profile
+    let email: string | null = null
+    let name: string | null = null
+    if (Array.isArray(rawProfile)) {
+      email = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.email ?? null
+      name = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.full_name ?? null
+    } else if (rawProfile && typeof rawProfile === 'object') {
+      email = (rawProfile as { email: string | null; full_name: string | null }).email
+      name = (rawProfile as { email: string | null; full_name: string | null }).full_name
+    }
+    if (email) {
+      void fetch('https://api.resend.com/emails', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          from: fromEmail, to: email,
+          subject: 'Sesión agendada — English Everywhere',
+          html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— English Everywhere</p>`,
+        }),
+      }).catch(() => {})
+    }
+  }).catch(() => {})
+
+  // Get teacher email (if assigned)
+  if (params.teacherId) {
+    void Promise.resolve(
+      admin.from('teachers').select('profile:profiles(email, full_name)').eq('id', params.teacherId).single()
+    ).then(({ data }) => {
+      const rawProfile = data?.profile
+      let email: string | null = null
+      let name: string | null = null
+      if (Array.isArray(rawProfile)) {
+        email = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.email ?? null
+        name = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.full_name ?? null
+      } else if (rawProfile && typeof rawProfile === 'object') {
+        email = (rawProfile as { email: string | null; full_name: string | null }).email
+        name = (rawProfile as { email: string | null; full_name: string | null }).full_name
+      }
+      if (email) {
+        void fetch('https://api.resend.com/emails', {
+          method: 'POST', headers,
+          body: JSON.stringify({
+            from: fromEmail, to: email,
+            subject: 'Nueva sesión asignada — English Everywhere',
+            html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— English Everywhere</p>`,
+          }),
+        }).catch(() => {})
+      }
+    }).catch(() => {})
+  }
+}
+
+// ── Welcome / rejection emails (for approve/reject teacher) ───────────────────
+
+export async function approveTeacherWithEmail(teacherId: string, profileId: string) {
+  await assertAdmin()
+  const admin = createAdminClient()
+
+  // Get teacher name + email for the welcome email
+  const { data: profile } = await admin.from('profiles').select('full_name, email').eq('id', profileId).single()
+
+  const { error } = await admin.from('teachers').update({ is_active: true }).eq('id', teacherId)
+  if (error) throw new Error(error.message)
+
+  // Send welcome email (non-blocking)
+  const apiKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
+    fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: profile.email,
+        subject: `¡Bienvenida a English Everywhere, ${profile.full_name?.split(' ')[0] || ''}!`,
+        html: `
+          <h2>¡Bienvenida al equipo!</h2>
+          <p>Tu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:</p>
+          <p><a href="${appUrl}/es/maestro/dashboard">Acceder a mi dashboard →</a></p>
+          <p>Aquí podrás configurar tu disponibilidad y ver tus clases asignadas.</p>
+          <p>— El equipo de English Everywhere</p>
+        `,
+      }),
+    }).catch(() => {})
+  }
+
+  revalidatePath('/', 'layout')
+}
+
+export async function rejectTeacherWithEmail(teacherId: string, profileId: string) {
+  await assertAdmin()
+  const admin = createAdminClient()
+
+  const { data: profile } = await admin.from('profiles').select('full_name, email').eq('id', profileId).single()
+
+  const { error: delError } = await admin.from('teachers').delete().eq('id', teacherId)
+  if (delError) throw new Error(delError.message)
+
+  await admin.from('profiles').update({ role: 'student' }).eq('id', profileId)
+
+  const apiKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
+    fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: profile.email,
+        subject: 'Actualización sobre tu solicitud — English Everywhere',
+        html: `
+          <p>Gracias por tu interés en English Everywhere.</p>
+          <p>Después de revisar tu perfil, no podemos continuar con tu solicitud en este momento.</p>
+          <p>Si tienes preguntas, contáctanos en <a href="mailto:hola@englisheverywhere.com">hola@englisheverywhere.com</a>.</p>
+          <p>— El equipo de English Everywhere</p>
+        `,
+      }),
+    }).catch(() => {})
+  }
+
+  revalidatePath('/', 'layout')
+}
