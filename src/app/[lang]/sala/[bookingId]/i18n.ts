@@ -13,6 +13,7 @@ type Strings = {
   aiSummary: string; generatingSummary: string; covered: string; nextTopics: string; progressNote: string; noSummary: string
   layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string
   chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
+  shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
 }
 
 export const VIDEO_T: Record<Locale, Strings> = {
@@ -65,6 +66,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     chatEmpty: 'No messages yet. Say hi!',
     chatPlaceholder: 'Message…',
     chatSend: 'Send',
+
+    shareScreen: 'Share screen', stopSharing: 'Stop sharing',
+    sharingPrefix: '', sharingSuffix: 'is sharing their screen',
   },
   es: {
     connecting: 'Conectando a tu sesión...',
@@ -115,6 +119,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     chatEmpty: 'Aún no hay mensajes. ¡Saluda!',
     chatPlaceholder: 'Mensaje…',
     chatSend: 'Enviar',
+
+    shareScreen: 'Compartir pantalla', stopSharing: 'Dejar de compartir',
+    sharingPrefix: '', sharingSuffix: 'está compartiendo la pantalla',
   },
 }
 

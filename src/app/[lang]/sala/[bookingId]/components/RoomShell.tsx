@@ -19,6 +19,7 @@ import { TopBar } from './TopBar'
 import { VideoTile } from './VideoTile'
 import { LocalSelfView, SelfViewPill } from './LocalSelfView'
 import { GridLayout } from './GridLayout'
+import { ScreenShareView } from './ScreenShareView'
 import { ControlBar } from './ControlBar'
 import { NotesPanel } from './NotesPanel'
 import { ChatPanel } from './ChatPanel'
@@ -68,6 +69,12 @@ export function RoomShell({
   const localTrack = cameraTracks.find(
     t => t.participant.isLocal && isTrackReference(t),
   ) as TrackReference | undefined
+
+  const screenShareTracks = useTracks(
+    [{ source: Track.Source.ScreenShare, withPlaceholder: false }],
+    { onlySubscribed: true },
+  )
+  const activeShareTrack = screenShareTracks.find(isTrackReference) as TrackReference | undefined
 
   const [showNotes, setShowNotes] = useState(false)
   const [showChat, setShowChat] = useState(false)
@@ -121,7 +128,27 @@ export function RoomShell({
         durationMinutes={durationMinutes}
       />
       <div ref={stageRef} className="flex-1 relative">
-        {layout.mode === 'speaker' ? (
+        {activeShareTrack ? (
+          <>
+            <ScreenShareView lang={lang} shareTrack={activeShareTrack} />
+            {!selfView.hidden ? (
+              <LocalSelfView
+                trackRef={localTrack}
+                myName={myName}
+                isCameraOff={isCameraOff}
+                corner={selfView.corner}
+                isDragging={selfView.isDragging}
+                hideLabel={tx.hideSelf}
+                onHide={selfView.hide}
+                onPointerDown={selfView.onPointerDown}
+                onPointerMove={selfView.onPointerMove}
+                onPointerUp={selfView.onPointerUp}
+              />
+            ) : (
+              <SelfViewPill label={tx.showSelf} onShow={selfView.show} />
+            )}
+          </>
+        ) : layout.mode === 'speaker' ? (
           <>
             <VideoTile lang={lang} trackRef={remoteTrack} fallbackName={otherName} />
             {!selfView.hidden ? (

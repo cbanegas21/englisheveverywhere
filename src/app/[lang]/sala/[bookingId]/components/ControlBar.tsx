@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare } from 'lucide-react'
-import { useLocalParticipant } from '@livekit/components-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX } from 'lucide-react'
+import { useLocalParticipant, useTrackToggle } from '@livekit/components-react'
+import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
@@ -41,6 +42,7 @@ export function ControlBar({
   const { localParticipant } = useLocalParticipant()
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
+  const screenShare = useTrackToggle({ source: Track.Source.ScreenShare })
 
   function toggleMute() {
     localParticipant.setMicrophoneEnabled(isMuted)
@@ -86,6 +88,13 @@ export function ControlBar({
         label={tx.chat}
         icon={<ChatIcon unread={unreadCount} />}
         variant={showChat ? 'brand' : 'neutral'}
+      />
+      <CircleButton
+        active={screenShare.enabled}
+        onClick={() => { void screenShare.toggle() }}
+        label={screenShare.enabled ? tx.stopSharing : tx.shareScreen}
+        icon={screenShare.enabled ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
+        variant={screenShare.enabled ? 'brand' : 'neutral'}
       />
       {isTeacher && (
         <CircleButton
