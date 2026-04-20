@@ -9,6 +9,7 @@ import {
 import { useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
+import JoinSessionButton from '@/components/JoinSessionButton'
 
 const t = {
   en: {
@@ -323,16 +324,24 @@ export default function TeacherDashboardClient({
                       </div>
                     </div>
 
-                    <span
-                      className="text-[10px] font-semibold px-2.5 py-1 rounded flex-shrink-0"
-                      style={
-                        session.status === 'confirmed'
-                          ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
-                          : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
-                      }
-                    >
-                      {session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span
+                        className="text-[10px] font-semibold px-2.5 py-1 rounded"
+                        style={
+                          session.status === 'confirmed'
+                            ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
+                            : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
+                        }
+                      >
+                        {session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
+                      </span>
+                      <JoinSessionButton
+                        lang={lang}
+                        bookingId={session.id}
+                        scheduledAt={session.scheduled_at}
+                        variant="compact"
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>

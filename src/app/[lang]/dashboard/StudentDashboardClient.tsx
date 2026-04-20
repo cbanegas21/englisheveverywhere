@@ -6,6 +6,7 @@ import {
   Video, ChevronRight, AlertCircle, CheckCircle2, Sparkles
 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
+import JoinSessionButton from '@/components/JoinSessionButton'
 
 const t = {
   en: {
@@ -15,9 +16,8 @@ const t = {
     subtitle: "Here's your English learning overview.",
     stats: {
       classesLeft: 'Classes remaining',
+      scheduled: 'Classes scheduled',
       completed: 'Completed sessions',
-      level: 'Current level',
-      noLevel: 'Diagnostic call pending',
       totalTime: 'Total studied',
     },
     upcoming: 'Upcoming classes',
@@ -45,6 +45,8 @@ const t = {
     },
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
+    statusAwaitingTeacher: 'Awaiting teacher',
+    teacherBeingAssigned: 'Teacher being assigned',
     today: 'Today',
     tomorrow: 'Tomorrow',
     upgrade: 'Get more classes',
@@ -65,9 +67,8 @@ const t = {
     subtitle: 'Resumen de tu aprendizaje de inglés.',
     stats: {
       classesLeft: 'Clases disponibles',
+      scheduled: 'Clases agendadas',
       completed: 'Sesiones completadas',
-      level: 'Nivel actual',
-      noLevel: 'Llamada diagnóstica pendiente',
       totalTime: 'Total estudiado',
     },
     upcoming: 'Próximas clases',
@@ -95,6 +96,8 @@ const t = {
     },
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
+    statusAwaitingTeacher: 'Asignando maestro',
+    teacherBeingAssigned: 'Maestro por asignar',
     today: 'Hoy',
     tomorrow: 'Mañana',
     upgrade: 'Obtener más clases',
@@ -151,6 +154,7 @@ interface Booking {
   scheduled_at: string
   duration_minutes: number
   status: string
+  teacher_id?: string | null
   teacher?: { profile?: { full_name?: string } } | null
 }
 
@@ -158,13 +162,13 @@ interface Props {
   lang: Locale
   userName: string
   timezone: string
-  level: string | null
   classesRemaining: number
   currentPlan: string | null
   placementTestDone: boolean
   placementScheduled: boolean
   placementScheduledAt: string | null
   completedSessions: number
+  scheduledClasses: number
   upcomingBookings: Booking[]
 }
 
@@ -172,13 +176,13 @@ export default function StudentDashboardClient({
   lang,
   userName,
   timezone,
-  level,
   classesRemaining,
   currentPlan,
   placementTestDone,
   placementScheduled,
   placementScheduledAt,
   completedSessions,
+  scheduledClasses,
   upcomingBookings,
 }: Props) {
   const tx = t[lang]
@@ -347,15 +351,14 @@ export default function StudentDashboardClient({
               urgent: classesRemaining === 0,
             },
             {
+              label: tx.stats.scheduled,
+              value: scheduledClasses,
+              icon: Calendar,
+            },
+            {
               label: tx.stats.completed,
               value: completedSessions,
               icon: CheckCircle2,
-            },
-            {
-              label: level ? tx.stats.level : tx.stats.noLevel,
-              value: level || (placementTestDone ? (lang === 'es' ? 'Agendada ✓' : 'Scheduled ✓') : '—'),
-              icon: TrendingUp,
-              link: (!level && !placementTestDone) ? `/${lang}/dashboard/placement` : undefined,
             },
             {
               label: tx.stats.totalTime,
@@ -365,7 +368,7 @@ export default function StudentDashboardClient({
                 ? (lang === 'es' ? 'Completa tu primera clase' : 'Complete your first class')
                 : undefined,
             },
-          ].map(({ label, value, icon: Icon, urgent, link, note }) => (
+          ].map(({ label, value, icon: Icon, urgent, note }) => (
             <div
               key={label}
               className="rounded-xl p-5"
@@ -388,15 +391,6 @@ export default function StudentDashboardClient({
               <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{label}</div>
               {note && (
                 <p className="text-[10px] mt-1" style={{ color: '#9CA3AF' }}>{note}</p>
-              )}
-              {link && (
-                <Link
-                  href={link}
-                  className="text-[11px] underline mt-1 block transition-colors"
-                  style={{ color: '#C41E3A' }}
-                >
-                  {lang === 'es' ? 'Agendar llamada diagnóstica gratuita →' : 'Schedule your free diagnostic call →'}
-                </Link>
               )}
             </div>
           ))}
@@ -447,49 +441,69 @@ export default function StudentDashboardClient({
               </div>
             ) : (
               <ul>
-                {upcomingBookings.map((booking) => (
-                  <li
-                    key={booking.id}
-                    className="flex items-center gap-4 px-5 py-4"
-                    style={{ borderBottom: '1px solid #E5E7EB' }}
-                  >
-                    <div className="flex-shrink-0 text-center w-10">
-                      <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                        {formatDate(booking.scheduled_at, lang).slice(0, 3)}
-                      </div>
-                      <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
-                        {new Date(booking.scheduled_at).getDate()}
-                      </div>
-                    </div>
-
-                    <div
-                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
-                      style={{ background: '#F3F4F6' }}
+                {upcomingBookings.map((booking) => {
+                  const teacherName = (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || null
+                  const awaitingTeacher = !teacherName && booking.status === 'pending'
+                  return (
+                    <li
+                      key={booking.id}
+                      className="flex items-center gap-4 px-5 py-4"
+                      style={{ borderBottom: '1px solid #E5E7EB' }}
                     >
-                      <Video className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
-                        {tx.with} {(booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || 'Teacher'}
+                      <div className="flex-shrink-0 text-center w-10">
+                        <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
+                          {formatDate(booking.scheduled_at, lang).slice(0, 3)}
+                        </div>
+                        <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
+                          {new Date(booking.scheduled_at).getDate()}
+                        </div>
                       </div>
-                      <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                        {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
-                      </div>
-                    </div>
 
-                    <span
-                      className="text-[10px] font-semibold px-2.5 py-1 rounded flex-shrink-0"
-                      style={
-                        booking.status === 'confirmed'
-                          ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
-                          : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
-                      }
-                    >
-                      {booking.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
-                    </span>
-                  </li>
-                ))}
+                      <div
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
+                        style={{ background: '#F3F4F6' }}
+                      >
+                        <Video className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-semibold truncate" style={{ color: awaitingTeacher ? '#9CA3AF' : '#111111', fontStyle: awaitingTeacher ? 'italic' : 'normal' }}>
+                          {awaitingTeacher ? tx.teacherBeingAssigned : `${tx.with} ${teacherName}`}
+                        </div>
+                        <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                          {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span
+                          className="text-[10px] font-semibold px-2.5 py-1 rounded"
+                          style={
+                            booking.status === 'confirmed'
+                              ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
+                              : awaitingTeacher
+                              ? { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' }
+                              : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
+                          }
+                        >
+                          {booking.status === 'confirmed'
+                            ? tx.statusConfirmed
+                            : awaitingTeacher
+                            ? tx.statusAwaitingTeacher
+                            : tx.statusPending}
+                        </span>
+                        {!awaitingTeacher && (
+                          <JoinSessionButton
+                            lang={lang}
+                            bookingId={booking.id}
+                            scheduledAt={booking.scheduled_at}
+                            variant="compact"
+                          />
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>

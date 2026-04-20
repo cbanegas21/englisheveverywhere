@@ -6,6 +6,7 @@ import { Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles,
 import { getSessionByBookingId } from '@/app/actions/video'
 import type { SessionSummary } from '@/app/actions/video'
 import type { Locale } from '@/lib/i18n/translations'
+import JoinSessionButton from '@/components/JoinSessionButton'
 
 const t = {
   en: {
@@ -23,6 +24,8 @@ const t = {
     enterRoom: 'Join class',
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
+    statusAwaitingTeacher: 'Awaiting teacher',
+    teacherBeingAssigned: 'Teacher being assigned',
     statusCompleted: 'Completed',
     statusDiagnostic: 'Diagnostic call — Pending assignment',
     today: 'Today',
@@ -55,6 +58,8 @@ const t = {
     enterRoom: 'Entrar a sala',
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
+    statusAwaitingTeacher: 'Asignando maestro',
+    teacherBeingAssigned: 'Maestro por asignar',
     statusCompleted: 'Completada',
     statusDiagnostic: 'Llamada diagnóstica — Pendiente de asignación',
     today: 'Hoy',
@@ -94,11 +99,6 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function canJoinClass(iso: string) {
-  const diff = new Date(iso).getTime() - Date.now()
-  return diff >= -(90 * 60 * 1000) && diff <= 15 * 60 * 1000
-}
-
 function buildCalendarGrid(year: number, month: number): (number | null)[] {
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -114,6 +114,7 @@ interface Booking {
   duration_minutes: number
   status: string
   type?: string
+  teacher_id?: string | null
   teacher?: { profile?: { full_name?: string; avatar_url?: string } } | null
 }
 
@@ -223,7 +224,15 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
         icon: null,
       }
     }
-    // pending
+    // pending class with no teacher assigned yet
+    if (booking.status === 'pending' && !booking.teacher_id) {
+      return {
+        label: tx.statusAwaitingTeacher,
+        style: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' },
+        icon: null,
+      }
+    }
+    // pending (fallback)
     return {
       label: tx.statusPending,
       style: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' },
@@ -358,9 +367,9 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
           ) : (
             <ul>
               {bookings.map((booking) => {
-                const canEnter = activeTab === 'upcoming' && canJoinClass(booking.scheduled_at)
                 const isCompleted = booking.status === 'completed'
-                const teacherName = (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || 'Teacher'
+                const teacherName = (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || null
+                const awaitingTeacher = booking.type !== 'placement_test' && !teacherName
                 const badge = getBadge(booking)
 
                 return (
@@ -395,9 +404,11 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
+                      <div className="text-[13px] font-semibold truncate" style={{ color: awaitingTeacher ? '#9CA3AF' : '#111111', fontStyle: awaitingTeacher ? 'italic' : 'normal' }}>
                         {booking.type === 'placement_test'
                           ? (lang === 'es' ? 'Llamada diagnóstica' : 'Diagnostic call')
+                          : awaitingTeacher
+                          ? tx.teacherBeingAssigned
                           : `${tx.with} ${teacherName}`
                         }
                       </div>
@@ -417,20 +428,16 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                         {badge.label}
                       </span>
 
-                      {canEnter && booking.type !== 'placement_test' && (
-                        <Link
-                          href={`/${lang}/sala/${booking.id}`}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded text-[11px] font-semibold transition-all"
-                          style={{ background: '#C41E3A', color: '#fff' }}
-                          onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                          onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-                        >
-                          <Video className="h-3 w-3" />
-                          {tx.enterRoom}
-                        </Link>
+                      {activeTab === 'upcoming' && !awaitingTeacher && (
+                        <JoinSessionButton
+                          lang={lang}
+                          bookingId={booking.id}
+                          scheduledAt={booking.scheduled_at}
+                          variant="compact"
+                        />
                       )}
 
-                      {isCompleted && !canEnter && (
+                      {isCompleted && (
                         <button
                           onClick={() => openSummary(booking.id)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded text-[11px] font-semibold transition-all"

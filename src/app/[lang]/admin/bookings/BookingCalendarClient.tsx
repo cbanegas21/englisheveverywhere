@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { assignAndConfirmBooking, cancelBooking, completeBooking } from '../actions'
 import BookingAssign from './BookingAssign'
+import JoinSessionButton from '@/components/JoinSessionButton'
+import type { Locale } from '@/lib/i18n/translations'
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -836,16 +838,16 @@ export default function BookingCalendarClient({
             </button>
           )}
 
-          {/* Video room */}
-          {b.video_room_url && b.status === 'confirmed' && (
-            <a
-              href={b.video_room_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: 'block', textAlign: 'center', padding: '9px 14px', borderRadius: 8, border: '1px solid #2563EB', color: '#2563EB', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
-            >
-              Open Video Room →
-            </a>
+          {/* Video room — admin can observe any confirmed session */}
+          {b.status === 'confirmed' && (
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <JoinSessionButton
+                lang={lang as Locale}
+                bookingId={b.id}
+                scheduledAt={b.scheduled_at}
+                variant="secondary"
+              />
+            </div>
           )}
 
           {/* Cancel */}
@@ -976,35 +978,8 @@ export default function BookingCalendarClient({
         ))}
       </div>
 
-      {/* Main area */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-        {/* Teacher filter sidebar */}
-        {view !== 'board' && renderTeacherFilter()}
-
-        {/* Calendar / board */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {view === 'week' && renderWeekView()}
-          {view === 'day' && renderDayView()}
-          {view === 'board' && renderBoardView()}
-        </div>
-
-        {/* Detail panel */}
-        {selectedBooking && renderDetailPanel()}
-      </div>
-
-      {/* Availability toggle */}
-      <div style={{ marginTop: 20 }}>
-        <button
-          onClick={() => setShowAvailability(!showAvailability)}
-          style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 0' }}
-        >
-          {showAvailability ? '▾' : '▸'} Teacher Availability Panel
-        </button>
-        {showAvailability && renderAvailabilityPanel()}
-      </div>
-
-      {/* Pending assignments */}
-      <section style={{ marginTop: 24 }}>
+      {/* Pending assignments — top of page so admin sees them first */}
+      <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 12 }}>
           Pending Assignments ({pendingBookings.length})
         </h2>
@@ -1045,6 +1020,34 @@ export default function BookingCalendarClient({
           </table>
         </div>
       </section>
+
+      {/* Main area */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        {/* Teacher filter sidebar */}
+        {view !== 'board' && renderTeacherFilter()}
+
+        {/* Calendar / board */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {view === 'week' && renderWeekView()}
+          {view === 'day' && renderDayView()}
+          {view === 'board' && renderBoardView()}
+        </div>
+
+        {/* Detail panel */}
+        {selectedBooking && renderDetailPanel()}
+      </div>
+
+      {/* Availability toggle */}
+      <div style={{ marginTop: 20 }}>
+        <button
+          onClick={() => setShowAvailability(!showAvailability)}
+          style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 0' }}
+        >
+          {showAvailability ? '▾' : '▸'} Teacher Availability Panel
+        </button>
+        {showAvailability && renderAvailabilityPanel()}
+      </div>
     </div>
   )
 }
+

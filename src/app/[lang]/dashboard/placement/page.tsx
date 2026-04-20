@@ -56,6 +56,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
     return (
       <PlacementScheduledScreen
         lang={lang as Locale}
+        bookingId={existingBooking?.id || null}
         scheduledAt={existingBooking?.scheduled_at || null}
         timezone={timezone}
         isPast={isPast}

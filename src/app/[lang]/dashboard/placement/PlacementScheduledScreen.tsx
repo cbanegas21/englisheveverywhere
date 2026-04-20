@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
+import JoinSessionButton from '@/components/JoinSessionButton'
 
 interface Props {
   lang: Locale
+  bookingId: string | null
   scheduledAt: string | null
   timezone: string
   isPast?: boolean
@@ -26,7 +28,7 @@ function formatTime(iso: string, timezone: string) {
   })
 }
 
-export default function PlacementScheduledScreen({ lang, scheduledAt, timezone, isPast }: Props) {
+export default function PlacementScheduledScreen({ lang, bookingId, scheduledAt, timezone, isPast }: Props) {
   const isEs = lang === 'es'
   const date = scheduledAt ? formatDate(scheduledAt, lang, timezone) : null
   const time = scheduledAt ? formatTime(scheduledAt, timezone) : null
@@ -152,12 +154,23 @@ export default function PlacementScheduledScreen({ lang, scheduledAt, timezone, 
               )}
             </p>
 
+            {bookingId && scheduledAt && (
+              <div className="flex justify-center">
+                <JoinSessionButton
+                  lang={lang}
+                  bookingId={bookingId}
+                  scheduledAt={scheduledAt}
+                  variant="primary"
+                />
+              </div>
+            )}
+
             <Link
               href={`/${lang}/dashboard`}
               className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-bold text-[13px] transition-all"
-              style={{ background: '#C41E3A', color: '#fff' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+              style={{ background: '#F3F4F6', color: '#374151' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#E5E7EB')}
+              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#F3F4F6')}
             >
               {isEs ? 'Ir al Dashboard' : 'Go to Dashboard'}
             </Link>
