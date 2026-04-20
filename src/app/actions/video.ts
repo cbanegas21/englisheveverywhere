@@ -236,6 +236,10 @@ export async function completeSession(
     return { error: 'Only the teacher can end the session' }
   }
 
+  // Idempotency guard — a second click (or retry) must not double-increment
+  // teachers.total_sessions or re-run summary generation.
+  const alreadyCompleted = booking.status === 'completed'
+
   const adminClient = createAdminClient()
 
   let sid = sessionId
@@ -265,7 +269,7 @@ export async function completeSession(
   const teacherId = (booking.teacher as any)?.id
   const studentId = (booking.student as any)?.id
 
-  if (teacherId) {
+  if (teacherId && !alreadyCompleted) {
     const total = (booking.teacher as any)?.total_sessions || 0
     await adminClient
       .from('teachers')
@@ -297,7 +301,7 @@ export async function completeSession(
   }
 
   let summary: SessionSummary | undefined
-  if (sid) {
+  if (sid && !alreadyCompleted) {
     const result = await generateSessionSummary(sid, lang).catch(() => null)
     if (result) summary = result
   }
@@ -306,6 +310,8 @@ export async function completeSession(
   revalidatePath(`/${lang}/dashboard/clases`)
   revalidatePath(`/${lang}/maestro/dashboard`)
   revalidatePath(`/${lang}/maestro/dashboard/clases`)
+  revalidatePath(`/${lang}/maestro/dashboard/ganancias`)
+  revalidatePath(`/${lang}/admin/bookings`)
 
   return { success: true, ...(summary ? { summary } : {}) }
 }
