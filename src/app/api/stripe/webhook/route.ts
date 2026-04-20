@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { PRICING_MAP } from '@/lib/pricing'
 
+// Canonical class counts per plan — sourced from src/lib/pricing.ts so a
+// plan-definition change in one place propagates to Stripe webhook crediting.
+// Legacy keys (starter/estandar/intensivo) retained as aliases so in-flight
+// Stripe checkouts from older metadata still credit correctly.
 const CLASS_COUNTS: Record<string, number> = {
-  starter: 4,
-  estandar: 8,
-  intensivo: 16,
+  spark: PRICING_MAP.spark.classes,
+  drive: PRICING_MAP.drive.classes,
+  ascent: PRICING_MAP.ascent.classes,
+  peak: PRICING_MAP.peak.classes,
+  // Legacy — point old keys to the nearest current tier
+  starter: PRICING_MAP.spark.classes,
+  estandar: PRICING_MAP.drive.classes,
+  intensivo: PRICING_MAP.ascent.classes,
 }
 
 export async function POST(req: NextRequest) {
@@ -44,7 +54,11 @@ export async function POST(req: NextRequest) {
       const planKey = metadata?.plan_key
 
       if (userId && planKey) {
-        const classes = CLASS_COUNTS[planKey] || 4
+        const classes = CLASS_COUNTS[planKey]
+        if (!classes) {
+          console.error('[stripe webhook] unknown plan_key in checkout metadata', { userId, planKey })
+          break
+        }
 
         // Get student record
         const { data: student } = await supabase
