@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Mic, Video, Volume2, Check } from 'lucide-react'
 import { useMediaDeviceSelect } from '@livekit/components-react'
@@ -21,6 +22,13 @@ export function DeviceMenu({ lang, show, onClose }: Props) {
   const mic = useMediaDeviceSelect({ kind: 'audioinput' })
   const cam = useMediaDeviceSelect({ kind: 'videoinput' })
   const spk = useMediaDeviceSelect({ kind: 'audiooutput' })
+
+  useEffect(() => {
+    if (!show) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [show, onClose])
 
   return (
     <AnimatePresence>
