@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Video, CheckCircle2 } from 'lucide-react'
+import { Calendar, Video, CheckCircle2, DollarSign, Wallet } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 
 interface Session {
@@ -8,48 +8,72 @@ interface Session {
   scheduled_at: string
   duration_minutes: number
   status: string
-  student?: { profile?: { full_name?: string } } | null
+  student?: { profile?: { full_name?: string } | null } | null
+  payoutUsd: number
 }
 
 interface Props {
   lang: Locale
   totalSessions: number
   thisMonthSessions: number
+  thisMonthEarningsUsd: number
+  totalEarningsUsd: number
   sessions: Session[]
 }
 
 const t = {
   en: {
-    title: 'Session history',
-    subtitle: 'A record of all your completed classes.',
+    title: 'Earnings',
+    subtitle: 'Your session history + teacher payouts.',
     thisMonth: 'Sessions this month',
     total: 'Total sessions',
+    thisMonthEarnings: 'This month earnings',
+    totalEarnings: 'Total earnings',
     recentSessions: 'Completed sessions',
     noSessions: 'No completed sessions yet.',
     date: 'Date',
     student: 'Student',
     duration: 'Duration',
+    earnings: 'Payout',
     status: 'Status',
     completed: 'Completed',
     mins: 'min',
   },
   es: {
-    title: 'Historial de sesiones',
-    subtitle: 'Registro de todas tus clases completadas.',
+    title: 'Ganancias',
+    subtitle: 'Historial de sesiones + tus pagos.',
     thisMonth: 'Sesiones este mes',
     total: 'Sesiones totales',
+    thisMonthEarnings: 'Ganancias del mes',
+    totalEarnings: 'Ganancias totales',
     recentSessions: 'Sesiones completadas',
     noSessions: 'Sin sesiones completadas aún.',
     date: 'Fecha',
     student: 'Estudiante',
     duration: 'Duración',
+    earnings: 'Pago',
     status: 'Estado',
     completed: 'Completada',
     mins: 'min',
   },
 }
 
-export default function GananciasClient({ lang, totalSessions, thisMonthSessions, sessions }: Props) {
+function formatUsd(amount: number, lang: Locale): string {
+  return new Intl.NumberFormat(lang === 'es' ? 'es-HN' : 'en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+export default function GananciasClient({
+  lang,
+  totalSessions,
+  thisMonthSessions,
+  thisMonthEarningsUsd,
+  totalEarningsUsd,
+  sessions,
+}: Props) {
   const tx = t[lang]
 
   return (
@@ -62,21 +86,26 @@ export default function GananciasClient({ lang, totalSessions, thisMonthSessions
       <div className="px-8 py-6 max-w-4xl mx-auto space-y-6">
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: tx.thisMonth, value: thisMonthSessions, icon: Calendar },
-            { label: tx.total, value: totalSessions, icon: CheckCircle2 },
-          ].map(({ label, value, icon: Icon }) => (
+            { label: tx.thisMonthEarnings, value: formatUsd(thisMonthEarningsUsd, lang), icon: DollarSign, accent: true },
+            { label: tx.totalEarnings, value: formatUsd(totalEarningsUsd, lang), icon: Wallet, accent: true },
+            { label: tx.thisMonth, value: thisMonthSessions.toString(), icon: Calendar, accent: false },
+            { label: tx.total, value: totalSessions.toString(), icon: CheckCircle2, accent: false },
+          ].map(({ label, value, icon: Icon, accent }) => (
             <div
               key={label}
               className="rounded-xl p-5"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+              style={{
+                background: '#fff',
+                border: `1px solid ${accent ? '#FCA5A5' : '#E5E7EB'}`,
+              }}
             >
               <div
                 className="flex h-8 w-8 items-center justify-center rounded mb-3"
-                style={{ background: '#F3F4F6' }}
+                style={{ background: accent ? '#FEF2F2' : '#F3F4F6' }}
               >
-                <Icon className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+                <Icon className="h-4 w-4" style={{ color: accent ? '#C41E3A' : '#9CA3AF' }} />
               </div>
               <div className="text-[22px] font-black mb-0.5" style={{ color: '#111111' }}>{value}</div>
               <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{label}</div>
@@ -108,7 +137,7 @@ export default function GananciasClient({ lang, totalSessions, thisMonthSessions
               <table className="w-full">
                 <thead>
                   <tr style={{ background: '#F9FAFB' }}>
-                    {[tx.date, tx.student, tx.duration, tx.status].map(h => (
+                    {[tx.date, tx.student, tx.duration, tx.earnings, tx.status].map(h => (
                       <th
                         key={h}
                         className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider"
@@ -129,10 +158,13 @@ export default function GananciasClient({ lang, totalSessions, thisMonthSessions
                         )}
                       </td>
                       <td className="px-5 py-3.5 text-[13px] font-medium" style={{ color: '#111111' }}>
-                        {(s.student as any)?.profile?.full_name?.split(' ')[0] || '—'}
+                        {s.student?.profile?.full_name?.split(' ')[0] || '—'}
                       </td>
                       <td className="px-5 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
                         {s.duration_minutes}{tx.mins}
+                      </td>
+                      <td className="px-5 py-3.5 text-[13px] font-bold" style={{ color: '#C41E3A' }}>
+                        {formatUsd(s.payoutUsd, lang)}
                       </td>
                       <td className="px-5 py-3.5">
                         <span
