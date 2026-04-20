@@ -14,6 +14,7 @@ interface BookingEntry {
   id: string
   student_id: string
   teacher_id: string | null
+  conductor_profile_id: string | null
   scheduled_at: string
   duration_minutes: number | null
   status: string
@@ -24,6 +25,7 @@ interface BookingEntry {
   student_email: string | null
   student_level: string | null
   teacher_name: string | null
+  conductor_name: string | null
   ai_summary: string | null
   student_rating: number | null
 }
@@ -735,6 +737,18 @@ export default function BookingCalendarClient({
             <span style={{ fontSize: 13, color: '#D97706' }}>Unassigned</span>
           )}
         </div>
+
+        {/* Conductor — only relevant for placement calls, which carry an admin-run interviewer on top of the teacher */}
+        {b.type === 'placement_test' && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>Conductor</p>
+            {b.conductor_name ? (
+              <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>{b.conductor_name}</span>
+            ) : (
+              <span style={{ fontSize: 13, color: '#D97706' }}>Unassigned</span>
+            )}
+          </div>
+        )}
 
         {/* Date/time */}
         <div style={{ marginBottom: 14 }}>

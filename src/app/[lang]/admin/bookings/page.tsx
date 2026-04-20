@@ -53,10 +53,11 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     admin
       .from('bookings')
       .select(`
-        id, student_id, teacher_id, scheduled_at, duration_minutes,
+        id, student_id, teacher_id, conductor_profile_id, scheduled_at, duration_minutes,
         status, type, meeting_notes, video_room_url,
         student:students(id, level, profile:profiles(full_name, email)),
-        teacher:teachers(id, profile:profiles(full_name))
+        teacher:teachers(id, profile:profiles(full_name)),
+        conductor:profiles!conductor_profile_id(full_name)
       `)
       .gte('scheduled_at', weekStart.toISOString())
       .lt('scheduled_at', weekEnd.toISOString())
@@ -114,6 +115,7 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     id: string
     student_id: string
     teacher_id: string | null
+    conductor_profile_id: string | null
     scheduled_at: string
     duration_minutes: number | null
     status: string
@@ -124,6 +126,7 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     student_email: string | null
     student_level: string | null
     teacher_name: string | null
+    conductor_name: string | null
     ai_summary: string | null
     student_rating: number | null
   }
@@ -144,12 +147,17 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     const studentObj = Array.isArray(rawStudent) ? rawStudent[0] : rawStudent
     const rawTeacher = b.teacher as { id: string; profile: unknown } | { id: string; profile: unknown }[] | null
     const teacherObj = Array.isArray(rawTeacher) ? rawTeacher[0] : rawTeacher
+    // conductor_profile_id is a direct FK to profiles (no intermediate teacher
+    // row), so the join surfaces the profile object itself — not nested.
+    const rawConductor = (b as { conductor?: unknown }).conductor
+    const conductorName = getName(rawConductor)
 
     const session = sessionMap.get(b.id)
     return {
       id: b.id,
       student_id: b.student_id,
       teacher_id: b.teacher_id,
+      conductor_profile_id: (b as { conductor_profile_id: string | null }).conductor_profile_id ?? null,
       scheduled_at: b.scheduled_at,
       duration_minutes: b.duration_minutes,
       status: b.status,
@@ -160,6 +168,7 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
       student_email: getEmail(studentObj?.profile),
       student_level: studentObj?.level ?? null,
       teacher_name: getName(teacherObj?.profile),
+      conductor_name: conductorName,
       ai_summary: session?.teacher_notes ?? null,
       student_rating: session?.student_rating ?? null,
     }

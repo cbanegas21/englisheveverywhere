@@ -83,6 +83,10 @@ export async function assignAndConfirmBooking(bookingId: string, teacherId: stri
     .eq('id', bookingId)
 
   if (error) throw new Error(error.message)
+
+  // Fire-and-forget student email so the student knows their class is locked in.
+  sendAssignmentEmail(bookingId)
+
   revalidatePath('/', 'layout')
 }
 
@@ -546,5 +550,94 @@ export async function bulkAssignTeacher(bookingIds: string[], teacherId: string)
     .update({ teacher_id: teacherId, status: 'confirmed' })
     .in('id', bookingIds)
   if (error) throw new Error(error.message)
+
+  // Fan out assignment emails (fire-and-forget, same envelope for each student)
+  for (const id of bookingIds) sendAssignmentEmail(id)
+
   revalidatePath('/', 'layout')
+}
+
+// ── Assignment email helper ───────────────────────────────────────────────────
+//
+// Sent when admin assigns a teacher to a pending booking (via assign button or
+// drag-drop). The student already got a "booking received" email at creation
+// time in `src/app/actions/booking.ts`, but that one said "our team will assign
+// a teacher shortly" — this one closes the loop.
+
+function sendAssignmentEmail(bookingId: string) {
+  const apiKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  if (!apiKey || apiKey === 're_placeholder') return
+
+  const admin = createAdminClient()
+
+  void Promise.resolve(
+    admin
+      .from('bookings')
+      .select(`
+        scheduled_at, type,
+        student:students(profile:profiles(email, full_name)),
+        teacher:teachers(profile:profiles(full_name))
+      `)
+      .eq('id', bookingId)
+      .single()
+  ).then(({ data }) => {
+    if (!data) return
+    const studentRaw = data.student as { profile: unknown } | { profile: unknown }[] | null
+    const studentObj = Array.isArray(studentRaw) ? studentRaw[0] : studentRaw
+    const studentProfile = studentObj?.profile
+    let studentEmail: string | null = null
+    let studentName: string | null = null
+    if (Array.isArray(studentProfile)) {
+      studentEmail = (studentProfile as { email: string | null; full_name: string | null }[])[0]?.email ?? null
+      studentName = (studentProfile as { email: string | null; full_name: string | null }[])[0]?.full_name ?? null
+    } else if (studentProfile && typeof studentProfile === 'object') {
+      studentEmail = (studentProfile as { email: string | null; full_name: string | null }).email
+      studentName = (studentProfile as { email: string | null; full_name: string | null }).full_name
+    }
+    if (!studentEmail) return
+
+    const teacherRaw = data.teacher as { profile: unknown } | { profile: unknown }[] | null
+    const teacherObj = Array.isArray(teacherRaw) ? teacherRaw[0] : teacherRaw
+    const teacherProfile = teacherObj?.profile
+    let teacherName: string | null = null
+    if (Array.isArray(teacherProfile)) {
+      teacherName = (teacherProfile as { full_name: string | null }[])[0]?.full_name ?? null
+    } else if (teacherProfile && typeof teacherProfile === 'object') {
+      teacherName = (teacherProfile as { full_name: string | null }).full_name
+    }
+
+    const formatted = new Date(data.scheduled_at).toLocaleString('es-HN', {
+      weekday: 'long', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'America/Tegucigalpa',
+    })
+
+    const firstName = studentName?.split(' ')[0] || ''
+    const teacherFirst = teacherName?.split(' ')[0] || 'tu maestro'
+    const isPlacement = data.type === 'placement_test'
+    const subject = isPlacement
+      ? 'Tu llamada de diagnóstico ha sido confirmada — English Everywhere'
+      : 'Tu clase ha sido confirmada — English Everywhere'
+    const lead = isPlacement
+      ? `Tu llamada de diagnóstico con <strong>${teacherFirst}</strong> está confirmada.`
+      : `Tu clase con <strong>${teacherFirst}</strong> está confirmada.`
+
+    void fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: studentEmail,
+        subject,
+        html: `
+          <p>Hola ${firstName},</p>
+          <p>${lead}</p>
+          <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
+          <p>Te avisaremos de nuevo unos minutos antes con el enlace al aula.</p>
+          <p>— English Everywhere</p>
+        `,
+      }),
+    }).catch(() => {})
+  }).catch(() => {})
 }
