@@ -177,8 +177,17 @@ export function getCurrency(code: string): Currency {
 export function formatAmount(amount: number, code: string): string {
   const c = getCurrency(code)
   if (!Number.isFinite(amount)) return `${c.symbol}0`
-  const rounded = Math.round(amount)
-  if (Math.abs(rounded) >= 1_000_000) return `${c.symbol}${(rounded / 1_000_000).toFixed(1)}M`
-  if (Math.abs(rounded) >= 10_000) return `${c.symbol}${(rounded / 1_000).toFixed(1)}K`
-  return `${c.symbol}${rounded.toLocaleString()}`
+  const abs = Math.abs(amount)
+  // Use K/M suffix for large amounts so long HNL/VND/COP numbers stay compact.
+  if (abs >= 1_000_000) return `${c.symbol}${(amount / 1_000_000).toFixed(1)}M`
+  if (abs >= 10_000) return `${c.symbol}${(amount / 1_000).toFixed(1)}K`
+  // Keep cents for small amounts (per-class prices, teacher hourly rates) so a
+  // $5.75 price doesn't round up to $6. For whole-number plan totals this
+  // still renders cleanly ($49.00 → trimmed to $49).
+  if (abs < 100) {
+    const fixed = amount.toFixed(2)
+    const trimmed = fixed.endsWith('.00') ? fixed.slice(0, -3) : fixed
+    return `${c.symbol}${trimmed}`
+  }
+  return `${c.symbol}${Math.round(amount).toLocaleString()}`
 }

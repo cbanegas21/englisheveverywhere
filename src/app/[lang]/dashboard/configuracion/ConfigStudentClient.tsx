@@ -281,7 +281,6 @@ export default function ConfigStudentClient({
           <section className="min-w-0">
             {tab === 'profile' && (
               <ProfilePanel
-                lang={lang}
                 tx={tx}
                 initialFullName={fullName}
                 initialPhone={phone}
@@ -312,13 +311,14 @@ export default function ConfigStudentClient({
                 lang={lang}
                 variant="panel"
                 initialValues={notificationPreferences}
+                showComingSoon
                 onSave={async (next) => {
                   return await updateStudentProfile({ notificationPreferences: next })
                 }}
               />
             )}
             {tab === 'billing' && <BillingPanel lang={lang} tx={tx} />}
-            {tab === 'danger' && <DangerPanel lang={lang} tx={tx} keyword={deleteTypeKeyword} />}
+            {tab === 'danger' && <DangerPanel tx={tx} keyword={deleteTypeKeyword} />}
           </section>
         </div>
       </div>
@@ -331,14 +331,12 @@ export default function ConfigStudentClient({
 // ═══════════════════════════════════════════════════════════════════
 
 function ProfilePanel({
-  lang,
   tx,
   initialFullName,
   initialPhone,
   initialAvatarUrl,
   email,
 }: {
-  lang: Locale
   tx: typeof t['en']
   initialFullName: string
   initialPhone: string
@@ -464,9 +462,6 @@ function ProfilePanel({
         savedLabel={tx.saved}
         savingLabel={tx.saving}
       />
-
-      {/* suppress unused-import hint */}
-      <span style={{ display: 'none' }}>{lang}</span>
     </div>
   )
 }
@@ -617,7 +612,7 @@ function BillingPanel({ lang, tx }: { lang: Locale; tx: typeof t['en'] }) {
 // Danger panel
 // ═══════════════════════════════════════════════════════════════════
 
-function DangerPanel({ lang, tx, keyword }: { lang: Locale; tx: typeof t['en']; keyword: string }) {
+function DangerPanel({ tx, keyword }: { tx: typeof t['en']; keyword: string }) {
   const [open, setOpen] = useState(false)
   const [typed, setTyped] = useState('')
   const confirmed = typed.trim() === keyword
@@ -741,7 +736,6 @@ function DangerPanel({ lang, tx, keyword }: { lang: Locale; tx: typeof t['en']; 
         </div>
       )}
 
-      <span style={{ display: 'none' }}>{lang}</span>
     </>
   )
 }

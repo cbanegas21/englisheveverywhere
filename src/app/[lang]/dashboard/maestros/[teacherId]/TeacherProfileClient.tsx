@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { createBooking } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
+import { useCurrency } from '@/lib/useCurrency'
 
 interface AvailabilitySlot {
   id: string
@@ -243,6 +244,7 @@ export default function TeacherProfileClient({
 }: Props) {
   const tx = t[lang]
   const router = useRouter()
+  const { convert } = useCurrency()
   const [isPending, startTransition] = useTransition()
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -517,7 +519,7 @@ export default function TeacherProfileClient({
                     className="text-[13px] font-bold px-3 py-1.5 rounded"
                     style={{ background: '#FEF9EE', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.08)' }}
                   >
-                    USD {(teacher.hourly_rate * 0.5).toFixed(2)}+
+                    {convert(teacher.hourly_rate * 0.5)}+
                   </span>
                 </div>
                 {teacher.specializations.slice(0, 1).map(spec => (
@@ -536,7 +538,7 @@ export default function TeacherProfileClient({
                       className="text-[13px] font-bold px-3 py-1.5 rounded"
                       style={{ background: '#FEF9EE', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.08)' }}
                     >
-                      USD {teacher.hourly_rate.toFixed(2)}
+                      {convert(teacher.hourly_rate)}
                     </span>
                   </div>
                 ))}
@@ -617,7 +619,7 @@ export default function TeacherProfileClient({
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[13px] font-medium" style={{ color: '#4B5563' }}>{tx.trialLesson}</span>
                   <span className="text-[16px] font-black" style={{ color: '#111111' }}>
-                    USD {(teacher.hourly_rate * 0.5).toFixed(2)}
+                    {convert(teacher.hourly_rate * 0.5)}
                   </span>
                 </div>
 
