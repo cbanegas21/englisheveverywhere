@@ -21,7 +21,7 @@ export async function getRoomAccess(bookingId: string): Promise<
   const { data: booking } = await supabase
     .from('bookings')
     .select(`
-      id, status, scheduled_at, duration_minutes,
+      id, status, scheduled_at, duration_minutes, conductor_profile_id,
       teacher:teachers(profile_id, profile:profiles(full_name)),
       student:students(profile_id, profile:profiles(full_name))
     `)
@@ -32,8 +32,24 @@ export async function getRoomAccess(bookingId: string): Promise<
 
   const teacherProfileId = (booking.teacher as any)?.profile_id
   const studentProfileId = (booking.student as any)?.profile_id
+  const conductorProfileId = (booking as any).conductor_profile_id
 
-  if (user.id !== teacherProfileId && user.id !== studentProfileId) {
+  // Admins may join any room (for support / observation / placement conducting).
+  // TODO: observer-mode — admins currently get full publish permissions; wire a
+  // read-only grant once LiveKit's observer role is configured.
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, full_name')
+    .eq('id', user.id)
+    .single()
+  const isAdmin = callerProfile?.role === 'admin'
+
+  const isParticipant =
+    user.id === teacherProfileId ||
+    user.id === studentProfileId ||
+    user.id === conductorProfileId
+
+  if (!isParticipant && !isAdmin) {
     return { error: 'Not authorized for this booking' }
   }
 
@@ -95,9 +111,14 @@ export async function getRoomAccess(bookingId: string): Promise<
   // Generate LiveKit access token
   const roomName = `session-${bookingId}`
   const isTeacher = user.id === teacherProfileId
+  const isStudent = user.id === studentProfileId
   const participantName = isTeacher
     ? (booking.teacher as any)?.profile?.full_name || 'Teacher'
-    : (booking.student as any)?.profile?.full_name || 'Student'
+    : isStudent
+      ? (booking.student as any)?.profile?.full_name || 'Student'
+      : isAdmin
+        ? `${callerProfile?.full_name || 'Admin'} (Admin)`
+        : 'Observer'
 
   try {
     const at = new AccessToken(apiKey, apiSecret, {
@@ -267,15 +288,14 @@ export async function completeSession(
     if (!existingPayment) {
       const hourlyRate = (booking.teacher as any)?.hourly_rate || 0
       const sessionRate = Math.round(hourlyRate * ((booking.duration_minutes || 50) / 60))
-      const teacherEarning = Math.round(sessionRate * 0.85)
 
       await adminClient.from('payments').insert({
         booking_id: bookingId,
         student_id: studentId,
         teacher_id: teacherId,
         amount_usd: sessionRate,
-        teacher_payout_usd: teacherEarning,
-        platform_fee_usd: sessionRate - teacherEarning,
+        teacher_payout_usd: sessionRate,
+        platform_fee_usd: 0,
         status: 'completed',
       })
     }
