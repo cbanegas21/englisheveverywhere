@@ -14,6 +14,7 @@ type Strings = {
   layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string
   chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
   shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
+  deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
 }
 
 export const VIDEO_T: Record<Locale, Strings> = {
@@ -69,6 +70,10 @@ export const VIDEO_T: Record<Locale, Strings> = {
 
     shareScreen: 'Share screen', stopSharing: 'Stop sharing',
     sharingPrefix: '', sharingSuffix: 'is sharing their screen',
+
+    deviceSettings: 'Audio & video settings',
+    microphone: 'Microphone', camera: 'Camera', speaker: 'Speaker',
+    noDevices: 'No devices found.',
   },
   es: {
     connecting: 'Conectando a tu sesión...',
@@ -122,6 +127,10 @@ export const VIDEO_T: Record<Locale, Strings> = {
 
     shareScreen: 'Compartir pantalla', stopSharing: 'Dejar de compartir',
     sharingPrefix: '', sharingSuffix: 'está compartiendo la pantalla',
+
+    deviceSettings: 'Ajustes de audio y video',
+    microphone: 'Micrófono', camera: 'Cámara', speaker: 'Altavoz',
+    noDevices: 'No se encontraron dispositivos.',
   },
 }
 

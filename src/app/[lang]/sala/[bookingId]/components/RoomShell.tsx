@@ -23,6 +23,7 @@ import { ScreenShareView } from './ScreenShareView'
 import { ControlBar } from './ControlBar'
 import { NotesPanel } from './NotesPanel'
 import { ChatPanel } from './ChatPanel'
+import { DeviceMenu } from './DeviceMenu'
 import { ConnectingScreen } from './ConnectingScreen'
 import { LeavingScreen } from './LeavingScreen'
 
@@ -78,6 +79,7 @@ export function RoomShell({
 
   const [showNotes, setShowNotes] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showDevices, setShowDevices] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   const layout = useRoomLayout()
   const stageRef = useRef<HTMLDivElement | null>(null)
@@ -191,6 +193,8 @@ export function RoomShell({
           showChat={showChat}
           onToggleChat={() => setShowChat(p => !p)}
           unreadCount={unreadCount}
+          showDevices={showDevices}
+          onToggleDevices={() => setShowDevices(p => !p)}
         />
         {isTeacher && (
           <NotesPanel
@@ -207,6 +211,11 @@ export function RoomShell({
           chatMessages={chatMessages}
           send={send}
           isSending={isSending}
+        />
+        <DeviceMenu
+          lang={lang}
+          show={showDevices}
+          onClose={() => setShowDevices(false)}
         />
       </div>
     </div>

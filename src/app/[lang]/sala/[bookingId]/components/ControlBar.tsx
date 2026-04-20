@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2 } from 'lucide-react'
 import { useLocalParticipant, useTrackToggle } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
@@ -22,6 +22,8 @@ interface Props {
   showChat: boolean
   onToggleChat: () => void
   unreadCount: number
+  showDevices: boolean
+  onToggleDevices: () => void
 }
 
 export function ControlBar({
@@ -37,6 +39,8 @@ export function ControlBar({
   showChat,
   onToggleChat,
   unreadCount,
+  showDevices,
+  onToggleDevices,
 }: Props) {
   const tx = videoStrings(lang)
   const { localParticipant } = useLocalParticipant()
@@ -95,6 +99,13 @@ export function ControlBar({
         label={screenShare.enabled ? tx.stopSharing : tx.shareScreen}
         icon={screenShare.enabled ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
         variant={screenShare.enabled ? 'brand' : 'neutral'}
+      />
+      <CircleButton
+        active={showDevices}
+        onClick={onToggleDevices}
+        label={tx.deviceSettings}
+        icon={<Settings2 className="h-5 w-5" />}
+        variant={showDevices ? 'brand' : 'neutral'}
       />
       {isTeacher && (
         <CircleButton
