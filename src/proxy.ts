@@ -11,6 +11,14 @@ function getLocale(request: NextRequest): string {
   return defaultLocale // always 'es' unless user has explicitly switched
 }
 
+// Fast-path role home per role — proxy-only, locale is prepended by caller.
+// Layout guards remain the source of truth; cookie absence falls through to them.
+const ROLE_HOME: Record<string, string> = {
+  admin: 'admin',
+  teacher: 'maestro/dashboard',
+  student: 'dashboard',
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -28,12 +36,43 @@ export function proxy(request: NextRequest) {
     (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
   )
 
-  if (hasLocale) return NextResponse.next()
+  if (!hasLocale) {
+    const locale = getLocale(request)
+    request.nextUrl.pathname = `/${locale}${pathname}`
+    return NextResponse.redirect(request.nextUrl)
+  }
 
-  // Redirect to locale-prefixed path
-  const locale = getLocale(request)
-  request.nextUrl.pathname = `/${locale}${pathname}`
-  return NextResponse.redirect(request.nextUrl)
+  // Role-guard fast path. Cookie-absent = let layout guards handle auth/role
+  // (they read profiles.role as the canonical source). Cookie-present mismatch
+  // = short-circuit redirect so the wrong-role UI never flashes.
+  const role = request.cookies.get('ee-role')?.value
+  if (!role) return NextResponse.next()
+
+  const segments = pathname.split('/').filter(Boolean)
+  const lang = segments[0]
+  const afterLocale = segments.slice(1).join('/')
+
+  const wantsAdmin = afterLocale === 'admin' || afterLocale.startsWith('admin/')
+  const wantsTeacher = afterLocale === 'maestro' || afterLocale.startsWith('maestro/')
+  const wantsStudent = afterLocale === 'dashboard' || afterLocale.startsWith('dashboard/')
+
+  const mismatch =
+    (wantsAdmin && role !== 'admin') ||
+    (wantsTeacher && role !== 'teacher') ||
+    (wantsStudent && role !== 'student')
+
+  if (mismatch) {
+    const home = ROLE_HOME[role]
+    if (home) {
+      const target = `/${lang}/${home}`
+      if (target !== pathname) {
+        request.nextUrl.pathname = target
+        return NextResponse.redirect(request.nextUrl)
+      }
+    }
+  }
+
+  return NextResponse.next()
 }
 
 export const config = {
