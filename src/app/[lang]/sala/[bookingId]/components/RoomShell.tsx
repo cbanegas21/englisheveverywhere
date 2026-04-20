@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   useTracks,
   useConnectionState,
@@ -12,9 +12,12 @@ import type { Locale } from '@/lib/i18n/translations'
 import type { SessionSummary } from '@/app/actions/video'
 import { videoStrings } from '../i18n'
 import { useLeaveFlow } from '../hooks/useLeaveFlow'
+import { useRoomLayout } from '../hooks/useRoomLayout'
+import { useSelfViewPosition } from '../hooks/useSelfViewPosition'
 import { TopBar } from './TopBar'
 import { VideoTile } from './VideoTile'
-import { LocalSelfView } from './LocalSelfView'
+import { LocalSelfView, SelfViewPill } from './LocalSelfView'
+import { GridLayout } from './GridLayout'
 import { ControlBar } from './ControlBar'
 import { NotesPanel } from './NotesPanel'
 import { ConnectingScreen } from './ConnectingScreen'
@@ -66,6 +69,9 @@ export function RoomShell({
 
   const [showNotes, setShowNotes] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
+  const layout = useRoomLayout()
+  const stageRef = useRef<HTMLDivElement | null>(null)
+  const selfView = useSelfViewPosition(stageRef)
 
   // Leaving takes priority — show the branded "ending" screen even if
   // ConnectionState has transitioned away from Connected during disconnect.
@@ -98,9 +104,37 @@ export function RoomShell({
         scheduledAt={scheduledAt}
         durationMinutes={durationMinutes}
       />
-      <div className="flex-1 relative">
-        <VideoTile lang={lang} trackRef={remoteTrack} fallbackName={otherName} />
-        <LocalSelfView trackRef={localTrack} myName={myName} isCameraOff={isCameraOff} />
+      <div ref={stageRef} className="flex-1 relative">
+        {layout.mode === 'speaker' ? (
+          <>
+            <VideoTile lang={lang} trackRef={remoteTrack} fallbackName={otherName} />
+            {!selfView.hidden ? (
+              <LocalSelfView
+                trackRef={localTrack}
+                myName={myName}
+                isCameraOff={isCameraOff}
+                corner={selfView.corner}
+                isDragging={selfView.isDragging}
+                hideLabel={tx.hideSelf}
+                onHide={selfView.hide}
+                onPointerDown={selfView.onPointerDown}
+                onPointerMove={selfView.onPointerMove}
+                onPointerUp={selfView.onPointerUp}
+              />
+            ) : (
+              <SelfViewPill label={tx.showSelf} onShow={selfView.show} />
+            )}
+          </>
+        ) : (
+          <GridLayout
+            lang={lang}
+            remoteTrack={remoteTrack}
+            localTrack={localTrack}
+            myName={myName}
+            otherName={otherName}
+            isCameraOff={isCameraOff}
+          />
+        )}
         <ControlBar
           lang={lang}
           isTeacher={isTeacher}
@@ -109,6 +143,8 @@ export function RoomShell({
           onLeave={leave}
           isLeaving={isLeaving}
           onCameraOffChange={setIsCameraOff}
+          layoutMode={layout.mode}
+          onToggleLayout={layout.toggle}
         />
         {isTeacher && (
           <NotesPanel

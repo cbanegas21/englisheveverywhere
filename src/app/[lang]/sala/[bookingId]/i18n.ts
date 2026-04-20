@@ -11,6 +11,7 @@ type Strings = {
   you: string; teacher: string; student: string
   notes: string; notesPlaceholder: string; notesHint: string; saved: string; saving: string
   aiSummary: string; generatingSummary: string; covered: string; nextTopics: string; progressNote: string; noSummary: string
+  layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string
 }
 
 export const VIDEO_T: Record<Locale, Strings> = {
@@ -55,6 +56,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     nextTopics: 'Next Session Suggestions',
     progressNote: 'Progress Note',
     noSummary: 'Summary not available for this session.',
+
+    layoutSpeaker: 'Speaker view', layoutGrid: 'Side by side',
+    hideSelf: 'Hide self', showSelf: 'Show self',
   },
   es: {
     connecting: 'Conectando a tu sesión...',
@@ -97,6 +101,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     nextTopics: 'Sugerencias para la Próxima Sesión',
     progressNote: 'Nota de Progreso',
     noSummary: 'Resumen no disponible para esta sesión.',
+
+    layoutSpeaker: 'Vista presentador', layoutGrid: 'Lado a lado',
+    hideSelf: 'Ocultar mi video', showSelf: 'Mostrar mi video',
   },
 }
 

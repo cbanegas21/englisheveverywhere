@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2 } from 'lucide-react'
 import { useLocalParticipant } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
@@ -16,6 +16,8 @@ interface Props {
   onLeave: () => void
   isLeaving: boolean
   onCameraOffChange?: (off: boolean) => void
+  layoutMode: 'speaker' | 'grid'
+  onToggleLayout: () => void
 }
 
 export function ControlBar({
@@ -26,6 +28,8 @@ export function ControlBar({
   onLeave,
   isLeaving,
   onCameraOffChange,
+  layoutMode,
+  onToggleLayout,
 }: Props) {
   const tx = videoStrings(lang)
   const { localParticipant } = useLocalParticipant()
@@ -62,6 +66,13 @@ export function ControlBar({
         label={isCameraOff ? tx.startVideo : tx.stopVideo}
         icon={isCameraOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
         variant={isCameraOff ? 'alert' : 'neutral'}
+      />
+      <CircleButton
+        active={layoutMode === 'grid'}
+        onClick={onToggleLayout}
+        label={layoutMode === 'grid' ? tx.layoutSpeaker : tx.layoutGrid}
+        icon={layoutMode === 'grid' ? <Maximize2 className="h-5 w-5" /> : <LayoutGrid className="h-5 w-5" />}
+        variant="neutral"
       />
       {isTeacher && (
         <CircleButton
