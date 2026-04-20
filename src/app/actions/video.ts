@@ -62,19 +62,14 @@ export async function getRoomAccess(bookingId: string): Promise<
   const wsUrl = process.env.LIVEKIT_URL
   const isDevMode = !apiKey || !apiSecret || !wsUrl
 
-  // Timing window check (skip in dev mode)
+  // Timing window — Zoom-style lobby. Participants may enter at any time;
+  // the client renders a countdown lobby if `now < scheduled_at`. We only
+  // gate the LATE cap here (session expires 90 min after the scheduled end).
   if (!isDevMode) {
     const now = Date.now()
     const scheduled = new Date(booking.scheduled_at).getTime()
-    const openAt = scheduled - 15 * 60 * 1000
-    const closeAt = scheduled + 90 * 60 * 1000
-
-    if (now < openAt) {
-      const minutesUntil = Math.ceil((openAt - now) / 60000)
-      return {
-        error: `Room opens in ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}. You can join 15 minutes before the class starts.`,
-      }
-    }
+    const durationMs = (booking.duration_minutes ?? 60) * 60 * 1000
+    const closeAt = scheduled + durationMs + 90 * 60 * 1000
     if (now > closeAt) {
       return { error: 'This session has expired.' }
     }

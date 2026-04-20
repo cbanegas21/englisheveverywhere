@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminSidebar from './AdminSidebar'
 import AdminLangToggle from './AdminLangToggle'
+import AdminTopBarLogout from './AdminTopBarLogout'
 
 interface Props {
   children: React.ReactNode
@@ -54,6 +55,8 @@ export default async function AdminLayout({ children, params }: Props) {
             >
               Admin
             </span>
+            <div className="w-px h-6 mx-1" style={{ background: '#E5E7EB' }} />
+            <AdminTopBarLogout lang={lang} />
           </div>
         </header>
 

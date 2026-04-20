@@ -1,4 +1,4 @@
-// Foreign-exchange rate lookup. Uses exchangerate.host (free, no key).
+// Foreign-exchange rate lookup. Uses open.er-api.com (free, no key).
 // 24-hour in-memory cache keyed by base currency. Falls back to last cached
 // rate on provider failure; falls back to 1 if nothing cached.
 
@@ -39,7 +39,7 @@ function writePersistedCache(entry: RateSet): void {
 
 async function fetchRates(base: string): Promise<Record<string, number> | null> {
   try {
-    const res = await fetch(`https://api.exchangerate.host/latest?base=${encodeURIComponent(base)}`)
+    const res = await fetch(`https://open.er-api.com/v6/latest/${encodeURIComponent(base)}`)
     if (!res.ok) return null
     const data = await res.json()
     const rates = data?.rates

@@ -5,10 +5,11 @@ import Link from 'next/link'
 import { Video } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 
-// Window matches server-side `getRoomAccess` in src/app/actions/video.ts:
-// open 15m before scheduled_at, close 90m after. The button is a UX affordance;
-// the server is the final authority on whether the room will admit a user.
-const OPEN_BEFORE_MS = 15 * 60 * 1000
+// Zoom-style entry: the room itself renders a lobby with a countdown for
+// anyone who arrives early, so we expose the Join link up to 24h before
+// scheduled_at. Server-side `getRoomAccess` only enforces the LATE cap
+// (scheduled + duration + 90m) — we mirror that bound here.
+const OPEN_BEFORE_MS = 24 * 60 * 60 * 1000
 const CLOSE_AFTER_MS = 90 * 60 * 1000
 
 const T = {

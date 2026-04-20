@@ -26,7 +26,7 @@ export default async function AgendaPage({ params }: Props) {
   const { data: pendingBookings } = await supabase
     .from('bookings')
     .select(`
-      id, scheduled_at, duration_minutes, status,
+      id, scheduled_at, duration_minutes, status, type,
       student:students(profile:profiles(full_name, avatar_url))
     `)
     .eq('teacher_id', teacher.id)
@@ -34,16 +34,18 @@ export default async function AgendaPage({ params }: Props) {
     .gte('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: true })
 
-  // Fetch confirmed upcoming
+  // Fetch confirmed upcoming. Include bookings that started up to 2h ago
+  // so teachers can still see / rejoin an in-progress session.
+  const recentCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
   const { data: confirmedBookings } = await supabase
     .from('bookings')
     .select(`
-      id, scheduled_at, duration_minutes, status,
+      id, scheduled_at, duration_minutes, status, type,
       student:students(profile:profiles(full_name, avatar_url))
     `)
     .eq('teacher_id', teacher.id)
     .eq('status', 'confirmed')
-    .gte('scheduled_at', new Date().toISOString())
+    .gte('scheduled_at', recentCutoff)
     .order('scheduled_at', { ascending: true })
     .limit(10)
 

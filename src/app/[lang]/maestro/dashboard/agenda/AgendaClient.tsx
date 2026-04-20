@@ -12,6 +12,7 @@ interface Booking {
   scheduled_at: string
   duration_minutes: number
   status: string
+  type?: string | null
   student?: { profile?: { full_name?: string; avatar_url?: string } } | null
 }
 
@@ -37,6 +38,9 @@ const t = {
     today: 'Today',
     tomorrow: 'Tomorrow',
     statusConfirmed: 'Confirmed',
+    typePlacement: 'Placement',
+    typeCheckin: 'Check-in',
+    typeClass: 'Class',
   },
   es: {
     title: 'Mi agenda',
@@ -53,6 +57,9 @@ const t = {
     today: 'Hoy',
     tomorrow: 'Mañana',
     statusConfirmed: 'Confirmada',
+    typePlacement: 'Nivelación',
+    typeCheckin: 'Check-in',
+    typeClass: 'Clase',
   },
 }
 
@@ -77,9 +84,20 @@ function getInitials(name?: string | null) {
   return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 }
 
-function isWithin15Min(scheduledAt: string) {
-  const diff = new Date(scheduledAt).getTime() - Date.now()
-  return diff <= 15 * 60 * 1000 && diff > -90 * 60 * 1000
+// Zoom-style lobby makes pre-call entry possible at any time, so the "Join"
+// button is available up to 24h before and 2h after the scheduled start.
+function canEnterRoom(scheduledAt: string, durationMinutes: number) {
+  const now = Date.now()
+  const scheduled = new Date(scheduledAt).getTime()
+  const openAt = scheduled - 24 * 60 * 60 * 1000
+  const closeAt = scheduled + (durationMinutes + 90) * 60 * 1000
+  return now >= openAt && now <= closeAt
+}
+
+function typeLabel(type: string | null | undefined, tx: { typePlacement: string; typeCheckin: string; typeClass: string }) {
+  if (type === 'placement_test') return tx.typePlacement
+  if (type === 'admin_checkin') return tx.typeCheckin
+  return null
 }
 
 export default function AgendaClient({ lang, pendingBookings, confirmedBookings }: Props) {
@@ -193,8 +211,18 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                           {getInitials(booking.student?.profile?.full_name)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>
-                            {booking.student?.profile?.full_name || 'Student'}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>
+                              {booking.student?.profile?.full_name || 'Student'}
+                            </div>
+                            {typeLabel(booking.type, tx) && (
+                              <span
+                                className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                                style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
+                              >
+                                {typeLabel(booking.type, tx)}
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
                             {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
@@ -264,7 +292,8 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
               ) : (
                 <ul>
                   {confirmed.map((booking) => {
-                    const canJoin = isWithin15Min(booking.scheduled_at)
+                    const canJoin = canEnterRoom(booking.scheduled_at, booking.duration_minutes)
+                    const badge = typeLabel(booking.type, tx)
                     return (
                       <motion.li
                         key={booking.id}
@@ -280,8 +309,18 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                             {getInitials(booking.student?.profile?.full_name)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
-                              {booking.student?.profile?.full_name || 'Student'}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
+                                {booking.student?.profile?.full_name || 'Student'}
+                              </div>
+                              {badge && (
+                                <span
+                                  className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                                  style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
+                                >
+                                  {badge}
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
                               {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
