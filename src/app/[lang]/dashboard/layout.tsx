@@ -27,18 +27,21 @@ export default async function DashboardLayout({ children, params }: Props) {
     redirect(`/${lang}/login`)
   }
 
-  const role = user.user_metadata?.role as 'student' | 'teacher'
-
-  // Teachers should not access student dashboard
-  if (role === 'teacher') {
-    redirect(`/${lang}/maestro/dashboard`)
-  }
-
+  // profiles.role is the canonical source — user_metadata.role drifts when an
+  // admin promotes a user via DB update. Role guard redirects other roles to
+  // their own home so admins cannot observe student UI by URL-hopping.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('role, full_name')
     .eq('id', user.id)
     .single()
+
+  if (profile?.role === 'teacher') {
+    redirect(`/${lang}/maestro/dashboard`)
+  }
+  if (profile?.role === 'admin') {
+    redirect(`/${lang}/admin`)
+  }
 
   const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student'
 

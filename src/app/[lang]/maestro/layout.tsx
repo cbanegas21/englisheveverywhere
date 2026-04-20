@@ -27,18 +27,21 @@ export default async function MaestroLayout({ children, params }: Props) {
     redirect(`/${lang}/login`)
   }
 
-  const role = user.user_metadata?.role as 'student' | 'teacher'
-
-  // Students should not access teacher dashboard
-  if (role !== 'teacher') {
-    redirect(`/${lang}/dashboard`)
-  }
-
+  // profiles.role is canonical — user_metadata.role can drift after admin
+  // promotion. Send admins to their own area so they can't URL-hop into
+  // teacher UI.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('role, full_name')
     .eq('id', user.id)
     .single()
+
+  if (profile?.role === 'admin') {
+    redirect(`/${lang}/admin`)
+  }
+  if (profile?.role !== 'teacher') {
+    redirect(`/${lang}/dashboard`)
+  }
 
   const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
 
