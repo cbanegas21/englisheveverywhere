@@ -1,9 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { ACCOUNTS, ROUTES } from '../fixtures/accounts'
 
-// The teacher account in CLAUDE.md is also the admin account for the project.
-const ADMIN = ACCOUNTS.teacher
-
 async function loginAs(page: Page, email: string, password: string): Promise<'admin' | 'teacher' | 'student' | 'none'> {
   await page.goto(ROUTES.es.login)
   await page.fill('input[name="email"]', email)
@@ -32,9 +29,10 @@ test.describe('Admin — nav smoke', () => {
 
   for (const p of pages) {
     test(`admin → ${p.path}`, async ({ page }) => {
+      const ADMIN = ACCOUNTS.admin
+      test.skip(!ADMIN.email || !ADMIN.password, 'Admin user not provisioned (missing SUPABASE_SERVICE_ROLE_KEY in globalSetup)')
       const role = await loginAs(page, ADMIN.email, ADMIN.password)
-      // If the test account is NOT an admin, skip rather than fail the suite.
-      test.skip(role !== 'admin', `Test account is not admin (role=${role}) — set E2E credentials to an admin user`)
+      test.skip(role !== 'admin', `Could not reach /admin after login — got role=${role}`)
       const errors: string[] = []
       page.on('pageerror', err => errors.push(err.message))
       await page.goto(p.path)

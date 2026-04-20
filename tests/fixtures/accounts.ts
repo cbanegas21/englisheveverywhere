@@ -17,6 +17,15 @@ export const ACCOUNTS = {
     email: process.env.E2E_TEACHER_EMAIL || 'c.banegaspaz2020@gmail.com',
     password: process.env.E2E_TEACHER_PASSWORD || 'Test1234!',
   },
+  // Admin creds are provisioned on demand in tests/globalSetup.ts (service
+  // role). Tests should read these lazily (inside the test body) since the
+  // env vars are populated at global-setup time, not at module import.
+  get admin() {
+    return {
+      email: process.env.E2E_ADMIN_EMAIL || '',
+      password: process.env.E2E_ADMIN_PASSWORD || '',
+    }
+  },
 } as const
 
 export const ROUTES = {
