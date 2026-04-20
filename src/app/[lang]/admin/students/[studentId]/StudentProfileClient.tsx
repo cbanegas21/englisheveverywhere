@@ -402,7 +402,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
 
   // ── Tab: Classes ───────────────────────────────────────────────────────────
   function renderClasses() {
-    const classBookings = student.bookings.filter((b) => b.type === 'class' || b.type === 'placement')
+    const classBookings = student.bookings.filter((b) => b.type === 'class' || b.type === 'placement_test')
 
     return (
       <div style={cardStyle}>

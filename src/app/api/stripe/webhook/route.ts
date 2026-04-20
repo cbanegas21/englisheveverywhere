@@ -67,11 +67,23 @@ export async function POST(req: NextRequest) {
           .eq('profile_id', userId)
           .single()
 
-        // Get plan record by classes count
+        // Resolve the plan by plan_key. Looking up by classes_per_month
+        // was ambiguous — legacy rows share 8/16 counts with spark/ascent,
+        // and `.single()` errors out (PGRST116), silently skipping the credit.
+        // Aliased keys (starter/estandar/intensivo) collapse to their canonical
+        // equivalents so old checkout metadata still resolves.
+        const CANONICAL_BY_ALIAS: Record<string, string> = {
+          starter: 'spark',
+          estandar: 'drive',
+          intensivo: 'ascent',
+        }
+        const canonicalKey = CANONICAL_BY_ALIAS[planKey] ?? planKey
+
         const { data: plan } = await supabase
           .from('plans')
           .select('id')
-          .eq('classes_per_month', classes)
+          .eq('plan_key', canonicalKey)
+          .eq('is_active', true)
           .single()
 
         if (student && plan) {

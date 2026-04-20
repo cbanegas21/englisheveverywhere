@@ -248,19 +248,10 @@ export async function cancelBookingWithRefund(bookingId: string) {
     .single()
   const { error } = await admin.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId)
   if (error) throw new Error(error.message)
-  // Restore class credit if it was a class booking
   if (booking?.type === 'class') {
-    const { data: student } = await admin
-      .from('students')
-      .select('classes_remaining')
-      .eq('id', booking.student_id)
-      .single()
-    if (student) {
-      await admin
-        .from('students')
-        .update({ classes_remaining: (student.classes_remaining || 0) + 1 })
-        .eq('id', booking.student_id)
-    }
+    // Atomic SQL increment — a read-then-update loses concurrent refunds
+    // under load. increment_classes is SECURITY DEFINER (migration 012).
+    await admin.rpc('increment_classes', { p_student_id: booking.student_id })
   }
   revalidatePath('/', 'layout')
 }

@@ -104,7 +104,13 @@ async function createStudent(admin: SupabaseClient, classesRemaining = 10) {
 
   const { data: sRow, error: sErr } = await admin
     .from('students')
-    .insert({ profile_id: userId, classes_remaining: classesRemaining, placement_test_done: true, level: 'B1' })
+    .insert({
+      profile_id: userId,
+      classes_remaining: classesRemaining,
+      placement_test_done: true,
+      intake_done: true,
+      level: 'B1',
+    })
     .select('id')
     .single()
   if (sErr || !sRow) return null
@@ -127,6 +133,8 @@ export async function setupBookingFixture(classesRemaining = 10): Promise<Bookin
   const cleanup = async () => {
     try {
       if (bookingIds.length) {
+        // Payments FK → bookings; delete payments first to avoid constraint errors.
+        await admin.from('payments').delete().in('booking_id', bookingIds)
         await admin.from('bookings').delete().in('id', bookingIds)
       }
       await admin.auth.admin.deleteUser(student.userId)
@@ -186,4 +194,97 @@ export async function setClassesRemaining(fx: BookingFixture, n: number): Promis
 export async function getBookingStatus(fx: BookingFixture, bookingId: string): Promise<string | null> {
   const { data } = await fx.admin.from('bookings').select('status').eq('id', bookingId).single()
   return data?.status ?? null
+}
+
+export async function setTeacherRate(fx: BookingFixture, hourlyRate: number): Promise<void> {
+  await fx.admin.from('teachers').update({ hourly_rate: hourlyRate }).eq('id', fx.teacher.teacherId)
+}
+
+export async function getTeacherTotalSessions(fx: BookingFixture): Promise<number> {
+  const { data } = await fx.admin
+    .from('teachers')
+    .select('total_sessions')
+    .eq('id', fx.teacher.teacherId)
+    .single()
+  return data?.total_sessions ?? 0
+}
+
+export async function setTeacherTotalSessions(fx: BookingFixture, n: number): Promise<void> {
+  await fx.admin.from('teachers').update({ total_sessions: n }).eq('id', fx.teacher.teacherId)
+}
+
+export async function getPaymentsForBooking(fx: BookingFixture, bookingId: string): Promise<Array<{
+  id: string
+  amount_usd: number
+  teacher_payout_usd: number
+  platform_fee_usd: number
+  status: string
+}>> {
+  const { data } = await fx.admin
+    .from('payments')
+    .select('id, amount_usd, teacher_payout_usd, platform_fee_usd, status')
+    .eq('booking_id', bookingId)
+  return data ?? []
+}
+
+export async function deletePaymentsForBooking(fx: BookingFixture, bookingId: string): Promise<void> {
+  await fx.admin.from('payments').delete().eq('booking_id', bookingId)
+}
+
+/**
+ * Mirrors the DB side-effects of `completeSession` in `src/app/actions/video.ts`.
+ * Used to exercise the invariants (payments insert, total_sessions increment,
+ * idempotency guard) without needing a real LiveKit connection.
+ *
+ * Keep in sync with the server action — if this diverges it won't catch the
+ * actual bug path. The auth guard in the real action is NOT simulated here;
+ * that's verified separately via a UI smoke test.
+ */
+export async function simulateCompleteSession(
+  fx: BookingFixture,
+  bookingId: string
+): Promise<void> {
+  const { data: booking } = await fx.admin
+    .from('bookings')
+    .select('id, status, duration_minutes, teacher:teachers(id, hourly_rate, total_sessions), student:students(id)')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) return
+
+  const alreadyCompleted = (booking as any).status === 'completed'
+  const teacherId = (booking as any).teacher?.id
+  const studentId = (booking as any).student?.id
+  const durationMinutes = (booking as any).duration_minutes ?? 60
+  const hourlyRate = (booking as any).teacher?.hourly_rate ?? 0
+  const totalSessions = (booking as any).teacher?.total_sessions ?? 0
+
+  await fx.admin.from('bookings').update({ status: 'completed' }).eq('id', bookingId)
+
+  if (teacherId && !alreadyCompleted) {
+    await fx.admin
+      .from('teachers')
+      .update({ total_sessions: totalSessions + 1 })
+      .eq('id', teacherId)
+  }
+
+  if (studentId && teacherId) {
+    const { data: existing } = await fx.admin
+      .from('payments')
+      .select('id')
+      .eq('booking_id', bookingId)
+      .maybeSingle()
+
+    if (!existing) {
+      const sessionRate = Math.round(hourlyRate * (durationMinutes / 60))
+      await fx.admin.from('payments').insert({
+        booking_id: bookingId,
+        student_id: studentId,
+        teacher_id: teacherId,
+        amount_usd: sessionRate,
+        teacher_payout_usd: sessionRate,
+        platform_fee_usd: 0,
+        status: 'completed',
+      })
+    }
+  }
 }
