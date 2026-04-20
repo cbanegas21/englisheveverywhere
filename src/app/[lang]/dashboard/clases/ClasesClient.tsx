@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X, ChevronLeft, Stethoscope } from 'lucide-react'
+import {
+  Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X,
+  ChevronLeft, Stethoscope, Search, TrendingUp, History, CalendarDays,
+} from 'lucide-react'
 import { getSessionByBookingId } from '@/app/actions/video'
 import type { SessionSummary } from '@/app/actions/video'
 import type { Locale } from '@/lib/i18n/translations'
@@ -14,9 +17,9 @@ const t = {
     subtitle: 'Upcoming and past sessions.',
     tabUpcoming: 'Upcoming',
     tabHistory: 'History',
-    noUpcoming: 'No upcoming classes.',
+    noUpcoming: 'No upcoming classes',
     noUpcomingSub: 'Book a class to get started.',
-    noPast: 'No completed classes yet.',
+    noPast: 'No completed classes yet',
     noPastSub: 'Your session history will appear here.',
     bookClass: 'Book a class',
     with: 'with',
@@ -27,7 +30,7 @@ const t = {
     statusAwaitingTeacher: 'Awaiting teacher',
     teacherBeingAssigned: 'Teacher being assigned',
     statusCompleted: 'Completed',
-    statusDiagnostic: 'Diagnostic call — Pending assignment',
+    statusDiagnostic: 'Diagnostic call',
     today: 'Today',
     tomorrow: 'Tomorrow',
     viewSummary: 'Summary',
@@ -40,17 +43,24 @@ const t = {
     noNotes: 'Your teacher did not leave notes for this session.',
     loadingSession: 'Loading session data...',
     close: 'Close',
-    calendarTitle: 'Monthly Overview',
+    calendarTitle: 'Monthly overview',
     days: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
+    search: 'Search by teacher name',
+    noResults: 'No classes match your search.',
+    stats30d: 'Last 30 days',
+    statsTotal: 'Total classes',
+    statsCompleted: 'Completed',
+    statsHours: 'Hours learned',
+    bookingsThisMonth: (n: number) => `${n} ${n === 1 ? 'class' : 'classes'} this month`,
   },
   es: {
     title: 'Mis Clases',
     subtitle: 'Sesiones próximas y pasadas.',
     tabUpcoming: 'Próximas',
     tabHistory: 'Historial',
-    noUpcoming: 'No tienes clases próximas.',
+    noUpcoming: 'No tienes clases próximas',
     noUpcomingSub: 'Agenda una clase para comenzar.',
-    noPast: 'Todavía no tienes clases completadas.',
+    noPast: 'Todavía no tienes clases completadas',
     noPastSub: 'Tu historial de sesiones aparecerá aquí.',
     bookClass: 'Agendar clase',
     with: 'con',
@@ -61,7 +71,7 @@ const t = {
     statusAwaitingTeacher: 'Asignando maestro',
     teacherBeingAssigned: 'Maestro por asignar',
     statusCompleted: 'Completada',
-    statusDiagnostic: 'Llamada diagnóstica — Pendiente de asignación',
+    statusDiagnostic: 'Llamada diagnóstica',
     today: 'Hoy',
     tomorrow: 'Mañana',
     viewSummary: 'Resumen',
@@ -76,6 +86,13 @@ const t = {
     close: 'Cerrar',
     calendarTitle: 'Vista mensual',
     days: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
+    search: 'Buscar por maestro',
+    noResults: 'Ninguna clase coincide con tu búsqueda.',
+    stats30d: 'Últimos 30 días',
+    statsTotal: 'Clases totales',
+    statsCompleted: 'Completadas',
+    statsHours: 'Horas aprendidas',
+    bookingsThisMonth: (n: number) => `${n} ${n === 1 ? 'clase' : 'clases'} este mes`,
   },
 }
 
@@ -138,27 +155,56 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
   const [viewingBookingId, setViewingBookingId] = useState<string | null>(null)
   const [sessionData, setSessionData] = useState<SessionData | null>(null)
   const [loadingSession, setLoadingSession] = useState(false)
+  const [search, setSearch] = useState('')
 
-  // Calendar state
   const today = new Date()
   const [calMonth, setCalMonth] = useState(today.getMonth())
   const [calYear, setCalYear] = useState(today.getFullYear())
 
-  // Refs for scroll-to
   const bookingRefs = useRef<Record<string, HTMLLIElement | null>>({})
 
-  const allBookings = [...upcomingBookings, ...pastBookings]
+  const allBookings = useMemo(() => [...upcomingBookings, ...pastBookings], [upcomingBookings, pastBookings])
   const bookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings
-  const isEmpty = bookings.length === 0
+
+  const filteredBookings = useMemo(() => {
+    if (!search.trim()) return bookings
+    const q = search.trim().toLowerCase()
+    return bookings.filter(b => {
+      const name = b.teacher?.profile?.full_name?.toLowerCase() || ''
+      return name.includes(q) || (b.type === 'placement_test' && 'placement diagnostic'.includes(q))
+    })
+  }, [bookings, search])
+
+  const isEmpty = filteredBookings.length === 0
+
+  const [nowSnapshotMs] = useState(() => Date.now())
+
+  // 30-day stats
+  const stats = useMemo(() => {
+    const monthAgo = nowSnapshotMs - 30 * 24 * 60 * 60 * 1000
+    const last30 = allBookings.filter(b => new Date(b.scheduled_at).getTime() >= monthAgo)
+    const completed30 = last30.filter(b => b.status === 'completed')
+    const totalMinutes = completed30.reduce((s, b) => s + (b.duration_minutes || 0), 0)
+    return {
+      total: last30.length,
+      completed: completed30.length,
+      hours: Math.round(totalMinutes / 60),
+    }
+  }, [allBookings, nowSnapshotMs])
 
   // Build set of booked days in current calendar month
-  const bookedDays = new Set<number>()
-  for (const b of allBookings) {
-    const d = new Date(b.scheduled_at)
-    if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
-      bookedDays.add(d.getDate())
+  const bookedDays = useMemo(() => {
+    const set = new Set<number>()
+    for (const b of allBookings) {
+      const d = new Date(b.scheduled_at)
+      if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+        set.add(d.getDate())
+      }
     }
-  }
+    return set
+  }, [allBookings, calYear, calMonth])
+
+  const bookingsThisMonth = useMemo(() => bookedDays.size, [bookedDays])
 
   const calendarCells = buildCalendarGrid(calYear, calMonth)
   const monthLabel = (lang === 'es' ? MONTHS_ES : MONTHS_EN)[calMonth]
@@ -173,7 +219,6 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
   }
 
   function scrollToDay(day: number) {
-    // Find first booking on this day in the visible tab
     const target = bookings.find(b => {
       const d = new Date(b.scheduled_at)
       return d.getDate() === day && d.getMonth() === calMonth && d.getFullYear() === calYear
@@ -224,7 +269,6 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
         icon: null,
       }
     }
-    // pending class with no teacher assigned yet
     if (booking.status === 'pending' && !booking.teacher_id) {
       return {
         label: tx.statusAwaitingTeacher,
@@ -232,7 +276,6 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
         icon: null,
       }
     }
-    // pending (fallback)
     return {
       label: tx.statusPending,
       style: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' },
@@ -242,226 +285,325 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
 
   return (
     <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-
       {/* Header */}
       <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
+        <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[22px] font-black tracking-tight" style={{ color: '#111111' }}>{tx.title}</h1>
+            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
+          </div>
+          <Link
+            href={`/${lang}/dashboard/agendar`}
+            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-bold transition-all"
+            style={{ background: '#C41E3A', color: '#fff' }}
+            onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
+            onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+          >
+            <Calendar className="h-4 w-4" />
+            {tx.bookClass}
+          </Link>
+        </div>
       </div>
 
-      <div className="px-8 py-6 max-w-3xl mx-auto space-y-5">
+      <div className="max-w-[1440px] mx-auto px-6 lg:px-8 py-6 lg:py-8">
+        <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
 
-        {/* Monthly calendar */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          {/* Calendar header */}
-          <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
-            <button
-              onClick={prevMonth}
-              className="h-7 w-7 rounded flex items-center justify-center transition-colors"
-              style={{ color: '#9CA3AF' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <p className="text-[13px] font-bold" style={{ color: '#111111' }}>
-              {monthLabel} {calYear}
-            </p>
-            <button
-              onClick={nextMonth}
-              className="h-7 w-7 rounded flex items-center justify-center transition-colors"
-              style={{ color: '#9CA3AF' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Day names */}
-          <div className="grid grid-cols-7 px-4 pt-3 pb-1">
-            {tx.days.map((d, i) => (
-              <div key={i} className="text-center text-[10px] font-bold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                {d}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar cells */}
-          <div className="grid grid-cols-7 px-4 pb-3 gap-y-1">
-            {calendarCells.map((day, i) => {
-              if (!day) return <div key={i} />
-              const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear()
-              const hasBooking = bookedDays.has(day)
-              return (
+          {/* LEFT RAIL */}
+          <aside className="space-y-4">
+            {/* Monthly calendar */}
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
                 <button
-                  key={i}
-                  onClick={() => hasBooking && scrollToDay(day)}
-                  className="flex flex-col items-center py-1 rounded transition-colors"
-                  style={{ cursor: hasBooking ? 'pointer' : 'default' }}
-                  onMouseEnter={e => { if (hasBooking) e.currentTarget.style.background = '#F3F4F6' }}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  onClick={prevMonth}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+                  style={{ color: '#6B7280' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#111111' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6B7280' }}
                 >
-                  <span
-                    className="text-[12px] font-semibold w-7 h-7 flex items-center justify-center rounded-full"
-                    style={isToday ? { background: '#C41E3A', color: '#fff' } : { color: '#111111' }}
-                  >
-                    {day}
-                  </span>
-                  {hasBooking && (
-                    <span
-                      className="h-1 w-1 rounded-full mt-0.5"
-                      style={{ background: isToday ? '#fff' : '#C41E3A' }}
-                    />
-                  )}
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 p-1 rounded" style={{ background: '#F3F4F6', width: 'fit-content' }}>
-          {(['upcoming', 'history'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="px-5 py-2 rounded text-[13px] font-semibold transition-all"
-              style={
-                activeTab === tab
-                  ? { background: '#fff', color: '#111111', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
-                  : { background: 'transparent', color: '#9CA3AF' }
-              }
-            >
-              {tab === 'upcoming' ? tx.tabUpcoming : tx.tabHistory}
-            </button>
-          ))}
-        </div>
-
-        {/* Bookings list */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          {isEmpty ? (
-            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl mb-4" style={{ background: 'rgba(196,30,58,0.08)' }}>
-                <Calendar className="h-6 w-6" style={{ color: '#C41E3A' }} />
-              </div>
-              <p className="text-[13px] font-semibold mb-1" style={{ color: '#111111' }}>
-                {activeTab === 'upcoming' ? tx.noUpcoming : tx.noPast}
-              </p>
-              <p className="text-[12px] mb-5" style={{ color: '#9CA3AF' }}>
-                {activeTab === 'upcoming' ? tx.noUpcomingSub : tx.noPastSub}
-              </p>
-              {activeTab === 'upcoming' && (
-                <Link
-                  href={`/${lang}/dashboard/agendar`}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                <div className="text-center">
+                  <p className="text-[14px] font-black capitalize" style={{ color: '#111111' }}>
+                    {monthLabel} {calYear}
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                    {tx.bookingsThisMonth(bookingsThisMonth)}
+                  </p>
+                </div>
+                <button
+                  onClick={nextMonth}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+                  style={{ color: '#6B7280' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#111111' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6B7280' }}
                 >
-                  {tx.bookClass}
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-7 px-4 pt-4 pb-1">
+                {tx.days.map((d, i) => (
+                  <div key={i} className="text-center text-[10px] font-bold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 px-4 pb-4 gap-y-1.5">
+                {calendarCells.map((day, i) => {
+                  if (!day) return <div key={i} />
+                  const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear()
+                  const hasBooking = bookedDays.has(day)
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => hasBooking && scrollToDay(day)}
+                      className="flex flex-col items-center py-1 rounded-lg transition-colors"
+                      style={{ cursor: hasBooking ? 'pointer' : 'default' }}
+                      onMouseEnter={e => { if (hasBooking) e.currentTarget.style.background = '#F3F4F6' }}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <span
+                        className="text-[13px] font-bold w-8 h-8 flex items-center justify-center rounded-full tabular-nums"
+                        style={isToday ? { background: '#C41E3A', color: '#fff' } : { color: hasBooking ? '#111111' : '#9CA3AF' }}
+                      >
+                        {day}
+                      </span>
+                      {hasBooking && !isToday && (
+                        <span className="h-1 w-1 rounded-full mt-0.5" style={{ background: '#C41E3A' }} />
+                      )}
+                      {hasBooking && isToday && (
+                        <span className="h-1 w-1 rounded-full mt-0.5" style={{ background: '#fff' }} />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 30-day stats */}
+            <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(196,30,58,0.08)' }}>
+                  <TrendingUp className="h-4 w-4" style={{ color: '#C41E3A' }} />
+                </div>
+                <h3 className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.stats30d}</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: tx.statsTotal, value: stats.total },
+                  { label: tx.statsCompleted, value: stats.completed },
+                  { label: tx.statsHours, value: stats.hours },
+                ].map((s, i) => (
+                  <div key={i} className="text-center">
+                    <p className="text-[22px] font-black tabular-nums" style={{ color: '#111111' }}>{s.value}</p>
+                    <p className="text-[10px] mt-0.5 leading-tight" style={{ color: '#9CA3AF' }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* MAIN: Tabs + search + list */}
+          <main className="min-w-0 space-y-4">
+            {/* Tabs + search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex gap-1 p-1 rounded-lg" style={{ background: '#F3F4F6' }}>
+                {([
+                  { key: 'upcoming' as const, label: tx.tabUpcoming, icon: CalendarDays, count: upcomingBookings.length },
+                  { key: 'history' as const, label: tx.tabHistory, icon: History, count: pastBookings.length },
+                ]).map((tab) => {
+                  const Icon = tab.icon
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-semibold transition-all"
+                      style={
+                        activeTab === tab.key
+                          ? { background: '#fff', color: '#111111', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+                          : { background: 'transparent', color: '#6B7280' }
+                      }
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {tab.label}
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums"
+                        style={{ background: activeTab === tab.key ? 'rgba(196,30,58,0.1)' : '#E5E7EB', color: activeTab === tab.key ? '#C41E3A' : '#6B7280' }}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="relative flex-1 sm:max-w-xs sm:ml-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={tx.search}
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg text-[13px] outline-none transition-all"
+                  style={{ background: '#fff', border: '1px solid #E5E7EB', color: '#111111' }}
+                  onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
+                  onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
+              {isEmpty ? (
+                <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl mb-4" style={{ background: 'rgba(196,30,58,0.08)' }}>
+                    <Calendar className="h-7 w-7" style={{ color: '#C41E3A' }} />
+                  </div>
+                  <p className="text-[15px] font-bold mb-1" style={{ color: '#111111' }}>
+                    {search ? tx.noResults : activeTab === 'upcoming' ? tx.noUpcoming : tx.noPast}
+                  </p>
+                  {!search && (
+                    <p className="text-[12px] mb-6" style={{ color: '#9CA3AF' }}>
+                      {activeTab === 'upcoming' ? tx.noUpcomingSub : tx.noPastSub}
+                    </p>
+                  )}
+                  {activeTab === 'upcoming' && !search && (
+                    <Link
+                      href={`/${lang}/dashboard/agendar`}
+                      className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg font-semibold text-[13px] transition-all"
+                      style={{ background: '#C41E3A', color: '#fff' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                    >
+                      {tx.bookClass}
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <ul>
+                  {filteredBookings.map((booking) => {
+                    const isCompleted = booking.status === 'completed'
+                    const teacherName = booking.teacher?.profile?.full_name || null
+                    const teacherAvatar = booking.teacher?.profile?.avatar_url || null
+                    const awaitingTeacher = booking.type !== 'placement_test' && !teacherName
+                    const badge = getBadge(booking)
+
+                    return (
+                      <li
+                        key={booking.id}
+                        ref={el => { bookingRefs.current[booking.id] = el }}
+                        className="flex items-center gap-4 px-5 py-4 transition-colors"
+                        style={{ borderBottom: '1px solid #F3F4F6' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        {/* Date column */}
+                        <div className="flex-shrink-0 text-center w-14 py-1 rounded-lg" style={{ background: '#F9F9F9', border: '1px solid #F3F4F6' }}>
+                          <div className="text-[10px] uppercase tracking-wide font-bold" style={{ color: '#C41E3A' }}>
+                            {new Date(booking.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', { month: 'short' }).replace('.', '')}
+                          </div>
+                          <div className="text-[20px] font-black leading-none mt-0.5 tabular-nums" style={{ color: '#111111' }}>
+                            {new Date(booking.scheduled_at).getDate()}
+                          </div>
+                        </div>
+
+                        {/* Avatar + icon */}
+                        <div className="hidden sm:flex flex-shrink-0">
+                          {booking.type === 'placement_test' ? (
+                            <div className="h-11 w-11 rounded-full flex items-center justify-center" style={{ background: '#EFF6FF' }}>
+                              <Stethoscope className="h-5 w-5" style={{ color: '#1D4ED8' }} />
+                            </div>
+                          ) : teacherAvatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={teacherAvatar}
+                              alt={teacherName || ''}
+                              className="h-11 w-11 rounded-full object-cover"
+                              style={{ border: '2px solid #F3F4F6' }}
+                            />
+                          ) : (
+                            <div className="h-11 w-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(196,30,58,0.08)' }}>
+                              {isCompleted
+                                ? <CheckCircle2 className="h-5 w-5" style={{ color: '#C41E3A' }} />
+                                : <Video className="h-5 w-5" style={{ color: '#C41E3A' }} />
+                              }
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div
+                            className="text-[14px] font-bold truncate"
+                            style={{ color: awaitingTeacher ? '#9CA3AF' : '#111111', fontStyle: awaitingTeacher ? 'italic' : 'normal' }}
+                          >
+                            {booking.type === 'placement_test'
+                              ? (lang === 'es' ? 'Llamada diagnóstica' : 'Diagnostic call')
+                              : awaitingTeacher
+                              ? tx.teacherBeingAssigned
+                              : `${tx.with} ${teacherName}`
+                            }
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
+                            <span>{formatDate(booking.scheduled_at, lang)}</span>
+                            <span style={{ color: '#D1D5DB' }}>·</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(booking.scheduled_at)}
+                            </span>
+                            <span style={{ color: '#D1D5DB' }}>·</span>
+                            <span>{booking.duration_minutes}{tx.mins}</span>
+                          </div>
+                        </div>
+
+                        {/* Right side: badge + CTA */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span
+                            className="hidden md:flex text-[10px] font-semibold px-2.5 py-1 rounded items-center gap-1"
+                            style={badge.style}
+                          >
+                            {badge.icon}
+                            {badge.label}
+                          </span>
+
+                          {activeTab === 'upcoming' && !awaitingTeacher && (
+                            <JoinSessionButton
+                              lang={lang}
+                              bookingId={booking.id}
+                              scheduledAt={booking.scheduled_at}
+                              variant="compact"
+                            />
+                          )}
+
+                          {isCompleted && (
+                            <button
+                              onClick={() => openSummary(booking.id)}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                              style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#E5E7EB'; e.currentTarget.style.color = '#111111' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#6B7280' }}
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              {tx.viewSummary}
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
             </div>
-          ) : (
-            <ul>
-              {bookings.map((booking) => {
-                const isCompleted = booking.status === 'completed'
-                const teacherName = (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || null
-                const awaitingTeacher = booking.type !== 'placement_test' && !teacherName
-                const badge = getBadge(booking)
-
-                return (
-                  <li
-                    key={booking.id}
-                    ref={el => { bookingRefs.current[booking.id] = el }}
-                    className="flex items-center gap-4 px-5 py-4"
-                    style={{ borderBottom: '1px solid #E5E7EB' }}
-                  >
-                    {/* Date column */}
-                    <div className="flex-shrink-0 text-center w-11">
-                      <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                        {formatDate(booking.scheduled_at, lang).slice(0, 3)}
-                      </div>
-                      <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
-                        {new Date(booking.scheduled_at).getDate()}
-                      </div>
-                    </div>
-
-                    {/* Icon */}
-                    <div
-                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
-                      style={{ background: booking.type === 'placement_test' ? '#EFF6FF' : 'rgba(196,30,58,0.08)' }}
-                    >
-                      {booking.type === 'placement_test'
-                        ? <Stethoscope className="h-4 w-4" style={{ color: '#1D4ED8' }} />
-                        : activeTab === 'upcoming'
-                        ? <Video className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                        : <CheckCircle2 className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                      }
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-semibold truncate" style={{ color: awaitingTeacher ? '#9CA3AF' : '#111111', fontStyle: awaitingTeacher ? 'italic' : 'normal' }}>
-                        {booking.type === 'placement_test'
-                          ? (lang === 'es' ? 'Llamada diagnóstica' : 'Diagnostic call')
-                          : awaitingTeacher
-                          ? tx.teacherBeingAssigned
-                          : `${tx.with} ${teacherName}`
-                        }
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px]" style={{ color: '#9CA3AF' }}>
-                        <Clock className="h-3 w-3" />
-                        {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
-                      </div>
-                    </div>
-
-                    {/* Right side: badge + CTA */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span
-                        className="text-[10px] font-semibold px-2.5 py-1 rounded flex items-center gap-1"
-                        style={badge.style}
-                      >
-                        {badge.icon}
-                        {badge.label}
-                      </span>
-
-                      {activeTab === 'upcoming' && !awaitingTeacher && (
-                        <JoinSessionButton
-                          lang={lang}
-                          bookingId={booking.id}
-                          scheduledAt={booking.scheduled_at}
-                          variant="compact"
-                        />
-                      )}
-
-                      {isCompleted && (
-                        <button
-                          onClick={() => openSummary(booking.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded text-[11px] font-semibold transition-all"
-                          style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = '#E5E7EB'; e.currentTarget.style.color = '#111111' }}
-                          onMouseLeave={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#6B7280' }}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          {tx.viewSummary}
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+          </main>
         </div>
       </div>
 
       {/* Summary modal */}
       {viewingBookingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0" style={{ background: 'rgba(17,17,17,0.5)' }} onClick={closeSummary} />
+          <div className="absolute inset-0" style={{ background: 'rgba(17,17,17,0.5)', backdropFilter: 'blur(4px)' }} onClick={closeSummary} />
           <div className="relative w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: '#fff' }}>
             <div className="flex items-center justify-between px-6 py-5 sticky top-0 bg-white" style={{ borderBottom: '1px solid #E5E7EB' }}>
               <div className="flex items-center gap-2">
