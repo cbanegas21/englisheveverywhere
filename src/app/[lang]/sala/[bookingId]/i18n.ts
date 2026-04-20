@@ -12,6 +12,7 @@ type Strings = {
   notes: string; notesPlaceholder: string; notesHint: string; saved: string; saving: string
   aiSummary: string; generatingSummary: string; covered: string; nextTopics: string; progressNote: string; noSummary: string
   layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string
+  chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
 }
 
 export const VIDEO_T: Record<Locale, Strings> = {
@@ -59,6 +60,11 @@ export const VIDEO_T: Record<Locale, Strings> = {
 
     layoutSpeaker: 'Speaker view', layoutGrid: 'Side by side',
     hideSelf: 'Hide self', showSelf: 'Show self',
+
+    chat: 'Chat', chatTitle: 'Class chat', chatClose: 'Close chat',
+    chatEmpty: 'No messages yet. Say hi!',
+    chatPlaceholder: 'Message…',
+    chatSend: 'Send',
   },
   es: {
     connecting: 'Conectando a tu sesión...',
@@ -104,6 +110,11 @@ export const VIDEO_T: Record<Locale, Strings> = {
 
     layoutSpeaker: 'Vista presentador', layoutGrid: 'Lado a lado',
     hideSelf: 'Ocultar mi video', showSelf: 'Mostrar mi video',
+
+    chat: 'Chat', chatTitle: 'Chat del aula', chatClose: 'Cerrar chat',
+    chatEmpty: 'Aún no hay mensajes. ¡Saluda!',
+    chatPlaceholder: 'Mensaje…',
+    chatSend: 'Enviar',
   },
 }
 

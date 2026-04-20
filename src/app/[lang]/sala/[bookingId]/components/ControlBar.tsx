@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2 } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare } from 'lucide-react'
 import { useLocalParticipant } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
@@ -18,6 +18,9 @@ interface Props {
   onCameraOffChange?: (off: boolean) => void
   layoutMode: 'speaker' | 'grid'
   onToggleLayout: () => void
+  showChat: boolean
+  onToggleChat: () => void
+  unreadCount: number
 }
 
 export function ControlBar({
@@ -30,6 +33,9 @@ export function ControlBar({
   onCameraOffChange,
   layoutMode,
   onToggleLayout,
+  showChat,
+  onToggleChat,
+  unreadCount,
 }: Props) {
   const tx = videoStrings(lang)
   const { localParticipant } = useLocalParticipant()
@@ -73,6 +79,13 @@ export function ControlBar({
         label={layoutMode === 'grid' ? tx.layoutSpeaker : tx.layoutGrid}
         icon={layoutMode === 'grid' ? <Maximize2 className="h-5 w-5" /> : <LayoutGrid className="h-5 w-5" />}
         variant="neutral"
+      />
+      <CircleButton
+        active={showChat}
+        onClick={onToggleChat}
+        label={tx.chat}
+        icon={<ChatIcon unread={unreadCount} />}
+        variant={showChat ? 'brand' : 'neutral'}
       />
       {isTeacher && (
         <CircleButton
@@ -146,6 +159,22 @@ function CircleButton({
       {icon}
       <span className="text-[9px] font-medium">{label}</span>
     </motion.button>
+  )
+}
+
+function ChatIcon({ unread }: { unread: number }) {
+  return (
+    <div className="relative">
+      <MessageSquare className="h-5 w-5" />
+      {unread > 0 && (
+        <span
+          className="absolute -top-2 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
+          style={{ background: VIDEO_THEME.brand }}
+        >
+          {unread > 9 ? '9+' : unread}
+        </span>
+      )}
+    </div>
   )
 }
 

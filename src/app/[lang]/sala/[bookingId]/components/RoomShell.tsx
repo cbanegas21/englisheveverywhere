@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import {
   useTracks,
   useConnectionState,
+  useChat,
   isTrackReference,
 } from '@livekit/components-react'
 import type { TrackReference } from '@livekit/components-react'
@@ -20,6 +21,7 @@ import { LocalSelfView, SelfViewPill } from './LocalSelfView'
 import { GridLayout } from './GridLayout'
 import { ControlBar } from './ControlBar'
 import { NotesPanel } from './NotesPanel'
+import { ChatPanel } from './ChatPanel'
 import { ConnectingScreen } from './ConnectingScreen'
 import { LeavingScreen } from './LeavingScreen'
 
@@ -68,10 +70,24 @@ export function RoomShell({
   ) as TrackReference | undefined
 
   const [showNotes, setShowNotes] = useState(false)
+  const [showChat, setShowChat] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   const layout = useRoomLayout()
   const stageRef = useRef<HTMLDivElement | null>(null)
   const selfView = useSelfViewPosition(stageRef)
+
+  // Chat + unread counter. Unread = messages that arrived while the panel
+  // was closed. Opening the panel resets the baseline to the current count.
+  // Uses React's "adjust state based on change" pattern (prev-value state)
+  // instead of a useEffect to stay compiler-clean.
+  const { chatMessages, send, isSending } = useChat()
+  const [baselineCount, setBaselineCount] = useState(0)
+  const [prevShowChat, setPrevShowChat] = useState(showChat)
+  if (prevShowChat !== showChat) {
+    setPrevShowChat(showChat)
+    if (showChat) setBaselineCount(chatMessages.length)
+  }
+  const unreadCount = Math.max(0, chatMessages.length - baselineCount)
 
   // Leaving takes priority — show the branded "ending" screen even if
   // ConnectionState has transitioned away from Connected during disconnect.
@@ -145,6 +161,9 @@ export function RoomShell({
           onCameraOffChange={setIsCameraOff}
           layoutMode={layout.mode}
           onToggleLayout={layout.toggle}
+          showChat={showChat}
+          onToggleChat={() => setShowChat(p => !p)}
+          unreadCount={unreadCount}
         />
         {isTeacher && (
           <NotesPanel
@@ -154,6 +173,14 @@ export function RoomShell({
             onClose={() => setShowNotes(false)}
           />
         )}
+        <ChatPanel
+          lang={lang}
+          show={showChat}
+          onClose={() => setShowChat(false)}
+          chatMessages={chatMessages}
+          send={send}
+          isSending={isSending}
+        />
       </div>
     </div>
   )
