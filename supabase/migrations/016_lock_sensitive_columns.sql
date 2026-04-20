@@ -64,9 +64,7 @@ GRANT UPDATE (
   age_range,
   intake_done,
   survey_answers,
-  placement_scheduled,
-  timezone,
-  updated_at
+  placement_scheduled
 ) ON public.students TO authenticated;
 
 -- ── teachers ──────────────────────────────────────────────────────────
@@ -80,8 +78,7 @@ REVOKE UPDATE ON public.teachers FROM authenticated;
 GRANT UPDATE (
   bio,
   specializations,
-  certifications,
-  updated_at
+  certifications
 ) ON public.teachers TO authenticated;
 
 -- ── Verification hint ────────────────────────────────────────────────
