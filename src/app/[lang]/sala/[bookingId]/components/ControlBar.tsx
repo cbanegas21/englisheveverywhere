@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2 } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare } from 'lucide-react'
 import { useLocalParticipant, useTrackToggle } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
@@ -24,6 +24,8 @@ interface Props {
   unreadCount: number
   showDevices: boolean
   onToggleDevices: () => void
+  showWhiteboard: boolean
+  onToggleWhiteboard: () => void
 }
 
 export function ControlBar({
@@ -41,6 +43,8 @@ export function ControlBar({
   unreadCount,
   showDevices,
   onToggleDevices,
+  showWhiteboard,
+  onToggleWhiteboard,
 }: Props) {
   const tx = videoStrings(lang)
   const { localParticipant } = useLocalParticipant()
@@ -99,6 +103,13 @@ export function ControlBar({
         label={screenShare.enabled ? tx.stopSharing : tx.shareScreen}
         icon={screenShare.enabled ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
         variant={screenShare.enabled ? 'brand' : 'neutral'}
+      />
+      <CircleButton
+        active={showWhiteboard}
+        onClick={onToggleWhiteboard}
+        label={tx.whiteboard}
+        icon={<PenSquare className="h-5 w-5" />}
+        variant={showWhiteboard ? 'brand' : 'neutral'}
       />
       <CircleButton
         active={showDevices}

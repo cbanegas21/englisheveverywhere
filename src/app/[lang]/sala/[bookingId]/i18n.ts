@@ -15,6 +15,7 @@ type Strings = {
   chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
   shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
   deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
+  whiteboard: string; whiteboardTitle: string; whiteboardClose: string; whiteboardLoading: string
 }
 
 export const VIDEO_T: Record<Locale, Strings> = {
@@ -74,6 +75,11 @@ export const VIDEO_T: Record<Locale, Strings> = {
     deviceSettings: 'Audio & video settings',
     microphone: 'Microphone', camera: 'Camera', speaker: 'Speaker',
     noDevices: 'No devices found.',
+
+    whiteboard: 'Whiteboard',
+    whiteboardTitle: 'Shared whiteboard',
+    whiteboardClose: 'Close whiteboard',
+    whiteboardLoading: 'Loading…',
   },
   es: {
     connecting: 'Conectando a tu sesión...',
@@ -131,6 +137,11 @@ export const VIDEO_T: Record<Locale, Strings> = {
     deviceSettings: 'Ajustes de audio y video',
     microphone: 'Micrófono', camera: 'Cámara', speaker: 'Altavoz',
     noDevices: 'No se encontraron dispositivos.',
+
+    whiteboard: 'Pizarra',
+    whiteboardTitle: 'Pizarra compartida',
+    whiteboardClose: 'Cerrar pizarra',
+    whiteboardLoading: 'Cargando…',
   },
 }
 

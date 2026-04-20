@@ -24,6 +24,7 @@ import { ControlBar } from './ControlBar'
 import { NotesPanel } from './NotesPanel'
 import { ChatPanel } from './ChatPanel'
 import { DeviceMenu } from './DeviceMenu'
+import { Whiteboard } from './Whiteboard'
 import { ConnectingScreen } from './ConnectingScreen'
 import { LeavingScreen } from './LeavingScreen'
 
@@ -80,6 +81,7 @@ export function RoomShell({
   const [showNotes, setShowNotes] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [showDevices, setShowDevices] = useState(false)
+  const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   const layout = useRoomLayout()
   const stageRef = useRef<HTMLDivElement | null>(null)
@@ -195,6 +197,8 @@ export function RoomShell({
           unreadCount={unreadCount}
           showDevices={showDevices}
           onToggleDevices={() => setShowDevices(p => !p)}
+          showWhiteboard={showWhiteboard}
+          onToggleWhiteboard={() => setShowWhiteboard(p => !p)}
         />
         {isTeacher && (
           <NotesPanel
@@ -216,6 +220,12 @@ export function RoomShell({
           lang={lang}
           show={showDevices}
           onClose={() => setShowDevices(false)}
+        />
+        <Whiteboard
+          lang={lang}
+          bookingId={bookingId}
+          show={showWhiteboard}
+          onClose={() => setShowWhiteboard(false)}
         />
       </div>
     </div>
