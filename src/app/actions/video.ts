@@ -143,6 +143,22 @@ export async function saveSessionNotes(sessionId: string, notes: string): Promis
   if (!user) return { success: false }
 
   const adminClient = createAdminClient()
+
+  // Ownership check: only the teacher on this session's booking can write
+  // notes. Without this, any authenticated user could overwrite any
+  // session's notes by passing a session id (adminClient bypasses RLS).
+  const { data: sessionRow } = await adminClient
+    .from('sessions')
+    .select(`
+      id,
+      booking:bookings(teacher:teachers(profile_id))
+    `)
+    .eq('id', sessionId)
+    .single()
+
+  const teacherProfileId = (sessionRow?.booking as any)?.teacher?.profile_id
+  if (!teacherProfileId || teacherProfileId !== user.id) return { success: false }
+
   const { error } = await adminClient
     .from('sessions')
     .update({ notes })
