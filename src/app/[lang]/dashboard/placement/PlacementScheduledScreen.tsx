@@ -3,11 +3,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import {
-  CheckCircle2, AlertCircle, Calendar, Clock, Download, Bell, Headphones, Mic,
-  Wifi, Lightbulb, ChevronDown, MessageSquare, Mail, Smartphone, Sparkles,
+  CheckCircle2, AlertCircle, Calendar, Clock, Download, Headphones, Mic,
+  Wifi, Lightbulb, ChevronDown, Sparkles,
 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
+import NotificationPreferences from '@/components/NotificationPreferences'
 
 interface Props {
   lang: Locale
@@ -400,8 +401,8 @@ export default function PlacementScheduledScreen({
             ) : null}
           </div>
 
-          {/* Reminders stub — TODO: wire reminders provider (Twilio/Resend/WhatsApp) + scheduler. */}
-          <RemindersCard lang={lang} />
+          {/* Reminders stub — see components/NotificationPreferences.tsx for the panel variant used in Settings. */}
+          <NotificationPreferences lang={lang} variant="card" />
 
           {/* Prep checklist */}
           <div className="rounded-2xl p-5 flex flex-col" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
@@ -482,95 +483,3 @@ export default function PlacementScheduledScreen({
   )
 }
 
-// TODO: reminders — wire scheduler + channel provider once backend is ready.
-// This card is intentionally a visual stub (Option A): it shows the UX we want
-// to ship, but toggles don't persist and no messages are sent. When wiring:
-//   1) add `notification_preferences` JSONB to `profiles` (channels + timing),
-//   2) persist on change via a server action,
-//   3) add a cron job that queries bookings in the next 25h / 2h and sends
-//      via Resend (email) + Twilio (SMS/WhatsApp).
-function RemindersCard({ lang }: { lang: Locale }) {
-  const tx = T[lang]
-  const [channels, setChannels] = useState<Record<string, boolean>>({ email: true, sms: false, whatsapp: false })
-  const [timing24h, setTiming24h] = useState(true)
-  const [timing1h, setTiming1h] = useState(true)
-
-  const channelDefs = [
-    { key: 'email', label: tx.reminderEmail, icon: Mail },
-    { key: 'sms', label: tx.reminderSms, icon: Smartphone },
-    { key: 'whatsapp', label: tx.reminderWhatsApp, icon: MessageSquare },
-  ]
-
-  return (
-    <div className="rounded-2xl p-5 flex flex-col" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(196,30,58,0.08)' }}>
-            <Bell className="h-5 w-5" style={{ color: '#C41E3A' }} />
-          </div>
-          <div>
-            <h3 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.remindersTitle}</h3>
-            <p className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.remindersSub}</p>
-          </div>
-        </div>
-        <span
-          className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex-shrink-0"
-          style={{ background: 'rgba(245,158,11,0.1)', color: '#B45309', border: '1px solid rgba(245,158,11,0.3)' }}
-        >
-          {tx.remindersSoon}
-        </span>
-      </div>
-
-      {/* Channels */}
-      <div className="space-y-1.5 mb-3">
-        {channelDefs.map(({ key, label, icon: Icon }) => {
-          const active = channels[key]
-          return (
-            <button
-              key={key}
-              onClick={() => setChannels(c => ({ ...c, [key]: !c[key] }))}
-              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg transition-all"
-              style={{
-                background: active ? 'rgba(196,30,58,0.04)' : '#fff',
-                border: `1px solid ${active ? 'rgba(196,30,58,0.25)' : '#E5E7EB'}`,
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <Icon className="h-3.5 w-3.5" style={{ color: active ? '#C41E3A' : '#9CA3AF' }} />
-                <span className="text-[12px] font-semibold" style={{ color: active ? '#C41E3A' : '#6B7280' }}>{label}</span>
-              </div>
-              <span
-                className="h-4 w-7 rounded-full flex items-center transition-all"
-                style={{ background: active ? '#C41E3A' : '#E5E7EB', padding: '2px' }}
-              >
-                <span
-                  className="h-3 w-3 rounded-full bg-white transition-transform"
-                  style={{ transform: active ? 'translateX(12px)' : 'translateX(0)' }}
-                />
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Timing */}
-      <div className="space-y-1.5">
-        {([
-          { label: tx.reminderTiming24h, value: timing24h, set: setTiming24h },
-          { label: tx.reminderTiming1h, value: timing1h, set: setTiming1h },
-        ]).map((t, i) => (
-          <label key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer" style={{ background: '#FAFAFA' }}>
-            <span className="text-[12px]" style={{ color: '#4B5563' }}>{t.label}</span>
-            <input
-              type="checkbox"
-              checked={t.value}
-              onChange={e => t.set(e.target.checked)}
-              className="h-4 w-4 rounded"
-              style={{ accentColor: '#C41E3A' }}
-            />
-          </label>
-        ))}
-      </div>
-    </div>
-  )
-}

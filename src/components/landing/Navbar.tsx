@@ -3,17 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, ChevronDown } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
-import { useCurrency, CURRENCIES, CURRENCY_INFO } from '@/lib/useCurrency'
-
-const CURRENCY_FULL_NAMES: Record<string, string> = {
-  USD: 'US Dollar',
-  HNL: 'Honduran Lempira',
-  COP: 'Colombian Peso',
-  MXN: 'Mexican Peso',
-  ARS: 'Argentine Peso',
-}
+import { useCurrency } from '@/lib/useCurrency'
+import CurrencySelect from '@/components/CurrencySelect'
 
 const t = {
   en: {
@@ -23,7 +16,6 @@ const t = {
     login: 'Log in',
     cta: 'Get started',
     dashboard: 'Go to Dashboard',
-    updatingRates: 'Updating rates...',
   },
   es: {
     how: 'Cómo funciona',
@@ -32,17 +24,15 @@ const t = {
     login: 'Ingresar',
     cta: 'Comenzar',
     dashboard: 'Ir al Dashboard',
-    updatingRates: 'Actualizando tasas...',
   },
 }
 
 export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isLoggedIn?: boolean }) {
   const tx = t[lang]
   const [open, setOpen] = useState(false)
-  const [currencyOpen, setCurrencyOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
   const other = lang === 'en' ? 'es' : 'en'
-  const { currency, changeCurrency, loading } = useCurrency()
+  const { currency, changeCurrency } = useCurrency()
   const pathname = usePathname()
   const router = useRouter()
   const otherLocalePath = pathname.replace(`/${lang}`, `/${other}`)
@@ -111,55 +101,14 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
         {/* Right actions */}
         <div className="hidden md:flex items-center gap-2">
 
-          {/* Currency toggle */}
-          <div className="relative">
-            <button
-              onClick={() => setCurrencyOpen(!currencyOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all"
-              style={{
-                border: '1px solid rgba(255,255,255,0.12)',
-                color: 'rgba(249,249,249,0.7)',
-                background: 'transparent',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)')}
-              onMouseLeave={e => !currencyOpen && (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
-            >
-              <span className="flex-shrink-0">{CURRENCY_INFO[currency].flag}</span>
-              <span>{currency}</span>
-              <ChevronDown className="h-3 w-3 flex-shrink-0 ml-auto" />
-            </button>
-
-            {currencyOpen && (
-              <div
-                className="absolute right-0 top-full mt-1 rounded overflow-hidden z-50"
-                style={{ background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: '200px' }}
-              >
-                {CURRENCIES.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => { changeCurrency(c); setCurrencyOpen(false) }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-medium transition-colors text-left"
-                    style={{
-                      color: c === currency ? '#C41E3A' : 'rgba(249,249,249,0.7)',
-                      background: c === currency ? 'rgba(196,30,58,0.1)' : 'transparent',
-                    }}
-                    onMouseEnter={e => { if (c !== currency) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-                    onMouseLeave={e => { if (c !== currency) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <span className="flex-shrink-0">{CURRENCY_INFO[c].flag}</span>
-                    <span className="flex-1">{CURRENCY_FULL_NAMES[c]}</span>
-                    <span className="text-[10px]" style={{ opacity: 0.4 }}>{c}</span>
-                  </button>
-                ))}
-                {loading && (
-                  <div className="px-3 py-1.5 text-[10px]" style={{ color: 'rgba(249,249,249,0.3)' }}>
-                    {tx.updatingRates}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Currency select */}
+          <CurrencySelect
+            value={currency}
+            onChange={changeCurrency}
+            lang={lang}
+            variant="dark"
+            compact
+          />
 
           {/* Lang toggle switch */}
           <button
@@ -274,21 +223,17 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
           </div>
 
           {/* Currency — mobile */}
-          <div className="flex gap-2 flex-wrap pb-3 mb-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            {CURRENCIES.map(c => (
-              <button
-                key={c}
-                onClick={() => changeCurrency(c)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold transition-all"
-                style={{
-                  background: c === currency ? 'rgba(196,30,58,0.15)' : 'rgba(255,255,255,0.05)',
-                  color: c === currency ? '#C41E3A' : 'rgba(249,249,249,0.5)',
-                  border: `1px solid ${c === currency ? 'rgba(196,30,58,0.3)' : 'transparent'}`,
-                }}
-              >
-                {CURRENCY_INFO[c].flag} {c}
-              </button>
-            ))}
+          <div className="flex items-center justify-between pb-3 mb-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(249,249,249,0.4)' }}>
+              {lang === 'es' ? 'Moneda' : 'Currency'}
+            </span>
+            <CurrencySelect
+              value={currency}
+              onChange={changeCurrency}
+              lang={lang}
+              variant="dark"
+              compact
+            />
           </div>
 
           {[

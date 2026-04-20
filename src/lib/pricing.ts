@@ -1,6 +1,5 @@
-// Canonical plan definitions — single source of truth for both landing and dashboard
-// 1 USD ≈ 24.7 HNL (fixed rate for display)
-export const HNL_RATE = 24.7
+// Canonical plan definitions — single source of truth for both landing and dashboard.
+// Prices are USD; conversion to other currencies runs through src/lib/fx.ts.
 
 export const PRICING_PLANS = [
   { key: 'spark',  nameEn: 'Spark',   nameEs: 'Chispa',  priceUsd: 129, classes: 8,  highlight: false },

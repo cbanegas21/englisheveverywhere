@@ -61,6 +61,7 @@ const t = {
 export default function Pricing({ lang }: { lang: Locale }) {
   const tx = t[lang]
   const { convert, currency } = useCurrency()
+  const isUsd = currency === 'USD'
 
   return (
     <section id="pricing" style={{ background: '#F9F9F9', borderTop: '1px solid #E5E7EB' }}>
@@ -111,7 +112,8 @@ export default function Pricing({ lang }: { lang: Locale }) {
             const hl = pack.highlight
             const name = lang === 'es' ? pack.nameEs : pack.nameEn
             const desc = tx.packDescs[pack.key as keyof typeof tx.packDescs]
-            const perClassUSD = (pack.priceUsd / pack.classes).toFixed(2)
+            const perClass = pack.priceUsd / pack.classes
+            const perClassDisplay = isUsd ? `$${perClass.toFixed(2)}` : convert(perClass)
             return (
               <motion.div
                 key={i}
@@ -152,7 +154,7 @@ export default function Pricing({ lang }: { lang: Locale }) {
                     {lang === 'es' ? '/ mes' : '/ month'}
                   </p>
                   <p className="text-[12px] font-semibold mt-1" style={{ color: '#C41E3A' }}>
-                    {currency === 'USD' ? `$${perClassUSD}` : convert(parseFloat(perClassUSD))} {tx.perClass}
+                    {perClassDisplay} {tx.perClass}
                   </p>
                 </div>
 
