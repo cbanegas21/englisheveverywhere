@@ -97,8 +97,11 @@ function formatDate(iso: string, lang: Locale) {
   })
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatTime(iso: string, lang: 'es' | 'en') {
+  // Pin locale to keep SSR + client output identical (hydration-safe).
+  return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 interface Session {
@@ -320,7 +323,7 @@ export default function TeacherDashboardClient({
                         {tx.with} {(session.student as { profile?: { full_name?: string } } | null)?.profile?.full_name || 'Student'}
                       </div>
                       <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                        {formatTime(session.scheduled_at)} · {session.duration_minutes}{tx.mins}
+                        {formatTime(session.scheduled_at, lang)} · {session.duration_minutes}{tx.mins}
                       </div>
                     </div>
 

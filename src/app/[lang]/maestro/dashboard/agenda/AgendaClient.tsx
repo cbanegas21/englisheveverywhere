@@ -75,8 +75,13 @@ function formatDate(iso: string, lang: Locale, tx: typeof t['en']) {
   })
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatTime(iso: string, lang: 'es' | 'en') {
+  // Pin the locale so SSR and client render identically — passing []
+  // picks up the env locale, which differs between Node and browser and
+  // causes hydration mismatches (e.g. "04:00 PM" vs "04:00 p.m.").
+  return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 function getInitials(name?: string | null) {
@@ -225,7 +230,7 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                             )}
                           </div>
                           <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                            {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
+                            {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at, lang)} · {booking.duration_minutes}{tx.mins}
                           </div>
                           <div className="flex gap-2 mt-3">
                             <button
@@ -323,7 +328,7 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                               )}
                             </div>
                             <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                              {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
+                              {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at, lang)} · {booking.duration_minutes}{tx.mins}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">

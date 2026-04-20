@@ -170,8 +170,10 @@ function fmtDate(iso: string, lang: Locale) {
   })
 }
 
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function fmtTime(iso: string, lang: 'es' | 'en') {
+  return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -265,7 +267,7 @@ export default function ProgresoClient({
               })
             : null
           const placementTime = placementBooking
-            ? new Date(placementBooking.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            ? new Date(placementBooking.scheduled_at).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
             : null
 
           if (placementTestDone) {
@@ -541,7 +543,7 @@ export default function ProgresoClient({
                           </span>
                         </div>
                         <p className="text-[11px] mb-2" style={{ color: '#9CA3AF' }}>
-                          {fmtTime(booking.scheduled_at)} · {tx.duration(booking.duration_minutes || 60)}
+                          {fmtTime(booking.scheduled_at, lang)} · {tx.duration(booking.duration_minutes || 60)}
                         </p>
 
                         {notes?.covered ? (

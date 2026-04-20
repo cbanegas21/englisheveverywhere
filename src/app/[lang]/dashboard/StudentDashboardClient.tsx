@@ -145,8 +145,10 @@ function formatDate(iso: string, lang: Locale) {
   })
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatTime(iso: string, lang: 'es' | 'en') {
+  return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 interface Booking {
@@ -471,7 +473,7 @@ export default function StudentDashboardClient({
                           {awaitingTeacher ? tx.teacherBeingAssigned : `${tx.with} ${teacherName}`}
                         </div>
                         <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                          {formatTime(booking.scheduled_at)} · {booking.duration_minutes}{tx.mins}
+                          {formatTime(booking.scheduled_at, lang)} · {booking.duration_minutes}{tx.mins}
                         </div>
                       </div>
 

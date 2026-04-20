@@ -112,8 +112,10 @@ function formatDate(iso: string, lang: Locale) {
   })
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatTime(iso: string, lang: 'es' | 'en') {
+  return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 function buildCalendarGrid(year: number, month: number): (number | null)[] {
@@ -551,7 +553,7 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                             <span style={{ color: '#D1D5DB' }}>·</span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {formatTime(booking.scheduled_at)}
+                              {formatTime(booking.scheduled_at, lang)}
                             </span>
                             <span style={{ color: '#D1D5DB' }}>·</span>
                             <span>{booking.duration_minutes}{tx.mins}</span>
