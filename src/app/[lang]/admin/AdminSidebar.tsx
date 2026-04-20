@@ -17,11 +17,15 @@ export default function AdminSidebar({ lang }: Props) {
     router.push(`/${lang}/login`)
   }
 
+  const labels = lang === 'es'
+    ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', signOut: 'Cerrar sesión', adminPanel: 'Panel admin' }
+    : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', signOut: 'Sign out', adminPanel: 'Admin Panel' }
+
   const nav = [
-    { href: `/${lang}/admin/overview`,  label: 'Overview',      icon: LayoutDashboard },
-    { href: `/${lang}/admin/students`,  label: 'Students',      icon: Users },
-    { href: `/${lang}/admin/teachers`,  label: 'Teachers',      icon: GraduationCap },
-    { href: `/${lang}/admin/bookings`,  label: 'Bookings',      icon: CalendarCheck },
+    { href: `/${lang}/admin/overview`,  label: labels.overview,  icon: LayoutDashboard },
+    { href: `/${lang}/admin/students`,  label: labels.students,  icon: Users },
+    { href: `/${lang}/admin/teachers`,  label: labels.teachers,  icon: GraduationCap },
+    { href: `/${lang}/admin/bookings`,  label: labels.bookings,  icon: CalendarCheck },
   ]
 
   return (
@@ -39,7 +43,7 @@ export default function AdminSidebar({ lang }: Props) {
         </div>
         <div>
           <p className="text-[12px] font-black text-white leading-none">English Everywhere</p>
-          <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Admin Panel</p>
+          <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{labels.adminPanel}</p>
         </div>
       </div>
 
@@ -93,7 +97,7 @@ export default function AdminSidebar({ lang }: Props) {
           }}
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
-          Sign out
+          {labels.signOut}
         </button>
       </div>
     </aside>

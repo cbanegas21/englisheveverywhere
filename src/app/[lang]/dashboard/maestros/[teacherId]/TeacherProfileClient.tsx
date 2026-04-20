@@ -23,8 +23,8 @@ interface Teacher {
   bio: string | null
   hourly_rate: number
   specializations: string[]
-  rating: number
-  total_sessions: number
+  rating: number | null
+  total_sessions: number | null
   is_active: boolean
   profile: { full_name: string | null; avatar_url: string | null } | null
 }
@@ -411,17 +411,21 @@ export default function TeacherProfileClient({
               >
                 <div className="flex items-center gap-1.5">
                   <Star className="h-4 w-4" style={{ color: '#C41E3A', fill: '#C41E3A' }} />
-                  <span className="text-[15px] font-black" style={{ color: '#111111' }}>{teacher.rating.toFixed(1)}</span>
+                  <span className="text-[15px] font-black" style={{ color: '#111111' }}>
+                    {teacher.rating != null ? teacher.rating.toFixed(1) : '—'}
+                  </span>
                   <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.rating}</span>
                 </div>
                 <span style={{ color: '#E5E7EB' }}>|</span>
                 <div>
-                  <span className="text-[15px] font-black" style={{ color: '#111111' }}>{Math.max(0, Math.floor(teacher.total_sessions * 0.6))}</span>
+                  <span className="text-[15px] font-black" style={{ color: '#111111' }}>
+                    {Math.max(0, Math.floor((teacher.total_sessions ?? 0) * 0.6))}
+                  </span>
                   <span className="text-[11px] ml-1" style={{ color: '#9CA3AF' }}>{tx.students}</span>
                 </div>
                 <span style={{ color: '#E5E7EB' }}>|</span>
                 <div>
-                  <span className="text-[15px] font-black" style={{ color: '#111111' }}>{teacher.total_sessions}</span>
+                  <span className="text-[15px] font-black" style={{ color: '#111111' }}>{teacher.total_sessions ?? 0}</span>
                   <span className="text-[11px] ml-1" style={{ color: '#9CA3AF' }}>{tx.sessions}</span>
                 </div>
                 <span style={{ color: '#E5E7EB' }}>|</span>
@@ -646,8 +650,8 @@ export default function TeacherProfileClient({
             >
               <div className="space-y-2.5">
                 {[
-                  [tx.sessions, teacher.total_sessions.toString()],
-                  [tx.rating, teacher.rating.toFixed(1)],
+                  [tx.sessions, (teacher.total_sessions ?? 0).toString()],
+                  [tx.rating, teacher.rating != null ? teacher.rating.toFixed(1) : '—'],
                   [tx.attendance, '—'],
                   [tx.response, '—'],
                 ].map(([label, value]) => (

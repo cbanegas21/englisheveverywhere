@@ -63,6 +63,80 @@ export async function completeTeacherOnboarding(data: {
 
   if (teacherError) return { success: false, error: teacherError.message }
 
+  // Fire-and-forget application emails (teacher confirmation + admin notification)
+  void sendTeacherApplicationEmails({
+    teacherEmail: user.email || '',
+    teacherName: user.user_metadata?.full_name || '',
+    lang: data.preferredLanguage,
+  })
+
   revalidatePath('/', 'layout')
   return { success: true }
+}
+
+async function sendTeacherApplicationEmails(params: {
+  teacherEmail: string
+  teacherName: string
+  lang: 'es' | 'en'
+}) {
+  const apiKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englisheverywhere.com'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  if (!apiKey || apiKey === 're_placeholder') return
+
+  const firstName = params.teacherName.split(' ')[0] || ''
+
+  const teacherSubject = params.lang === 'es'
+    ? '¡Solicitud recibida! — English Everywhere'
+    : 'Application received — English Everywhere'
+
+  const teacherHtml = params.lang === 'es'
+    ? `
+      <h2>¡Hola ${firstName}!</h2>
+      <p>Recibimos tu solicitud para enseñar en English Everywhere. Gracias por unirte a nuestra comunidad.</p>
+      <p>Nuestro equipo revisará tu perfil en las próximas 24-48 horas. Recibirás un correo en cuanto tu cuenta sea activada.</p>
+      <p>Mientras tanto, puedes revisar tu solicitud aquí:<br/>
+      <a href="${appUrl}/es/maestro/pending">Ver mi solicitud →</a></p>
+      <p>— El equipo de English Everywhere</p>
+    `
+    : `
+      <h2>Hi ${firstName}!</h2>
+      <p>We received your application to teach with English Everywhere. Thanks for joining our community.</p>
+      <p>Our team will review your profile in the next 24–48 hours. You'll receive an email once your account is activated.</p>
+      <p>In the meantime, you can review your application here:<br/>
+      <a href="${appUrl}/en/maestro/pending">View my application →</a></p>
+      <p>— The English Everywhere team</p>
+    `
+
+  // Teacher confirmation
+  fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: params.teacherEmail,
+      subject: teacherSubject,
+      html: teacherHtml,
+    }),
+  }).catch(() => {})
+
+  // Admin notification
+  fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: adminEmail,
+      subject: `New teacher application — ${params.teacherName || params.teacherEmail}`,
+      html: `
+        <p>A new teacher just applied. Review and approve in the admin panel.</p>
+        <table>
+          <tr><td><strong>Name</strong></td><td>${params.teacherName || '(not provided)'}</td></tr>
+          <tr><td><strong>Email</strong></td><td>${params.teacherEmail}</td></tr>
+        </table>
+        <p><a href="${appUrl}/${params.lang}/admin/teachers">Review applications →</a></p>
+      `,
+    }),
+  }).catch(() => {})
 }

@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation'
 import type { StudentDetail } from './page'
 import {
   updateStudentLevel,
-  updateStudentTeacher,
+  setPrimaryTeacher,
   addStudentClasses,
   saveAdminNotes,
   completeBooking,
   cancelBookingWithRefund,
-  updateStudentProfile,
+  adminUpdateStudentProfile,
   resetStudentPassword,
   updateStudentRole,
 } from '../../actions'
@@ -75,7 +75,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
 
   // Overview tab state
   const [selectedLevel, setSelectedLevel] = useState(student.level || '')
-  const [selectedTeacher, setSelectedTeacher] = useState(student.assignedTeacherId || '')
+  const [selectedTeacher, setSelectedTeacher] = useState(student.primary_teacher_id || '')
   const [adminNotes, setAdminNotes] = useState(student.admin_notes || '')
 
   // Profile tab state
@@ -218,11 +218,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
           </div>
         </div>
 
-        {/* Assigned teacher */}
+        {/* Primary teacher (continuity hint — admin sets manually) */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Assigned Teacher</span>
-          <p style={{ fontSize: '13px', color: student.assignedTeacherName ? '#111' : '#9CA3AF', margin: '0 0 10px' }}>
-            {student.assignedTeacherName || 'Unassigned'}
+          <span style={labelStyle}>Primary Teacher</span>
+          <p style={{ fontSize: '13px', color: student.primary_teacher_name ? '#111' : '#9CA3AF', margin: '0 0 4px' }}>
+            {student.primary_teacher_name || 'Unassigned'}
+          </p>
+          <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '0 0 10px' }}>
+            Student&apos;s usual teacher. Reference only — each booking is still assigned manually.
           </p>
           {student.teachers.length > 0 && (
             <div style={{ display: 'flex', gap: 8 }}>
@@ -231,17 +234,17 @@ export default function StudentProfileClient({ student, lang }: Props) {
                 onChange={(e) => setSelectedTeacher(e.target.value)}
                 style={{ ...inputStyle, flex: 1 }}
               >
-                <option value="">Select teacher</option>
+                <option value="">Unassigned</option>
                 {student.teachers.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
               <button
                 style={btnSecondary}
-                disabled={!selectedTeacher || isPending}
+                disabled={isPending || selectedTeacher === (student.primary_teacher_id || '')}
                 onClick={() => run(
-                  () => updateStudentTeacher(student.id, selectedTeacher),
-                  'Teacher assigned'
+                  () => setPrimaryTeacher(student.id, selectedTeacher || null),
+                  'Primary teacher updated'
                 )}
               >
                 Save
@@ -372,7 +375,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
               <button
                 style={btnSecondary}
                 disabled={!selectedTeacher || isPending}
-                onClick={() => run(() => updateStudentTeacher(student.id, selectedTeacher), 'Teacher assigned')}
+                onClick={() => run(() => setPrimaryTeacher(student.id, selectedTeacher || null), 'Primary teacher updated')}
               >
                 Save
               </button>
@@ -646,7 +649,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
             onClick={() =>
               run(
                 () =>
-                  updateStudentProfile(student.profile?.id || '', student.id, {
+                  adminUpdateStudentProfile(student.profile?.id || '', student.id, {
                     full_name: profileForm.full_name,
                     timezone: profileForm.timezone,
                     preferred_language: profileForm.preferred_language,

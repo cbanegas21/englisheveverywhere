@@ -42,6 +42,9 @@ const t = {
     placementTitle: 'Schedule your free placement call',
     placementBody: 'Before we assign your teacher, complete your placement call so we can match you with the right level.',
     placementCta: 'Schedule placement call',
+    placementScheduledTitle: 'Your placement call is scheduled',
+    placementScheduledBody: 'After your placement call we\'ll match you with the right teacher for your level.',
+    placementScheduledLabel: 'Scheduled for',
     sessions: 'sessions taught',
     rating: 'rating',
     errorMsg: 'Something went wrong. Please try again.',
@@ -60,6 +63,9 @@ const t = {
     placementTitle: 'Agenda tu llamada de diagnóstico gratuita',
     placementBody: 'Antes de asignarte un maestro, completa tu llamada de diagnóstico para poder emparejarte con el nivel correcto.',
     placementCta: 'Agendar llamada de diagnóstico',
+    placementScheduledTitle: 'Tu llamada de diagnóstico está agendada',
+    placementScheduledBody: 'Después de tu llamada te emparejaremos con la maestra adecuada para tu nivel.',
+    placementScheduledLabel: 'Programada para',
     sessions: 'clases impartidas',
     rating: 'calificación',
     errorMsg: 'Ocurrió un error. Intenta de nuevo.',
@@ -91,6 +97,19 @@ export default async function MiMaestroPage({ params }: Props) {
     const studentId = student.id
     const placementDone = student.placement_test_done ?? false
     const level = student.level || null
+
+    // Detect a scheduled-but-not-yet-completed placement call
+    const { data: placementBooking } = await supabase
+      .from('bookings')
+      .select('scheduled_at, status')
+      .eq('student_id', studentId)
+      .eq('type', 'placement_test')
+      .neq('status', 'cancelled')
+      .order('scheduled_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const placementScheduledAt = placementBooking?.scheduled_at || null
 
     let teacher: TeacherRow | null = null
     if (level && studentId) {
@@ -133,8 +152,8 @@ export default async function MiMaestroPage({ params }: Props) {
         </div>
 
         <div className="px-8 py-6 max-w-2xl mx-auto">
-          {!placementDone ? (
-            /* State 1: Placement call not yet done */
+          {!placementDone && !placementScheduledAt ? (
+            /* State 1a: No placement call scheduled yet */
             <div
               className="rounded-xl p-10 text-center"
               style={{ background: '#fff', border: '1px solid #E5E7EB' }}
@@ -160,6 +179,41 @@ export default async function MiMaestroPage({ params }: Props) {
               >
                 {tx.placementCta} →
               </Link>
+            </div>
+          ) : !placementDone && placementScheduledAt ? (
+            /* State 1b: Placement scheduled but not yet completed */
+            <div
+              className="rounded-xl p-10 text-center"
+              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+            >
+              <div
+                className="h-14 w-14 rounded mx-auto mb-5 flex items-center justify-center"
+                style={{ background: 'rgba(196,30,58,0.08)' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.placementScheduledTitle}</h2>
+              <p className="text-[14px] leading-relaxed max-w-sm mx-auto mb-4" style={{ color: '#4B5563' }}>
+                {tx.placementScheduledBody}
+              </p>
+              <div
+                className="inline-flex flex-col items-center gap-1 px-5 py-3 rounded"
+                style={{ background: 'rgba(196,30,58,0.06)', border: '1px solid rgba(196,30,58,0.15)' }}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#C41E3A' }}>
+                  {tx.placementScheduledLabel}
+                </p>
+                <p className="text-[14px] font-bold" style={{ color: '#111111' }}>
+                  {new Date(placementScheduledAt).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
+                    weekday: 'long', month: 'long', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                    timeZone: 'America/Tegucigalpa',
+                  })}
+                </p>
+              </div>
             </div>
           ) : !level ? (
             /* State 2: Placement done, waiting for level + teacher assignment */

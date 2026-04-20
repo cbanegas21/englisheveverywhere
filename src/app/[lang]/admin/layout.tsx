@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import AdminSidebar from './AdminSidebar'
+import AdminLangToggle from './AdminLangToggle'
 
 interface Props {
   children: React.ReactNode
@@ -39,6 +40,7 @@ export default async function AdminLayout({ children, params }: Props) {
         >
           <div />
           <div className="flex items-center gap-3">
+            <AdminLangToggle lang={lang} />
             <div
               className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
               style={{ background: '#C41E3A' }}

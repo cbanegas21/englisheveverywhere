@@ -182,13 +182,21 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     .from('bookings')
     .select(`
       id, student_id, scheduled_at, duration_minutes, type, status,
+      teacher_id,
       student:students(profile:profiles(full_name))
     `)
     .eq('status', 'pending')
     .is('teacher_id', null)
     .order('scheduled_at', { ascending: true })
 
-  type PendingEntry = { id: string; student_id: string; scheduled_at: string; duration_minutes: number | null; type: string; student_name: string | null }
+  type PendingEntry = {
+    id: string
+    student_id: string
+    scheduled_at: string
+    duration_minutes: number | null
+    type: string
+    student_name: string | null
+  }
   const pendingBookings: PendingEntry[] = (allPending || []).map((b) => ({
     id: b.id,
     student_id: b.student_id,

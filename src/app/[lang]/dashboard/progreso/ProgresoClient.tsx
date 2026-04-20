@@ -203,7 +203,13 @@ export default function ProgresoClient({
     },
     {
       label: level ? tx.stats.level : tx.stats.noLevel,
-      value: level || '—',
+      value: level
+        ? level
+        : placementTestDone
+        ? (lang === 'es' ? 'Revisando' : 'Reviewing')
+        : placementBooking
+        ? (lang === 'es' ? 'Agendada' : 'Scheduled')
+        : (lang === 'es' ? 'Sin agendar' : 'Not booked'),
       icon: TrendingUp,
       accent: !level,
     },

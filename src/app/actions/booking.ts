@@ -7,7 +7,6 @@ async function sendAdminBookingEmail(params: {
   bookingId: string
   studentName: string
   studentEmail: string
-  teacherName: string
   scheduledAt: string
   lang: string
 }) {
@@ -15,7 +14,7 @@ async function sendAdminBookingEmail(params: {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englisheverywhere.com'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-  if (!apiKey || apiKey === 're_placeholder') return // Skip silently if not configured
+  if (!apiKey || apiKey === 're_placeholder') return
 
   const scheduled = new Date(params.scheduledAt).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
@@ -31,22 +30,21 @@ async function sendAdminBookingEmail(params: {
     body: JSON.stringify({
       from: process.env.EMAIL_FROM || 'noreply@englisheverywhere.com',
       to: adminEmail,
-      subject: `New booking request — ${params.studentName}`,
+      subject: `Class needs a teacher — ${params.studentName}`,
       html: `
-        <p>A new class booking has been submitted and requires your review.</p>
+        <p>A student booked a class. Assign a teacher in the admin queue.</p>
         <table>
           <tr><td><strong>Student</strong></td><td>${params.studentName} (${params.studentEmail})</td></tr>
-          <tr><td><strong>Teacher</strong></td><td>${params.teacherName}</td></tr>
           <tr><td><strong>Scheduled</strong></td><td>${scheduled}</td></tr>
         </table>
         <p>
           <a href="${appUrl}/${params.lang}/admin/bookings">
-            Review and confirm this booking →
+            Assign teacher →
           </a>
         </p>
       `,
     }),
-  }).catch(() => {}) // Never let email failure break the booking
+  }).catch(() => {})
 }
 
 export async function createBooking(formData: FormData) {
@@ -54,9 +52,8 @@ export async function createBooking(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const teacherId = formData.get('teacher_id') as string
   const scheduledAt = formData.get('scheduled_at') as string
-  const durationMinutes = parseInt(formData.get('duration_minutes') as string) || 50
+  const durationMinutes = parseInt(formData.get('duration_minutes') as string) || 60
   const lang = (formData.get('lang') as string) || 'es'
 
   // ── 24-hour advance notice enforcement ───────────────────────
@@ -102,12 +99,12 @@ export async function createBooking(formData: FormData) {
     }
   }
 
-  // ── Create booking ────────────────────────────────────────────
+  // ── Create booking — teacher assigned later by admin ─────────
   const { data: booking, error } = await supabase
     .from('bookings')
     .insert({
       student_id: student.id,
-      teacher_id: teacherId,
+      teacher_id: null,
       scheduled_at: scheduledAt,
       duration_minutes: durationMinutes,
       status: 'pending',
@@ -118,27 +115,18 @@ export async function createBooking(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  // ── Atomic decrement classes_remaining ───────────────────────
   await supabase.rpc('decrement_classes', { p_student_id: student.id })
 
-  // ── Notify admin via email (non-blocking) ────────────────────
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name')
     .eq('id', user.id)
     .single()
 
-  const { data: teacherProfile } = await supabase
-    .from('teachers')
-    .select('profile:profiles(full_name)')
-    .eq('id', teacherId)
-    .single()
-
   sendAdminBookingEmail({
     bookingId: booking.id,
     studentName: profile?.full_name || user.email || 'Student',
     studentEmail: user.email || '',
-    teacherName: (teacherProfile?.profile as any)?.full_name || 'Teacher',
     scheduledAt,
     lang,
   })

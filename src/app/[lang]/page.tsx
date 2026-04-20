@@ -15,8 +15,13 @@ type Props = { params: Promise<{ lang: string }> }
 export default async function LandingPage({ params }: Props) {
   const { lang } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const isLoggedIn = !!user
+  let isLoggedIn = false
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    isLoggedIn = !!user
+  } catch {
+    // Stale/invalid refresh token — render as logged-out
+  }
 
   return (
     <main className="overflow-x-hidden">

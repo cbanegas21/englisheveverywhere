@@ -63,7 +63,6 @@ export default function ConfigStudentClient({ lang, fullName, timezone, email }:
     setSaving(true)
     setSaveError('')
     try {
-      console.log('Saving timezone:', selectedTz)
       const result = await updateStudentProfile({ fullName: name, timezone: selectedTz })
       if (result.success) {
         setSaved(true)

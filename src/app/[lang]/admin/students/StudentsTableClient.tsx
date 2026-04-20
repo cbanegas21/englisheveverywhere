@@ -153,7 +153,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
           <table className="w-full" style={{ minWidth: '900px' }}>
             <thead>
               <tr style={{ background: '#F9FAFB', position: 'sticky', top: 0, zIndex: 1 }}>
-                {['Name', 'Email', 'Plan', 'Classes Left', 'Completed', 'Level', 'Teacher', 'Placement', 'Joined'].map((h) => (
+                {['Name', 'Email', 'Plan', 'Classes Left', 'Scheduled', 'Completed', 'Level', 'Teacher', 'Placement', 'Joined'].map((h) => (
                   <th
                     key={h}
                     className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
@@ -168,7 +168,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-6 py-12 text-center text-[13px]"
                     style={{ color: '#9CA3AF' }}
                   >
@@ -177,6 +177,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
                 </tr>
               ) : (
                 filtered.map((s) => {
+                  const upcoming = s.upcomingCount
                   const lc = LEVEL_COLORS[s.level || ''] || { bg: 'rgba(156,163,175,0.1)', color: '#6B7280' }
                   const initials = (s.profile?.full_name || '?')
                     .split(' ')
@@ -230,6 +231,11 @@ export default function StudentsTableClient({ students, lang }: Props) {
                       {/* Classes left */}
                       <td className="px-5 py-3.5 text-[13px] font-semibold" style={{ color: s.classes_remaining === 0 ? '#C41E3A' : '#111' }}>
                         {s.classes_remaining}
+                      </td>
+
+                      {/* Scheduled */}
+                      <td className="px-5 py-3.5 text-[13px]" style={{ color: upcoming > 0 ? '#111' : '#9CA3AF', fontWeight: upcoming > 0 ? 600 : 400 }}>
+                        {upcoming}
                       </td>
 
                       {/* Completed */}

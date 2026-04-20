@@ -126,8 +126,8 @@ function generateBusinessDays(count = 14): BusinessDay[] {
     const dy = hn.getUTCDate()
 
     const slots: string[] = []
-    for (let h = 6; h <= 22; h++) {
-      // h AM HN = (h + 6) UTC
+    for (let h = 0; h < 24; h++) {
+      // h HN = (h + 6) UTC (Honduras is UTC-6)
       const slotMs = Date.UTC(yr, mo, dy, h + 6, 0, 0)
       if (slotMs > minMs) slots.push(new Date(slotMs).toISOString())
     }

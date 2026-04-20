@@ -3,33 +3,14 @@
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Star, CheckCircle2, ArrowRight, X, Calendar, Clock, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
+import { CheckCircle2, ArrowRight, X, Calendar, Clock, ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { createBooking } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
-
-interface Slot {
-  id: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-}
-
-interface Teacher {
-  id: string
-  bio: string | null
-  hourly_rate: number
-  specializations: string[]
-  rating: number
-  total_sessions: number
-  profile: { full_name: string | null; avatar_url: string | null } | null
-  slots: Slot[]
-}
 
 interface Props {
   lang: Locale
   studentId: string
   classesRemaining: number
-  teachers: Teacher[]
   existingBookings: string[]
 }
 
@@ -39,13 +20,12 @@ const ROW_HEIGHT = 40
 const t = {
   en: {
     title: 'Schedule a Class',
-    subtitle: 'Pick a time that works for you. All classes are 60 minutes.',
+    subtitle: 'Pick any time that works for you. All classes are 60 minutes.',
     classesLeft: (n: number) => `${n} class${n !== 1 ? 'es' : ''} remaining`,
     prevWeek: 'Previous week',
     nextWeek: 'Next week',
     available: 'Available',
     confirmTitle: 'Confirm Booking',
-    confirmWith: 'Teacher',
     confirmDate: 'Date',
     confirmTime: 'Time',
     confirmDuration: 'Duration',
@@ -54,29 +34,24 @@ const t = {
     cancel: 'Cancel',
     booking: 'Booking…',
     successTitle: 'Booked!',
-    successSub: 'Your teacher will confirm within 24 hours.',
+    successSub: 'Your teacher will be assigned within 24 hours.',
     viewClasses: 'View my classes',
     bookAnother: 'Book another',
     days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
     notice24h: 'Requires 24+ hours notice',
-    teacher: 'Teacher',
-    rating: 'rating',
-    sessions: 'sessions',
-    with: 'with',
     booked: 'Booked',
     tooSoon: 'Too soon',
-    noSlots: 'No slots this week',
+    anyTimeNote: 'Book any time — a teacher is assigned after the booking.',
   },
   es: {
     title: 'Agendar Clase',
-    subtitle: 'Elige un horario que funcione para ti. Todas las clases son de 60 minutos.',
+    subtitle: 'Elige cualquier horario que funcione para ti. Todas las clases son de 60 minutos.',
     classesLeft: (n: number) => `${n} clase${n !== 1 ? 's' : ''} disponible${n !== 1 ? 's' : ''}`,
     prevWeek: 'Semana anterior',
     nextWeek: 'Semana siguiente',
     available: 'Disponible',
     confirmTitle: 'Confirmar Reserva',
-    confirmWith: 'Maestro',
     confirmDate: 'Fecha',
     confirmTime: 'Hora',
     confirmDuration: 'Duración',
@@ -85,28 +60,16 @@ const t = {
     cancel: 'Cancelar',
     booking: 'Reservando…',
     successTitle: '¡Reservada!',
-    successSub: 'Tu maestro confirmará en las próximas 24 horas.',
+    successSub: 'Te asignaremos un maestro en las próximas 24 horas.',
     viewClasses: 'Ver mis clases',
     bookAnother: 'Agendar otra',
     days: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
     months: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
     notice24h: 'Requiere 24+ horas de anticipación',
-    teacher: 'Maestro',
-    rating: 'calificación',
-    sessions: 'sesiones',
-    with: 'con',
     booked: 'Agendada',
     tooSoon: 'Muy pronto',
-    noSlots: 'Sin horarios esta semana',
+    anyTimeNote: 'Agenda a cualquier hora — asignamos maestro después de la reserva.',
   },
-}
-
-interface SlotWithTeacher extends Slot {
-  teacher: Teacher
-  date: Date
-  scheduledAt: string
-  isPast: boolean
-  isTooSoon: boolean
 }
 
 function getWeekDates(weekOffset: number): Date[] {
@@ -121,36 +84,6 @@ function getWeekDates(weekOffset: number): Date[] {
   })
 }
 
-function buildSlotsForWeek(teachers: Teacher[], weekDates: Date[]): SlotWithTeacher[] {
-  const now = Date.now()
-  const minMs = now + 24 * 60 * 60 * 1000
-  const result: SlotWithTeacher[] = []
-
-  for (const teacher of teachers) {
-    for (const slot of teacher.slots) {
-      const date = weekDates.find(d => d.getDay() === slot.day_of_week)
-      if (!date) continue
-      const [h, m] = slot.start_time.split(':').map(Number)
-      const slotDate = new Date(date)
-      slotDate.setHours(h, m, 0, 0)
-      result.push({
-        ...slot,
-        teacher,
-        date: slotDate,
-        scheduledAt: slotDate.toISOString(),
-        isPast: slotDate.getTime() <= now,
-        isTooSoon: slotDate.getTime() > now && slotDate.getTime() < minMs,
-      })
-    }
-  }
-  return result.sort((a, b) => a.date.getTime() - b.date.getTime())
-}
-
-function getInitials(name: string | null | undefined) {
-  if (!name) return '?'
-  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-}
-
 function hourLabel(hour: number) {
   if (hour === 0) return '12 AM'
   if (hour < 12) return `${hour} AM`
@@ -158,19 +91,22 @@ function hourLabel(hour: number) {
   return `${hour - 12} PM`
 }
 
-interface SelectedSlot { slot: SlotWithTeacher }
+interface SelectedCell {
+  date: Date
+  hour: number
+  scheduledAt: string
+}
 
-export default function AgendarClient({ lang, studentId, classesRemaining, teachers, existingBookings }: Props) {
+export default function AgendarClient({ lang, classesRemaining, existingBookings }: Props) {
   const tx = t[lang]
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [weekOffset, setWeekOffset] = useState(0)
-  const [selected, setSelected] = useState<SelectedSlot | null>(null)
+  const [selected, setSelected] = useState<SelectedCell | null>(null)
   const [error, setError] = useState('')
-  const [bookedSlot, setBookedSlot] = useState<SlotWithTeacher | null>(null)
+  const [booked, setBooked] = useState<SelectedCell | null>(null)
 
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
-  const slotsThisWeek = useMemo(() => buildSlotsForWeek(teachers, weekDates), [teachers, weekDates])
 
   const gridRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -188,35 +124,26 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
     return set
   }, [existingBookings])
 
-  function getSlotAt(date: Date, hour: number): SlotWithTeacher | undefined {
-    return slotsThisWeek.find(s =>
-      s.date.toDateString() === date.toDateString() && s.date.getHours() === hour
-    )
-  }
-
   function handleConfirm() {
     if (!selected) return
     setError('')
     startTransition(async () => {
       const fd = new FormData()
-      fd.set('teacher_id', selected.slot.teacher.id)
-      fd.set('slot_id', selected.slot.id)
-      fd.set('scheduled_at', selected.slot.scheduledAt)
+      fd.set('scheduled_at', selected.scheduledAt)
       fd.set('duration_minutes', '60')
       fd.set('lang', lang)
       const result = await createBooking(fd)
       if (result?.error) {
         setError(result.error)
       } else {
-        setBookedSlot(selected.slot)
+        setBooked(selected)
         setSelected(null)
       }
     })
   }
 
   // ── Success screen ─────────────────────────────────────────────
-  if (bookedSlot) {
-    const teacherName = bookedSlot.teacher.profile?.full_name || 'Teacher'
+  if (booked) {
     return (
       <div className="min-h-full flex flex-col" style={{ background: '#F9F9F9' }}>
         <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
@@ -239,9 +166,8 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
             </div>
             <div className="p-6 space-y-3">
               {[
-                [tx.confirmWith, teacherName],
-                [tx.confirmDate, bookedSlot.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })],
-                [tx.confirmTime, hourLabel(bookedSlot.date.getHours())],
+                [tx.confirmDate, booked.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })],
+                [tx.confirmTime, hourLabel(booked.hour)],
                 [tx.confirmDuration, tx.confirmDurationVal],
               ].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between text-[13px]">
@@ -251,7 +177,7 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
               ))}
               <div className="flex gap-3 pt-3">
                 <button
-                  onClick={() => setBookedSlot(null)}
+                  onClick={() => setBooked(null)}
                   className="flex-1 py-3 rounded-lg font-medium text-[13px] transition-all"
                   style={{ border: '1px solid #E5E7EB', color: '#4B5563' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#F9F9F9')}
@@ -325,6 +251,11 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
           </button>
         </div>
 
+        {/* Any-time note */}
+        <div className="mb-4 rounded-lg px-4 py-3 text-[12px]" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', color: '#047857' }}>
+          {tx.anyTimeNote}
+        </div>
+
         {/* Calendar grid — always 24h */}
         <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
           {/* Day headers */}
@@ -347,7 +278,7 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
             })}
           </div>
 
-          {/* 24h grid — always rendered */}
+          {/* 24h grid — every future cell clickable */}
           <div ref={gridRef} className="overflow-auto" style={{ maxHeight: '480px' }}>
             {ALL_HOURS.map(hour => (
               <div
@@ -359,21 +290,22 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
                   minHeight: `${ROW_HEIGHT}px`,
                 }}
               >
-                {/* Time label */}
                 <div className="flex items-center justify-end pr-3">
                   <span className="text-[9px] font-medium" style={{ color: '#D1D5DB' }}>{hourLabel(hour)}</span>
                 </div>
 
-                {/* Day columns */}
                 {weekDates.map((date, colIdx) => {
+                  const cellDate = new Date(date)
+                  cellDate.setHours(hour, 0, 0, 0)
                   const cellKey = `${date.toDateString()}-${hour}`
                   const isBooked = bookedSet.has(cellKey)
-                  const teacherSlot = getSlotAt(date, hour)
-                  const isPast = teacherSlot?.isPast ?? false
-                  const isTooSoon = teacherSlot?.isTooSoon ?? false
+                  const now = Date.now()
+                  const minMs = now + 24 * 60 * 60 * 1000
+                  const isPast = cellDate.getTime() <= now
+                  const isTooSoon = cellDate.getTime() > now && cellDate.getTime() < minMs
                   const isUnavailable = isPast || isTooSoon
-                  const isSelected = !!(teacherSlot && selected?.slot.id === teacherSlot.id && selected?.slot.scheduledAt === teacherSlot.scheduledAt)
-                  const hasSlot = !!teacherSlot
+                  const scheduledAt = cellDate.toISOString()
+                  const isSelected = !!(selected && selected.scheduledAt === scheduledAt)
 
                   return (
                     <div key={colIdx} className="p-1" style={{ borderLeft: '1px solid #F3F4F6' }}>
@@ -385,17 +317,17 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
                           <Lock className="h-2.5 w-2.5" />
                           {tx.booked}
                         </div>
-                      ) : hasSlot && isUnavailable ? (
+                      ) : isUnavailable ? (
                         <div
                           className="w-full rounded flex flex-col items-center justify-center text-[8px]"
                           style={{ height: `${ROW_HEIGHT - 8}px`, background: '#F9FAFB', color: '#D1D5DB', cursor: 'not-allowed' }}
                         >
-                          <Clock className="h-2.5 w-2.5 mb-0.5" />
-                          {isTooSoon ? tx.tooSoon : hourLabel(hour)}
+                          {isTooSoon && <Clock className="h-2.5 w-2.5 mb-0.5" />}
+                          {isTooSoon ? tx.tooSoon : ''}
                         </div>
-                      ) : hasSlot ? (
+                      ) : (
                         <button
-                          onClick={() => { setSelected({ slot: teacherSlot }); setError('') }}
+                          onClick={() => { setSelected({ date: cellDate, hour, scheduledAt }); setError('') }}
                           className="w-full rounded flex flex-col items-center justify-center text-[8px] font-bold transition-all"
                           style={{
                             height: `${ROW_HEIGHT - 8}px`,
@@ -409,11 +341,6 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
                           <span>{hourLabel(hour)}</span>
                           <span className="text-[7px] font-normal opacity-70">{tx.available}</span>
                         </button>
-                      ) : (
-                        <div
-                          className="w-full rounded"
-                          style={{ height: `${ROW_HEIGHT - 8}px`, background: '#F9FAFB' }}
-                        />
                       )}
                     </div>
                   )
@@ -422,27 +349,6 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
             ))}
           </div>
         </div>
-
-        {/* Teacher legend */}
-        {teachers.length > 0 && (
-          <div className="mt-4 flex items-center flex-wrap gap-3">
-            {teachers.map(t => (
-              <div key={t.id} className="flex items-center gap-1.5">
-                <div
-                  className="h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0"
-                  style={{ background: '#C41E3A' }}
-                >
-                  {getInitials(t.profile?.full_name)}
-                </div>
-                <span className="text-[11px]" style={{ color: '#6B7280' }}>{t.profile?.full_name || 'Teacher'}</span>
-                <div className="flex items-center gap-0.5">
-                  <Star className="h-2.5 w-2.5" style={{ color: '#F59E0B', fill: '#F59E0B' }} />
-                  <span className="text-[10px]" style={{ color: '#9CA3AF' }}>{t.rating.toFixed(1)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Confirm booking modal */}
@@ -480,26 +386,10 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
                 </button>
               </div>
 
-              {/* Teacher mini profile */}
-              <div className="px-6 pt-4 flex items-center gap-3" style={{ borderBottom: '1px solid #F3F4F6' }}>
-                <div className="h-10 w-10 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0" style={{ background: '#C41E3A' }}>
-                  {getInitials(selected.slot.teacher.profile?.full_name)}
-                </div>
-                <div className="pb-4">
-                  <p className="text-[13px] font-bold" style={{ color: '#111111' }}>
-                    {selected.slot.teacher.profile?.full_name || 'Teacher'}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#9CA3AF' }}>
-                    <Star className="h-3 w-3" style={{ color: '#F59E0B', fill: '#F59E0B' }} />
-                    {selected.slot.teacher.rating.toFixed(1)} · {selected.slot.teacher.total_sessions} {tx.sessions}
-                  </div>
-                </div>
-              </div>
-
               <div className="px-6 py-4 space-y-3">
                 {[
-                  [tx.confirmDate, selected.slot.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })],
-                  [tx.confirmTime, hourLabel(selected.slot.date.getHours())],
+                  [tx.confirmDate, selected.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })],
+                  [tx.confirmTime, hourLabel(selected.hour)],
                   [tx.confirmDuration, tx.confirmDurationVal],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between text-[13px]">
@@ -507,6 +397,9 @@ export default function AgendarClient({ lang, studentId, classesRemaining, teach
                     <span className="font-semibold" style={{ color: '#111111' }}>{value}</span>
                   </div>
                 ))}
+                <div className="rounded-lg px-3 py-2 text-[11px]" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', color: '#047857' }}>
+                  {tx.anyTimeNote}
+                </div>
               </div>
 
               {error && (

@@ -7,7 +7,7 @@ import {
   toggleTeacherActive,
   setTeacherRate,
   saveTeacherAdminNotes,
-  updateTeacherProfile,
+  adminUpdateTeacherProfile,
   deleteTeacher,
   resetStudentPassword,
 } from '../../actions'
@@ -624,7 +624,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
             style={btnPrimary}
             disabled={isPending}
             onClick={() => run(
-              () => updateTeacherProfile(teacher.id, teacher.profile_id, { bio, specializations: specs, certifications: certs, timezone, full_name: fullName }),
+              () => adminUpdateTeacherProfile(teacher.id, teacher.profile_id, { bio, specializations: specs, certifications: certs, timezone, full_name: fullName }),
               'Profile saved'
             )}
           >

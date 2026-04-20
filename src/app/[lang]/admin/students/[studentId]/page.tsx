@@ -38,6 +38,8 @@ export interface StudentDetail {
   age_range: string | null
   survey_answers: Record<string, unknown> | null
   created_at: string
+  primary_teacher_id: string | null
+  primary_teacher_name: string | null
   profile: {
     id: string
     full_name: string | null
@@ -68,7 +70,7 @@ export default async function StudentProfilePage({ params }: Props) {
       id, profile_id, level, classes_remaining, current_plan,
       placement_test_done, placement_scheduled, admin_notes,
       learning_goal, work_description, learning_style, age_range,
-      survey_answers, created_at,
+      survey_answers, created_at, primary_teacher_id,
       profile:profiles(id, full_name, email, timezone, role)
     `)
     .eq('id', studentId)
@@ -135,6 +137,9 @@ export default async function StudentProfilePage({ params }: Props) {
     profileData = rawProfile as unknown as ProfileShape
   }
 
+  const primaryTeacherId: string | null = rawStudent.primary_teacher_id || null
+  const primaryTeacherName = primaryTeacherId ? (teacherMap.get(primaryTeacherId) || null) : null
+
   const student: StudentDetail = {
     id: rawStudent.id,
     profile_id: rawStudent.profile_id,
@@ -150,6 +155,8 @@ export default async function StudentProfilePage({ params }: Props) {
     age_range: rawStudent.age_range,
     survey_answers: rawStudent.survey_answers as Record<string, unknown> | null,
     created_at: rawStudent.created_at,
+    primary_teacher_id: primaryTeacherId,
+    primary_teacher_name: primaryTeacherName,
     profile: profileData,
     bookings,
     assignedTeacherId,

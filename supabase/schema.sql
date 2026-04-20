@@ -278,32 +278,6 @@ create policy "Teachers see own payments"
   );
 
 -- ============================================================
--- PLACEMENT TESTS
--- ============================================================
-create table public.placement_tests (
-  id              uuid primary key default uuid_generate_v4(),
-  student_id      uuid not null references public.students(id) on delete cascade,
-  score           integer not null,
-  level_assigned  text not null check (level_assigned in ('A1','A2','B1','B2','C1','C2')),
-  answers         jsonb,
-  completed_at    timestamptz not null default now()
-);
-
-alter table public.placement_tests enable row level security;
-
-create policy "Students can view own placement tests"
-  on public.placement_tests for select
-  using (
-    auth.uid() = (select profile_id from public.students where id = student_id)
-  );
-
-create policy "Students can insert own placement test"
-  on public.placement_tests for insert
-  with check (
-    auth.uid() = (select profile_id from public.students where id = student_id)
-  );
-
--- ============================================================
 -- INDEXES
 -- ============================================================
 create index idx_bookings_student on public.bookings(student_id);

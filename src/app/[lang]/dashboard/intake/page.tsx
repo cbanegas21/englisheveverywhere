@@ -23,8 +23,10 @@ export default async function IntakePage({ params }: Props) {
   // If already done, send to scheduling
   if (student.intake_done) redirect(`/${lang}/dashboard/agendar`)
 
-  // If student already filled placement survey, skip intake — same info already captured
+  // If student already filled placement survey, skip intake — same info already captured.
+  // Persist intake_done=true so the agendar gate doesn't bounce them right back.
   if (student.survey_answers && Object.keys(student.survey_answers as object).length > 0) {
+    await supabase.from('students').update({ intake_done: true }).eq('id', student.id)
     redirect(`/${lang}/dashboard/agendar`)
   }
 

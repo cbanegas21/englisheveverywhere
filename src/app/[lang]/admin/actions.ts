@@ -159,7 +159,7 @@ export async function addStudentClasses(studentId: string, count: number) {
   revalidatePath('/', 'layout')
 }
 
-export async function updateStudentProfile(
+export async function adminUpdateStudentProfile(
   profileId: string,
   studentId: string,
   fields: {
@@ -170,12 +170,13 @@ export async function updateStudentProfile(
     work_description?: string
     learning_style?: string
     age_range?: string
+    primary_teacher_id?: string | null
   }
 ) {
   await assertAdmin()
   const admin = createAdminClient()
   const profileFields: Record<string, string> = {}
-  const studentFields: Record<string, string> = {}
+  const studentFields: Record<string, string | null> = {}
   if (fields.full_name !== undefined) profileFields.full_name = fields.full_name
   if (fields.timezone !== undefined) profileFields.timezone = fields.timezone
   if (fields.preferred_language !== undefined) profileFields.preferred_language = fields.preferred_language
@@ -183,6 +184,7 @@ export async function updateStudentProfile(
   if (fields.work_description !== undefined) studentFields.work_description = fields.work_description
   if (fields.learning_style !== undefined) studentFields.learning_style = fields.learning_style
   if (fields.age_range !== undefined) studentFields.age_range = fields.age_range
+  if (fields.primary_teacher_id !== undefined) studentFields.primary_teacher_id = fields.primary_teacher_id
   if (Object.keys(profileFields).length > 0) {
     const { error } = await admin.from('profiles').update(profileFields).eq('id', profileId)
     if (error) throw new Error(error.message)
@@ -194,11 +196,41 @@ export async function updateStudentProfile(
   revalidatePath('/', 'layout')
 }
 
+export async function setPrimaryTeacher(studentId: string, teacherId: string | null) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('students')
+    .update({ primary_teacher_id: teacherId })
+    .eq('id', studentId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/', 'layout')
+}
+
 export async function completeBooking(bookingId: string) {
   await assertAdmin()
   const admin = createAdminClient()
+
+  const { data: booking, error: fetchError } = await admin
+    .from('bookings')
+    .select('student_id, type')
+    .eq('id', bookingId)
+    .single()
+  if (fetchError || !booking) throw new Error('Booking not found')
+
   const { error } = await admin.from('bookings').update({ status: 'completed' }).eq('id', bookingId)
   if (error) throw new Error(error.message)
+
+  // When a placement call is completed, mark the student as placement-done so the
+  // onboarding flow advances. An accidental click is recoverable via the student
+  // row edit — but without this the student is silently stranded.
+  if (booking.type === 'placement_test') {
+    await admin
+      .from('students')
+      .update({ placement_test_done: true, placement_scheduled: false })
+      .eq('id', booking.student_id)
+  }
+
   revalidatePath('/', 'layout')
 }
 
@@ -277,7 +309,7 @@ export async function updateStudentRole(profileId: string, role: string) {
 
 // ── Teacher profile CRM actions ───────────────────────────────────────────────
 
-export async function updateTeacherProfile(
+export async function adminUpdateTeacherProfile(
   teacherId: string,
   profileId: string,
   fields: {
