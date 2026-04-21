@@ -342,7 +342,7 @@ export default function PlanClient({
           />
 
           {/* Plan comparison */}
-          <section>
+          <section id="plans" style={{ scrollMarginTop: 24 }}>
             <h2 className="text-[16px] font-black mb-4" style={{ color: '#111111' }}>{tx.comparePlans}</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {PRICING_PLANS.map((plan) => {
