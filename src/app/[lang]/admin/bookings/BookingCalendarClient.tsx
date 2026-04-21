@@ -56,9 +56,9 @@ interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CAL_START_HOUR = 6
-const CAL_END_HOUR = 22
-const HOUR_HEIGHT = 64
+const CAL_START_HOUR = 0
+const CAL_END_HOUR = 24
+const HOUR_HEIGHT = 48
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -375,7 +375,7 @@ export default function BookingCalendarClient({
             {hours.map(h => (
               <div key={h} style={{ position: 'absolute', top: (h - CAL_START_HOUR) * HOUR_HEIGHT, left: 0, right: 0, height: HOUR_HEIGHT }}>
                 <span style={{ fontSize: 10, color: '#9CA3AF', paddingLeft: 8, paddingTop: 4, display: 'block', userSelect: 'none' }}>
-                  {h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
+                  {h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
                 </span>
               </div>
             ))}
@@ -524,7 +524,7 @@ export default function BookingCalendarClient({
             {hours.map(h => (
               <div key={h} style={{ position: 'absolute', top: (h - CAL_START_HOUR) * HOUR_HEIGHT, left: 0, right: 0 }}>
                 <span style={{ fontSize: 10, color: '#9CA3AF', paddingLeft: 8, paddingTop: 4, display: 'block' }}>
-                  {h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
+                  {h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
                 </span>
               </div>
             ))}
@@ -940,7 +940,7 @@ export default function BookingCalendarClient({
                 return (
                   <tr key={h} style={{ borderTop: '1px solid #F3F4F6' }}>
                     <td style={{ padding: '4px 8px', color: '#374151', fontWeight: 600 }}>
-                      {h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
+                      {h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
                     </td>
                     <td style={{ padding: '4px 8px' }}>
                       {available.map(n => (

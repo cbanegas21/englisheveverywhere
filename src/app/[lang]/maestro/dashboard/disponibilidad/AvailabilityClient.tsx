@@ -64,10 +64,11 @@ const t = {
 }
 
 const TIME_OPTIONS: string[] = []
-for (let h = 6; h <= 22; h++) {
+for (let h = 0; h < 24; h++) {
   TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:00`)
   TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`)
 }
+TIME_OPTIONS.push('23:59')
 
 const selectStyle = {
   border: '1px solid #E5E7EB',
