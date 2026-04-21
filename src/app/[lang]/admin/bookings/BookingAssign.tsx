@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { CheckCircle, XCircle } from 'lucide-react'
 import { assignAndConfirmBooking, cancelBooking } from '../actions'
+import { isTeacherAvailableClient, type AvailabilitySlot } from './availability'
 
 interface Teacher {
   id: string
@@ -13,23 +14,51 @@ interface Props {
   bookingId: string
   currentTeacherId: string | null
   teachers: Teacher[]
+  // Optional — when provided, the dropdown annotates each teacher with an
+  // availability dot so admins can avoid force-assigning off-hours.
+  scheduledAt?: string
+  durationMinutes?: number | null
+  availSlots?: AvailabilitySlot[]
 }
 
-export default function BookingAssign({ bookingId, currentTeacherId, teachers }: Props) {
+export default function BookingAssign({
+  bookingId, currentTeacherId, teachers,
+  scheduledAt, durationMinutes, availSlots,
+}: Props) {
   const [isPending, startTransition] = useTransition()
   const [selectedTeacherId, setSelectedTeacherId] = useState(currentTeacherId || '')
   const [done, setDone] = useState<'confirmed' | 'cancelled' | null>(null)
   const [error, setError] = useState('')
 
-  function handleConfirm() {
+  // Availability map — {teacherId: boolean}. Computed once per render of the
+  // teachers + booking window. When availSlots/scheduledAt aren't supplied
+  // we skip the hints entirely (back-compat with callers that don't pass them).
+  const availabilityByTeacher = useMemo(() => {
+    if (!availSlots || !scheduledAt) return null
+    const map = new Map<string, boolean>()
+    for (const t of teachers) {
+      map.set(t.id, isTeacherAvailableClient(t.id, availSlots, scheduledAt, durationMinutes ?? 60))
+    }
+    return map
+  }, [teachers, availSlots, scheduledAt, durationMinutes])
+
+  function handleConfirm(force = false) {
     if (!selectedTeacherId) { setError('Select a teacher first'); return }
     setError('')
     startTransition(async () => {
       try {
-        await assignAndConfirmBooking(bookingId, selectedTeacherId)
+        await assignAndConfirmBooking(bookingId, selectedTeacherId, { force })
         setDone('confirmed')
       } catch (e: any) {
-        setError(e.message)
+        const msg: string = e.message || 'Something went wrong'
+        // Availability guard — let the admin force-assign after a second click.
+        if (msg.toLowerCase().includes('not available') && !force) {
+          if (confirm(`${msg}\n\nAssign anyway?`)) {
+            handleConfirm(true)
+            return
+          }
+        }
+        setError(msg)
       }
     })
   }
@@ -73,12 +102,16 @@ export default function BookingAssign({ bookingId, currentTeacherId, teachers }:
         style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#fff', minWidth: '140px' }}
       >
         <option value="">Select teacher…</option>
-        {teachers.map(t => (
-          <option key={t.id} value={t.id}>{t.name}</option>
-        ))}
+        {teachers.map(t => {
+          const ok = availabilityByTeacher?.get(t.id)
+          const label = availabilityByTeacher == null
+            ? t.name
+            : ok ? `✓ ${t.name}` : `✗ ${t.name} (off-hours)`
+          return <option key={t.id} value={t.id}>{label}</option>
+        })}
       </select>
       <button
-        onClick={handleConfirm}
+        onClick={() => handleConfirm(false)}
         disabled={isPending || !selectedTeacherId}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50"
         style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}

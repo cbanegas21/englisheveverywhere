@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { assignAndConfirmBooking, cancelBooking, completeBooking } from '../actions'
 import BookingAssign from './BookingAssign'
+import { isTeacherAvailableClient } from './availability'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -183,13 +184,32 @@ export default function BookingCalendarClient({
     const { draggableId, destination } = result
     if (!destination.droppableId.startsWith('teacher:')) return
     const teacherId = destination.droppableId.replace('teacher:', '')
+    assignWithAvailabilityGuard(draggableId, teacherId, () => { router.refresh() })
+  }
+
+  // Shared helper: run the assignment; if the server blocks on availability,
+  // prompt the admin to override before retrying with force=true. Keeps the
+  // guard consistent between drag-drop and the detail panel.
+  function assignWithAvailabilityGuard(
+    bookingId: string,
+    teacherId: string,
+    onSuccess: () => void,
+    force = false,
+  ) {
     startTransition(async () => {
       try {
-        await assignAndConfirmBooking(draggableId, teacherId)
+        await assignAndConfirmBooking(bookingId, teacherId, { force })
         showToast('Assigned and confirmed')
-        router.refresh()
+        onSuccess()
       } catch (e) {
-        showToast(e instanceof Error ? e.message : 'Assignment failed', 'error')
+        const msg = e instanceof Error ? e.message : 'Assignment failed'
+        if (msg.toLowerCase().includes('not available') && !force) {
+          if (confirm(`${msg}\n\nAssign anyway?`)) {
+            assignWithAvailabilityGuard(bookingId, teacherId, onSuccess, true)
+            return
+          }
+        }
+        showToast(msg, 'error')
       }
     })
   }
@@ -198,15 +218,10 @@ export default function BookingCalendarClient({
 
   function handleAssignFromPanel() {
     if (!selectedBooking || !detailAssignTeacher) return
-    startTransition(async () => {
-      try {
-        await assignAndConfirmBooking(selectedBooking.id, detailAssignTeacher)
-        showToast('Assigned and confirmed')
-        setSelectedBooking(null)
-        router.refresh()
-      } catch (e) {
-        showToast(e instanceof Error ? e.message : 'Error', 'error')
-      }
+    const bookingId = selectedBooking.id
+    assignWithAvailabilityGuard(bookingId, detailAssignTeacher, () => {
+      setSelectedBooking(null)
+      router.refresh()
     })
   }
 
@@ -826,9 +841,14 @@ export default function BookingCalendarClient({
                   style={{ flex: 1, borderRadius: 7, border: '1px solid #E5E7EB', padding: '7px 10px', fontSize: 12, color: '#111', background: '#fff', outline: 'none' }}
                 >
                   <option value="">Select teacher…</option>
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
+                  {teachers.map(t => {
+                    const ok = isTeacherAvailableClient(t.id, availSlots, b.scheduled_at, b.duration_minutes || 60)
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {ok ? `✓ ${t.name}` : `✗ ${t.name} (off-hours)`}
+                      </option>
+                    )
+                  })}
                 </select>
                 <button
                   onClick={handleAssignFromPanel}
@@ -1026,6 +1046,9 @@ export default function BookingCalendarClient({
                       bookingId={b.id}
                       currentTeacherId={null}
                       teachers={teachers}
+                      scheduledAt={b.scheduled_at}
+                      durationMinutes={b.duration_minutes}
+                      availSlots={availSlots}
                     />
                   </td>
                 </tr>

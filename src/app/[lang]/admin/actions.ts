@@ -73,9 +73,36 @@ export async function toggleTeacherActive(teacherId: string, isActive: boolean) 
 
 // ── Booking actions ───────────────────────────────────────────────────────────
 
-export async function assignAndConfirmBooking(bookingId: string, teacherId: string) {
+export async function assignAndConfirmBooking(
+  bookingId: string,
+  teacherId: string,
+  options: { force?: boolean } = {},
+) {
   await assertAdmin()
   const admin = createAdminClient()
+
+  // Availability guard: block assignments outside the teacher's stated
+  // availability unless the admin explicitly forces. Availability is stored
+  // in America/Tegucigalpa (Honduras) per the teacher-side UI.
+  if (!options.force) {
+    const { data: booking } = await admin
+      .from('bookings')
+      .select('scheduled_at, duration_minutes')
+      .eq('id', bookingId)
+      .single()
+    if (booking) {
+      const available = await isTeacherAvailable(
+        teacherId,
+        booking.scheduled_at,
+        booking.duration_minutes ?? 60,
+      )
+      if (!available) {
+        throw new Error(
+          'Teacher is not available at this time. Ask them to add the slot to their availability or retry with force=true.',
+        )
+      }
+    }
+  }
 
   const { error } = await admin
     .from('bookings')
@@ -84,10 +111,56 @@ export async function assignAndConfirmBooking(bookingId: string, teacherId: stri
 
   if (error) throw new Error(error.message)
 
-  // Fire-and-forget student email so the student knows their class is locked in.
+  // Fire-and-forget student + teacher emails so both sides know the class is locked in.
   sendAssignmentEmail(bookingId)
 
   revalidatePath('/', 'layout')
+}
+
+// Checks teacher availability_slots against a booking's scheduled window.
+// Times in availability_slots are stored in Honduras local time (America/Tegucigalpa),
+// day_of_week 0=Sunday per JS/Postgres convention.
+async function isTeacherAvailable(
+  teacherId: string,
+  scheduledAtIso: string,
+  durationMinutes: number,
+): Promise<boolean> {
+  const admin = createAdminClient()
+  const scheduled = new Date(scheduledAtIso)
+  // Extract HN wall-clock components via Intl — same tz used everywhere else
+  // in the app for business time.
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Tegucigalpa',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const parts = fmt.formatToParts(scheduled)
+  const weekdayStr = parts.find(p => p.type === 'weekday')?.value ?? 'Sun'
+  const hourStr = parts.find(p => p.type === 'hour')?.value ?? '00'
+  const minuteStr = parts.find(p => p.type === 'minute')?.value ?? '00'
+  const DAYS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as const
+  const dow = DAYS[weekdayStr as keyof typeof DAYS] ?? 0
+  const startMinutes = parseInt(hourStr) * 60 + parseInt(minuteStr)
+  const endMinutes = startMinutes + durationMinutes
+
+  const { data: slots } = await admin
+    .from('availability_slots')
+    .select('start_time, end_time')
+    .eq('teacher_id', teacherId)
+    .eq('day_of_week', dow)
+    .eq('is_active', true)
+
+  if (!slots || slots.length === 0) return false
+
+  return slots.some(slot => {
+    const [sh, sm] = slot.start_time.split(':').map(Number)
+    const [eh, em] = slot.end_time.split(':').map(Number)
+    const slotStart = sh * 60 + sm
+    const slotEnd = eh * 60 + em
+    return slotStart <= startMinutes && slotEnd >= endMinutes
+  })
 }
 
 export async function setTeacherRate(teacherId: string, rate: number) {
@@ -558,6 +631,7 @@ export async function bulkAssignTeacher(bookingIds: string[], teacherId: string)
 function sendAssignmentEmail(bookingId: string) {
   const apiKey = process.env.RESEND_API_KEY
   const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (!apiKey || apiKey === 're_placeholder') return
 
   const admin = createAdminClient()
@@ -568,67 +642,89 @@ function sendAssignmentEmail(bookingId: string) {
       .select(`
         scheduled_at, type,
         student:students(profile:profiles(email, full_name)),
-        teacher:teachers(profile:profiles(full_name))
+        teacher:teachers(profile:profiles(email, full_name))
       `)
       .eq('id', bookingId)
       .single()
   ).then(({ data }) => {
     if (!data) return
-    const studentRaw = data.student as { profile: unknown } | { profile: unknown }[] | null
-    const studentObj = Array.isArray(studentRaw) ? studentRaw[0] : studentRaw
-    const studentProfile = studentObj?.profile
-    let studentEmail: string | null = null
-    let studentName: string | null = null
-    if (Array.isArray(studentProfile)) {
-      studentEmail = (studentProfile as { email: string | null; full_name: string | null }[])[0]?.email ?? null
-      studentName = (studentProfile as { email: string | null; full_name: string | null }[])[0]?.full_name ?? null
-    } else if (studentProfile && typeof studentProfile === 'object') {
-      studentEmail = (studentProfile as { email: string | null; full_name: string | null }).email
-      studentName = (studentProfile as { email: string | null; full_name: string | null }).full_name
-    }
-    if (!studentEmail) return
 
-    const teacherRaw = data.teacher as { profile: unknown } | { profile: unknown }[] | null
-    const teacherObj = Array.isArray(teacherRaw) ? teacherRaw[0] : teacherRaw
-    const teacherProfile = teacherObj?.profile
-    let teacherName: string | null = null
-    if (Array.isArray(teacherProfile)) {
-      teacherName = (teacherProfile as { full_name: string | null }[])[0]?.full_name ?? null
-    } else if (teacherProfile && typeof teacherProfile === 'object') {
-      teacherName = (teacherProfile as { full_name: string | null }).full_name
+    const pickProfile = (raw: unknown): { email: string | null; full_name: string | null } | null => {
+      const obj = Array.isArray(raw) ? raw[0] : raw
+      if (!obj || typeof obj !== 'object') return null
+      const profileRaw = (obj as { profile: unknown }).profile
+      const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw
+      if (!profile || typeof profile !== 'object') return null
+      const p = profile as { email?: string | null; full_name?: string | null }
+      return { email: p.email ?? null, full_name: p.full_name ?? null }
     }
+
+    const student = pickProfile(data.student)
+    const teacher = pickProfile(data.teacher)
 
     const formatted = new Date(data.scheduled_at).toLocaleString('es-HN', {
       weekday: 'long', month: 'long', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
       timeZone: 'America/Tegucigalpa',
     })
+    const salaUrl = `${appUrl}/es/sala/${bookingId}`
 
-    const firstName = studentName?.split(' ')[0] || ''
-    const teacherFirst = teacherName?.split(' ')[0] || 'tu maestro'
+    const studentFirst = student?.full_name?.split(' ')[0] || ''
+    const teacherFirst = teacher?.full_name?.split(' ')[0] || 'tu maestro'
     const isPlacement = data.type === 'placement_test'
-    const subject = isPlacement
-      ? 'Tu llamada de diagnóstico ha sido confirmada — EnglishKolab'
-      : 'Tu clase ha sido confirmada — EnglishKolab'
-    const lead = isPlacement
-      ? `Tu llamada de diagnóstico con <strong>${teacherFirst}</strong> está confirmada.`
-      : `Tu clase con <strong>${teacherFirst}</strong> está confirmada.`
 
-    void fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: studentEmail,
-        subject,
-        html: `
-          <p>Hola ${firstName},</p>
-          <p>${lead}</p>
-          <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
-          <p>Te avisaremos de nuevo unos minutos antes con el enlace al aula.</p>
-          <p>— EnglishKolab</p>
-        `,
-      }),
-    }).catch(() => {})
+    // Student email
+    if (student?.email) {
+      const subject = isPlacement
+        ? 'Tu llamada de diagnóstico ha sido confirmada — EnglishKolab'
+        : 'Tu clase ha sido confirmada — EnglishKolab'
+      const lead = isPlacement
+        ? `Tu llamada de diagnóstico con <strong>${teacherFirst}</strong> está confirmada.`
+        : `Tu clase con <strong>${teacherFirst}</strong> está confirmada.`
+      void fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: student.email,
+          subject,
+          html: `
+            <p>Hola ${studentFirst},</p>
+            <p>${lead}</p>
+            <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
+            <p><a href="${salaUrl}">Unirse al aula</a> (se abre 15 minutos antes).</p>
+            <p>— EnglishKolab</p>
+          `,
+        }),
+      }).catch(() => {})
+    }
+
+    // Teacher email — was missing before. Teachers need the booking details
+    // and the sala link to prep and join on time.
+    if (teacher?.email) {
+      const studentLabel = student?.full_name || 'un estudiante'
+      const teacherSubject = isPlacement
+        ? 'Nueva llamada de diagnóstico asignada — EnglishKolab'
+        : 'Nueva clase asignada — EnglishKolab'
+      const teacherLead = isPlacement
+        ? `Te asignamos una llamada de diagnóstico con <strong>${studentLabel}</strong>.`
+        : `Te asignamos una clase con <strong>${studentLabel}</strong>.`
+      void fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: teacher.email,
+          subject: teacherSubject,
+          html: `
+            <p>Hola ${teacherFirst},</p>
+            <p>${teacherLead}</p>
+            <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
+            <p><a href="${salaUrl}">Entrar al aula</a> (se abre 15 minutos antes).</p>
+            <p>— EnglishKolab</p>
+          `,
+        }),
+      }).catch(() => {})
+    }
   }).catch(() => {})
 }
