@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutDashboard, Calendar, Users, BookOpen, CreditCard,
-  Settings, LogOut, Menu, X, GraduationCap, Clock, BarChart3,
+  Settings, LogOut, Menu, X, GraduationCap, Clock, BarChart3, ClipboardList,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import type { Locale } from '@/lib/i18n/translations'
@@ -17,6 +17,7 @@ const studentNav = {
   en: [
     { icon: LayoutDashboard, label: 'Home', href: '/dashboard' },
     { icon: Calendar, label: 'My classes', href: '/dashboard/clases' },
+    { icon: ClipboardList, label: 'Homework', href: '/dashboard/tareas' },
     { icon: Users, label: 'My teacher', href: '/dashboard/maestros' },
     { icon: BarChart3, label: 'My progress', href: '/dashboard/progreso' },
     { icon: CreditCard, label: 'My plan', href: '/dashboard/plan' },
@@ -25,6 +26,7 @@ const studentNav = {
   es: [
     { icon: LayoutDashboard, label: 'Inicio', href: '/dashboard' },
     { icon: Calendar, label: 'Mis clases', href: '/dashboard/clases' },
+    { icon: ClipboardList, label: 'Tareas', href: '/dashboard/tareas' },
     { icon: Users, label: 'Mi maestro', href: '/dashboard/maestros' },
     { icon: BarChart3, label: 'Mi progreso', href: '/dashboard/progreso' },
     { icon: CreditCard, label: 'Mi plan', href: '/dashboard/plan' },
@@ -37,6 +39,7 @@ const teacherNav = {
     { icon: LayoutDashboard, label: 'Home', href: '/maestro/dashboard' },
     { icon: Calendar, label: 'My schedule', href: '/maestro/dashboard/agenda' },
     { icon: GraduationCap, label: 'My students', href: '/maestro/dashboard/estudiantes' },
+    { icon: ClipboardList, label: 'Homework', href: '/maestro/dashboard/tareas' },
     { icon: Clock, label: 'Availability', href: '/maestro/dashboard/disponibilidad' },
     { icon: BookOpen, label: 'Materials', href: '/maestro/dashboard/materiales' },
     { icon: CreditCard, label: 'Earnings', href: '/maestro/dashboard/ganancias' },
@@ -46,6 +49,7 @@ const teacherNav = {
     { icon: LayoutDashboard, label: 'Inicio', href: '/maestro/dashboard' },
     { icon: Calendar, label: 'Mi agenda', href: '/maestro/dashboard/agenda' },
     { icon: GraduationCap, label: 'Mis estudiantes', href: '/maestro/dashboard/estudiantes' },
+    { icon: ClipboardList, label: 'Tareas', href: '/maestro/dashboard/tareas' },
     { icon: Clock, label: 'Disponibilidad', href: '/maestro/dashboard/disponibilidad' },
     { icon: BookOpen, label: 'Materiales', href: '/maestro/dashboard/materiales' },
     { icon: CreditCard, label: 'Ganancias', href: '/maestro/dashboard/ganancias' },

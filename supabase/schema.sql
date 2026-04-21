@@ -20,6 +20,29 @@ create extension if not exists "uuid-ossp";
 -- Tables
 -- ============================================================
 
+create table public.assignment_submissions (
+  id uuid not null default gen_random_uuid(),
+  assignment_id uuid not null,
+  submitted_text text not null default ''::text,
+  submitted_at timestamp with time zone not null default now(),
+  teacher_feedback text,
+  score text,
+  graded_at timestamp with time zone,
+  primary key (id)
+);
+
+create table public.assignments (
+  id uuid not null default gen_random_uuid(),
+  teacher_id uuid not null,
+  student_id uuid not null,
+  title text not null,
+  instructions text not null default ''::text,
+  due_at timestamp with time zone,
+  status text not null default 'open'::text,
+  created_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
 create table public.availability_slots (
   id uuid not null default uuid_generate_v4(),
   teacher_id uuid not null,
@@ -162,6 +185,9 @@ create table public.teachers (
 -- Foreign Keys
 -- ============================================================
 
+alter table public.assignment_submissions add constraint assignment_submissions_assignment_id_fkey foreign key (assignment_id) references public.assignments (id) on delete cascade;
+alter table public.assignments add constraint assignments_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
+alter table public.assignments add constraint assignments_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
 alter table public.availability_slots add constraint availability_slots_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
 alter table public.bookings add constraint bookings_conductor_profile_id_fkey foreign key (conductor_profile_id) references public.profiles (id);
 alter table public.bookings add constraint bookings_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
@@ -181,6 +207,8 @@ alter table public.teachers add constraint teachers_profile_id_fkey foreign key 
 -- Check Constraints
 -- ============================================================
 
+alter table public.assignment_submissions add constraint assignment_submissions_score_check CHECK (((score IS NULL) OR (score = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text, 'needs_work'::text, 'good'::text, 'excellent'::text]))));
+alter table public.assignments add constraint assignments_status_check CHECK ((status = ANY (ARRAY['open'::text, 'cancelled'::text])));
 alter table public.availability_slots add constraint availability_slots_day_of_week_check CHECK (((day_of_week >= 0) AND (day_of_week <= 6)));
 alter table public.bookings add constraint bookings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'completed'::text, 'cancelled'::text])));
 alter table public.payments add constraint payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunded'::text])));
@@ -197,6 +225,7 @@ alter table public.subscriptions add constraint subscriptions_status_check CHECK
 -- Unique Constraints
 -- ============================================================
 
+alter table public.assignment_submissions add constraint assignment_submissions_assignment_id_key UNIQUE (assignment_id);
 alter table public.payments add constraint payments_stripe_payment_intent_id_key UNIQUE (stripe_payment_intent_id);
 alter table public.students add constraint students_profile_id_key UNIQUE (profile_id);
 alter table public.subscriptions add constraint subscriptions_stripe_subscription_id_key UNIQUE (stripe_subscription_id);
@@ -206,6 +235,9 @@ alter table public.teachers add constraint teachers_profile_id_key UNIQUE (profi
 -- Indexes
 -- ============================================================
 
+CREATE INDEX idx_submissions_assignment ON public.assignment_submissions USING btree (assignment_id);
+CREATE INDEX idx_assignments_student ON public.assignments USING btree (student_id, created_at DESC);
+CREATE INDEX idx_assignments_teacher ON public.assignments USING btree (teacher_id, created_at DESC);
 CREATE INDEX idx_availability_teacher ON public.availability_slots USING btree (teacher_id);
 CREATE UNIQUE INDEX bookings_student_time_unique ON public.bookings USING btree (student_id, scheduled_at) WHERE (status <> 'cancelled'::text);
 CREATE INDEX idx_bookings_pending_class_assignment ON public.bookings USING btree (scheduled_at) WHERE ((type = 'class'::text) AND (teacher_id IS NULL) AND (status <> 'cancelled'::text));
@@ -221,6 +253,8 @@ CREATE UNIQUE INDEX plans_plan_key_key ON public.plans USING btree (plan_key);
 -- Row-Level Security
 -- ============================================================
 
+alter table public.assignment_submissions enable row level security;
+alter table public.assignments enable row level security;
 alter table public.availability_slots enable row level security;
 alter table public.bookings enable row level security;
 alter table public.payments enable row level security;
@@ -235,6 +269,28 @@ alter table public.teachers enable row level security;
 -- Policies
 -- ============================================================
 
+create policy "admin reads submissions" on public.assignment_submissions for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "student reads own submissions" on public.assignment_submissions for select using ((assignment_id IN ( SELECT assignments.id
+   FROM assignments
+  WHERE (assignments.student_id IN ( SELECT students.id
+           FROM students
+          WHERE (students.profile_id = auth.uid()))))));
+create policy "teacher reads own submissions" on public.assignment_submissions for select using ((assignment_id IN ( SELECT assignments.id
+   FROM assignments
+  WHERE (assignments.teacher_id IN ( SELECT teachers.id
+           FROM teachers
+          WHERE (teachers.profile_id = auth.uid()))))));
+create policy "admin reads assignments" on public.assignments for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "student reads own assignments" on public.assignments for select using ((student_id IN ( SELECT students.id
+   FROM students
+  WHERE (students.profile_id = auth.uid()))));
+create policy "teacher reads own assignments" on public.assignments for select using ((teacher_id IN ( SELECT teachers.id
+   FROM teachers
+  WHERE (teachers.profile_id = auth.uid()))));
 create policy "Availability slots are publicly visible" on public.availability_slots for select using ((is_active = true));
 create policy "Teachers manage own availability" on public.availability_slots for all using ((auth.uid() = ( SELECT teachers.profile_id
    FROM teachers

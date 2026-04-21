@@ -18,6 +18,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignment_submissions: {
+        Row: {
+          assignment_id: string
+          graded_at: string | null
+          id: string
+          score: string | null
+          submitted_at: string
+          submitted_text: string
+          teacher_feedback: string | null
+        }
+        Insert: {
+          assignment_id: string
+          graded_at?: string | null
+          id?: string
+          score?: string | null
+          submitted_at?: string
+          submitted_text?: string
+          teacher_feedback?: string | null
+        }
+        Update: {
+          assignment_id?: string
+          graded_at?: string | null
+          id?: string
+          score?: string | null
+          submitted_at?: string
+          submitted_text?: string
+          teacher_feedback?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: true
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assignments: {
+        Row: {
+          created_at: string
+          due_at: string | null
+          id: string
+          instructions: string
+          status: string
+          student_id: string
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          instructions?: string
+          status?: string
+          student_id: string
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          instructions?: string
+          status?: string
+          student_id?: string
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       availability_slots: {
         Row: {
           day_of_week: number
