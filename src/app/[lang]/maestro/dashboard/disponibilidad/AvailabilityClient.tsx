@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, Trash2, Clock, Save, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, Clock, Save, CheckCircle2, AlertCircle, Layers, X } from 'lucide-react'
 import { saveAvailabilitySlots } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -39,6 +39,16 @@ const t = {
     weeklySummary: 'Weekly summary',
     noSlotsConfigured: 'No slots configured',
     slots: 'slots',
+    bulkAdd: 'Bulk add',
+    bulkTitle: 'Add availability for multiple days',
+    bulkSub: 'Pick the days and a time window. One slot will be created per selected day.',
+    bulkPresetWeekdays: 'Mon–Fri',
+    bulkPresetWeekends: 'Weekends',
+    bulkPresetAll: 'All week',
+    bulkPickDaysError: 'Select at least one day.',
+    bulkTimeError: 'End time must be after start time.',
+    bulkApply: (n: number) => `Add ${n} slot${n === 1 ? '' : 's'}`,
+    bulkCancel: 'Cancel',
   },
   es: {
     title: 'Configura tu disponibilidad',
@@ -60,6 +70,16 @@ const t = {
     weeklySummary: 'Resumen semanal',
     noSlotsConfigured: 'Sin slots configurados',
     slots: 'slots',
+    bulkAdd: 'Agregar en grupo',
+    bulkTitle: 'Agregar disponibilidad en varios días',
+    bulkSub: 'Elige los días y una ventana horaria. Se creará un horario por cada día seleccionado.',
+    bulkPresetWeekdays: 'Lun–Vie',
+    bulkPresetWeekends: 'Fines de semana',
+    bulkPresetAll: 'Toda la semana',
+    bulkPickDaysError: 'Selecciona al menos un día.',
+    bulkTimeError: 'La hora de fin debe ser después del inicio.',
+    bulkApply: (n: number) => `Agregar ${n} horario${n === 1 ? '' : 's'}`,
+    bulkCancel: 'Cancelar',
   },
 }
 
@@ -88,9 +108,43 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
   const [slots, setSlots] = useState<Slot[]>(existingSlots)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
 
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkDays, setBulkDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]))
+  const [bulkStart, setBulkStart] = useState('09:00')
+  const [bulkEnd, setBulkEnd] = useState('17:00')
+  const [bulkError, setBulkError] = useState('')
+
   function addSlot() {
     setSlots(prev => [...prev, { day_of_week: 1, start_time: '09:00', end_time: '10:00' }])
     setSaveStatus('idle')
+  }
+
+  function toggleBulkDay(d: number) {
+    setBulkDays(prev => {
+      const next = new Set(prev)
+      if (next.has(d)) next.delete(d); else next.add(d)
+      return next
+    })
+    setBulkError('')
+  }
+
+  function applyBulkPreset(kind: 'weekdays' | 'weekends' | 'all') {
+    if (kind === 'weekdays') setBulkDays(new Set([1, 2, 3, 4, 5]))
+    else if (kind === 'weekends') setBulkDays(new Set([0, 6]))
+    else setBulkDays(new Set([0, 1, 2, 3, 4, 5, 6]))
+    setBulkError('')
+  }
+
+  function handleBulkApply() {
+    if (bulkDays.size === 0) { setBulkError(tx.bulkPickDaysError); return }
+    if (bulkEnd <= bulkStart) { setBulkError(tx.bulkTimeError); return }
+    const newSlots: Slot[] = Array.from(bulkDays)
+      .sort((a, b) => a - b)
+      .map(d => ({ day_of_week: d, start_time: bulkStart, end_time: bulkEnd }))
+    setSlots(prev => [...prev, ...newSlots])
+    setSaveStatus('idle')
+    setBulkOpen(false)
+    setBulkError('')
   }
 
   function removeSlot(index: number) {
@@ -139,16 +193,28 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
               <h2 className="text-[13px] font-bold" style={{ color: '#111111' }}>
                 {lang === 'es' ? 'Mis horarios' : 'My time slots'}
               </h2>
-              <button
-                onClick={addSlot}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
-                style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {tx.addSlot}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setBulkError(''); setBulkOpen(true) }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
+                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#C41E3A')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  {tx.bulkAdd}
+                </button>
+                <button
+                  onClick={addSlot}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
+                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#C41E3A')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {tx.addSlot}
+                </button>
+              </div>
             </div>
 
             <AnimatePresence mode="popLayout">
@@ -345,6 +411,146 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Bulk-add modal */}
+      <AnimatePresence>
+        {bulkOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setBulkOpen(false)}
+              className="fixed inset-0 z-40"
+              style={{ background: 'rgba(17,17,17,0.5)', backdropFilter: 'blur(3px)' }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[460px] rounded-2xl shadow-2xl z-50 overflow-hidden"
+              style={{ background: '#fff' }}
+            >
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4" style={{ color: '#C41E3A' }} />
+                  <h3 className="font-bold text-[15px]" style={{ color: '#111111' }}>{tx.bulkTitle}</h3>
+                </div>
+                <button
+                  onClick={() => setBulkOpen(false)}
+                  className="transition-colors"
+                  style={{ color: '#9CA3AF' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-5">
+                <p className="text-[12px] leading-relaxed" style={{ color: '#6B7280' }}>{tx.bulkSub}</p>
+
+                {/* Presets */}
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    ['weekdays', tx.bulkPresetWeekdays] as const,
+                    ['weekends', tx.bulkPresetWeekends] as const,
+                    ['all', tx.bulkPresetAll] as const,
+                  ]).map(([kind, label]) => (
+                    <button
+                      key={kind}
+                      onClick={() => applyBulkPreset(kind)}
+                      className="px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all"
+                      style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#C41E3A'; e.currentTarget.style.color = '#C41E3A' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Day checkboxes */}
+                <div className="grid grid-cols-7 gap-1.5">
+                  {tx.days.map((d, i) => {
+                    const active = bulkDays.has(i)
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => toggleBulkDay(i)}
+                        className="flex flex-col items-center justify-center h-14 rounded-lg text-[10px] font-bold transition-all"
+                        style={{
+                          background: active ? '#C41E3A' : '#F9F9F9',
+                          color: active ? '#fff' : '#374151',
+                          border: `1px solid ${active ? '#C41E3A' : '#E5E7EB'}`,
+                        }}
+                      >
+                        <span className="text-[11px]">{d.slice(0, 3)}</span>
+                        {active && <CheckCircle2 className="h-3 w-3 mt-0.5" />}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Times */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: '#9CA3AF' }}>
+                      {tx.startTime}
+                    </label>
+                    <select
+                      value={bulkStart}
+                      onChange={e => { setBulkStart(e.target.value); setBulkError('') }}
+                      style={selectStyle}
+                    >
+                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: '#9CA3AF' }}>
+                      {tx.endTime}
+                    </label>
+                    <select
+                      value={bulkEnd}
+                      onChange={e => { setBulkEnd(e.target.value); setBulkError('') }}
+                      style={selectStyle}
+                    >
+                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {bulkError && (
+                  <div className="rounded p-3 text-[12px]" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}>
+                    {bulkError}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 px-6 pb-6">
+                <button
+                  onClick={() => setBulkOpen(false)}
+                  className="flex-1 py-3 rounded font-medium text-[13px] transition-all"
+                  style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#F9F9F9' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#F9F9F9')}
+                >
+                  {tx.bulkCancel}
+                </button>
+                <button
+                  onClick={handleBulkApply}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded font-bold text-[13px] transition-all"
+                  style={{ background: '#C41E3A', color: '#fff' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#9E1830')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#C41E3A')}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {tx.bulkApply(bulkDays.size)}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
