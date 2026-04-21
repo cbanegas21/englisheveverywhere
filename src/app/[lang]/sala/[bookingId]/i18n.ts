@@ -16,6 +16,7 @@ type Strings = {
   shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
   deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
   whiteboard: string; whiteboardTitle: string; whiteboardClose: string; whiteboardLoading: string
+  transcript: string; transcriptTitle: string; transcriptClose: string; transcriptEmpty: string; transcriptUnsupported: string; transcriptListening: string
 }
 
 export const VIDEO_T: Record<Locale, Strings> = {
@@ -80,6 +81,13 @@ export const VIDEO_T: Record<Locale, Strings> = {
     whiteboardTitle: 'Shared whiteboard',
     whiteboardClose: 'Close whiteboard',
     whiteboardLoading: 'Loading…',
+
+    transcript: 'Transcript',
+    transcriptTitle: 'Live transcript',
+    transcriptClose: 'Close transcript',
+    transcriptEmpty: 'No speech detected yet. Start talking to see captions.',
+    transcriptUnsupported: 'Live transcript is not supported in this browser. Use Chrome or Edge.',
+    transcriptListening: 'Listening…',
   },
   es: {
     connecting: 'Conectando a tu sesión...',
@@ -142,6 +150,13 @@ export const VIDEO_T: Record<Locale, Strings> = {
     whiteboardTitle: 'Pizarra compartida',
     whiteboardClose: 'Cerrar pizarra',
     whiteboardLoading: 'Cargando…',
+
+    transcript: 'Transcripción',
+    transcriptTitle: 'Transcripción en vivo',
+    transcriptClose: 'Cerrar transcripción',
+    transcriptEmpty: 'Aún no se detecta voz. Comienza a hablar para ver los subtítulos.',
+    transcriptUnsupported: 'La transcripción en vivo no está disponible en este navegador. Usa Chrome o Edge.',
+    transcriptListening: 'Escuchando…',
   },
 }
 

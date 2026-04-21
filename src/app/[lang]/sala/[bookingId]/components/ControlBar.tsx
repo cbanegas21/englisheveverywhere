@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare, Captions } from 'lucide-react'
 import { useLocalParticipant, useTrackToggle } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
@@ -26,6 +26,8 @@ interface Props {
   onToggleDevices: () => void
   showWhiteboard: boolean
   onToggleWhiteboard: () => void
+  showTranscript: boolean
+  onToggleTranscript: () => void
 }
 
 export function ControlBar({
@@ -45,6 +47,8 @@ export function ControlBar({
   onToggleDevices,
   showWhiteboard,
   onToggleWhiteboard,
+  showTranscript,
+  onToggleTranscript,
 }: Props) {
   const tx = videoStrings(lang)
   const { localParticipant } = useLocalParticipant()
@@ -110,6 +114,13 @@ export function ControlBar({
         label={tx.whiteboard}
         icon={<PenSquare className="h-5 w-5" />}
         variant={showWhiteboard ? 'brand' : 'neutral'}
+      />
+      <CircleButton
+        active={showTranscript}
+        onClick={onToggleTranscript}
+        label={tx.transcript}
+        icon={<Captions className="h-5 w-5" />}
+        variant={showTranscript ? 'brand' : 'neutral'}
       />
       <CircleButton
         active={showDevices}

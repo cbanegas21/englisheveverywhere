@@ -16,6 +16,7 @@ import { videoStrings } from '../i18n'
 import { useLeaveFlow } from '../hooks/useLeaveFlow'
 import { useRoomLayout } from '../hooks/useRoomLayout'
 import { useSelfViewPosition } from '../hooks/useSelfViewPosition'
+import { useLiveTranscript } from '../hooks/useLiveTranscript'
 import { TopBar } from './TopBar'
 import { VideoTile } from './VideoTile'
 import { LocalSelfView, SelfViewPill } from './LocalSelfView'
@@ -26,6 +27,7 @@ import { NotesPanel } from './NotesPanel'
 import { ChatPanel } from './ChatPanel'
 import { DeviceMenu } from './DeviceMenu'
 import { Whiteboard } from './Whiteboard'
+import { TranscriptPanel } from './TranscriptPanel'
 import { ConnectingScreen } from './ConnectingScreen'
 import { LeavingScreen } from './LeavingScreen'
 
@@ -58,8 +60,14 @@ export function RoomShell({
   const tx = videoStrings(lang)
   const connectionState = useConnectionState()
 
+  // Live transcript. Runs for the life of the call so the teacher's leave
+  // flow can persist a complete transcript — the panel toggle only affects
+  // visibility, not capture.
+  const transcript = useLiveTranscript({ enabled: true })
+
   const { isLeaving, leave } = useLeaveFlow({
     isTeacher, bookingId, sessionId, lang, onComplete,
+    getTranscript: transcript.snapshot,
   })
 
   // When the teacher clicks End Class, only THEIR LiveKit client disconnects.
@@ -106,6 +114,7 @@ export function RoomShell({
   const [showChat, setShowChat] = useState(false)
   const [showDevices, setShowDevices] = useState(false)
   const [showWhiteboard, setShowWhiteboard] = useState(false)
+  const [showTranscript, setShowTranscript] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
 
   // Whiteboard open/close is mirrored across peers via a lightweight control
@@ -250,6 +259,8 @@ export function RoomShell({
           onToggleDevices={() => setShowDevices(p => !p)}
           showWhiteboard={showWhiteboard}
           onToggleWhiteboard={toggleWhiteboard}
+          showTranscript={showTranscript}
+          onToggleTranscript={() => setShowTranscript(p => !p)}
         />
         {isTeacher && (
           <NotesPanel
@@ -277,6 +288,15 @@ export function RoomShell({
           bookingId={bookingId}
           show={showWhiteboard}
           onClose={closeWhiteboard}
+        />
+        <TranscriptPanel
+          lang={lang}
+          show={showTranscript}
+          onClose={() => setShowTranscript(false)}
+          finals={transcript.finals}
+          interims={transcript.interims}
+          supported={transcript.supported}
+          listening={transcript.listening}
         />
       </div>
     </div>

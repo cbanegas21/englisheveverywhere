@@ -332,6 +332,46 @@ export async function completeSession(
   return { success: true, ...(summary ? { summary } : {}) }
 }
 
+// Persist the live-transcript text captured from the classroom. Called from
+// the teacher's browser immediately before completeSession() so the summary
+// modal and the student's class-history transcript panel both have it.
+// Only the booking's teacher may write.
+export async function saveSessionTranscript(
+  sessionId: string,
+  transcript: string,
+): Promise<{ success: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false }
+
+  const trimmed = transcript.trim()
+  if (!trimmed) return { success: false }
+
+  const adminClient = createAdminClient()
+
+  const { data: sessionRow } = await adminClient
+    .from('sessions')
+    .select(`
+      id,
+      booking:bookings(teacher:teachers(profile_id))
+    `)
+    .eq('id', sessionId)
+    .single()
+
+  const teacherProfileId = (sessionRow?.booking as any)?.teacher?.profile_id
+  if (!teacherProfileId || teacherProfileId !== user.id) return { success: false }
+
+  const { error } = await adminClient
+    .from('sessions')
+    .update({
+      transcript: trimmed,
+      transcript_captured_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+
+  return { success: !error }
+}
+
 export async function getSessionByBookingId(bookingId: string): Promise<{
   id: string
   notes: string | null
