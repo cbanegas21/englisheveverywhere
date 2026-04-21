@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function saveIntake(formData: FormData) {
   const supabase = await createClient()
@@ -23,7 +24,10 @@ export async function saveIntake(formData: FormData) {
   if (age_range && !validAges.includes(age_range))
     return { error: 'Invalid age range' }
 
-  const { data: student } = await supabase
+  // Auth validated. Use admin client for writes (same RLS-edge fix as onboarding).
+  const admin = createAdminClient()
+
+  const { data: student } = await admin
     .from('students')
     .select('id')
     .eq('profile_id', user.id)
@@ -31,7 +35,7 @@ export async function saveIntake(formData: FormData) {
 
   if (!student) return { error: 'Student profile not found' }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('students')
     .update({
       learning_goal,

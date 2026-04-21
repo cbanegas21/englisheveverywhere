@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function saveSurveyAnswers(
   answers: Record<string, unknown>,
@@ -11,7 +12,9 @@ export async function saveSurveyAnswers(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { error } = await supabase
+  // Auth validated. Use admin client for writes (RLS-edge fix).
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('students')
     .update({ survey_answers: answers })
     .eq('profile_id', user.id)
@@ -30,9 +33,12 @@ export async function bookPlacementCall(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  // Auth validated. Admin client for all subsequent DB access (RLS-edge fix).
+  const admin = createAdminClient()
+
   const [{ data: student }, { data: profile }] = await Promise.all([
-    supabase.from('students').select('id').eq('profile_id', user.id).single(),
-    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    admin.from('students').select('id').eq('profile_id', user.id).single(),
+    admin.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
   if (!student) {
@@ -40,7 +46,7 @@ export async function bookPlacementCall(
   }
 
   // Prevent double-booking
-  const { data: existing } = await supabase
+  const { data: existing } = await admin
     .from('bookings')
     .select('id, scheduled_at')
     .eq('student_id', student.id)
@@ -58,7 +64,7 @@ export async function bookPlacementCall(
   }
 
   // Prevent booking at same time as any other booking
-  const { data: timeConflict } = await supabase
+  const { data: timeConflict } = await admin
     .from('bookings')
     .select('id')
     .eq('student_id', student.id)
@@ -74,7 +80,7 @@ export async function bookPlacementCall(
     }
   }
 
-  const { data: booking, error } = await supabase
+  const { data: booking, error } = await admin
     .from('bookings')
     .insert({
       student_id: student.id,
@@ -90,7 +96,7 @@ export async function bookPlacementCall(
   if (error) return { error: error.message }
 
   // Mark placement call as scheduled (not yet completed)
-  await supabase
+  await admin
     .from('students')
     .update({ placement_scheduled: true })
     .eq('profile_id', user.id)
@@ -115,9 +121,12 @@ export async function reschedulePlacementCall(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  // Auth validated. Admin client for all DB access (RLS-edge fix).
+  const admin = createAdminClient()
+
   const [{ data: student }, { data: profile }] = await Promise.all([
-    supabase.from('students').select('id').eq('profile_id', user.id).single(),
-    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    admin.from('students').select('id').eq('profile_id', user.id).single(),
+    admin.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
   if (!student) {
@@ -125,7 +134,7 @@ export async function reschedulePlacementCall(
   }
 
   // Cancel all existing non-cancelled placement bookings
-  await supabase
+  await admin
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('student_id', student.id)
@@ -133,7 +142,7 @@ export async function reschedulePlacementCall(
     .neq('status', 'cancelled')
 
   // Create new booking
-  const { data: booking, error } = await supabase
+  const { data: booking, error } = await admin
     .from('bookings')
     .insert({
       student_id: student.id,
@@ -149,7 +158,7 @@ export async function reschedulePlacementCall(
   if (error) return { error: error.message }
 
   // Keep placement_scheduled = true
-  await supabase
+  await admin
     .from('students')
     .update({ placement_scheduled: true })
     .eq('profile_id', user.id)

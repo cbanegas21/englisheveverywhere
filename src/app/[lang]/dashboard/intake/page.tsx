@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import IntakeClient from './IntakeClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -26,7 +27,8 @@ export default async function IntakePage({ params }: Props) {
   // If student already filled placement survey, skip intake — same info already captured.
   // Persist intake_done=true so the agendar gate doesn't bounce them right back.
   if (student.survey_answers && Object.keys(student.survey_answers as object).length > 0) {
-    await supabase.from('students').update({ intake_done: true }).eq('id', student.id)
+    const admin = createAdminClient()
+    await admin.from('students').update({ intake_done: true }).eq('id', student.id)
     redirect(`/${lang}/dashboard/agendar`)
   }
 

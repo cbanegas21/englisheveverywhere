@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export interface NotificationPreferences {
   email?: boolean
@@ -41,7 +42,9 @@ export async function updateStudentProfile(data: {
     patch.notification_preferences = data.notificationPreferences
   }
 
-  const { error } = await supabase
+  // Auth validated. Admin client for writes (RLS-edge fix).
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('profiles')
     .update(patch)
     .eq('id', user.id)
@@ -62,7 +65,9 @@ export async function updateTeacherProfile(data: {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return { success: false, error: 'Not authenticated' }
 
-  const { error: profileError } = await supabase
+  const admin = createAdminClient()
+
+  const { error: profileError } = await admin
     .from('profiles')
     .update({ full_name: data.fullName, updated_at: new Date().toISOString() })
     .eq('id', user.id)
@@ -74,7 +79,7 @@ export async function updateTeacherProfile(data: {
     .map((s) => s.trim())
     .filter(Boolean)
 
-  const { error: teacherError } = await supabase
+  const { error: teacherError } = await admin
     .from('teachers')
     .update({ bio: data.bio, specializations: specs })
     .eq('profile_id', user.id)
@@ -93,7 +98,8 @@ export async function savePreferredCurrency(code: string): Promise<{ success: bo
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Not authenticated' }
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('profiles')
     .update({ preferred_currency: clean, updated_at: new Date().toISOString() })
     .eq('id', user.id)

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 async function sendAdminBookingEmail(params: {
   bookingId: string
@@ -67,7 +68,10 @@ export async function createBooking(formData: FormData) {
     }
   }
 
-  const { data: student } = await supabase
+  // Auth validated. Admin client for all DB access (RLS-edge fix).
+  const admin = createAdminClient()
+
+  const { data: student } = await admin
     .from('students')
     .select('id, classes_remaining')
     .eq('profile_id', user.id)
@@ -83,7 +87,7 @@ export async function createBooking(formData: FormData) {
   }
 
   // ── Conflict check ───────────────────────────────────────────
-  const { data: conflicting } = await supabase
+  const { data: conflicting } = await admin
     .from('bookings')
     .select('id')
     .eq('student_id', student.id)
@@ -100,7 +104,7 @@ export async function createBooking(formData: FormData) {
   }
 
   // ── Create booking — teacher assigned later by admin ─────────
-  const { data: booking, error } = await supabase
+  const { data: booking, error } = await admin
     .from('bookings')
     .insert({
       student_id: student.id,
@@ -115,9 +119,9 @@ export async function createBooking(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  await supabase.rpc('decrement_classes', { p_student_id: student.id })
+  await admin.rpc('decrement_classes', { p_student_id: student.id })
 
-  const { data: profile } = await supabase
+  const { data: profile } = await admin
     .from('profiles')
     .select('full_name')
     .eq('id', user.id)
@@ -140,7 +144,9 @@ export async function confirmBooking(bookingId: string, lang: string = 'es') {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: teacher } = await supabase
+  const admin = createAdminClient()
+
+  const { data: teacher } = await admin
     .from('teachers')
     .select('id')
     .eq('profile_id', user.id)
@@ -148,7 +154,7 @@ export async function confirmBooking(bookingId: string, lang: string = 'es') {
 
   if (!teacher) return { error: 'Teacher profile not found' }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('bookings')
     .update({ status: 'confirmed' })
     .eq('id', bookingId)
@@ -165,7 +171,9 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: teacher } = await supabase
+  const admin = createAdminClient()
+
+  const { data: teacher } = await admin
     .from('teachers')
     .select('id')
     .eq('profile_id', user.id)
@@ -174,7 +182,7 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
   if (!teacher) return { error: 'Teacher profile not found' }
 
   // Fetch student_id before cancelling so we can restore their class
-  const { data: booking } = await supabase
+  const { data: booking } = await admin
     .from('bookings')
     .select('student_id')
     .eq('id', bookingId)
@@ -183,7 +191,7 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
 
   if (!booking) return { error: 'Booking not found' }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('id', bookingId)
@@ -192,7 +200,7 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
   if (error) return { error: error.message }
 
   // Restore the student's class
-  await supabase.rpc('increment_classes', { p_student_id: booking.student_id })
+  await admin.rpc('increment_classes', { p_student_id: booking.student_id })
 
   revalidatePath('/', 'layout')
   return { success: true }
@@ -206,7 +214,9 @@ export async function saveAvailabilitySlots(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: teacher } = await supabase
+  const admin = createAdminClient()
+
+  const { data: teacher } = await admin
     .from('teachers')
     .select('id')
     .eq('profile_id', user.id)
@@ -215,7 +225,7 @@ export async function saveAvailabilitySlots(
   if (!teacher) return { error: 'Teacher profile not found' }
 
   // Delete existing recurring slots
-  await supabase
+  await admin
     .from('availability_slots')
     .delete()
     .eq('teacher_id', teacher.id)
@@ -232,7 +242,7 @@ export async function saveAvailabilitySlots(
     end_time: s.end_time,
   }))
 
-  const { error } = await supabase.from('availability_slots').insert(toInsert)
+  const { error } = await admin.from('availability_slots').insert(toInsert)
   if (error) return { error: error.message }
 
   revalidatePath('/', 'layout')
