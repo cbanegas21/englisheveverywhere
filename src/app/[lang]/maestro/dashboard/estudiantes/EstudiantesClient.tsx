@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { Users, TrendingUp, Calendar, ChevronRight, X, Briefcase, Target, Brain, User, Check } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Locale } from '@/lib/i18n/translations'
@@ -147,11 +147,17 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
   const [levelSaved, setLevelSaved] = useState(false)
   const [isPendingLevel, startLevelTransition] = useTransition()
 
-  useEffect(() => {
+  // When the detail panel switches to a different student, reset the level
+  // editor state. Using "adjust-state-on-change" (prev-value state) instead
+  // of useEffect keeps this compiler-clean under react-hooks/set-state-in-effect.
+  const currentDetailId = detailStudent?.student_id ?? null
+  const [prevDetailId, setPrevDetailId] = useState<string | null>(currentDetailId)
+  if (prevDetailId !== currentDetailId) {
+    setPrevDetailId(currentDetailId)
     setLevelInput(detailStudent?.level || '')
     setLevelError('')
     setLevelSaved(false)
-  }, [detailStudent])
+  }
 
   function handleSaveLevel() {
     if (!detailStudent || !levelInput) return
