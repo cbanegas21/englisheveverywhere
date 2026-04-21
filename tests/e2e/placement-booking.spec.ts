@@ -246,13 +246,16 @@ test.describe('Tier 2.5 — Student placement-call scheduling', () => {
       'bookPlacementCall must still block same-time bookings across types',
     ).toBe(true)
 
-    // (c) teacher_id=null on insert — migration 010's CHECK constraint
-    //     requires this; if the action ever writes a non-null teacher_id,
-    //     placement rooms would route to the wrong gate.
+    // (c) teacher_id=null on insert — the STUDENT-initiated placement flow
+    //     leaves teacher_id null so admin can assign later from the pending
+    //     queue. Migration 010 originally enforced this via a CHECK constraint;
+    //     migration 012 dropped that constraint (placements are teacher-
+    //     conducted now, same as classes). So this is a product-level
+    //     invariant of bookPlacementCall, not a DB-level invariant anymore.
     expect(
       /\.insert\(\s*\{[\s\S]*?teacher_id:\s*null[\s\S]*?type:\s*['"]placement_test['"][\s\S]*?\}/m
         .test(src),
-      'bookPlacementCall must still insert placement_test with teacher_id=null',
+      'bookPlacementCall must still insert placement_test with teacher_id=null (admin assigns after)',
     ).toBe(true)
 
     // (d) reschedule cancels existing placement_test rows before inserting.

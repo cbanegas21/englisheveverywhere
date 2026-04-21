@@ -12,29 +12,30 @@ import {
  * CLASS bookings (student-initiated → admin assigns teacher). What that spec
  * does NOT cover is the admin-initiated scheduling of a "Diagnostic call"
  * (type='placement_test'), which goes through `createAdminBooking` via the
- * MeetingScheduler modal and has different contract invariants:
+ * MeetingScheduler modal.
  *
+ * HISTORICAL NOTE — teacher_id + placement_test:
+ *   Migration 010 originally declared a `bookings_placement_no_teacher` CHECK
+ *   constraint that forbade a non-null teacher_id on placement rows (the
+ *   design at that point was admin-conducted placements via
+ *   conductor_profile_id). Migration 012 dropped that constraint because the
+ *   design was reverted — placement calls are now conducted by teachers,
+ *   identical to class bookings. So `teacher_id` CAN be non-null on a
+ *   placement_test row today. The MeetingScheduler UI leaves it unassigned by
+ *   default (admin picks a teacher on step 1, or skips), and this spec's UI
+ *   walkthrough skips that selection, so the created row ends up with
+ *   teacher_id=null — but that is a product-of-the-walkthrough assertion, not
+ *   a DB invariant.
+ *
+ * Contract invariants the spec still guards:
  *   - `type='placement_test'` (routes the room + UI differently)
- *   - `teacher_id` MUST be null (enforced by the
- *     `bookings_placement_no_teacher` CHECK constraint in migration 010)
  *   - `status='confirmed'` (admin schedules directly, no pending queue)
- *   - The booking should show up in the admin calendar as a placement_test
- *
- * This spec walks the 4-step MeetingScheduler end-to-end from the student
- * profile page to cover the UI, and adds a direct DB probe for the
- * `bookings_placement_no_teacher` constraint — the second-most-likely failure
- * mode is a future PR that accidentally drops that constraint (it's protecting
- * invariant-sensitive code in sala/page.tsx which dispatches on the
- * teacher_id/conductor_profile_id split).
+ *   - `duration_minutes=60` (default from the scheduler)
  *
  * NOTE on conductor_profile_id: `createAdminBooking` does NOT currently set
- * it. Per migration 010, placement_test bookings start with
- * conductor_profile_id=null (the `idx_bookings_pending_placement_assignment`
- * index defines them as "pending" while null). No conductor-assignment action
- * exists yet — BookingCalendarClient renders them with an "Unassigned" badge.
- * So this spec asserts conductor_profile_id is null on freshly-scheduled rows
- * to document current behavior. When the assignment flow is wired, this
- * assertion should flip to: `conductor_profile_id === adminProfileId`.
+ * it. `idx_bookings_pending_placement_assignment` indexes placement rows that
+ * are null-conductor as "pending". No conductor-assignment action exists yet
+ * — BookingCalendarClient renders them with an "Unassigned" badge.
  */
 
 async function loginAsAdmin(page: Page): Promise<boolean> {
@@ -130,27 +131,25 @@ test.describe('Tier 1.9 — Admin placement-test scheduling', () => {
 
     expect(newRow?.type).toBe('placement_test')
     expect(newRow?.status, 'admin-scheduled is confirmed (no pending queue)').toBe('confirmed')
-    expect(newRow?.teacher_id, 'placement_test MUST have null teacher_id per CHECK constraint').toBeNull()
+    // teacher_id is null here because the walkthrough left teacher "Unassigned"
+    // on step 1; not a DB-level invariant anymore (migration 012 dropped the
+    // CHECK constraint when placements moved to teacher-conducted).
+    expect(newRow?.teacher_id, 'walkthrough skipped teacher selection → stays null').toBeNull()
     expect(newRow?.duration_minutes).toBe(60)
     // Current design: conductor_profile_id is null — no assignment flow yet.
     // See header note. Flip to .toBe(adminProfileId) when that ships.
     expect(newRow?.conductor_profile_id, 'conductor assignment is not wired yet — stays null').toBeNull()
   })
 
-  test('constraint: bookings_placement_no_teacher rejects placement_test with teacher_id set', async () => {
+  test('contract: placement_test row with teacher_id set is ALLOWED (migration 012 reverted the CHECK)', async () => {
     test.skip(!fx, 'Fixture unavailable')
 
-    // Direct INSERT bypasses the app layer — this is a pure DB constraint
-    // guard. Migration 010 declares `bookings_placement_no_teacher` as a
-    // CHECK constraint, but a 2026-04-20 live-DB probe showed the constraint
-    // is ABSENT on production (pg_constraint shows only bookings_status_check).
-    // That means placement_test rows can silently carry a teacher_id — the
-    // sala page's participant gate would then start letting the WRONG teacher
-    // into a placement room. See project_english_everywhere_bugs_found.md.
-    //
-    // This test asserts the constraint's enforcement. Currently expected to
-    // FAIL until the constraint is re-applied. Self-cleans the orphan insert
-    // so it doesn't pollute future runs regardless of pass/fail.
+    // Migration 012_drop_placement_no_teacher_constraint.sql explicitly dropped
+    // the `bookings_placement_no_teacher` CHECK. Placements are now conducted
+    // by teachers exactly like class bookings. This test locks that revert in
+    // — if a future migration RE-adds the constraint (e.g., during a DB reset
+    // or mis-applied schema.sql), this insert would start failing and the
+    // regression would be caught before the admin calendar starts losing rows.
     const insertRes = await fx!.admin
       .from('bookings')
       .insert({
@@ -164,19 +163,16 @@ test.describe('Tier 1.9 — Admin placement-test scheduling', () => {
       .select('id')
       .single()
 
-    const orphanId = insertRes.data?.id
+    const insertedId = insertRes.data?.id
     try {
       expect(
         insertRes.error,
-        'insert should fail — placement_test + teacher_id violates bookings_placement_no_teacher',
-      ).toBeTruthy()
-      expect(insertRes.error?.message ?? '').toMatch(/bookings_placement_no_teacher|check constraint/i)
+        'insert should succeed — constraint was intentionally dropped in migration 012',
+      ).toBeNull()
+      expect(insertedId, 'inserted row must have an id').toBeTruthy()
     } finally {
-      // Always clean up — if the assertion passes there's no row; if it fails
-      // the insert slipped through and we must delete it so the next run
-      // starts from a clean state.
-      if (orphanId) {
-        await fx!.admin.from('bookings').delete().eq('id', orphanId)
+      if (insertedId) {
+        await fx!.admin.from('bookings').delete().eq('id', insertedId)
       }
     }
   })
