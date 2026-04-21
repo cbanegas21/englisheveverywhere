@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   useTracks,
   useConnectionState,
   useChat,
+  useDataChannel,
   isTrackReference,
 } from '@livekit/components-react'
 import type { TrackReference } from '@livekit/components-react'
@@ -61,6 +62,29 @@ export function RoomShell({
     isTeacher, bookingId, sessionId, lang, onComplete,
   })
 
+  // When the teacher clicks End Class, only THEIR LiveKit client disconnects.
+  // The student's client stays connected to an empty room (LiveKit auto-closes
+  // after empty_timeout, but that leaves the student staring at a dead call).
+  // Broadcast a 'session-ended' control event so the student auto-leaves and
+  // transitions to the EndedScreen immediately.
+  const { send: sendSessionControl } = useDataChannel('session-control', msg => {
+    if (isTeacher) return
+    try {
+      const text = new TextDecoder().decode(msg.payload)
+      const evt = JSON.parse(text) as { type: 'ended' }
+      if (evt.type === 'ended') void leave()
+    } catch { /* ignore malformed */ }
+  })
+  const handleLeave = useCallback(async () => {
+    if (isTeacher) {
+      const payload = new TextEncoder().encode(JSON.stringify({ type: 'ended' }))
+      try {
+        await sendSessionControl(payload, { topic: 'session-control', reliable: true })
+      } catch { /* best-effort — don't block the teacher's own leave */ }
+    }
+    await leave()
+  }, [isTeacher, leave, sendSessionControl])
+
   const cameraTracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: true }],
     { onlySubscribed: false },
@@ -83,6 +107,33 @@ export function RoomShell({
   const [showDevices, setShowDevices] = useState(false)
   const [showWhiteboard, setShowWhiteboard] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
+
+  // Whiteboard open/close is mirrored across peers via a lightweight control
+  // channel. Without this, when the teacher toggled the board open, the
+  // student's Whiteboard component stayed unmounted (show=false) and never
+  // subscribed to the content data channel — so strokes never arrived for
+  // the peer. This channel is always subscribed regardless of visibility.
+  const { send: sendWhiteboardControl } = useDataChannel('whiteboard-control', msg => {
+    try {
+      const text = new TextDecoder().decode(msg.payload)
+      const evt = JSON.parse(text) as { type: 'open' | 'close' }
+      if (evt.type === 'open') setShowWhiteboard(true)
+      if (evt.type === 'close') setShowWhiteboard(false)
+    } catch { /* ignore malformed */ }
+  })
+  const toggleWhiteboard = useCallback(() => {
+    setShowWhiteboard(prev => {
+      const next = !prev
+      const payload = new TextEncoder().encode(JSON.stringify({ type: next ? 'open' : 'close' }))
+      void sendWhiteboardControl(payload, { topic: 'whiteboard-control', reliable: true })
+      return next
+    })
+  }, [sendWhiteboardControl])
+  const closeWhiteboard = useCallback(() => {
+    setShowWhiteboard(false)
+    const payload = new TextEncoder().encode(JSON.stringify({ type: 'close' }))
+    void sendWhiteboardControl(payload, { topic: 'whiteboard-control', reliable: true })
+  }, [sendWhiteboardControl])
   const layout = useRoomLayout()
   const stageRef = useRef<HTMLDivElement | null>(null)
   const selfView = useSelfViewPosition(stageRef)
@@ -187,7 +238,7 @@ export function RoomShell({
           isTeacher={isTeacher}
           showNotes={showNotes}
           onToggleNotes={() => setShowNotes(p => !p)}
-          onLeave={leave}
+          onLeave={handleLeave}
           isLeaving={isLeaving}
           onCameraOffChange={setIsCameraOff}
           layoutMode={layout.mode}
@@ -198,7 +249,7 @@ export function RoomShell({
           showDevices={showDevices}
           onToggleDevices={() => setShowDevices(p => !p)}
           showWhiteboard={showWhiteboard}
-          onToggleWhiteboard={() => setShowWhiteboard(p => !p)}
+          onToggleWhiteboard={toggleWhiteboard}
         />
         {isTeacher && (
           <NotesPanel
@@ -225,7 +276,7 @@ export function RoomShell({
           lang={lang}
           bookingId={bookingId}
           show={showWhiteboard}
-          onClose={() => setShowWhiteboard(false)}
+          onClose={closeWhiteboard}
         />
       </div>
     </div>

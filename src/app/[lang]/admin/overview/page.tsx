@@ -29,17 +29,24 @@ export default async function AdminOverviewPage({ params }: Props) {
   ] = await Promise.all([
     admin.from('students').select('id', { count: 'exact', head: true }),
     admin.from('teachers').select('id', { count: 'exact', head: true }).eq('is_active', true),
-    admin.from('teachers').select('id', { count: 'exact', head: true }).eq('is_active', false),
+    // "Pending" = not yet approved. Includes both is_active=false AND
+    // is_active IS NULL (which can happen if a pre-default row exists or
+    // a migration didn't backfill). .eq('is_active', false) skips NULLs
+    // and silently undercounts.
+    admin.from('teachers').select('id', { count: 'exact', head: true }).not('is_active', 'is', true),
     admin.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     admin.from('bookings').select('id', { count: 'exact', head: true })
       .eq('status', 'completed')
       .gte('scheduled_at', startOfMonth.toISOString()),
+    // Teacher payouts, not student-paid revenue. `payments.amount_usd` stores
+    // the teacher's take-home ($14/session with platform_fee_usd=0 today) —
+    // Stripe flow is deferred, so no student-paid rows exist to sum.
     admin.from('payments').select('amount_usd')
       .eq('status', 'completed')
       .gte('created_at', startOfMonth.toISOString()),
   ])
 
-  const revenueThisMonth = (revenueData || []).reduce((sum: number, p: any) => sum + (p.amount_usd || 0), 0)
+  const teacherPayoutsThisMonth = (revenueData || []).reduce((sum: number, p: any) => sum + (p.amount_usd || 0), 0)
 
   // Recent activity: last 8 bookings
   const { data: recentBookings } = await admin
@@ -89,8 +96,8 @@ export default async function AdminOverviewPage({ params }: Props) {
       bg: 'rgba(139,92,246,0.08)',
     },
     {
-      label: 'Revenue This Month',
-      value: `$${revenueThisMonth.toFixed(0)}`,
+      label: 'Teacher Payouts',
+      value: `$${teacherPayoutsThisMonth.toFixed(0)}`,
       icon: DollarSign,
       color: '#059669',
       bg: 'rgba(5,150,105,0.08)',

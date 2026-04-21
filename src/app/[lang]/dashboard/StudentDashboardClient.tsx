@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   Calendar, ArrowRight, Star, Clock, BookOpen, TrendingUp,
@@ -46,6 +47,7 @@ const t = {
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
     statusAwaitingTeacher: 'Awaiting teacher',
+    statusLive: 'Live',
     teacherBeingAssigned: 'Teacher being assigned',
     today: 'Today',
     tomorrow: 'Tomorrow',
@@ -97,6 +99,7 @@ const t = {
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
     statusAwaitingTeacher: 'Asignando maestro',
+    statusLive: 'En vivo',
     teacherBeingAssigned: 'Maestro por asignar',
     today: 'Hoy',
     tomorrow: 'Mañana',
@@ -132,23 +135,36 @@ function getGreeting(lang: Locale, timezone: string) {
   return tx.greetingEvening
 }
 
-function formatDate(iso: string, lang: Locale) {
+// Date helpers compare against the *student's* timezone, not the browser's.
+// A booking stored at 2026-04-22T00:30:00Z reads as "Apr 21" in America/Bogota
+// (UTC-5) but "Apr 22" in America/Tegucigalpa. We pin to the student's tz so
+// the calendar-cell day matches the time label beneath it.
+function ymdInTz(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+}
+
+function formatDate(iso: string, lang: Locale, timeZone: string) {
   const d = new Date(iso)
   const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(now.getDate() + 1)
+  const tomorrow = new Date(now.getTime() + 86400000)
   const tx = t[lang]
-  if (d.toDateString() === now.toDateString()) return tx.today
-  if (d.toDateString() === tomorrow.toDateString()) return tx.tomorrow
+  if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
+  if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
   return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
+    weekday: 'short', month: 'short', day: 'numeric', timeZone,
   })
 }
 
-function formatTime(iso: string, lang: 'es' | 'en') {
+function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZone,
   })
+}
+
+function dayInTz(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone, day: 'numeric' }).format(new Date(iso))
 }
 
 interface Booking {
@@ -189,6 +205,17 @@ export default function StudentDashboardClient({
 }: Props) {
   const tx = t[lang]
   const firstName = userName.split(' ')[0]
+
+  // Tick once a minute so the "Live" badge flips when a session starts/ends
+  // without needing a full page reload. Hydration-safe: null on SSR.
+  // React-19 rules-of-hooks forbids synchronous setState inside an effect,
+  // so defer the initial set via a 0-ms timeout.
+  const [now, setNow] = useState<number | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => setNow(Date.now()), 0)
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => { clearTimeout(t); clearInterval(id) }
+  }, [])
 
   return (
     <div className="min-h-full" style={{ background: '#F9F9F9' }}>
@@ -232,7 +259,16 @@ export default function StudentDashboardClient({
           </div>
         )}
         {!placementTestDone && placementScheduled && (() => {
-          const isPast = placementScheduledAt ? new Date(placementScheduledAt) < new Date() : false
+          // "Past" only after the live window closes (scheduled + duration +
+          // 90-min late cap that matches src/app/actions/video.ts getRoomAccess).
+          // Without this grace, the banner flips to "has passed" while the
+          // student is actively in the call.
+          const PLACEMENT_LIVE_WINDOW_MS = (60 + 90) * 60_000
+          // Before hydration (now === null), treat as not-past — safer than
+          // flashing "has passed" briefly on load.
+          const isPast = placementScheduledAt && now !== null
+            ? now > new Date(placementScheduledAt).getTime() + PLACEMENT_LIVE_WINDOW_MS
+            : false
           const formattedDate = placementScheduledAt
             ? new Date(placementScheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
                 weekday: 'long', month: 'long', day: 'numeric',
@@ -446,6 +482,9 @@ export default function StudentDashboardClient({
                 {upcomingBookings.map((booking) => {
                   const teacherName = (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || null
                   const awaitingTeacher = !teacherName && booking.status === 'pending'
+                  const startMs = new Date(booking.scheduled_at).getTime()
+                  const endMs = startMs + (booking.duration_minutes || 60) * 60_000
+                  const isLive = now !== null && now >= startMs && now <= endMs
                   return (
                     <li
                       key={booking.id}
@@ -454,10 +493,10 @@ export default function StudentDashboardClient({
                     >
                       <div className="flex-shrink-0 text-center w-10">
                         <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                          {formatDate(booking.scheduled_at, lang).slice(0, 3)}
+                          {formatDate(booking.scheduled_at, lang, timezone).slice(0, 3)}
                         </div>
                         <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
-                          {new Date(booking.scheduled_at).getDate()}
+                          {dayInTz(booking.scheduled_at, timezone)}
                         </div>
                       </div>
 
@@ -473,22 +512,29 @@ export default function StudentDashboardClient({
                           {awaitingTeacher ? tx.teacherBeingAssigned : `${tx.with} ${teacherName}`}
                         </div>
                         <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                          {formatTime(booking.scheduled_at, lang)} · {booking.duration_minutes}{tx.mins}
+                          {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span
-                          className="text-[10px] font-semibold px-2.5 py-1 rounded"
+                          className="text-[10px] font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1.5"
                           style={
-                            booking.status === 'confirmed'
+                            isLive
+                              ? { background: '#C41E3A', color: '#fff', border: '1px solid #C41E3A' }
+                              : booking.status === 'confirmed'
                               ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
                               : awaitingTeacher
                               ? { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' }
                               : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
                           }
                         >
-                          {booking.status === 'confirmed'
+                          {isLive && (
+                            <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: '#fff' }} />
+                          )}
+                          {isLive
+                            ? tx.statusLive
+                            : booking.status === 'confirmed'
                             ? tx.statusConfirmed
                             : awaitingTeacher
                             ? tx.statusAwaitingTeacher

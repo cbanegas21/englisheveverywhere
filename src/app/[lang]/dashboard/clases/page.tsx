@@ -40,9 +40,12 @@ export default async function ClasesPage({ params }: Props) {
     .order('scheduled_at', { ascending: false })
     .limit(30)
 
+  const timezone = (user.user_metadata?.timezone as string) || 'America/Bogota'
+
   return (
     <ClasesClient
       lang={lang as Locale}
+      timezone={timezone}
       upcomingBookings={(upcomingBookings as any) || []}
       pastBookings={(pastBookings as any) || []}
     />

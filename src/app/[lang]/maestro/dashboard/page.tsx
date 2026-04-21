@@ -47,12 +47,14 @@ export default async function TeacherDashboardPage({ params }: Props) {
     .gte('scheduled_at', startOfMonth.toISOString())
 
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
+  const timezone = (user.user_metadata?.timezone as string) || 'America/Tegucigalpa'
 
   return (
     <TeacherDashboardClient
       lang={lang as Locale}
       profileId={user.id}
       userName={name}
+      timezone={timezone}
       rating={teacher?.rating || 0}
       totalSessions={teacher?.total_sessions || 0}
       isActive={teacher?.is_active || false}

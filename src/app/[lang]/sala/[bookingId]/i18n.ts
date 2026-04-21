@@ -39,7 +39,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     endClass: 'End Class', leave: 'Leave', endingSession: 'Ending...',
 
     sessionEnded: 'Class Complete',
-    sessionEndedSub: 'Great work! Your session has been recorded.',
+    sessionEndedSub: 'Great work! Your session summary is on the way.',
     studentEndedSub: 'The session has ended. Check your classes for the summary.',
     returnDashboard: 'Return to dashboard',
 
@@ -101,7 +101,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     endClass: 'Terminar Clase', leave: 'Salir', endingSession: 'Terminando...',
 
     sessionEnded: 'Clase Completada',
-    sessionEndedSub: '¡Buen trabajo! Tu sesión ha sido registrada.',
+    sessionEndedSub: '¡Buen trabajo! El resumen de tu sesión estará listo pronto.',
     studentEndedSub: 'La sesión ha terminado. Revisa tus clases para ver el resumen.',
     returnDashboard: 'Volver al inicio',
 

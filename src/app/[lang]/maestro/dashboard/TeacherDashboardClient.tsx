@@ -6,7 +6,7 @@ import {
   Video, ChevronRight, Clock, ToggleLeft, ToggleRight,
   CheckCircle2, BarChart3
 } from 'lucide-react'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
@@ -39,6 +39,7 @@ const t = {
     },
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
+    statusLive: 'Live',
     today: 'Today',
     tomorrow: 'Tomorrow',
     specs: 'Specializations',
@@ -70,6 +71,7 @@ const t = {
     },
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
+    statusLive: 'En vivo',
     today: 'Hoy',
     tomorrow: 'Mañana',
     specs: 'Especializaciones',
@@ -84,24 +86,33 @@ function getGreeting(lang: Locale) {
   return tx.greetingEvening
 }
 
-function formatDate(iso: string, lang: Locale) {
+function ymdInTz(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+}
+
+function formatDate(iso: string, lang: Locale, timeZone: string) {
   const d = new Date(iso)
   const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(now.getDate() + 1)
+  const tomorrow = new Date(now.getTime() + 86400000)
   const tx = t[lang]
-  if (d.toDateString() === now.toDateString()) return tx.today
-  if (d.toDateString() === tomorrow.toDateString()) return tx.tomorrow
+  if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
+  if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
   return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
+    weekday: 'short', month: 'short', day: 'numeric', timeZone,
   })
 }
 
-function formatTime(iso: string, lang: 'es' | 'en') {
-  // Pin locale to keep SSR + client output identical (hydration-safe).
+function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
+  // Pin locale + tz to keep SSR + client output identical (hydration-safe).
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZone,
   })
+}
+
+function dayInTz(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone, day: 'numeric' }).format(new Date(iso))
 }
 
 interface Session {
@@ -116,6 +127,7 @@ interface Props {
   lang: Locale
   profileId: string
   userName: string
+  timezone: string
   rating: number
   totalSessions: number
   isActive: boolean
@@ -128,6 +140,7 @@ export default function TeacherDashboardClient({
   lang,
   profileId,
   userName,
+  timezone,
   rating,
   totalSessions,
   isActive: initialActive,
@@ -138,6 +151,16 @@ export default function TeacherDashboardClient({
   const tx = t[lang]
   const firstName = userName.split(' ')[0]
   const [active, setActive] = useState(initialActive)
+
+  // Minute-tick drives the "Live" badge transition. Null on SSR for
+  // hydration safety; React-19 rules-of-hooks forbids synchronous setState
+  // inside an effect, so defer the initial set via a 0-ms timeout.
+  const [nowTick, setNowTick] = useState<number | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => setNowTick(Date.now()), 0)
+    const id = setInterval(() => setNowTick(Date.now()), 60_000)
+    return () => { clearTimeout(t); clearInterval(id) }
+  }, [])
   const [isPending, startTransition] = useTransition()
 
   function toggleActive() {
@@ -296,7 +319,11 @@ export default function TeacherDashboardClient({
               </div>
             ) : (
               <ul>
-                {upcomingSessions.map((session) => (
+                {upcomingSessions.map((session) => {
+                  const startMs = new Date(session.scheduled_at).getTime()
+                  const endMs = startMs + (session.duration_minutes || 60) * 60_000
+                  const isLive = nowTick !== null && nowTick >= startMs && nowTick <= endMs
+                  return (
                   <li
                     key={session.id}
                     className="flex items-center gap-4 px-5 py-4"
@@ -304,10 +331,10 @@ export default function TeacherDashboardClient({
                   >
                     <div className="flex-shrink-0 text-center w-10">
                       <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                        {formatDate(session.scheduled_at, lang).slice(0, 3)}
+                        {formatDate(session.scheduled_at, lang, timezone).slice(0, 3)}
                       </div>
                       <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
-                        {new Date(session.scheduled_at).getDate()}
+                        {dayInTz(session.scheduled_at, timezone)}
                       </div>
                     </div>
 
@@ -323,20 +350,25 @@ export default function TeacherDashboardClient({
                         {tx.with} {(session.student as { profile?: { full_name?: string } } | null)?.profile?.full_name || 'Student'}
                       </div>
                       <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                        {formatTime(session.scheduled_at, lang)} · {session.duration_minutes}{tx.mins}
+                        {formatTime(session.scheduled_at, lang, timezone)} · {session.duration_minutes}{tx.mins}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span
-                        className="text-[10px] font-semibold px-2.5 py-1 rounded"
+                        className="text-[10px] font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1.5"
                         style={
-                          session.status === 'confirmed'
+                          isLive
+                            ? { background: '#C41E3A', color: '#fff', border: '1px solid #C41E3A' }
+                            : session.status === 'confirmed'
                             ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
                             : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
                         }
                       >
-                        {session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
+                        {isLive && (
+                          <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: '#fff' }} />
+                        )}
+                        {isLive ? tx.statusLive : session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
                       </span>
                       <JoinSessionButton
                         lang={lang}
@@ -346,7 +378,8 @@ export default function TeacherDashboardClient({
                       />
                     </div>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             )}
           </div>

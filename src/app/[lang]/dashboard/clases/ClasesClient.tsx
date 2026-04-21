@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X,
@@ -28,6 +28,7 @@ const t = {
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
     statusAwaitingTeacher: 'Awaiting teacher',
+    statusLive: 'Live',
     teacherBeingAssigned: 'Teacher being assigned',
     statusCompleted: 'Completed',
     statusDiagnostic: 'Diagnostic call',
@@ -69,6 +70,7 @@ const t = {
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
     statusAwaitingTeacher: 'Asignando maestro',
+    statusLive: 'En vivo',
     teacherBeingAssigned: 'Maestro por asignar',
     statusCompleted: 'Completada',
     statusDiagnostic: 'Llamada diagnóstica',
@@ -99,23 +101,36 @@ const t = {
 const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
-function formatDate(iso: string, lang: Locale) {
+function ymdInTz(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+}
+
+function formatDate(iso: string, lang: Locale, timeZone: string) {
   const d = new Date(iso)
   const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(now.getDate() + 1)
+  const tomorrow = new Date(now.getTime() + 86400000)
   const tx = t[lang]
-  if (d.toDateString() === now.toDateString()) return tx.today
-  if (d.toDateString() === tomorrow.toDateString()) return tx.tomorrow
+  if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
+  if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
   return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
+    weekday: 'short', month: 'short', day: 'numeric', timeZone,
   })
 }
 
-function formatTime(iso: string, lang: 'es' | 'en') {
+function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZone,
   })
+}
+
+function dayInTz(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', { timeZone, day: 'numeric' }).format(new Date(iso))
+}
+
+function monthShortInTz(iso: string, lang: Locale, timeZone: string): string {
+  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', { month: 'short', timeZone })
 }
 
 function buildCalendarGrid(year: number, month: number): (number | null)[] {
@@ -147,17 +162,28 @@ interface SessionData {
 
 interface Props {
   lang: Locale
+  timezone: string
   upcomingBookings: Booking[]
   pastBookings: Booking[]
 }
 
-export default function ClasesClient({ lang, upcomingBookings, pastBookings }: Props) {
+export default function ClasesClient({ lang, timezone, upcomingBookings, pastBookings }: Props) {
   const tx = t[lang]
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming')
   const [viewingBookingId, setViewingBookingId] = useState<string | null>(null)
   const [sessionData, setSessionData] = useState<SessionData | null>(null)
   const [loadingSession, setLoadingSession] = useState(false)
   const [search, setSearch] = useState('')
+
+  // Minute-tick drives the "Live" badge transition. Null on SSR for
+  // hydration safety; React-19 rules-of-hooks forbids synchronous setState
+  // inside an effect, so defer the initial set via a 0-ms timeout.
+  const [nowTick, setNowTick] = useState<number | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => setNowTick(Date.now()), 0)
+    const id = setInterval(() => setNowTick(Date.now()), 60_000)
+    return () => { clearTimeout(t); clearInterval(id) }
+  }, [])
 
   const today = new Date()
   const [calMonth, setCalMonth] = useState(today.getMonth())
@@ -255,6 +281,16 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
         label: tx.statusDiagnostic,
         style: { background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' },
         icon: <Stethoscope className="h-3 w-3" />,
+      }
+    }
+    const startMs = new Date(booking.scheduled_at).getTime()
+    const endMs = startMs + (booking.duration_minutes || 60) * 60_000
+    const isLive = nowTick !== null && nowTick >= startMs && nowTick <= endMs && booking.status !== 'completed' && booking.status !== 'cancelled'
+    if (isLive) {
+      return {
+        label: tx.statusLive,
+        style: { background: '#C41E3A', color: '#fff', border: '1px solid #C41E3A' },
+        icon: <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: '#fff' }} />,
       }
     }
     if (booking.status === 'confirmed') {
@@ -504,10 +540,10 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                         {/* Date column */}
                         <div className="flex-shrink-0 text-center w-14 py-1 rounded-lg" style={{ background: '#F9F9F9', border: '1px solid #F3F4F6' }}>
                           <div className="text-[10px] uppercase tracking-wide font-bold" style={{ color: '#C41E3A' }}>
-                            {new Date(booking.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', { month: 'short' }).replace('.', '')}
+                            {monthShortInTz(booking.scheduled_at, lang, timezone).replace('.', '')}
                           </div>
                           <div className="text-[20px] font-black leading-none mt-0.5 tabular-nums" style={{ color: '#111111' }}>
-                            {new Date(booking.scheduled_at).getDate()}
+                            {dayInTz(booking.scheduled_at, timezone)}
                           </div>
                         </div>
 
@@ -549,11 +585,11 @@ export default function ClasesClient({ lang, upcomingBookings, pastBookings }: P
                             }
                           </div>
                           <div className="flex items-center gap-2 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
-                            <span>{formatDate(booking.scheduled_at, lang)}</span>
+                            <span>{formatDate(booking.scheduled_at, lang, timezone)}</span>
                             <span style={{ color: '#D1D5DB' }}>·</span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {formatTime(booking.scheduled_at, lang)}
+                              {formatTime(booking.scheduled_at, lang, timezone)}
                             </span>
                             <span style={{ color: '#D1D5DB' }}>·</span>
                             <span>{booking.duration_minutes}{tx.mins}</span>

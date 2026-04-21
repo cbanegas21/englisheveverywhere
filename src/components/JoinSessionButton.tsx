@@ -17,11 +17,13 @@ const T = {
     join: 'Join class',
     startsIn: (s: string) => `Starts in ${s}`,
     ended: 'Session ended',
+    day: (n: number) => (n === 1 ? '1 day' : `${n} days`),
   },
   es: {
     join: 'Entrar a clase',
     startsIn: (s: string) => `Empieza en ${s}`,
     ended: 'Sesión terminada',
+    day: (n: number) => (n === 1 ? '1 día' : `${n} días`),
   },
 }
 
@@ -30,10 +32,13 @@ function formatCountdown(ms: number, lang: Locale): string {
   if (totalMinutes < 60) {
     return lang === 'es' ? `${totalMinutes} min` : `${totalMinutes}m`
   }
-  const hours = Math.floor(totalMinutes / 60)
+  const totalHours = Math.floor(totalMinutes / 60)
+  const days = Math.floor(totalHours / 24)
+  const hours = totalHours % 24
   const mins = totalMinutes % 60
-  if (lang === 'es') {
-    return mins ? `${hours}h ${mins}m` : `${hours}h`
+  const tx = T[lang]
+  if (days >= 1) {
+    return hours > 0 ? `${tx.day(days)} ${hours}h` : tx.day(days)
   }
   return mins ? `${hours}h ${mins}m` : `${hours}h`
 }

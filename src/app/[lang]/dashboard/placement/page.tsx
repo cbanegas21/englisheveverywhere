@@ -35,8 +35,14 @@ export default async function PlacementPage({ params, searchParams }: Props) {
     .maybeSingle()
 
   const timezone = (user.user_metadata?.timezone as string) || 'America/Tegucigalpa'
+  // "Past" means the live window is closed. Placement calls are 60 min, and
+  // the video room stays joinable for 90 min after the scheduled end (matches
+  // getRoomAccess late cap in src/app/actions/video.ts). Without this grace,
+  // the banner flips to "has passed" the second the call starts — while the
+  // student is actively on the call.
+  const PLACEMENT_LIVE_WINDOW_MS = (60 + 90) * 60 * 1000
   const isPast = existingBooking?.scheduled_at
-    ? new Date(existingBooking.scheduled_at) < new Date()
+    ? new Date().getTime() > new Date(existingBooking.scheduled_at).getTime() + PLACEMENT_LIVE_WINDOW_MS
     : false
 
   // Call booked or already completed

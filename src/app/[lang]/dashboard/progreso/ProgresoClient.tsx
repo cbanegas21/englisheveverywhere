@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { TrendingUp, BookOpen, Clock, Award, Calendar, User, Phone, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
@@ -190,6 +191,16 @@ export default function ProgresoClient({
   const planProgress = planTotal > 0 ? Math.min(100, (completedThisMonth / planTotal) * 100) : 0
   const hoursLearned = completedTotal // 1 class ≈ 1 hour
 
+  // Minute-tick so the placement card flips from "upcoming" to "past" without
+  // a reload. Null on SSR; React-19 rules-of-hooks forbid sync setState in
+  // an effect, so defer the initial set via a 0-ms timeout.
+  const [now, setNow] = useState<number | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => setNow(Date.now()), 0)
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => { clearTimeout(t); clearInterval(id) }
+  }, [])
+
   // ── Stats row ─────────────────────────────────────────────────
 
   const stats = [
@@ -301,7 +312,14 @@ export default function ProgresoClient({
           }
 
           if (placementBooking) {
-            const isPast = new Date(placementBooking.scheduled_at) < new Date()
+            // 60-min placement + 90-min post-call grace — matches
+            // getRoomAccess so the card doesn't call the session "past"
+            // while the student is still in the call. Before hydration
+            // (now === null), treat as not-past.
+            const PLACEMENT_LIVE_WINDOW_MS = (60 + 90) * 60_000
+            const isPast = now !== null
+              ? now > new Date(placementBooking.scheduled_at).getTime() + PLACEMENT_LIVE_WINDOW_MS
+              : false
 
             if (isPast) {
               return (
