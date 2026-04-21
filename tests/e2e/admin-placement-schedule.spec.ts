@@ -113,10 +113,14 @@ test.describe('Tier 1.9 — Admin placement-test scheduling', () => {
     // Step 4 — Confirm. Submit button label is "Schedule meeting".
     await page.getByRole('button', { name: /Schedule meeting/i }).click()
 
-    // On success the modal calls onSuccess → setShowScheduler(false) +
-    // router.refresh(). Wait for the modal to disappear as the UI signal.
-    await expect(page.getByRole('button', { name: /Schedule meeting/i }))
-      .toHaveCount(0, { timeout: 10_000 })
+    // Wait for the modal itself to unmount. We used to wait on the submit
+    // button by name /Schedule meeting/i, but during the server action the
+    // button label flips to "Scheduling…" — the name query then returns 0
+    // matches instantly and the DB read races ahead of the insert. The
+    // modal heading only disappears when onSuccess → setShowScheduler(false)
+    // fires, i.e. after createAdminBooking has resolved.
+    await expect(page.getByRole('heading', { name: /Schedule a Meeting/i }))
+      .toHaveCount(0, { timeout: 15_000 })
 
     // DB invariants — find the NEW placement_test row for our fixture student.
     const { data: postRows } = await fx!.admin
