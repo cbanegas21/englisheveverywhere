@@ -49,6 +49,38 @@ test.describe('Server-action authz guards', () => {
     ).toBe(true)
   })
 
+  test('booking.ts:createBooking must reject a duplicate-slot insert for the same student', async () => {
+    const src = readFileSync(
+      resolve(process.cwd(), 'src/app/actions/booking.ts'),
+      'utf8',
+    )
+
+    const match = src.match(/export async function createBooking\([\s\S]*?^\}/m)
+    expect(match, 'createBooking function must exist in booking.ts').toBeTruthy()
+    const body = match![0]
+
+    // The conflict check must query `bookings` scoped to the caller's student_id
+    // AND the requested scheduled_at AND exclude cancelled rows. Without this,
+    // a student who double-submits (flaky network, enthusiastic click) can
+    // end up with two pending rows at the same time and a double classes_remaining
+    // decrement. The server action is the authoritative guard — the UI
+    // marks booked cells "Ocupada" but a tampered POST bypasses that.
+    const queriesBookings = /from\(['"]bookings['"]\)/.test(body)
+    const scopesToStudent = /\.eq\(['"]student_id['"]/.test(body)
+    const scopesToScheduledAt = /\.eq\(['"]scheduled_at['"]/.test(body)
+    const excludesCancelled = /\.neq\(['"]status['"]\s*,\s*['"]cancelled['"]\)/.test(body)
+    const returnsErrorOnConflict = /(Ya tienes una clase agendada|already have a class booked)/i.test(body)
+
+    expect(queriesBookings,   'createBooking must query the bookings table for the conflict check').toBe(true)
+    expect(scopesToStudent,    'conflict check must be scoped to the caller\'s student_id').toBe(true)
+    expect(scopesToScheduledAt,'conflict check must be scoped to the requested scheduled_at').toBe(true)
+    expect(excludesCancelled,  'conflict check must exclude cancelled bookings — cancelled slots must be re-bookable').toBe(true)
+    expect(
+      returnsErrorOnConflict,
+      'createBooking must return a localized conflict error instead of silently inserting a duplicate',
+    ).toBe(true)
+  })
+
   test('stripe.ts:createStripeConnectLink must verify caller is an approved teacher', async () => {
     const src = readFileSync(
       resolve(process.cwd(), 'src/app/actions/stripe.ts'),
