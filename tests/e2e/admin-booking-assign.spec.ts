@@ -69,6 +69,11 @@ test.describe('Tier 1.8 — Admin booking assignment', () => {
   test('pending booking with teacher_id=null → admin picks teacher → DB confirmed + UI echoes', async ({ page }) => {
     test.skip(!fx, 'Booking fixture unavailable (missing SUPABASE_SERVICE_ROLE_KEY)')
     test.skip(!studentName, 'Could not resolve fixture student display name')
+    // BookingAssign prompts `confirm("Assign anyway?")` when the server throws
+    // "not available"/"primary teacher" (Bug #36 override UX). The fixture
+    // teacher has no availability rows seeded, so the prompt always fires —
+    // auto-accept mirrors the real admin clicking OK to force the assignment.
+    page.on('dialog', d => { void d.accept() })
     const loggedIn = await loginAsAdmin(page)
     test.skip(!loggedIn, 'Admin creds not provisioned (check globalSetup)')
 
