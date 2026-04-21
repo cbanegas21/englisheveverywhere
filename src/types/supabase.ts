@@ -484,6 +484,8 @@ export type Database = {
           student_rating: number | null
           student_review: string | null
           teacher_notes: string | null
+          transcript: string | null
+          transcript_captured_at: string | null
         }
         Insert: {
           booking_id: string
@@ -496,6 +498,8 @@ export type Database = {
           student_rating?: number | null
           student_review?: string | null
           teacher_notes?: string | null
+          transcript?: string | null
+          transcript_captured_at?: string | null
         }
         Update: {
           booking_id?: string
@@ -508,6 +512,8 @@ export type Database = {
           student_rating?: number | null
           student_review?: string | null
           teacher_notes?: string | null
+          transcript?: string | null
+          transcript_captured_at?: string | null
         }
         Relationships: [
           {

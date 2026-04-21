@@ -159,6 +159,8 @@ create table public.sessions (
   student_review text,
   created_at timestamp with time zone not null default now(),
   notes text,
+  transcript text,
+  transcript_captured_at timestamp with time zone,
   primary key (id)
 );
 

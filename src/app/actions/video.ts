@@ -336,6 +336,8 @@ export async function getSessionByBookingId(bookingId: string): Promise<{
   id: string
   notes: string | null
   teacher_notes: string | null
+  transcript: string | null
+  transcript_captured_at: string | null
   started_at: string | null
   ended_at: string | null
 } | null> {
@@ -363,7 +365,7 @@ export async function getSessionByBookingId(bookingId: string): Promise<{
 
   const { data: session } = await adminClient
     .from('sessions')
-    .select('id, notes, teacher_notes, started_at, ended_at')
+    .select('id, notes, teacher_notes, transcript, transcript_captured_at, started_at, ended_at')
     .eq('booking_id', bookingId)
     .maybeSingle()
 

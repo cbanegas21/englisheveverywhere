@@ -40,6 +40,8 @@ const t = {
     nextTopics: 'Next Session Suggestions',
     progressNote: 'Progress Note',
     teacherNotes: 'Teacher Notes',
+    transcript: 'Transcript',
+    transcriptEmpty: 'No transcript was captured for this class.',
     noSummary: 'No summary available for this session.',
     noNotes: 'Your teacher did not leave notes for this session.',
     loadingSession: 'Loading session data...',
@@ -86,6 +88,8 @@ const t = {
     nextTopics: 'Sugerencias para la Próxima Sesión',
     progressNote: 'Nota de Progreso',
     teacherNotes: 'Notas del Maestro',
+    transcript: 'Transcripción',
+    transcriptEmpty: 'No se capturó transcripción para esta clase.',
     noSummary: 'No hay resumen disponible para esta sesión.',
     noNotes: 'Tu maestro no dejó notas para esta sesión.',
     loadingSession: 'Cargando datos de sesión...',
@@ -164,6 +168,8 @@ interface SessionData {
   id: string
   notes: string | null
   teacher_notes: string | null
+  transcript: string | null
+  transcript_captured_at: string | null
   started_at: string | null
   ended_at: string | null
 }
@@ -777,6 +783,22 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                       <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: '#374151' }}>{sessionData.notes}</p>
                     </div>
                   )}
+                  <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '1.25rem' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
+                      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>{tx.transcript}</p>
+                    </div>
+                    {sessionData?.transcript ? (
+                      <div
+                        className="text-[12px] leading-relaxed whitespace-pre-wrap rounded-lg p-3 max-h-64 overflow-y-auto"
+                        style={{ color: '#374151', background: '#FAFAFA', border: '1px solid #E5E7EB' }}
+                      >
+                        {sessionData.transcript}
+                      </div>
+                    ) : (
+                      <p className="text-[12px] italic" style={{ color: '#9CA3AF' }}>{tx.transcriptEmpty}</p>
+                    )}
+                  </div>
                 </>
               )}
             </div>
