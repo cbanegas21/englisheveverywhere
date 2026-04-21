@@ -203,7 +203,9 @@ export default function BookingCalendarClient({
         onSuccess()
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Assignment failed'
-        if (msg.toLowerCase().includes('not available') && !force) {
+        const lower = msg.toLowerCase()
+        const overridable = lower.includes('not available') || lower.includes('primary teacher')
+        if (overridable && !force) {
           if (confirm(`${msg}\n\nAssign anyway?`)) {
             assignWithAvailabilityGuard(bookingId, teacherId, onSuccess, true)
             return

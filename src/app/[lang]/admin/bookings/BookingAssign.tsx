@@ -51,8 +51,10 @@ export default function BookingAssign({
         setDone('confirmed')
       } catch (e: any) {
         const msg: string = e.message || 'Something went wrong'
-        // Availability guard — let the admin force-assign after a second click.
-        if (msg.toLowerCase().includes('not available') && !force) {
+        const lower = msg.toLowerCase()
+        // Guard prompts — admin can force-override availability OR primary-teacher continuity.
+        const overridable = lower.includes('not available') || lower.includes('primary teacher')
+        if (overridable && !force) {
           if (confirm(`${msg}\n\nAssign anyway?`)) {
             handleConfirm(true)
             return

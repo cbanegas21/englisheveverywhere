@@ -156,12 +156,7 @@ export default function MeetingScheduler({
     return true
   }
 
-  function handleSubmit() {
-    setError('')
-    const scheduledAt = buildScheduledAt()
-    if (!scheduledAt) { setError('No time selected'); return }
-    if (!selStudentId) { setError('Select a student'); return }
-
+  function submitBooking(scheduledAt: string, force = false) {
     startTransition(async () => {
       try {
         await createAdminBooking(
@@ -170,13 +165,30 @@ export default function MeetingScheduler({
           scheduledAt,
           meetingType,
           duration,
-          notes
+          notes,
+          { force },
         )
         onSuccess()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error creating booking')
+        const msg = e instanceof Error ? e.message : 'Error creating booking'
+        // Primary-teacher continuity guard — let the admin override after confirming.
+        if (msg.toLowerCase().includes('primary teacher') && !force) {
+          if (confirm(`${msg}\n\nAssign anyway?`)) {
+            submitBooking(scheduledAt, true)
+            return
+          }
+        }
+        setError(msg)
       }
     })
+  }
+
+  function handleSubmit() {
+    setError('')
+    const scheduledAt = buildScheduledAt()
+    if (!scheduledAt) { setError('No time selected'); return }
+    if (!selStudentId) { setError('Select a student'); return }
+    submitBooking(scheduledAt)
   }
 
   const stepLabels = ['Participants', 'Date & Time', 'Meeting Type', 'Confirm']

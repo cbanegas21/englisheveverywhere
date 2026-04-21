@@ -105,27 +105,34 @@ export async function assignAndConfirmBooking(
 ) {
   await assertAdmin()
   const admin = createAdminClient()
+  const force = options.force ?? false
+
+  // Load the booking once — both guards need it.
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('student_id, scheduled_at, duration_minutes')
+    .eq('id', bookingId)
+    .single()
+
+  // Primary-teacher continuity guard: once a student is locked to a teacher,
+  // admin must force=true to switch them. Protects 1-teacher-per-student.
+  if (booking?.student_id) {
+    await assertPrimaryTeacherOk(booking.student_id, teacherId, force)
+  }
 
   // Availability guard: block assignments outside the teacher's stated
   // availability unless the admin explicitly forces. Availability is stored
   // in America/Tegucigalpa (Honduras) per the teacher-side UI.
-  if (!options.force) {
-    const { data: booking } = await admin
-      .from('bookings')
-      .select('scheduled_at, duration_minutes')
-      .eq('id', bookingId)
-      .single()
-    if (booking) {
-      const available = await isTeacherAvailable(
-        teacherId,
-        booking.scheduled_at,
-        booking.duration_minutes ?? 60,
+  if (!force && booking) {
+    const available = await isTeacherAvailable(
+      teacherId,
+      booking.scheduled_at,
+      booking.duration_minutes ?? 60,
+    )
+    if (!available) {
+      throw new Error(
+        'Teacher is not available at this time. Ask them to add the slot to their availability or retry with force=true.',
       )
-      if (!available) {
-        throw new Error(
-          'Teacher is not available at this time. Ask them to add the slot to their availability or retry with force=true.',
-        )
-      }
     }
   }
 
@@ -136,10 +143,53 @@ export async function assignAndConfirmBooking(
 
   if (error) throw new Error(error.message)
 
+  // First-class continuity lock: if the student has no primary teacher yet,
+  // set it to the teacher we just assigned.
+  if (booking?.student_id) await lockInPrimaryTeacher(booking.student_id, teacherId)
+
   // Fire-and-forget student + teacher emails so both sides know the class is locked in.
   sendAssignmentEmail(bookingId)
 
   revalidatePath('/', 'layout')
+}
+
+// Throws if the student already has a different primary teacher (unless forced).
+// The rule is a soft guarantee: the first teacher assigned becomes the primary,
+// and subsequent switches require an explicit admin override to avoid accidental
+// teacher-hopping across bookings. See `students.primary_teacher_id`.
+async function assertPrimaryTeacherOk(
+  studentId: string,
+  teacherId: string,
+  force: boolean,
+): Promise<void> {
+  const admin = createAdminClient()
+  const { data: student } = await admin
+    .from('students')
+    .select('primary_teacher_id')
+    .eq('id', studentId)
+    .single()
+  const existing = student?.primary_teacher_id ?? null
+  if (existing && existing !== teacherId && !force) {
+    throw new Error(
+      'This student already has a primary teacher. Pass force=true to override the continuity rule.',
+    )
+  }
+}
+
+// Writes primary_teacher_id only if currently null — never silently reassigns.
+async function lockInPrimaryTeacher(studentId: string, teacherId: string): Promise<void> {
+  const admin = createAdminClient()
+  const { data: student } = await admin
+    .from('students')
+    .select('primary_teacher_id')
+    .eq('id', studentId)
+    .single()
+  if (!student?.primary_teacher_id) {
+    await admin
+      .from('students')
+      .update({ primary_teacher_id: teacherId })
+      .eq('id', studentId)
+  }
 }
 
 // Checks teacher availability_slots against a booking's scheduled window.
@@ -458,10 +508,17 @@ export async function createAdminBooking(
   scheduledAt: string,
   type: string,
   durationMinutes: number,
-  notes: string
+  notes: string,
+  options: { force?: boolean } = {},
 ) {
   await assertAdmin()
   const admin = createAdminClient()
+
+  // Continuity guard: only applies when a teacher is being pre-assigned here.
+  if (teacherId) {
+    await assertPrimaryTeacherOk(studentId, teacherId, options.force ?? false)
+  }
+
   const { data: booking, error } = await admin
     .from('bookings')
     .insert({
@@ -476,6 +533,8 @@ export async function createAdminBooking(
     .select()
     .single()
   if (error) throw new Error(error.message)
+
+  if (teacherId) await lockInPrimaryTeacher(studentId, teacherId)
 
   // Send email notifications (non-blocking)
   sendBookingEmails({ studentId, teacherId, scheduledAt, type, bookingId: booking.id })
@@ -631,14 +690,37 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
   revalidatePath('/', 'layout')
 }
 
-export async function bulkAssignTeacher(bookingIds: string[], teacherId: string) {
+export async function bulkAssignTeacher(
+  bookingIds: string[],
+  teacherId: string,
+  options: { force?: boolean } = {},
+) {
   await assertAdmin()
   const admin = createAdminClient()
+  const force = options.force ?? false
+
+  // Collect every student touched by this bulk assignment and validate each —
+  // if any student is locked to a different primary teacher we abort the whole
+  // batch unless force=true.
+  const { data: touched } = await admin
+    .from('bookings')
+    .select('student_id')
+    .in('id', bookingIds)
+  const studentIds = Array.from(
+    new Set((touched ?? []).map(b => b.student_id).filter((x): x is string => !!x)),
+  )
+  for (const sid of studentIds) {
+    await assertPrimaryTeacherOk(sid, teacherId, force)
+  }
+
   const { error } = await admin
     .from('bookings')
     .update({ teacher_id: teacherId, status: 'confirmed' })
     .in('id', bookingIds)
   if (error) throw new Error(error.message)
+
+  // Lock in primary teacher for any student that didn't have one yet.
+  for (const sid of studentIds) await lockInPrimaryTeacher(sid, teacherId)
 
   // Fan out assignment emails (fire-and-forget, same envelope for each student)
   for (const id of bookingIds) sendAssignmentEmail(id)
