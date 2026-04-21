@@ -189,6 +189,9 @@ create table public.teachers (
   is_active boolean default true,
   created_at timestamp with time zone not null default now(),
   admin_notes text,
+  cv_storage_path text,
+  cv_uploaded_at timestamp with time zone,
+  cv_original_filename text,
   primary key (id)
 );
 

@@ -23,6 +23,31 @@ async function assertAdmin() {
 
 // ── Teacher actions ───────────────────────────────────────────────────────────
 
+// Signed URL for a teacher's uploaded CV. 10-min TTL is enough for admin
+// review; the bucket is private, so the URL is the only way in.
+export async function getTeacherCvSignedUrl(teacherId: string): Promise<
+  { success: true; url: string; filename: string | null }
+  | { success: false; error: string }
+> {
+  await assertAdmin()
+  const admin = createAdminClient()
+
+  const { data: teacher, error } = await admin
+    .from('teachers')
+    .select('cv_storage_path, cv_original_filename')
+    .eq('id', teacherId)
+    .single()
+  if (error || !teacher) return { success: false, error: 'Teacher not found' }
+  if (!teacher.cv_storage_path) return { success: false, error: 'No CV on file' }
+
+  const { data, error: signErr } = await admin.storage
+    .from('teacher-docs')
+    .createSignedUrl(teacher.cv_storage_path, 600)
+  if (signErr || !data) return { success: false, error: signErr?.message || 'Could not sign URL' }
+
+  return { success: true, url: data.signedUrl, filename: teacher.cv_original_filename || null }
+}
+
 export async function approveTeacher(teacherId: string) {
   await assertAdmin()
   const admin = createAdminClient()

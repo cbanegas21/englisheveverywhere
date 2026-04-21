@@ -37,37 +37,65 @@ export async function completeStudentOnboarding(data: {
   return { success: true }
 }
 
-export async function completeTeacherOnboarding(data: {
-  userId: string
-  timezone: string
-  preferredLanguage: 'es' | 'en'
-  bio: string
-  specializations: string[]
-  certifications?: string[]
-}): Promise<{ success: boolean; error?: string }> {
+const CV_BUCKET = 'teacher-docs'
+const CV_MAX_BYTES = 10 * 1024 * 1024 // 10 MB
+const CV_ALLOWED_MIME = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+])
+
+export async function completeTeacherOnboarding(formData: FormData): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.id !== data.userId) return { success: false, error: 'Not authenticated' }
+  const userId = (formData.get('userId') as string | null) || ''
+  if (!user || user.id !== userId) return { success: false, error: 'Not authenticated' }
+
+  const timezone = (formData.get('timezone') as string | null) || ''
+  const preferredLanguage = ((formData.get('preferredLanguage') as string | null) || 'es') as 'es' | 'en'
+  const bio = (formData.get('bio') as string | null) || ''
+  const specializations = JSON.parse((formData.get('specializations') as string | null) || '[]') as string[]
+  const certifications = JSON.parse((formData.get('certifications') as string | null) || '[]') as string[]
+  const cvFile = formData.get('cv') as File | null
+
+  if (bio.trim().length < 20) return { success: false, error: 'Bio must be at least 20 characters' }
+  if (!cvFile || cvFile.size === 0) return { success: false, error: 'CV / resume is required' }
+  if (cvFile.size > CV_MAX_BYTES) return { success: false, error: 'CV exceeds 10 MB limit' }
+  if (!CV_ALLOWED_MIME.has(cvFile.type)) return { success: false, error: 'CV must be a PDF or Word document' }
 
   // Auth validated. Use admin client for writes (see student branch).
   const admin = createAdminClient()
 
+  const ext = cvFile.name.toLowerCase().match(/\.(pdf|docx?|doc)$/)?.[0] || '.pdf'
+  const storagePath = `${userId}/${Date.now()}${ext}`
+  const buffer = Buffer.from(await cvFile.arrayBuffer())
+  const { error: uploadErr } = await admin.storage
+    .from(CV_BUCKET)
+    .upload(storagePath, buffer, {
+      contentType: cvFile.type,
+      upsert: true,
+    })
+  if (uploadErr) return { success: false, error: `CV upload failed: ${uploadErr.message}` }
+
   const { error: profileError } = await admin
     .from('profiles')
-    .update({ timezone: data.timezone, preferred_language: data.preferredLanguage })
-    .eq('id', data.userId)
+    .update({ timezone, preferred_language: preferredLanguage })
+    .eq('id', userId)
 
   if (profileError) return { success: false, error: profileError.message }
 
   const { error: teacherError } = await admin
     .from('teachers')
     .upsert({
-      profile_id: data.userId,
-      bio: data.bio,
-      specializations: data.specializations,
-      certifications: data.certifications || [],
+      profile_id: userId,
+      bio,
+      specializations,
+      certifications,
       hourly_rate: 0,
       is_active: false,
+      cv_storage_path: storagePath,
+      cv_uploaded_at: new Date().toISOString(),
+      cv_original_filename: cvFile.name,
     }, { onConflict: 'profile_id' })
 
   if (teacherError) return { success: false, error: teacherError.message }
@@ -76,7 +104,7 @@ export async function completeTeacherOnboarding(data: {
   void sendTeacherApplicationEmails({
     teacherEmail: user.email || '',
     teacherName: user.user_metadata?.full_name || '',
-    lang: data.preferredLanguage,
+    lang: preferredLanguage,
   })
 
   revalidatePath('/', 'layout')

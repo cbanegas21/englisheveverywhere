@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Globe, Clock, Check } from 'lucide-react'
+import { ArrowRight, Globe, Clock, Check, Upload, FileText, X } from 'lucide-react'
 import { completeStudentOnboarding, completeTeacherOnboarding } from '@/app/actions/onboarding'
 import type { Locale } from '@/lib/i18n/translations'
 import TimezoneSelect from '@/components/TimezoneSelect'
+
+const BIO_MIN_CHARS = 20
+const CV_MAX_BYTES = 10 * 1024 * 1024
+const CV_ALLOWED_EXT = ['.pdf', '.doc', '.docx'] as const
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
 type Level = (typeof LEVELS)[number]
@@ -53,9 +57,21 @@ const t = {
       sub: 'Write a short bio. Our team uses this to match you with the right students.',
       bioLabel: 'About you',
       bioPlaceholder: 'I am a certified TESOL teacher with 5 years of experience helping Latin American professionals achieve their language goals...',
-      certLabel: 'Certifications (optional)',
+      bioMinHint: `At least ${BIO_MIN_CHARS} characters`,
+      bioChars: (n: number) => `${n} / ${BIO_MIN_CHARS}+ characters`,
+      certLabel: 'Certifications',
+      certOptional: 'Optional — skip if you don\'t have any yet',
       certPlaceholder: 'TESOL, CELTA, IELTS Examiner…',
-      certHint: 'Separate with commas',
+      certHint: 'Separate each with a comma',
+      cvLabel: 'CV / résumé',
+      cvSub: 'PDF or Word document — up to 10 MB. Our team reviews this before activating your account.',
+      cvPick: 'Choose file',
+      cvDrop: 'or drag & drop here',
+      cvReplace: 'Replace',
+      cvRemove: 'Remove',
+      cvRequired: 'CV is required to complete your application',
+      cvTooBig: 'File is larger than 10 MB',
+      cvBadType: 'Only PDF or Word documents are accepted',
       next: 'Complete setup',
     },
     finishing: 'Setting up your account…',
@@ -98,9 +114,21 @@ const t = {
       sub: 'Escribe una bio corta. Nuestro equipo la usa para emparejarte con los estudiantes correctos.',
       bioLabel: 'Sobre ti',
       bioPlaceholder: 'Soy maestro certificado TESOL con 5 años de experiencia ayudando a profesionales latinoamericanos...',
-      certLabel: 'Certificaciones (opcional)',
+      bioMinHint: `Mínimo ${BIO_MIN_CHARS} caracteres`,
+      bioChars: (n: number) => `${n} / ${BIO_MIN_CHARS}+ caracteres`,
+      certLabel: 'Certificaciones',
+      certOptional: 'Opcional — puedes omitirlo si aún no tienes',
       certPlaceholder: 'TESOL, CELTA, Examinador IELTS…',
-      certHint: 'Separa con comas',
+      certHint: 'Separa cada una con una coma',
+      cvLabel: 'CV / currículum',
+      cvSub: 'PDF o documento Word — máx. 10 MB. Nuestro equipo lo revisa antes de activar tu cuenta.',
+      cvPick: 'Elegir archivo',
+      cvDrop: 'o arrástralo aquí',
+      cvReplace: 'Reemplazar',
+      cvRemove: 'Quitar',
+      cvRequired: 'El CV es obligatorio para completar tu solicitud',
+      cvTooBig: 'El archivo supera los 10 MB',
+      cvBadType: 'Solo se aceptan PDF o documentos de Word',
       next: 'Completar configuración',
     },
     finishing: 'Configurando tu cuenta…',
@@ -146,12 +174,41 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
   const [specs, setSpecs] = useState<string[]>([])
   const [bio, setBio] = useState('')
   const [certifications, setCertifications] = useState('')
+  const [cvFile, setCvFile] = useState<File | null>(null)
+  const [cvError, setCvError] = useState<string | null>(null)
+  const [cvDragging, setCvDragging] = useState(false)
+  const cvInputRef = useRef<HTMLInputElement | null>(null)
   const [finishError, setFinishError] = useState<string | null>(null)
 
   const isTeacher = role === 'teacher'
+  const bioChars = bio.trim().length
+  const bioTooShort = bioChars > 0 && bioChars < BIO_MIN_CHARS
 
   function toggleSpec(s: string) {
     setSpecs((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]))
+  }
+
+  function validateCv(file: File): string | null {
+    const name = file.name.toLowerCase()
+    const extOk = CV_ALLOWED_EXT.some((e) => name.endsWith(e))
+    if (!extOk) return tx.step3Teacher.cvBadType
+    if (file.size > CV_MAX_BYTES) return tx.step3Teacher.cvTooBig
+    return null
+  }
+
+  function pickCv(file: File | null) {
+    setCvError(null)
+    if (!file) {
+      setCvFile(null)
+      return
+    }
+    const err = validateCv(file)
+    if (err) {
+      setCvError(err)
+      setCvFile(null)
+      return
+    }
+    setCvFile(file)
   }
 
   async function handleFinish() {
@@ -161,7 +218,26 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
       if (role === 'student') {
         result = await completeStudentOnboarding({ userId, timezone, preferredLanguage: preferredLang })
       } else {
-        result = await completeTeacherOnboarding({ userId, timezone, preferredLanguage: preferredLang, bio, specializations: specs, certifications: certifications.trim() ? certifications.split(',').map(s => s.trim()).filter(Boolean) : [] })
+        if (!cvFile) {
+          setFinishError(tx.step3Teacher.cvRequired)
+          return
+        }
+        const fd = new FormData()
+        fd.set('userId', userId)
+        fd.set('timezone', timezone)
+        fd.set('preferredLanguage', preferredLang)
+        fd.set('bio', bio)
+        fd.set('specializations', JSON.stringify(specs))
+        fd.set(
+          'certifications',
+          JSON.stringify(
+            certifications.trim()
+              ? certifications.split(',').map((s) => s.trim()).filter(Boolean)
+              : [],
+          ),
+        )
+        fd.set('cv', cvFile)
+        result = await completeTeacherOnboarding(fd)
       }
       if (result.error) {
         setFinishError(result.error)
@@ -477,7 +553,15 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
 
                 <div className="flex flex-col gap-5">
                   <div>
-                    <label className="block text-[12px] font-semibold mb-2" style={{ color: '#4B5563' }}>{tx.step3Teacher.bioLabel}</label>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <label className="block text-[12px] font-semibold" style={{ color: '#4B5563' }}>{tx.step3Teacher.bioLabel}</label>
+                      <span
+                        className="text-[11px] tabular-nums"
+                        style={{ color: bioTooShort ? '#DC2626' : bioChars >= BIO_MIN_CHARS ? '#059669' : '#9CA3AF' }}
+                      >
+                        {tx.step3Teacher.bioChars(bioChars)}
+                      </span>
+                    </div>
                     <textarea
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
@@ -485,18 +569,106 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
                       placeholder={tx.step3Teacher.bioPlaceholder}
                       className="w-full rounded px-4 py-3 text-[14px] outline-none transition-all resize-none"
                       style={{
-                        border: '1px solid #E5E7EB',
+                        border: `1px solid ${bioTooShort ? '#FCA5A5' : '#E5E7EB'}`,
                         color: '#111111',
                         background: '#fff',
                       }}
                       onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                      onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                      onBlur={e => (e.currentTarget.style.borderColor = bioTooShort ? '#FCA5A5' : '#E5E7EB')}
                     />
+                    <p
+                      className="mt-1.5 text-[11px]"
+                      style={{ color: bioTooShort ? '#DC2626' : '#9CA3AF' }}
+                    >
+                      {tx.step3Teacher.bioMinHint}
+                    </p>
+                  </div>
+
+                  {/* CV / résumé — Fathom bug #4 */}
+                  <div>
+                    <label className="block text-[12px] font-semibold mb-1" style={{ color: '#4B5563' }}>{tx.step3Teacher.cvLabel}</label>
+                    <p className="text-[11px] mb-2" style={{ color: '#9CA3AF' }}>{tx.step3Teacher.cvSub}</p>
+                    {cvFile ? (
+                      <div
+                        className="flex items-center gap-3 rounded p-3"
+                        style={{ border: '1px solid #D1FAE5', background: '#F0FDF4' }}
+                      >
+                        <div
+                          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
+                          style={{ background: '#fff', border: '1px solid #BBF7D0' }}
+                        >
+                          <FileText className="h-4 w-4" style={{ color: '#059669' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-[13px] font-medium" style={{ color: '#111111' }}>{cvFile.name}</p>
+                          <p className="text-[11px]" style={{ color: '#6B7280' }}>
+                            {(cvFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => cvInputRef.current?.click()}
+                          className="text-[12px] font-semibold px-3 py-1.5 rounded transition-all"
+                          style={{ color: '#4B5563', border: '1px solid #E5E7EB', background: '#fff' }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = '#111111')}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                        >
+                          {tx.step3Teacher.cvReplace}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setCvFile(null); setCvError(null); if (cvInputRef.current) cvInputRef.current.value = '' }}
+                          className="flex h-7 w-7 items-center justify-center rounded transition-all"
+                          style={{ color: '#9CA3AF' }}
+                          aria-label={tx.step3Teacher.cvRemove}
+                          onMouseEnter={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = '#FEF2F2' }}
+                          onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.background = 'transparent' }}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setCvDragging(true) }}
+                        onDragLeave={() => setCvDragging(false)}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setCvDragging(false)
+                          const f = e.dataTransfer.files?.[0]
+                          if (f) pickCv(f)
+                        }}
+                        className="rounded p-5 text-center transition-all cursor-pointer"
+                        style={{
+                          border: `1.5px dashed ${cvDragging ? '#C41E3A' : '#D1D5DB'}`,
+                          background: cvDragging ? 'rgba(196,30,58,0.04)' : '#fff',
+                        }}
+                        onClick={() => cvInputRef.current?.click()}
+                      >
+                        <div
+                          className="flex h-10 w-10 mx-auto items-center justify-center rounded mb-2"
+                          style={{ background: '#F3F4F6' }}
+                        >
+                          <Upload className="h-4.5 w-4.5" style={{ color: '#6B7280' }} />
+                        </div>
+                        <p className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.step3Teacher.cvPick}</p>
+                        <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.step3Teacher.cvDrop}</p>
+                      </div>
+                    )}
+                    <input
+                      ref={cvInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={(e) => pickCv(e.target.files?.[0] ?? null)}
+                      className="hidden"
+                    />
+                    {cvError && (
+                      <p className="mt-1.5 text-[11px]" style={{ color: '#DC2626' }}>{cvError}</p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-[12px] font-semibold mb-1" style={{ color: '#4B5563' }}>{tx.step3Teacher.certLabel}</label>
-                    <p className="text-[11px] mb-2" style={{ color: '#9CA3AF' }}>{tx.step3Teacher.certHint}</p>
+                    <p className="text-[11px] mb-2 italic" style={{ color: '#9CA3AF' }}>{tx.step3Teacher.certOptional}</p>
                     <input
                       type="text"
                       value={certifications}
@@ -511,6 +683,7 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
                       onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                       onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
                     />
+                    <p className="mt-1.5 text-[11px]" style={{ color: '#9CA3AF' }}>{tx.step3Teacher.certHint}</p>
                   </div>
                 </div>
 
@@ -529,11 +702,11 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
                   </button>
                   <button
                     onClick={handleFinish}
-                    disabled={isPending || bio.trim().length < 20}
+                    disabled={isPending || bioChars < BIO_MIN_CHARS || !cvFile}
                     className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded font-semibold text-[14px] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ background: '#C41E3A', color: '#fff' }}
-                    onMouseEnter={e => { if (!isPending && bio.trim().length >= 20) e.currentTarget.style.background = '#9E1830' }}
-                    onMouseLeave={e => { if (!isPending && bio.trim().length >= 20) e.currentTarget.style.background = '#C41E3A' }}
+                    onMouseEnter={e => { if (!isPending && bioChars >= BIO_MIN_CHARS && cvFile) e.currentTarget.style.background = '#9E1830' }}
+                    onMouseLeave={e => { if (!isPending && bioChars >= BIO_MIN_CHARS && cvFile) e.currentTarget.style.background = '#C41E3A' }}
                   >
                     {isPending ? (
                       <span className="flex items-center gap-2">

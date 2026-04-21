@@ -38,6 +38,9 @@ export interface TeacherDetail {
   is_active: boolean
   admin_notes: string | null
   created_at: string
+  cv_storage_path: string | null
+  cv_uploaded_at: string | null
+  cv_original_filename: string | null
   profile: {
     id: string
     full_name: string | null
@@ -68,6 +71,7 @@ export default async function TeacherProfilePage({ params }: Props) {
     .select(`
       id, profile_id, bio, specializations, certifications, hourly_rate,
       rating, total_sessions, is_active, admin_notes, created_at,
+      cv_storage_path, cv_uploaded_at, cv_original_filename,
       profile:profiles(id, full_name, email, timezone, role)
     `)
     .eq('id', teacherId)
@@ -210,6 +214,9 @@ export default async function TeacherProfilePage({ params }: Props) {
     is_active: rawTeacher.is_active,
     admin_notes: rawTeacher.admin_notes || null,
     created_at: rawTeacher.created_at,
+    cv_storage_path: rawTeacher.cv_storage_path || null,
+    cv_uploaded_at: rawTeacher.cv_uploaded_at || null,
+    cv_original_filename: rawTeacher.cv_original_filename || null,
     profile: profileData,
     bookings,
     activeStudentCount: confirmedStudents.size,

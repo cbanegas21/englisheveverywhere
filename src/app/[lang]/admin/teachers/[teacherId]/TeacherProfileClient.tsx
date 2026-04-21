@@ -10,6 +10,7 @@ import {
   adminUpdateTeacherProfile,
   deleteTeacher,
   resetStudentPassword,
+  getTeacherCvSignedUrl,
 } from '../../actions'
 import MeetingScheduler from '@/components/admin/MeetingScheduler'
 
@@ -571,6 +572,41 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
             placeholder="Teacher bio…"
           />
+        </div>
+
+        <div style={cardStyle}>
+          <span style={labelStyle}>CV / Résumé</span>
+          {teacher.cv_storage_path ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {teacher.cv_original_filename || 'Uploaded CV'}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
+                  {teacher.cv_uploaded_at
+                    ? `Uploaded ${new Date(teacher.cv_uploaded_at).toLocaleDateString()}`
+                    : 'Uploaded'}
+                </p>
+              </div>
+              <button
+                style={btnSecondary}
+                onClick={async () => {
+                  const res = await getTeacherCvSignedUrl(teacher.id)
+                  if (res.success) {
+                    window.open(res.url, '_blank', 'noopener,noreferrer')
+                  } else {
+                    setToast({ msg: res.error, type: 'error' })
+                  }
+                }}
+              >
+                Open in new tab
+              </button>
+            </div>
+          ) : (
+            <p style={{ margin: 0, fontSize: 13, color: '#9CA3AF', fontStyle: 'italic' }}>
+              No CV uploaded — teacher applied before the file requirement was added.
+            </p>
+          )}
         </div>
 
         <div style={cardStyle}>

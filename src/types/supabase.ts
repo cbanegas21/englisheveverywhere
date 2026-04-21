@@ -572,6 +572,9 @@ export type Database = {
           bio: string | null
           certifications: string[] | null
           created_at: string
+          cv_original_filename: string | null
+          cv_storage_path: string | null
+          cv_uploaded_at: string | null
           hourly_rate: number
           id: string
           is_active: boolean | null
@@ -586,6 +589,9 @@ export type Database = {
           bio?: string | null
           certifications?: string[] | null
           created_at?: string
+          cv_original_filename?: string | null
+          cv_storage_path?: string | null
+          cv_uploaded_at?: string | null
           hourly_rate?: number
           id?: string
           is_active?: boolean | null
@@ -600,6 +606,9 @@ export type Database = {
           bio?: string | null
           certifications?: string[] | null
           created_at?: string
+          cv_original_filename?: string | null
+          cv_storage_path?: string | null
+          cv_uploaded_at?: string | null
           hourly_rate?: number
           id?: string
           is_active?: boolean | null
