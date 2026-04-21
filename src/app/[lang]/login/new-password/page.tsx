@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, use, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
@@ -143,9 +143,10 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
 export default function NewPasswordPage({
   params,
 }: {
-  params: { lang: string }
+  params: Promise<{ lang: string }>
 }) {
-  const lang = (params.lang as Locale) in t ? (params.lang as Locale) : 'es'
+  const { lang: raw } = use(params)
+  const lang = (raw as Locale) in t ? (raw as Locale) : 'es'
   return (
     <Suspense>
       <NewPasswordForm lang={lang} />
