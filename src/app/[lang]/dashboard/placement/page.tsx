@@ -28,11 +28,37 @@ export default async function PlacementPage({ params, searchParams }: Props) {
   // Check for an existing placement booking (include completed — needed when placement_test_done = true)
   const { data: existingBooking } = await supabase
     .from('bookings')
-    .select('id, scheduled_at, status')
+    .select(`
+      id,
+      scheduled_at,
+      status,
+      conductor:profiles!bookings_conductor_profile_id_fkey(full_name),
+      teacher:teachers(profile:profiles(full_name))
+    `)
     .eq('student_id', student.id)
     .eq('type', 'placement_test')
     .neq('status', 'cancelled')
     .maybeSingle()
+
+  // Pull the human-readable name of whoever is running the call. Placement
+  // calls can be admin-conducted (conductor_profile_id) or teacher-assigned
+  // (teacher_id → teachers.profile.full_name). Prefer the conductor since
+  // admins currently handle all placement calls.
+  type BookingProfile = { full_name: string | null } | { full_name: string | null }[] | null
+  type BookingTeacher = { profile: BookingProfile } | { profile: BookingProfile }[] | null
+  function extractProfileName(raw: BookingProfile): string | null {
+    if (!raw) return null
+    if (Array.isArray(raw)) return raw[0]?.full_name ?? null
+    return raw.full_name ?? null
+  }
+  function extractTeacherName(raw: BookingTeacher): string | null {
+    if (!raw) return null
+    if (Array.isArray(raw)) return extractProfileName(raw[0]?.profile ?? null)
+    return extractProfileName(raw.profile ?? null)
+  }
+  const conductorName =
+    extractProfileName((existingBooking?.conductor as BookingProfile) ?? null) ||
+    extractTeacherName((existingBooking?.teacher as BookingTeacher) ?? null)
 
   const timezone = (user.user_metadata?.timezone as string) || 'America/Tegucigalpa'
   // "Past" means the live window is closed. Placement calls are 60 min, and
@@ -66,6 +92,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
         scheduledAt={existingBooking?.scheduled_at || null}
         timezone={timezone}
         isPast={isPast}
+        conductorName={conductorName}
       />
     )
   }

@@ -21,14 +21,36 @@ export default async function StudentDashboardPage({ params }: Props) {
     .eq('profile_id', user.id)
     .single()
 
-  // Fetch placement booking scheduled_at (to detect past calls)
+  // Fetch placement booking scheduled_at (to detect past calls) + the
+  // profile of whoever's running it, so the dashboard banner can name
+  // the host (Fathom bug #12).
   const { data: placementBooking } = await supabase
     .from('bookings')
-    .select('scheduled_at')
+    .select(`
+      scheduled_at,
+      conductor:profiles!bookings_conductor_profile_id_fkey(full_name),
+      teacher:teachers(profile:profiles(full_name))
+    `)
     .eq('student_id', student?.id || '')
     .eq('type', 'placement_test')
     .neq('status', 'cancelled')
     .maybeSingle()
+
+  type BookingProfile = { full_name: string | null } | { full_name: string | null }[] | null
+  type BookingTeacher = { profile: BookingProfile } | { profile: BookingProfile }[] | null
+  function extractProfileName(raw: BookingProfile): string | null {
+    if (!raw) return null
+    if (Array.isArray(raw)) return raw[0]?.full_name ?? null
+    return raw.full_name ?? null
+  }
+  function extractTeacherName(raw: BookingTeacher): string | null {
+    if (!raw) return null
+    if (Array.isArray(raw)) return extractProfileName(raw[0]?.profile ?? null)
+    return extractProfileName(raw.profile ?? null)
+  }
+  const placementConductorName =
+    extractProfileName((placementBooking?.conductor as BookingProfile) ?? null) ||
+    extractTeacherName((placementBooking?.teacher as BookingTeacher) ?? null)
 
   // Fetch upcoming bookings (class type only)
   const { data: upcomingBookings } = await supabase
@@ -74,6 +96,7 @@ export default async function StudentDashboardPage({ params }: Props) {
       placementTestDone={student?.placement_test_done || false}
       placementScheduled={student?.placement_scheduled || false}
       placementScheduledAt={placementBooking?.scheduled_at || null}
+      placementConductorName={placementConductorName}
       completedSessions={completedCount || 0}
       scheduledClasses={scheduledCount || 0}
       upcomingBookings={(upcomingBookings as any) || []}

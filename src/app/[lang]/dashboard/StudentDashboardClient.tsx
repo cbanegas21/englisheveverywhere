@@ -37,6 +37,8 @@ const t = {
     placementScheduledBanner: {
       title: '✓ Your diagnostic call is scheduled',
       sub: 'View your session details',
+      withHost: (name: string) => `With ${name}`,
+      hostPending: 'Host will be assigned soon',
       cta: 'View',
     },
     placementPastBanner: {
@@ -90,6 +92,8 @@ const t = {
     placementScheduledBanner: {
       title: '✓ Tu llamada diagnóstica está agendada',
       sub: 'Ver detalles de tu sesión',
+      withHost: (name: string) => `Con ${name}`,
+      hostPending: 'Asignaremos un anfitrión pronto',
       cta: 'Ver',
     },
     placementPastBanner: {
@@ -187,6 +191,7 @@ interface Props {
   placementTestDone: boolean
   placementScheduled: boolean
   placementScheduledAt: string | null
+  placementConductorName?: string | null
   completedSessions: number
   scheduledClasses: number
   upcomingBookings: Booking[]
@@ -201,6 +206,7 @@ export default function StudentDashboardClient({
   placementTestDone,
   placementScheduled,
   placementScheduledAt,
+  placementConductorName,
   completedSessions,
   scheduledClasses,
   upcomingBookings,
@@ -317,7 +323,15 @@ export default function StudentDashboardClient({
               </div>
               <div className="flex-1">
                 <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.placementScheduledBanner.title}</div>
-                <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.placementScheduledBanner.sub}</div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                  <span>{tx.placementScheduledBanner.sub}</span>
+                  <span aria-hidden="true" style={{ color: '#D1D5DB' }}>·</span>
+                  <span style={{ color: placementConductorName ? '#4B5563' : '#9CA3AF', fontStyle: placementConductorName ? 'normal' : 'italic' }}>
+                    {placementConductorName
+                      ? tx.placementScheduledBanner.withHost(placementConductorName)
+                      : tx.placementScheduledBanner.hostPending}
+                  </span>
+                </div>
               </div>
               <Link
                 href={`/${lang}/dashboard/placement`}

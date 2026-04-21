@@ -16,6 +16,7 @@ interface Props {
   scheduledAt: string | null
   timezone: string
   isPast?: boolean
+  conductorName?: string | null
 }
 
 const T = {
@@ -28,6 +29,8 @@ const T = {
     rescheduleBtn: 'Reschedule call',
     backDashBtn: 'Back to dashboard',
     scheduledBadge: 'Scheduled',
+    withLabel: 'With',
+    conductorPending: 'Host will be assigned soon',
     countdownPrefix: 'In',
     inProgress: 'Happening now',
     ended: 'Ended',
@@ -86,6 +89,8 @@ const T = {
     rescheduleBtn: 'Reagendar llamada',
     backDashBtn: 'Volver al dashboard',
     scheduledBadge: 'Agendada',
+    withLabel: 'Con',
+    conductorPending: 'Asignaremos un anfitrión pronto',
     countdownPrefix: 'En',
     inProgress: 'En curso',
     ended: 'Terminada',
@@ -236,7 +241,7 @@ function Countdown({ scheduledAt, lang }: { scheduledAt: string; lang: Locale })
 }
 
 export default function PlacementScheduledScreen({
-  lang, bookingId, scheduledAt, timezone, isPast,
+  lang, bookingId, scheduledAt, timezone, isPast, conductorName,
 }: Props) {
   const tx = T[lang]
   const isEs = lang === 'es'
@@ -317,9 +322,33 @@ export default function PlacementScheduledScreen({
 
             <div className="relative grid md:grid-cols-[1fr_auto] gap-6 items-end">
               <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-white">{tx.scheduledBadge}</span>
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-white">{tx.scheduledBadge}</span>
+                  </div>
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full"
+                    style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}
+                  >
+                    {conductorName ? (
+                      <>
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black"
+                          style={{ background: '#fff', color: '#8B1529' }}
+                        >
+                          {conductorName.trim().charAt(0).toUpperCase() || '?'}
+                        </span>
+                        <span className="text-[11px] font-bold text-white">
+                          <span className="opacity-70">{tx.withLabel}</span> {conductorName}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-white/80">
+                        {tx.conductorPending}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <p className="text-[13px] font-bold uppercase tracking-widest text-white/70 mb-2">{tx.honduras}</p>
