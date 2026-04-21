@@ -68,6 +68,8 @@ create table public.bookings (
   type text not null default 'class'::text,
   meeting_notes text,
   conductor_profile_id uuid,
+  reminder_24h_sent_at timestamp with time zone,
+  reminder_1h_sent_at timestamp with time zone,
   primary key (id)
 );
 
@@ -276,6 +278,8 @@ CREATE INDEX idx_submissions_assignment ON public.assignment_submissions USING b
 CREATE INDEX idx_assignments_student ON public.assignments USING btree (student_id, created_at DESC);
 CREATE INDEX idx_assignments_teacher ON public.assignments USING btree (teacher_id, created_at DESC);
 CREATE INDEX idx_availability_teacher ON public.availability_slots USING btree (teacher_id);
+CREATE INDEX bookings_pending_1h_reminder_idx ON public.bookings USING btree (scheduled_at) WHERE ((reminder_1h_sent_at IS NULL) AND (status = 'confirmed'::text));
+CREATE INDEX bookings_pending_24h_reminder_idx ON public.bookings USING btree (scheduled_at) WHERE ((reminder_24h_sent_at IS NULL) AND (status = 'confirmed'::text));
 CREATE UNIQUE INDEX bookings_student_time_unique ON public.bookings USING btree (student_id, scheduled_at) WHERE (status <> 'cancelled'::text);
 CREATE INDEX idx_bookings_pending_class_assignment ON public.bookings USING btree (scheduled_at) WHERE ((type = 'class'::text) AND (teacher_id IS NULL) AND (status <> 'cancelled'::text));
 CREATE INDEX idx_bookings_pending_placement_assignment ON public.bookings USING btree (scheduled_at) WHERE ((type = 'placement_test'::text) AND (conductor_profile_id IS NULL) AND (status <> 'cancelled'::text));
