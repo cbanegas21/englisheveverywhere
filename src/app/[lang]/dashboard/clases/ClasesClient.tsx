@@ -48,6 +48,10 @@ const t = {
     days: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
     search: 'Search by teacher name',
     noResults: 'No classes match your search.',
+    showing: 'Showing',
+    clear: 'Clear',
+    noClassesOnDay: 'No classes on this day',
+    scheduleOne: 'Schedule one',
     stats30d: 'Last 30 days',
     statsTotal: 'Total classes',
     statsCompleted: 'Completed',
@@ -90,6 +94,10 @@ const t = {
     days: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
     search: 'Buscar por maestro',
     noResults: 'Ninguna clase coincide con tu búsqueda.',
+    showing: 'Mostrando',
+    clear: 'Limpiar',
+    noClassesOnDay: 'No hay clases este día',
+    scheduleOne: 'Agendar una',
     stats30d: 'Últimos 30 días',
     statsTotal: 'Clases totales',
     statsCompleted: 'Completadas',
@@ -188,6 +196,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
   const today = new Date()
   const [calMonth, setCalMonth] = useState(today.getMonth())
   const [calYear, setCalYear] = useState(today.getFullYear())
+  const [selectedDay, setSelectedDay] = useState<{ y: number; m: number; d: number } | null>(null)
 
   const bookingRefs = useRef<Record<string, HTMLLIElement | null>>({})
 
@@ -195,13 +204,22 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
   const bookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings
 
   const filteredBookings = useMemo(() => {
-    if (!search.trim()) return bookings
-    const q = search.trim().toLowerCase()
-    return bookings.filter(b => {
-      const name = b.teacher?.profile?.full_name?.toLowerCase() || ''
-      return name.includes(q) || (b.type === 'placement_test' && 'placement diagnostic'.includes(q))
-    })
-  }, [bookings, search])
+    let list = bookings
+    if (selectedDay) {
+      list = list.filter(b => {
+        const d = new Date(b.scheduled_at)
+        return d.getFullYear() === selectedDay.y && d.getMonth() === selectedDay.m && d.getDate() === selectedDay.d
+      })
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(b => {
+        const name = b.teacher?.profile?.full_name?.toLowerCase() || ''
+        return name.includes(q) || (b.type === 'placement_test' && 'placement diagnostic'.includes(q))
+      })
+    }
+    return list
+  }, [bookings, search, selectedDay])
 
   const isEmpty = filteredBookings.length === 0
 
@@ -238,10 +256,12 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
   const monthLabel = (lang === 'es' ? MONTHS_ES : MONTHS_EN)[calMonth]
 
   function prevMonth() {
+    setSelectedDay(null)
     if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) }
     else setCalMonth(m => m - 1)
   }
   function nextMonth() {
+    setSelectedDay(null)
     if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) }
     else setCalMonth(m => m + 1)
   }
@@ -392,25 +412,31 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                   if (!day) return <div key={i} />
                   const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear()
                   const hasBooking = bookedDays.has(day)
+                  const isSelected = !!selectedDay && selectedDay.y === calYear && selectedDay.m === calMonth && selectedDay.d === day
+                  const activeBg = isToday || isSelected
                   return (
                     <button
                       key={i}
-                      onClick={() => hasBooking && scrollToDay(day)}
+                      onClick={() => {
+                        if (isSelected) { setSelectedDay(null); return }
+                        setSelectedDay({ y: calYear, m: calMonth, d: day })
+                        if (hasBooking) scrollToDay(day)
+                      }}
                       className="flex flex-col items-center py-1 rounded-lg transition-colors"
-                      style={{ cursor: hasBooking ? 'pointer' : 'default' }}
-                      onMouseEnter={e => { if (hasBooking) e.currentTarget.style.background = '#F3F4F6' }}
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6' }}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <span
                         className="text-[13px] font-bold w-8 h-8 flex items-center justify-center rounded-full tabular-nums"
-                        style={isToday ? { background: '#C41E3A', color: '#fff' } : { color: hasBooking ? '#111111' : '#9CA3AF' }}
+                        style={activeBg ? { background: '#C41E3A', color: '#fff' } : { color: hasBooking ? '#111111' : '#9CA3AF' }}
                       >
                         {day}
                       </span>
-                      {hasBooking && !isToday && (
+                      {hasBooking && !activeBg && (
                         <span className="h-1 w-1 rounded-full mt-0.5" style={{ background: '#C41E3A' }} />
                       )}
-                      {hasBooking && isToday && (
+                      {hasBooking && activeBg && (
                         <span className="h-1 w-1 rounded-full mt-0.5" style={{ background: '#fff' }} />
                       )}
                     </button>
@@ -491,6 +517,36 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
               </div>
             </div>
 
+            {/* Day-filter pill */}
+            {selectedDay && (
+              <div className="flex items-center gap-2">
+                <div
+                  className="inline-flex items-center gap-2 rounded-full text-[12px] font-semibold"
+                  style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A', padding: '6px 6px 6px 12px', border: '1px solid rgba(196,30,58,0.2)' }}
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>
+                    {tx.showing}{' '}
+                    {new Date(selectedDay.y, selectedDay.m, selectedDay.d).toLocaleDateString(
+                      lang === 'es' ? 'es-CO' : 'en-US',
+                      { weekday: 'short', month: 'short', day: 'numeric' }
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDay(null)}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold transition-colors"
+                    style={{ background: '#C41E3A', color: '#fff' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#9E1830')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#C41E3A')}
+                  >
+                    <X className="h-3 w-3" />
+                    {tx.clear}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* List */}
             <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
               {isEmpty ? (
@@ -499,11 +555,23 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                     <Calendar className="h-7 w-7" style={{ color: '#C41E3A' }} />
                   </div>
                   <p className="text-[15px] font-bold mb-1" style={{ color: '#111111' }}>
-                    {search ? tx.noResults : activeTab === 'upcoming' ? tx.noUpcoming : tx.noPast}
+                    {selectedDay
+                      ? tx.noClassesOnDay
+                      : search
+                      ? tx.noResults
+                      : activeTab === 'upcoming' ? tx.noUpcoming : tx.noPast}
                   </p>
-                  {!search && (
+                  {!search && !selectedDay && (
                     <p className="text-[12px] mb-6" style={{ color: '#9CA3AF' }}>
                       {activeTab === 'upcoming' ? tx.noUpcomingSub : tx.noPastSub}
+                    </p>
+                  )}
+                  {selectedDay && (
+                    <p className="text-[12px] mb-6" style={{ color: '#9CA3AF' }}>
+                      {new Date(selectedDay.y, selectedDay.m, selectedDay.d).toLocaleDateString(
+                        lang === 'es' ? 'es-CO' : 'en-US',
+                        { weekday: 'long', month: 'long', day: 'numeric' }
+                      )}
                     </p>
                   )}
                   {activeTab === 'upcoming' && !search && (
@@ -514,7 +582,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                       onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
                       onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
                     >
-                      {tx.bookClass}
+                      {selectedDay ? tx.scheduleOne : tx.bookClass}
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Link>
                   )}
