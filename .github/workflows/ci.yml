@@ -1,0 +1,163 @@
+name: CI
+
+# Runs on every push to main and every PR. The deploy target (Vercel) builds
+# independently on every push to main, so this workflow is NOT a deploy gate
+# — it's a regression tripwire that reports failures via the GitHub Actions
+# UI so Carlos sees them shortly after pushing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (Next.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          # Build reads placeholders out of env for the marketing site.
+          # Real runtime values live on Vercel. These only need to be
+          # non-empty to satisfy `new URL(...)` during route emission.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_placeholder
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          LIVEKIT_API_KEY: placeholder
+          LIVEKIT_API_SECRET: placeholder
+          NEXT_PUBLIC_LIVEKIT_URL: wss://placeholder.livekit.cloud
+          RESEND_API_KEY: re_placeholder
+          ANTHROPIC_API_KEY: placeholder
+
+  schema-drift:
+    name: Schema drift probe (prod DB)
+    runs-on: ubuntu-latest
+    needs: build
+    # Only runs when the management token is wired up. Fork PRs won't see
+    # the secret and will skip cleanly.
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Check required secrets
+        id: check
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_ACCESS_TOKEN secret not set — skipping schema-drift probe. Add it at Settings → Secrets → Actions."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.check.outputs.skip != 'true'
+
+      - name: Install Playwright browsers (chromium only)
+        if: steps.check.outputs.skip != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run schema-drift probe
+        if: steps.check.outputs.skip != 'true'
+        run: pnpm exec playwright test tests/e2e/schema-drift-probe.spec.ts --reporter=list
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # No web server needed — the probe only reads migration files +
+          # hits the Management API. Setting PLAYWRIGHT_BASE_URL to a dummy
+          # URL tells playwright.config.ts to NOT start the Next dev server.
+          PLAYWRIGHT_BASE_URL: http://localhost:9999
+
+      - name: Upload playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-schema-drift
+          path: playwright-report
+          retention-days: 7
+
+  gen-types-check:
+    name: Types file matches live DB
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Check required secrets
+        id: check
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_ACCESS_TOKEN secret not set — skipping types drift check."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.check.outputs.skip != 'true'
+
+      - name: Regenerate types
+        if: steps.check.outputs.skip != 'true'
+        run: pnpm gen-types
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Fail if committed types are stale
+        if: steps.check.outputs.skip != 'true'
+        # Reports the diff before failing so the PR / commit author can see
+        # exactly which columns drifted. Fix locally with `pnpm gen-types`
+        # and commit the result.
+        run: |
+          if ! git diff --quiet src/types/supabase.ts; then
+            echo "::error::src/types/supabase.ts is stale. Run 'pnpm gen-types' locally and commit the result."
+            git diff src/types/supabase.ts
+            exit 1
+          fi
