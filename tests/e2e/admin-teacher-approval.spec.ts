@@ -92,20 +92,22 @@ test.describe('Tier 1.8b — Admin teacher approval UI', () => {
     await expect(page.getByRole('heading', { name: /Pending Applications/i }))
       .toBeVisible({ timeout: 10_000 })
 
-    // Scope to the card containing our fixture teacher's display name.
-    // The card renders `t.full_name` + `t.email` in adjacent <p> tags;
-    // fullName is stamped with Date.now() so it's unique across runs.
-    const card = page.locator('.rounded-xl', { hasText: fx!.teacher.fullName })
+    // Scope to the Pending Applications <section> so we don't accidentally
+    // match the Active Teachers wrapper (both use .rounded-xl).
+    const pendingSection = page.locator('section', {
+      has: page.getByRole('heading', { name: /Pending Applications/i }),
+    })
+    const card = pendingSection.locator('.rounded-xl', { hasText: fx!.teacher.fullName })
     await expect(card, 'our pending teacher card must render').toBeVisible({ timeout: 10_000 })
 
     await card.getByRole('button', { name: /^Approve$/ }).click()
 
-    // On success, ApproveRejectButtons swaps the buttons for a green
-    // "Approved" badge in the same card.
-    await expect(card.getByText('Approved', { exact: true }))
-      .toBeVisible({ timeout: 10_000 })
-
-    // DB invariant — is_active flipped to true.
+    // DB invariant — the action's side-effect. This is the authoritative
+    // signal that approveTeacherWithEmail completed end-to-end. The UI
+    // "Approved" badge (local useState on the button component) is racy:
+    // the action calls revalidatePath('/', 'layout') which triggers an RSC
+    // refresh that unmounts the component before the local state can
+    // paint — so asserting on the badge would be flaky.
     await expect.poll(async () => {
       const { data } = await fx!.admin
         .from('teachers')
@@ -117,5 +119,18 @@ test.describe('Tier 1.8b — Admin teacher approval UI', () => {
       timeout: 10_000,
       message: 'approveTeacherWithEmail must flip teachers.is_active true',
     }).toBe(true)
+
+    // UI invariant — the teacher card disappears from the Pending
+    // Applications section once revalidation completes (they're now in the
+    // active list). Scope to the pending section to avoid false positives
+    // if the fullName appears in the Active Teachers table below.
+    await expect.poll(async () => {
+      return await pendingSection
+        .locator('.rounded-xl', { hasText: fx!.teacher.fullName })
+        .count()
+    }, {
+      timeout: 10_000,
+      message: 'approved teacher card must leave the Pending Applications list',
+    }).toBe(0)
   })
 })
