@@ -1,9 +1,11 @@
-# CLAUDE.md — technical pointer for English Everywhere
+# CLAUDE.md — technical pointer for EnglishKolab
 
 **See [`PROJECT.md`](./PROJECT.md) for product vision, audience, pricing, roles,
 and all "why" decisions. This file only covers how the code is put together.**
 
-Last regenerated: 2026-04-17 (updated same day after Batch 4 + cleanup pass).
+Last regenerated: 2026-04-17. Rebranded 2026-04-20 (was "English Everywhere";
+the on-disk repo folder is still `english-everywhere/` — unchanged to avoid
+breaking paths). Tagline: _Learn English. Anytime. Anywhere. At your pace._
 
 ---
 

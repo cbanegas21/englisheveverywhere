@@ -155,7 +155,7 @@ function buildGoogleCalendarUrl(iso: string, lang: Locale): string {
   const start = new Date(iso)
   const end = new Date(start.getTime() + 60 * 60 * 1000)
   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-  const title = lang === 'es' ? 'Llamada diagnóstica — English Everywhere' : 'Diagnostic Call — English Everywhere'
+  const title = lang === 'es' ? 'Llamada diagnóstica — EnglishKolab' : 'Diagnostic Call — EnglishKolab'
   const details = lang === 'es'
     ? 'Llamada diagnóstica de 60 minutos para evaluar tu nivel de inglés.'
     : '60-minute diagnostic call to assess your English level.'
@@ -172,16 +172,16 @@ function buildIcsDataUrl(iso: string, lang: Locale): string {
   const start = new Date(iso)
   const end = new Date(start.getTime() + 60 * 60 * 1000)
   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-  const title = lang === 'es' ? 'Llamada diagnóstica — English Everywhere' : 'Diagnostic Call — English Everywhere'
+  const title = lang === 'es' ? 'Llamada diagnóstica — EnglishKolab' : 'Diagnostic Call — EnglishKolab'
   const details = lang === 'es'
     ? 'Llamada diagnóstica de 60 minutos para evaluar tu nivel de inglés.'
     : '60-minute diagnostic call to assess your English level.'
   const ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//English Everywhere//Diagnostic//EN',
+    'PRODID:-//EnglishKolab//Diagnostic//EN',
     'BEGIN:VEVENT',
-    `UID:${Date.now()}@english-everywhere`,
+    `UID:${Date.now()}@englishkolab`,
     `DTSTAMP:${fmt(new Date())}`,
     `DTSTART:${fmt(start)}`,
     `DTEND:${fmt(end)}`,

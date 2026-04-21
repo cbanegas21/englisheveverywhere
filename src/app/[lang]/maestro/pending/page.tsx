@@ -83,10 +83,10 @@ export default async function MaestroPendingPage({ params }: Props) {
             className="h-7 w-7 rounded flex items-center justify-center text-[10px] font-black"
             style={{ background: '#C41E3A', color: '#fff' }}
           >
-            EE
+            EK
           </div>
           <span className="text-[14px] font-black tracking-tight" style={{ color: '#111111' }}>
-            English Everywhere
+            EnglishKolab
           </span>
         </div>
         <form action={handleSignOut}>
@@ -168,11 +168,11 @@ export default async function MaestroPendingPage({ params }: Props) {
             {tx.questions}{' '}
             {tx.contact}{' '}
             <a
-              href="mailto:hola@englisheverywhere.com"
+              href="mailto:hola@englishkolab.com"
               className="font-semibold underline underline-offset-2"
               style={{ color: '#111111' }}
             >
-              hola@englisheverywhere.com
+              hola@englishkolab.com
             </a>
           </p>
 

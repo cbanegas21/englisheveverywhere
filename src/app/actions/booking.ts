@@ -11,7 +11,7 @@ async function sendAdminBookingEmail(params: {
   lang: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englisheverywhere.com'
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   if (!apiKey || apiKey === 're_placeholder') return
@@ -28,7 +28,7 @@ async function sendAdminBookingEmail(params: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM || 'noreply@englisheverywhere.com',
+      from: process.env.EMAIL_FROM || 'noreply@englishkolab.com',
       to: adminEmail,
       subject: `Class needs a teacher — ${params.studentName}`,
       html: `

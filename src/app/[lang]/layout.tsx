@@ -15,8 +15,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title:
       lang === 'es'
-        ? 'EnglishEverywhere — Clases de inglés 1 a 1 para Latinoamérica'
-        : 'EnglishEverywhere — Personalized English classes for Latin America',
+        ? 'EnglishKolab — Aprende inglés. Cuando quieras. Donde quieras. A tu ritmo.'
+        : 'EnglishKolab — Learn English. Anytime. Anywhere. At your pace.',
   }
 }
 

@@ -69,7 +69,7 @@ async function makeThrowawayAuthUser(role: 'teacher' | 'student'): Promise<Throw
   if (!admin) return null
 
   const stamp = Date.now() + Math.floor(Math.random() * 10000)
-  const email = `e2e-onb-${role}-${stamp}@english-everywhere.test`
+  const email = `e2e-onb-${role}-${stamp}@englishkolab.test`
   const { data: created, error } = await admin.auth.admin.createUser({
     email,
     password: 'OnboardPw1234!',

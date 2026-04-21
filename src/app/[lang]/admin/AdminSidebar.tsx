@@ -39,10 +39,10 @@ export default function AdminSidebar({ lang }: Props) {
           className="h-8 w-8 rounded flex items-center justify-center text-[10px] font-black flex-shrink-0"
           style={{ background: '#C41E3A', color: '#fff' }}
         >
-          EE
+          EK
         </div>
         <div>
-          <p className="text-[12px] font-black text-white leading-none">English Everywhere</p>
+          <p className="text-[12px] font-black text-white leading-none">EnglishKolab</p>
           <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{labels.adminPanel}</p>
         </div>
       </div>

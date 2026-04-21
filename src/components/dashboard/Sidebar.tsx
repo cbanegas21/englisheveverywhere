@@ -101,10 +101,10 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0 text-[9px] font-black"
             style={{ background: '#C41E3A', color: '#fff' }}
           >
-            EE
+            EK
           </div>
           <span className="font-black text-[14px]" style={{ color: '#F9F9F9' }}>
-            English Everywhere
+            EnglishKolab
           </span>
         </Link>
       </div>
@@ -225,9 +225,9 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-black"
             style={{ background: '#C41E3A', color: '#fff' }}
           >
-            EE
+            EK
           </div>
-          <span className="font-black text-[14px]" style={{ color: '#F9F9F9' }}>English Everywhere</span>
+          <span className="font-black text-[14px]" style={{ color: '#F9F9F9' }}>EnglishKolab</span>
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}

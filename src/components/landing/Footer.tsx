@@ -27,7 +27,7 @@ const t = {
         ],
       },
     ],
-    copyright: '© 2025 English Everywhere',
+    copyright: '© 2025 EnglishKolab',
     legal: 'Operated by Remote ACKtive LLC · Wyoming, USA',
   },
   es: {
@@ -52,7 +52,7 @@ const t = {
         ],
       },
     ],
-    copyright: '© 2025 English Everywhere',
+    copyright: '© 2025 EnglishKolab',
     legal: 'Operado por Remote ACKtive LLC · Wyoming, USA',
   },
 }
@@ -72,17 +72,17 @@ export default function Footer({ lang }: { lang: Locale }) {
                 className="h-8 w-8 rounded flex items-center justify-center text-[11px] font-black"
                 style={{ background: '#C41E3A', color: '#fff' }}
               >
-                EE
+                EK
               </div>
               <span className="text-[15px] font-black tracking-tight" style={{ color: '#F9F9F9' }}>
-                English Everywhere
+                EnglishKolab
               </span>
             </Link>
             <p className="text-[13px] leading-relaxed max-w-xs mb-6" style={{ color: 'rgba(249,249,249,0.35)' }}>
               {tx.tagline}
             </p>
             <a
-              href="mailto:hola@englisheverywhere.com"
+              href="mailto:hola@englishkolab.com"
               className="h-9 w-9 rounded flex items-center justify-center transition-colors"
               style={{ background: 'rgba(249,249,249,0.06)', color: 'rgba(249,249,249,0.35)', display: 'inline-flex' }}
               onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#F9F9F9')}

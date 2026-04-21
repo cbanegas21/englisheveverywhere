@@ -71,10 +71,10 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
             className="h-8 w-8 rounded flex items-center justify-center text-[11px] font-black"
             style={{ background: '#C41E3A', color: '#fff' }}
           >
-            EE
+            EK
           </div>
           <span className="text-[15px] font-black tracking-tight hidden sm:block" style={{ color: '#F9F9F9' }}>
-            English Everywhere
+            EnglishKolab
           </span>
         </Link>
 

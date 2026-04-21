@@ -52,7 +52,7 @@ interface StrangerStudent {
 
 async function createStrangerStudent(admin: SupabaseClient): Promise<StrangerStudent | null> {
   const stamp = Date.now() + Math.floor(Math.random() * 1000)
-  const email = `e2e-stranger-${stamp}@english-everywhere.test`
+  const email = `e2e-stranger-${stamp}@englishkolab.test`
   const password = 'E2eTest1234!'
 
   const { data: created, error } = await admin.auth.admin.createUser({

@@ -173,7 +173,7 @@ function sendRescheduleNotification(params: {
   lang: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englisheverywhere.com'
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
   const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
 
   if (!apiKey || apiKey === 're_placeholder') return
@@ -209,7 +209,7 @@ function sendPlacementEmails(params: {
   lang: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englisheverywhere.com'
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
   const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
 
   if (!apiKey || apiKey === 're_placeholder') return
@@ -256,22 +256,22 @@ function sendPlacementEmails(params: {
       from: fromEmail,
       to: params.studentEmail,
       subject: isEs
-        ? 'Tu llamada de diagnóstico está confirmada — English Everywhere'
-        : 'Your evaluation call is confirmed — English Everywhere',
+        ? 'Tu llamada de diagnóstico está confirmada — EnglishKolab'
+        : 'Your evaluation call is confirmed — EnglishKolab',
       html: isEs
         ? `
           <p>Hola ${params.studentName},</p>
           <p>¡Tu llamada de diagnóstico gratuita está confirmada!</p>
           <p>📅 <strong>Fecha:</strong> ${hnFormatted} (hora de Honduras, CST)</p>
-          <p>Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a <a href="mailto:hola@englisheverywhere.com">hola@englisheverywhere.com</a>.</p>
-          <p>— El equipo de English Everywhere</p>
+          <p>Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
+          <p>— El equipo de EnglishKolab</p>
         `
         : `
           <p>Hi ${params.studentName},</p>
           <p>Your free evaluation call is confirmed!</p>
           <p>📅 <strong>Date:</strong> ${enFormatted} (Honduras time, CST)</p>
-          <p>We'll reach out through the platform. Questions? Email us at <a href="mailto:hola@englisheverywhere.com">hola@englisheverywhere.com</a>.</p>
-          <p>— The English Everywhere team</p>
+          <p>We'll reach out through the platform. Questions? Email us at <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
+          <p>— The EnglishKolab team</p>
         `,
     }),
   }).catch(() => {})

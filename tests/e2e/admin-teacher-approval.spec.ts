@@ -22,7 +22,7 @@ import {
  *
  * Email side-effect: `approveTeacherWithEmail` fires a Resend welcome
  * email non-blocking. Since the fixture teacher uses a fake-TLD address
- * (`@english-everywhere.test`), we temporarily swap `profiles.email` to
+ * (`@englishkolab.test`), we temporarily swap `profiles.email` to
  * Resend's sandbox address `delivered@resend.dev` for the duration of
  * the test — otherwise we'd rack up hard bounces every run (see
  * memory: feedback_email_bounces.md). Restored on afterAll.

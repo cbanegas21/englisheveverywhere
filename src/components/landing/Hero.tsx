@@ -8,7 +8,7 @@ import { Boxes } from '@/components/ui/background-boxes'
 const t = {
   en: {
     label: 'Live 1-on-1 classes · Latin America',
-    title: 'English that\nactually sticks.',
+    title: 'Learn English.\nAnytime. Anywhere.\nAt your pace.',
     body: 'Monthly plans of 8–20 live 1-on-1 classes with a bilingual, near-native teacher. Cancel anytime. CEFR-tracked progress every 4 classes.',
     cta: 'Get Started',
     ctaLogin: 'Log In',
@@ -18,7 +18,7 @@ const t = {
   },
   es: {
     label: 'Clases 1-a-1 en vivo · Latinoamérica',
-    title: 'Inglés que\nrealmente funciona.',
+    title: 'Aprende inglés.\nCuando quieras. Donde quieras.\nA tu ritmo.',
     body: 'Planes mensuales de 8–20 clases 1-a-1 en vivo con un maestro bilingüe near-native. Cancela cuando quieras. Nivel CEFR revisado cada 4 clases.',
     cta: 'Comenzar',
     ctaLogin: 'Iniciar sesión',

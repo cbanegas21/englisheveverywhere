@@ -95,10 +95,10 @@ function LoginForm({ lang }: { lang: Locale }) {
             className="h-7 w-7 rounded flex items-center justify-center text-[10px] font-black"
             style={{ background: '#C41E3A', color: '#fff' }}
           >
-            EE
+            EK
           </div>
           <span className="text-[14px] font-black tracking-tight" style={{ color: '#111111' }}>
-            English Everywhere
+            EnglishKolab
           </span>
         </Link>
         <p className="text-[13px]" style={{ color: '#9CA3AF' }}>

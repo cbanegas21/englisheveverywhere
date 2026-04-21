@@ -6,13 +6,13 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const DATA = {
   en: [
-    { quote: 'I tried Duolingo and YouTube for 3 years. Two months with English Everywhere and I had my first real conversation in English at work.', name: 'Andrea M.', role: 'HR Manager', city: 'Tegucigalpa' },
+    { quote: 'I tried Duolingo and YouTube for 3 years. Two months with EnglishKolab and I had my first real conversation in English at work.', name: 'Andrea M.', role: 'HR Manager', city: 'Tegucigalpa' },
     { quote: 'My teacher is Honduran. She knows exactly why I struggle and how to explain things so they click. No other platform gave me that.', name: 'Roberto C.', role: 'Engineer', city: 'San Pedro Sula' },
     { quote: 'No subscription trap. No monthly fee I forget to cancel. Just classes when I need them. That alone was why I chose this over Cambly.', name: 'David H.', role: 'Remote worker', city: 'Choloma' },
     { quote: 'The AI recap after each class is something else. I have a record of every word I learned, every grammar point we covered. I actually study.', name: 'María F.', role: 'Entrepreneur', city: 'La Ceiba' },
   ],
   es: [
-    { quote: 'Intenté Duolingo y YouTube por 3 años. Dos meses con English Everywhere y tuve mi primera conversación real en inglés en el trabajo.', name: 'Andrea M.', role: 'Gerente de RRHH', city: 'Tegucigalpa' },
+    { quote: 'Intenté Duolingo y YouTube por 3 años. Dos meses con EnglishKolab y tuve mi primera conversación real en inglés en el trabajo.', name: 'Andrea M.', role: 'Gerente de RRHH', city: 'Tegucigalpa' },
     { quote: 'Mi maestra es hondureña. Sabe exactamente por qué me cuesta y cómo explicarme las cosas para que me hagan clic. Ninguna otra plataforma me dio eso.', name: 'Roberto C.', role: 'Ingeniero', city: 'San Pedro Sula' },
     { quote: 'Sin trampa de suscripción. Sin mensualidad que olvido cancelar. Solo clases cuando las necesito. Eso solo fue la razón por la que elegí esto sobre Cambly.', name: 'David H.', role: 'Trabajador remoto', city: 'Choloma' },
     { quote: 'El resumen con IA después de cada clase es increíble. Tengo un registro de cada palabra que aprendí, cada punto de gramática. Realmente estudio.', name: 'María F.', role: 'Emprendedora', city: 'La Ceiba' },

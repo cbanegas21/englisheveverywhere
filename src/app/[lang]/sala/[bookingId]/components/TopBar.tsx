@@ -29,7 +29,7 @@ export function TopBar({ lang, isTeacher, myName, otherName, scheduledAt, durati
           className="flex h-8 w-8 items-center justify-center rounded-lg shadow-md"
           style={{ background: VIDEO_THEME.brand, boxShadow: `0 4px 16px ${VIDEO_THEME.brandTint30}` }}
         >
-          <span className="text-[10px] font-black text-white">EE</span>
+          <span className="text-[10px] font-black text-white">EK</span>
         </div>
         <div>
           <div className="text-xs font-bold text-white">

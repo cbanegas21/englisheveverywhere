@@ -41,7 +41,7 @@ const t = {
     placementPastBanner: {
       title: 'Your diagnostic call has passed',
       sub: (date: string) => `It was scheduled for ${date}. Please contact us to reschedule.`,
-      contact: 'hola@englisheverywhere.com',
+      contact: 'hola@englishkolab.com',
     },
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
@@ -92,7 +92,7 @@ const t = {
     placementPastBanner: {
       title: 'Tu llamada diagnóstica ya pasó',
       sub: (date: string) => `Estaba agendada para el ${date}. Contáctanos para reagendar.`,
-      contact: 'hola@englisheverywhere.com',
+      contact: 'hola@englishkolab.com',
     },
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',

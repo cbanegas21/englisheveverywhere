@@ -81,32 +81,32 @@ async function sendTeacherApplicationEmails(params: {
 }) {
   const apiKey = process.env.RESEND_API_KEY
   const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englisheverywhere.com'
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (!apiKey || apiKey === 're_placeholder') return
 
   const firstName = params.teacherName.split(' ')[0] || ''
 
   const teacherSubject = params.lang === 'es'
-    ? '¡Solicitud recibida! — English Everywhere'
-    : 'Application received — English Everywhere'
+    ? '¡Solicitud recibida! — EnglishKolab'
+    : 'Application received — EnglishKolab'
 
   const teacherHtml = params.lang === 'es'
     ? `
       <h2>¡Hola ${firstName}!</h2>
-      <p>Recibimos tu solicitud para enseñar en English Everywhere. Gracias por unirte a nuestra comunidad.</p>
+      <p>Recibimos tu solicitud para enseñar en EnglishKolab. Gracias por unirte a nuestra comunidad.</p>
       <p>Nuestro equipo revisará tu perfil en las próximas 24-48 horas. Recibirás un correo en cuanto tu cuenta sea activada.</p>
       <p>Mientras tanto, puedes revisar tu solicitud aquí:<br/>
       <a href="${appUrl}/es/maestro/pending">Ver mi solicitud →</a></p>
-      <p>— El equipo de English Everywhere</p>
+      <p>— El equipo de EnglishKolab</p>
     `
     : `
       <h2>Hi ${firstName}!</h2>
-      <p>We received your application to teach with English Everywhere. Thanks for joining our community.</p>
+      <p>We received your application to teach with EnglishKolab. Thanks for joining our community.</p>
       <p>Our team will review your profile in the next 24–48 hours. You'll receive an email once your account is activated.</p>
       <p>In the meantime, you can review your application here:<br/>
       <a href="${appUrl}/en/maestro/pending">View my application →</a></p>
-      <p>— The English Everywhere team</p>
+      <p>— The EnglishKolab team</p>
     `
 
   // Teacher confirmation

@@ -80,8 +80,8 @@ export default async function MaterialesPage({ params }: Props) {
             </div>
             <p className="text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
               {isEs
-                ? 'El equipo de English Everywhere está organizando todos los materiales de currículo, guías de nivel y plantillas. Aparecerán aquí cuando estén listos.'
-                : "The English Everywhere team is organizing all curriculum materials, level guides, and templates. They'll appear here once ready."}
+                ? 'El equipo de EnglishKolab está organizando todos los materiales de currículo, guías de nivel y plantillas. Aparecerán aquí cuando estén listos.'
+                : "The EnglishKolab team is organizing all curriculum materials, level guides, and templates. They'll appear here once ready."}
             </p>
           </div>
         </div>

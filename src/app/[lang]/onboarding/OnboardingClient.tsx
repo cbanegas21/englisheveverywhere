@@ -185,9 +185,9 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
             className="h-7 w-7 rounded flex items-center justify-center text-[10px] font-black"
             style={{ background: '#C41E3A', color: '#fff' }}
           >
-            EE
+            EK
           </div>
-          <span className="font-black text-[15px]" style={{ color: '#111111' }}>English Everywhere</span>
+          <span className="font-black text-[15px]" style={{ color: '#111111' }}>EnglishKolab</span>
         </div>
         {!done && (
           <span className="text-[12px] font-medium" style={{ color: '#9CA3AF' }}>

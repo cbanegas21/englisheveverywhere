@@ -322,8 +322,8 @@ export default function ProgresoClient({
                     {placementDate && placementTime && (
                       <p className="text-[12px] mt-0.5" style={{ color: '#B45309' }}>
                         {lang === 'es'
-                          ? `Estaba agendada para el ${placementDate} a las ${placementTime}. Contáctanos: hola@englisheverywhere.com`
-                          : `It was scheduled for ${placementDate} at ${placementTime}. Contact us: hola@englisheverywhere.com`}
+                          ? `Estaba agendada para el ${placementDate} a las ${placementTime}. Contáctanos: hola@englishkolab.com`
+                          : `It was scheduled for ${placementDate} at ${placementTime}. Contact us: hola@englishkolab.com`}
                       </p>
                     )}
                   </div>

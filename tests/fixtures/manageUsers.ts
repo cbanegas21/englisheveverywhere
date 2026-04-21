@@ -60,7 +60,7 @@ export async function ensureStudentPassword(email: string, password: string): Pr
 
 export interface AdminCreds { email: string; password: string }
 
-const ADMIN_EMAIL = 'e2e-admin@english-everywhere.test'
+const ADMIN_EMAIL = 'e2e-admin@englishkolab.test'
 const ADMIN_PASSWORD = 'E2eAdmin1234!'
 
 export async function ensureAdminUser(): Promise<AdminCreds | null> {

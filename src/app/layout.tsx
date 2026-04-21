@@ -9,10 +9,10 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'EnglishEverywhere — Clases de inglés 1 a 1',
+  title: 'EnglishKolab — Learn English. Anytime. Anywhere. At your pace.',
   description:
-    'Plataforma de clases de inglés personalizadas para Latinoamérica. Aprende a tu ritmo con maestros certificados.',
-  keywords: 'clases de inglés, inglés online, aprender inglés, Latinoamérica',
+    'Aprende inglés con maestros hondureños near-native, en vivo y a tu ritmo. Cuando quieras. Donde quieras.',
+  keywords: 'clases de inglés, inglés online, aprender inglés, EnglishKolab, Latinoamérica',
 }
 
 export default function RootLayout({

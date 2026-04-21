@@ -64,7 +64,7 @@ async function makeStudent(): Promise<ThrowawayStudent | null> {
   if (!admin) return null
 
   const stamp = Date.now() + Math.floor(Math.random() * 10000)
-  const email = `e2e-rls-${stamp}@english-everywhere.test`
+  const email = `e2e-rls-${stamp}@englishkolab.test`
   const password = 'RlsTest1234!'
 
   const { data: created, error } = await admin.auth.admin.createUser({
@@ -154,7 +154,7 @@ test.describe('RLS privilege-escalation probes', () => {
     test.skip(!admin, 'admin creds unavailable')
 
     const stamp = Date.now() + Math.floor(Math.random() * 10000)
-    const email = `e2e-rls-teacher-${stamp}@english-everywhere.test`
+    const email = `e2e-rls-teacher-${stamp}@englishkolab.test`
     const password = 'RlsTest1234!'
 
     const { data: created } = await admin!.auth.admin.createUser({

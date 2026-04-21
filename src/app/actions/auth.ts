@@ -47,8 +47,8 @@ export async function signUp(formData: FormData) {
     const isEmailIssue = msg.includes('email') || msg.includes('smtp') || msg.includes('sending') || msg.includes('rate limit')
     if (isEmailIssue) {
       const emailError = lang === 'es'
-        ? 'No pudimos enviar el email de confirmación. Contacta a soporte: hola@englisheverywhere.com'
-        : "We couldn't send your confirmation email. Contact support: hola@englisheverywhere.com"
+        ? 'No pudimos enviar el email de confirmación. Contacta a soporte: hola@englishkolab.com'
+        : "We couldn't send your confirmation email. Contact support: hola@englishkolab.com"
       redirect(`/${lang}/registro?error=${encodeURIComponent(emailError)}`)
     }
     redirect(`/${lang}/registro?error=${encodeURIComponent(error.message)}`)
@@ -89,9 +89,9 @@ export async function signUp(formData: FormData) {
         const { error: resendError } = await resend.emails.send({
           from: fromAddr,
           to: email,
-          subject: 'Confirma tu cuenta — English Everywhere',
+          subject: 'Confirma tu cuenta — EnglishKolab',
           html: `
-            <h2>¡Bienvenido a English Everywhere!</h2>
+            <h2>¡Bienvenido a EnglishKolab!</h2>
             <p>Haz clic en el siguiente enlace para confirmar tu cuenta:</p>
             <a href="${confirmationUrl}">Confirmar mi cuenta</a>
             <p>Si no creaste esta cuenta, ignora este email.</p>

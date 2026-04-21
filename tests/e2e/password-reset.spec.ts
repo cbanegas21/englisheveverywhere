@@ -70,7 +70,7 @@ async function makeThrowawayStudent(): Promise<ThrowawayUser | null> {
   if (!admin) return null
 
   const stamp = Date.now() + Math.floor(Math.random() * 10000)
-  const email = `e2e-pw-${stamp}@english-everywhere.test`
+  const email = `e2e-pw-${stamp}@englishkolab.test`
   const password = 'InitialPw1234!'
 
   const { data: created, error } = await admin.auth.admin.createUser({
@@ -112,7 +112,7 @@ test.describe('Tier 2.4 — Password reset / change flow', () => {
     await expect(page.getByRole('heading', { name: /Restablecer contraseña/i }))
       .toBeVisible({ timeout: 10_000 })
 
-    await page.fill('input[name="email"]', 'no-such-user@english-everywhere.test')
+    await page.fill('input[name="email"]', 'no-such-user@englishkolab.test')
     await page.getByRole('button', { name: /Enviar enlace/i }).click()
 
     // Server action redirects to `/${lang}/login?success=reset` (NOT the reset

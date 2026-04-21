@@ -1,15 +1,17 @@
 <!--
-  PROJECT.md — source of truth for English Everywhere product intent.
+  PROJECT.md — source of truth for EnglishKolab product intent.
   Claude Code MUST read this file on session start, and MUST NOT modify it
   without explicit instruction from Carlos. Technical details live in CLAUDE.md.
 -->
 
-# English Everywhere — Product Intent
-_Confirmed with Carlos 2026-04-17._
+# EnglishKolab — Product Intent
+_Confirmed with Carlos 2026-04-17. Rebranded 2026-04-20 (was "English Everywhere")._
+
+**Tagline:** _Learn English. Anytime. Anywhere. At your pace._
 
 ---
 
-## What English Everywhere is
+## What EnglishKolab is
 
 An online English-tutoring platform for **Spanish-speaking Latin America**,
 built around one core value proposition:
@@ -47,9 +49,9 @@ reference in the codebase.
 
 - **Carlos** — builder / owner / admin. Sets rates, runs operations, conducts
   the placement diagnostic call.
-- **Lesly Paz** (`lesly@englisheverywhere.com`) — co-founder and currently the
+- **Lesly Paz** (`lesly@englishkolab.com`) — co-founder and currently the
   **only** active teacher. 119 availability slots seeded. Family member.
-- **`admin@englisheverywhere.com`** — admin login.
+- **`admin@englishkolab.com`** — admin login.
 
 ## Pricing & packaging
 
@@ -84,7 +86,7 @@ reference in the codebase.
 - **Status: TBD.** Payments are simulated in code today (`simulatePurchase`
   sets `classes_remaining` + `current_plan`).
 - Blocker: Carlos has a Stripe account for Remote ACKtive and does not want
-  to commingle that with English Everywhere. Needs a separate Stripe entity
+  to commingle that with EnglishKolab. Needs a separate Stripe entity
   / account decision before live payments can ship.
 - Until that's resolved, treat Stripe integration as **not started**.
 

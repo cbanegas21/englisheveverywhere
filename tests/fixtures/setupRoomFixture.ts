@@ -77,7 +77,7 @@ async function ensureTeacher(admin: SupabaseClient): Promise<{ userId: string; t
 
 async function createStudent(admin: SupabaseClient): Promise<{ email: string; password: string; userId: string; studentId: string } | null> {
   const stamp = Date.now()
-  const email = `e2e-student-${stamp}@english-everywhere.test`
+  const email = `e2e-student-${stamp}@englishkolab.test`
   const password = 'E2eTest1234!'
 
   const { data: created, error: createErr } = await admin.auth.admin.createUser({

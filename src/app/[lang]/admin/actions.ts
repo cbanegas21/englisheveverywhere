@@ -286,7 +286,7 @@ export async function resetStudentPassword(email: string) {
       body: JSON.stringify({
         from: fromEmail,
         to: email,
-        subject: 'Reset your password — English Everywhere',
+        subject: 'Reset your password — EnglishKolab',
         html: `<p>Click below to reset your password:</p><a href="${data.properties.action_link}">Reset password</a>`,
       }),
     })
@@ -425,8 +425,8 @@ function sendBookingEmails(params: {
         method: 'POST', headers,
         body: JSON.stringify({
           from: fromEmail, to: email,
-          subject: 'Sesión agendada — English Everywhere',
-          html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— English Everywhere</p>`,
+          subject: 'Sesión agendada — EnglishKolab',
+          html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
         }),
       }).catch(() => {})
     }
@@ -452,8 +452,8 @@ function sendBookingEmails(params: {
           method: 'POST', headers,
           body: JSON.stringify({
             from: fromEmail, to: email,
-            subject: 'Nueva sesión asignada — English Everywhere',
-            html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— English Everywhere</p>`,
+            subject: 'Nueva sesión asignada — EnglishKolab',
+            html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
           }),
         }).catch(() => {})
       }
@@ -484,13 +484,13 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
       body: JSON.stringify({
         from: fromEmail,
         to: profile.email,
-        subject: `¡Bienvenida a English Everywhere, ${profile.full_name?.split(' ')[0] || ''}!`,
+        subject: `¡Bienvenida a EnglishKolab, ${profile.full_name?.split(' ')[0] || ''}!`,
         html: `
           <h2>¡Bienvenida al equipo!</h2>
           <p>Tu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:</p>
           <p><a href="${appUrl}/es/maestro/dashboard">Acceder a mi dashboard →</a></p>
           <p>Aquí podrás configurar tu disponibilidad y ver tus clases asignadas.</p>
-          <p>— El equipo de English Everywhere</p>
+          <p>— El equipo de EnglishKolab</p>
         `,
       }),
     }).catch(() => {})
@@ -519,12 +519,12 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
       body: JSON.stringify({
         from: fromEmail,
         to: profile.email,
-        subject: 'Actualización sobre tu solicitud — English Everywhere',
+        subject: 'Actualización sobre tu solicitud — EnglishKolab',
         html: `
-          <p>Gracias por tu interés en English Everywhere.</p>
+          <p>Gracias por tu interés en EnglishKolab.</p>
           <p>Después de revisar tu perfil, no podemos continuar con tu solicitud en este momento.</p>
-          <p>Si tienes preguntas, contáctanos en <a href="mailto:hola@englisheverywhere.com">hola@englisheverywhere.com</a>.</p>
-          <p>— El equipo de English Everywhere</p>
+          <p>Si tienes preguntas, contáctanos en <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
+          <p>— El equipo de EnglishKolab</p>
         `,
       }),
     }).catch(() => {})
@@ -608,8 +608,8 @@ function sendAssignmentEmail(bookingId: string) {
     const teacherFirst = teacherName?.split(' ')[0] || 'tu maestro'
     const isPlacement = data.type === 'placement_test'
     const subject = isPlacement
-      ? 'Tu llamada de diagnóstico ha sido confirmada — English Everywhere'
-      : 'Tu clase ha sido confirmada — English Everywhere'
+      ? 'Tu llamada de diagnóstico ha sido confirmada — EnglishKolab'
+      : 'Tu clase ha sido confirmada — EnglishKolab'
     const lead = isPlacement
       ? `Tu llamada de diagnóstico con <strong>${teacherFirst}</strong> está confirmada.`
       : `Tu clase con <strong>${teacherFirst}</strong> está confirmada.`
@@ -626,7 +626,7 @@ function sendAssignmentEmail(bookingId: string) {
           <p>${lead}</p>
           <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
           <p>Te avisaremos de nuevo unos minutos antes con el enlace al aula.</p>
-          <p>— English Everywhere</p>
+          <p>— EnglishKolab</p>
         `,
       }),
     }).catch(() => {})

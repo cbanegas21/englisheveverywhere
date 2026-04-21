@@ -53,7 +53,7 @@ export async function setupTeacherApprovalFixture(): Promise<TeacherApprovalFixt
   if (!admin) return null
 
   const stamp = Date.now() + Math.floor(Math.random() * 1000)
-  const email = `e2e-teacher-${stamp}@english-everywhere.test`
+  const email = `e2e-teacher-${stamp}@englishkolab.test`
   const password = 'E2eTest1234!'
   const fullName = `E2E Pending Teacher ${stamp}`
 
