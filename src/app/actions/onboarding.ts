@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export async function completeStudentOnboarding(data: {
@@ -12,14 +13,19 @@ export async function completeStudentOnboarding(data: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.id !== data.userId) return { success: false, error: 'Not authenticated' }
 
-  const { error: profileError } = await supabase
+  // Auth was validated above. Switch to admin client for the writes —
+  // bypasses an RLS edge case where the new user's JWT isn't yet bound
+  // at insert-time ("permission denied for table students/teachers").
+  const admin = createAdminClient()
+
+  const { error: profileError } = await admin
     .from('profiles')
     .update({ timezone: data.timezone, preferred_language: data.preferredLanguage })
     .eq('id', data.userId)
 
   if (profileError) return { success: false, error: profileError.message }
 
-  const { error: studentError } = await supabase
+  const { error: studentError } = await admin
     .from('students')
     .upsert({
       profile_id: data.userId,
@@ -43,14 +49,17 @@ export async function completeTeacherOnboarding(data: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.id !== data.userId) return { success: false, error: 'Not authenticated' }
 
-  const { error: profileError } = await supabase
+  // Auth validated. Use admin client for writes (see student branch).
+  const admin = createAdminClient()
+
+  const { error: profileError } = await admin
     .from('profiles')
     .update({ timezone: data.timezone, preferred_language: data.preferredLanguage })
     .eq('id', data.userId)
 
   if (profileError) return { success: false, error: profileError.message }
 
-  const { error: teacherError } = await supabase
+  const { error: teacherError } = await admin
     .from('teachers')
     .upsert({
       profile_id: data.userId,
