@@ -20,14 +20,13 @@ const t = {
       {
         title: 'Company',
         links: [
-          { label: 'About us', href: '/en/about' },
           { label: 'For teachers', href: '/en/teachers' },
           { label: 'Privacy policy', href: '/en/privacy' },
           { label: 'Terms of use', href: '/en/terms' },
         ],
       },
     ],
-    copyright: '© 2025 EnglishKolab',
+    copyright: '© 2026 EnglishKolab',
     legal: 'Operated by Remote ACKtive LLC · Wyoming, USA',
   },
   es: {
@@ -45,14 +44,13 @@ const t = {
       {
         title: 'Empresa',
         links: [
-          { label: 'Nosotros', href: '/es/about' },
           { label: 'Para maestros', href: '/es/teachers' },
           { label: 'Privacidad', href: '/es/privacy' },
           { label: 'Términos', href: '/es/terms' },
         ],
       },
     ],
-    copyright: '© 2025 EnglishKolab',
+    copyright: '© 2026 EnglishKolab',
     legal: 'Operado por Remote ACKtive LLC · Wyoming, USA',
   },
 }
@@ -82,7 +80,7 @@ export default function Footer({ lang }: { lang: Locale }) {
               {tx.tagline}
             </p>
             <a
-              href="mailto:hola@englishkolab.com"
+              href="mailto:c.banegaspaz2020@gmail.com"
               className="h-9 w-9 rounded flex items-center justify-center transition-colors"
               style={{ background: 'rgba(249,249,249,0.06)', color: 'rgba(249,249,249,0.35)', display: 'inline-flex' }}
               onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#F9F9F9')}
