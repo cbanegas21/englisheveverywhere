@@ -53,6 +53,7 @@ const t = {
     tomorrow: 'Tomorrow',
     upgrade: 'Get more classes',
     noClassesBanner: "You've used all your classes. Get a new pack to keep learning.",
+    allBookedBanner: 'Your plan is fully scheduled — all upcoming. Add more classes anytime.',
     firstPlanBanner: 'Get your first plan to start learning',
     firstPlanCta: 'See plans',
     actions: {
@@ -104,7 +105,8 @@ const t = {
     today: 'Hoy',
     tomorrow: 'Mañana',
     upgrade: 'Obtener más clases',
-    noClassesBanner: 'Usaste todas tus clases. Obtén un nuevo pack para seguir aprendiendo.',
+    noClassesBanner: 'Ya tomaste todas tus clases. Obtén un nuevo pack para seguir aprendiendo.',
+    allBookedBanner: 'Tu plan está completo — todas tus clases ya están agendadas. ¿Quieres añadir más?',
     firstPlanBanner: 'Adquiere tu primer plan para comenzar a aprender',
     firstPlanCta: 'Ver planes',
     actions: {
@@ -355,7 +357,13 @@ export default function StudentDashboardClient({
             </Link>
           </div>
         )}
-        {classesRemaining === 0 && (currentPlan !== null || completedSessions > 0) && (
+        {/* Classes-exhausted banner. Only surfaces when the plan is truly used
+            up — classesRemaining=0 AND no upcoming bookings remain. Previously
+            this fired as soon as the student *booked* their last class because
+            classes_remaining decrements on create, leading to "used all your
+            classes" copy while the student still had all those sessions ahead
+            of them (Fathom bug #8). */}
+        {classesRemaining === 0 && scheduledClasses === 0 && (currentPlan !== null || completedSessions > 0) && (
           <div
             className="rounded-xl p-4 flex items-center gap-4"
             style={{ background: '#fff', border: '1px solid #FCA5A5' }}
@@ -378,6 +386,29 @@ export default function StudentDashboardClient({
             </Link>
           </div>
         )}
+        {classesRemaining === 0 && scheduledClasses > 0 && (
+          <div
+            className="rounded-xl p-4 flex items-center gap-4"
+            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+          >
+            <div
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
+              style={{ background: '#F3F4F6' }}
+            >
+              <Calendar className="h-5 w-5" style={{ color: '#6B7280' }} />
+            </div>
+            <p className="flex-1 text-[13px]" style={{ color: '#4B5563' }}>{tx.allBookedBanner}</p>
+            <Link
+              href={`/${lang}/dashboard/plan`}
+              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
+              style={{ background: '#fff', color: '#C41E3A', border: '1px solid #C41E3A' }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.background = '#FEF2F2' }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.background = '#fff' }}
+            >
+              {tx.upgrade}
+            </Link>
+          </div>
+        )}
 
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -386,7 +417,7 @@ export default function StudentDashboardClient({
               label: tx.stats.classesLeft,
               value: classesRemaining,
               icon: BookOpen,
-              urgent: classesRemaining === 0,
+              urgent: classesRemaining === 0 && scheduledClasses === 0,
             },
             {
               label: tx.stats.scheduled,
