@@ -200,6 +200,7 @@ const ui = {
     confirmedSub: 'Your evaluation call is scheduled for:',
     confirmedNote: 'You\'ll receive a confirmation email shortly. We\'ll reach out through the platform at call time.',
     backDash: 'Back to dashboard',
+    editAnswers: 'Edit my answers',
     alreadyTitle: 'Call already scheduled',
     alreadySub: 'Your evaluation call is scheduled for:',
     placeholder: 'Optional — max 200 characters',
@@ -232,6 +233,7 @@ const ui = {
     confirmedSub: 'Tu llamada de diagnóstico está agendada para:',
     confirmedNote: 'Recibirás un correo de confirmación en breve. Nos comunicaremos contigo en el horario acordado.',
     backDash: 'Volver al dashboard',
+    editAnswers: 'Editar mis respuestas',
     alreadyTitle: 'Llamada ya agendada',
     alreadySub: 'Tu llamada de diagnóstico está programada para:',
     placeholder: 'Opcional — máx. 200 caracteres',
@@ -337,6 +339,12 @@ export default function PlacementClient({
     if (qIndex === 0) return
     setDir(-1)
     setQIndex(q => q - 1)
+  }
+
+  function goBackToSurvey() {
+    setDir(-1)
+    setQIndex(totalQ - 1)
+    setStage('survey')
   }
 
   // ── Booking ───────────────────────────────────────────────────
@@ -470,6 +478,18 @@ export default function PlacementClient({
             <Calendar className="h-4 w-4" />
             {tx.scheduleBtn}
           </button>
+          <div className="mt-5">
+            <button
+              onClick={goBackToSurvey}
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium transition-colors"
+              style={{ color: '#9CA3AF' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              {tx.editAnswers}
+            </button>
+          </div>
         </motion.div>
       </div>
     )
@@ -483,6 +503,18 @@ export default function PlacementClient({
     return (
       <div className="min-h-full" style={{ background: '#F9F9F9' }}>
         <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
+          {!isReschedule && (
+            <button
+              onClick={goBackToSurvey}
+              className="inline-flex items-center gap-1.5 text-[12px] font-semibold mb-3 transition-colors"
+              style={{ color: '#9CA3AF' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              {tx.editAnswers}
+            </button>
+          )}
           <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.scheduleTitle}</h1>
           <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.scheduleSub}</p>
         </div>
