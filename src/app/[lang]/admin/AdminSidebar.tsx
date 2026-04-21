@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, GraduationCap, CalendarCheck, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, GraduationCap, CalendarCheck, BookOpen, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Props { lang: string }
@@ -18,14 +18,15 @@ export default function AdminSidebar({ lang }: Props) {
   }
 
   const labels = lang === 'es'
-    ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', signOut: 'Cerrar sesión', adminPanel: 'Panel admin' }
-    : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', signOut: 'Sign out', adminPanel: 'Admin Panel' }
+    ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', library: 'Biblioteca', signOut: 'Cerrar sesión', adminPanel: 'Panel admin' }
+    : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', library: 'Library', signOut: 'Sign out', adminPanel: 'Admin Panel' }
 
   const nav = [
     { href: `/${lang}/admin/overview`,  label: labels.overview,  icon: LayoutDashboard },
     { href: `/${lang}/admin/students`,  label: labels.students,  icon: Users },
     { href: `/${lang}/admin/teachers`,  label: labels.teachers,  icon: GraduationCap },
     { href: `/${lang}/admin/bookings`,  label: labels.bookings,  icon: CalendarCheck },
+    { href: `/${lang}/admin/biblioteca`, label: labels.library,  icon: BookOpen },
   ]
 
   return (

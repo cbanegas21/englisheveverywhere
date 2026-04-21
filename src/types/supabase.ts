@@ -212,6 +212,36 @@ export type Database = {
           },
         ]
       }
+      library_books: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          level: string | null
+          storage_path: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          level?: string | null
+          storage_path: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          level?: string | null
+          storage_path?: string
+          title?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount_usd: number

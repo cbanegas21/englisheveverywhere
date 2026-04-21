@@ -71,6 +71,17 @@ create table public.bookings (
   primary key (id)
 );
 
+create table public.library_books (
+  id uuid not null default gen_random_uuid(),
+  title text not null,
+  description text not null default ''::text,
+  level text,
+  storage_path text not null,
+  is_active boolean not null default true,
+  created_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
 create table public.payments (
   id uuid not null default uuid_generate_v4(),
   booking_id uuid,
@@ -211,6 +222,7 @@ alter table public.assignment_submissions add constraint assignment_submissions_
 alter table public.assignments add constraint assignments_status_check CHECK ((status = ANY (ARRAY['open'::text, 'cancelled'::text])));
 alter table public.availability_slots add constraint availability_slots_day_of_week_check CHECK (((day_of_week >= 0) AND (day_of_week <= 6)));
 alter table public.bookings add constraint bookings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'completed'::text, 'cancelled'::text])));
+alter table public.library_books add constraint library_books_level_check CHECK (((level IS NULL) OR (level = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text, 'all'::text]))));
 alter table public.payments add constraint payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunded'::text])));
 alter table public.profiles add constraint profiles_preferred_currency_len CHECK (((preferred_currency IS NULL) OR (length(preferred_currency) = 3)));
 alter table public.profiles add constraint profiles_preferred_language_check CHECK ((preferred_language = ANY (ARRAY['es'::text, 'en'::text])));
@@ -245,6 +257,7 @@ CREATE INDEX idx_bookings_pending_placement_assignment ON public.bookings USING 
 CREATE INDEX idx_bookings_scheduled_at ON public.bookings USING btree (scheduled_at);
 CREATE INDEX idx_bookings_student ON public.bookings USING btree (student_id);
 CREATE INDEX idx_bookings_teacher ON public.bookings USING btree (teacher_id);
+CREATE INDEX idx_library_books_active ON public.library_books USING btree (created_at DESC) WHERE (is_active = true);
 CREATE INDEX idx_payments_student ON public.payments USING btree (student_id);
 CREATE INDEX idx_payments_teacher ON public.payments USING btree (teacher_id);
 CREATE UNIQUE INDEX plans_plan_key_key ON public.plans USING btree (plan_key);
@@ -257,6 +270,7 @@ alter table public.assignment_submissions enable row level security;
 alter table public.assignments enable row level security;
 alter table public.availability_slots enable row level security;
 alter table public.bookings enable row level security;
+alter table public.library_books enable row level security;
 alter table public.payments enable row level security;
 alter table public.plans enable row level security;
 alter table public.profiles enable row level security;
@@ -303,6 +317,7 @@ create policy "Teachers can update booking status" on public.bookings for update
 create policy "Teachers see own bookings" on public.bookings for select using ((auth.uid() = ( SELECT teachers.profile_id
    FROM teachers
   WHERE (teachers.id = bookings.teacher_id))));
+create policy "auth reads active library books" on public.library_books for select to authenticated using ((is_active = true));
 create policy "Students see own payments" on public.payments for select using ((auth.uid() = ( SELECT students.profile_id
    FROM students
   WHERE (students.id = payments.student_id))));
