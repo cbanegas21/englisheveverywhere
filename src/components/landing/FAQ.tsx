@@ -11,7 +11,7 @@ const t = {
     headline: 'Common questions.',
     questions: [
       { q: 'What level do I need to start?', a: 'None. We accept complete beginners (A0) through advanced speakers (C2). We assess your level before your first class.' },
-      { q: 'How do the classes work?', a: 'All classes happen inside the EnglishEverywhere platform via live video. No Zoom, no Google Meet, no extra installs.' },
+      { q: 'How do the classes work?', a: 'All classes happen inside the EnglishKolab platform via live video. No Zoom, no Google Meet, no extra installs.' },
       { q: 'Who chooses my teacher?', a: 'We do. Our team personally matches you with the best teacher for your level and goals. You\'ll meet your teacher before your first paid class.' },
       { q: 'What is your cancellation policy?', a: 'Cancel or reschedule with at least 24 hours notice at no charge. Classes without advance notice are forfeited.' },
       { q: 'Do my classes expire?', a: 'No. Once you buy a pack, those classes are yours until you use them. No pressure, no countdown.' },
@@ -24,7 +24,7 @@ const t = {
     headline: 'Preguntas comunes.',
     questions: [
       { q: '¿Qué nivel necesito para empezar?', a: 'Ninguno. Aceptamos desde principiantes (A0) hasta avanzados (C2). Evaluamos tu nivel antes de tu primera clase.' },
-      { q: '¿Cómo funcionan las clases?', a: 'Todas las clases se realizan dentro de la plataforma EnglishEverywhere por video en vivo. Sin Zoom, sin Google Meet, sin instalaciones extra.' },
+      { q: '¿Cómo funcionan las clases?', a: 'Todas las clases se realizan dentro de la plataforma EnglishKolab por video en vivo. Sin Zoom, sin Google Meet, sin instalaciones extra.' },
       { q: '¿Quién elige mi maestro?', a: 'Nosotros. Nuestro equipo te empareja personalmente con el mejor maestro para tu nivel y objetivos. Lo conocerás antes de tu primera clase pagada.' },
       { q: '¿Cuál es la política de cancelación?', a: 'Cancela o reprograma con al menos 24 horas de aviso sin costo. Las clases sin aviso previo se pierden.' },
       { q: '¿Mis clases vencen?', a: 'No. Una vez que compras un pack, esas clases son tuyas hasta que las uses. Sin presión, sin cuenta regresiva.' },
