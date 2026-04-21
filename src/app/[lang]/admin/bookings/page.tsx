@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import BookingCalendarClient from './BookingCalendarClient'
+import RescheduleRequestsPanel from './RescheduleRequestsPanel'
 
 interface Props {
   params: Promise<{ lang: string }>
@@ -198,6 +199,48 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     .is('teacher_id', null)
     .order('scheduled_at', { ascending: true })
 
+  // Pending reschedule requests filed by teachers — admin triages at the top.
+  const { data: reschedRaw } = await admin
+    .from('reschedule_requests')
+    .select(`
+      id, booking_id, proposed_scheduled_at, original_scheduled_at, reason, created_at,
+      booking:bookings(
+        id, scheduled_at, duration_minutes, type,
+        student:students(profile:profiles(full_name)),
+        teacher:teachers(profile:profiles(full_name))
+      )
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+
+  type RescheduleEntry = {
+    id: string
+    bookingId: string
+    originalAt: string
+    proposedAt: string
+    reason: string | null
+    createdAt: string
+    studentName: string | null
+    teacherName: string | null
+  }
+  const rescheduleRequests: RescheduleEntry[] = (reschedRaw ?? []).map((r) => {
+    const rawBooking = (r as { booking: unknown }).booking
+    const booking = Array.isArray(rawBooking) ? rawBooking[0] : rawBooking
+    const b = booking as { student: unknown; teacher: unknown } | null
+    const studentObj = Array.isArray(b?.student) ? (b?.student as unknown[])[0] : b?.student
+    const teacherObj = Array.isArray(b?.teacher) ? (b?.teacher as unknown[])[0] : b?.teacher
+    return {
+      id: r.id,
+      bookingId: r.booking_id,
+      originalAt: r.original_scheduled_at,
+      proposedAt: r.proposed_scheduled_at,
+      reason: r.reason,
+      createdAt: r.created_at,
+      studentName: getName((studentObj as { profile: unknown } | null)?.profile),
+      teacherName: getName((teacherObj as { profile: unknown } | null)?.profile),
+    }
+  })
+
   type PendingEntry = {
     id: string
     student_id: string
@@ -216,20 +259,25 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
   }))
 
   return (
-    <BookingCalendarClient
-      lang={lang}
-      weekStart={weekStart.toISOString().slice(0, 10)}
-      bookings={bookings}
-      teachers={teachers}
-      allStudents={allStudents}
-      availSlots={availSlotsResult.data || []}
-      pendingBookings={pendingBookings}
-      stats={{
-        todayCount: todayCountResult.count ?? 0,
-        pendingCount: pendingCountResult.count ?? 0,
-        weekConfirmed: weekConfirmedResult.count ?? 0,
-        availableSlots: (availSlotsResult.data || []).length,
-      }}
-    />
+    <>
+      {rescheduleRequests.length > 0 && (
+        <RescheduleRequestsPanel lang={lang} requests={rescheduleRequests} />
+      )}
+      <BookingCalendarClient
+        lang={lang}
+        weekStart={weekStart.toISOString().slice(0, 10)}
+        bookings={bookings}
+        teachers={teachers}
+        allStudents={allStudents}
+        availSlots={availSlotsResult.data || []}
+        pendingBookings={pendingBookings}
+        stats={{
+          todayCount: todayCountResult.count ?? 0,
+          pendingCount: pendingCountResult.count ?? 0,
+          weekConfirmed: weekConfirmedResult.count ?? 0,
+          availableSlots: (availSlotsResult.data || []).length,
+        }}
+      />
+    </>
   )
 }

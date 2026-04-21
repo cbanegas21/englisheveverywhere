@@ -49,11 +49,28 @@ export default async function AgendaPage({ params }: Props) {
     .order('scheduled_at', { ascending: true })
     .limit(10)
 
+  // Pull pending reschedule requests so we can badge any booking that already
+  // has one in flight and stop the teacher from submitting a duplicate.
+  const { data: pendingReschedules } = await supabase
+    .from('reschedule_requests')
+    .select('id, booking_id, proposed_scheduled_at, status')
+    .in('booking_id', (confirmedBookings ?? []).map(b => b.id))
+    .eq('status', 'pending')
+
+  const reschedulesByBooking = new Map(
+    (pendingReschedules ?? []).map(r => [r.booking_id, r]),
+  )
+
+  const confirmedWithReschedule = (confirmedBookings ?? []).map(b => ({
+    ...b,
+    reschedule_request: reschedulesByBooking.get(b.id) ?? null,
+  }))
+
   return (
     <AgendaClient
       lang={lang as Locale}
       pendingBookings={(pendingBookings as any) || []}
-      confirmedBookings={(confirmedBookings as any) || []}
+      confirmedBookings={confirmedWithReschedule as any}
     />
   )
 }

@@ -206,6 +206,96 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
   return { success: true }
 }
 
+// ── Reschedule requests (teacher → admin) ───────────────────────────────────
+//
+// Teachers cannot move a confirmed class unilaterally — that would shift a
+// student's locked-in slot without warning. They file a request here; the
+// admin reviews it in /admin/bookings and approves or rejects. See
+// `src/app/[lang]/admin/actions.ts` for the admin side (approve/reject).
+
+export async function requestReschedule(
+  bookingId: string,
+  proposedScheduledAtIso: string,
+  reason: string,
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+
+  // Confirm the requester actually owns the booking as a teacher and capture
+  // the original scheduled_at for the audit trail.
+  const { data: teacher } = await admin
+    .from('teachers')
+    .select('id')
+    .eq('profile_id', user.id)
+    .single()
+  if (!teacher) return { error: 'Teacher profile not found' }
+
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('id, scheduled_at, teacher_id, status')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) return { error: 'Booking not found' }
+  if (booking.teacher_id !== teacher.id) return { error: 'Not your booking' }
+  if (booking.status !== 'confirmed' && booking.status !== 'pending') {
+    return { error: 'Cannot reschedule a completed or cancelled booking' }
+  }
+
+  const proposed = new Date(proposedScheduledAtIso)
+  if (isNaN(proposed.getTime())) return { error: 'Invalid proposed time' }
+  // Don't let teachers propose a past time.
+  if (proposed.getTime() < Date.now()) return { error: 'Proposed time is in the past' }
+
+  const { error: insertErr } = await admin.from('reschedule_requests').insert({
+    booking_id: bookingId,
+    requested_by: user.id,
+    requested_by_role: 'teacher',
+    original_scheduled_at: booking.scheduled_at,
+    proposed_scheduled_at: proposed.toISOString(),
+    reason: reason.trim() || null,
+    status: 'pending',
+  })
+  if (insertErr) {
+    // Unique index violation → there's already a pending request.
+    if (insertErr.message.toLowerCase().includes('duplicate')) {
+      return { error: 'A reschedule request is already pending for this booking' }
+    }
+    return { error: insertErr.message }
+  }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
+export async function cancelRescheduleRequest(requestId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+
+  const { data: request } = await admin
+    .from('reschedule_requests')
+    .select('id, status, requested_by')
+    .eq('id', requestId)
+    .single()
+  if (!request) return { error: 'Request not found' }
+  if (request.requested_by !== user.id) return { error: 'Not your request' }
+  if (request.status !== 'pending') return { error: 'Only pending requests can be cancelled' }
+
+  const { error } = await admin
+    .from('reschedule_requests')
+    .update({ status: 'cancelled' })
+    .eq('id', requestId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
 export async function saveAvailabilitySlots(
   slots: { day_of_week: number; start_time: string; end_time: string }[],
   lang: string = 'es'

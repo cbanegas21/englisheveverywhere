@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Calendar, CheckCircle2, X, Clock, Video, Users, AlertCircle } from 'lucide-react'
-import { confirmBooking, declineBooking } from '@/app/actions/booking'
+import { Calendar, CheckCircle2, X, Clock, Video, Users, AlertCircle, CalendarClock } from 'lucide-react'
+import { confirmBooking, declineBooking, requestReschedule, cancelRescheduleRequest } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 
 interface Booking {
@@ -14,6 +14,11 @@ interface Booking {
   status: string
   type?: string | null
   student?: { profile?: { full_name?: string; avatar_url?: string } } | null
+  reschedule_request?: {
+    id: string
+    proposed_scheduled_at: string
+    status: string
+  } | null
 }
 
 interface Props {
@@ -41,6 +46,19 @@ const t = {
     typePlacement: 'Placement',
     typeCheckin: 'Check-in',
     typeClass: 'Class',
+    reschedule: 'Request reschedule',
+    reschedulePending: 'Reschedule pending',
+    rescheduleCancel: 'Cancel request',
+    rescheduleTitle: 'Request a reschedule',
+    rescheduleSubtitle: 'Admin will review your proposed time before the class moves.',
+    rescheduleNewDate: 'New date',
+    rescheduleNewTime: 'New time',
+    rescheduleReason: 'Reason (optional)',
+    reschedulePlaceholder: 'e.g. Power outage at my home — can we move 2 hours later?',
+    rescheduleSubmit: 'Submit request',
+    rescheduleCancelBtn: 'Cancel',
+    rescheduleError: 'Could not submit request',
+    rescheduleSuccess: 'Request submitted. Admin will review.',
   },
   es: {
     title: 'Mi agenda',
@@ -60,6 +78,19 @@ const t = {
     typePlacement: 'Nivelación',
     typeCheckin: 'Check-in',
     typeClass: 'Clase',
+    reschedule: 'Solicitar reagendar',
+    reschedulePending: 'Reagendamiento pendiente',
+    rescheduleCancel: 'Cancelar solicitud',
+    rescheduleTitle: 'Solicitar reagendar',
+    rescheduleSubtitle: 'El admin revisará tu nueva hora antes de mover la clase.',
+    rescheduleNewDate: 'Nueva fecha',
+    rescheduleNewTime: 'Nueva hora',
+    rescheduleReason: 'Motivo (opcional)',
+    reschedulePlaceholder: 'Ej. Corte de luz en casa — ¿podemos mover 2 horas después?',
+    rescheduleSubmit: 'Enviar solicitud',
+    rescheduleCancelBtn: 'Cancelar',
+    rescheduleError: 'No se pudo enviar la solicitud',
+    rescheduleSuccess: 'Solicitud enviada. El admin la revisará.',
   },
 }
 
@@ -111,6 +142,89 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
   const [pending, setPending] = useState<Booking[]>(pendingBookings)
   const [confirmed, setConfirmed] = useState<Booking[]>(confirmedBookings)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+
+  // Reschedule modal state — nullable; when set, the modal is open for that booking.
+  const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null)
+  const [reschedDate, setReschedDate] = useState('')
+  const [reschedTime, setReschedTime] = useState('')
+  const [reschedReason, setReschedReason] = useState('')
+  const [reschedError, setReschedError] = useState('')
+  const [reschedSubmitting, setReschedSubmitting] = useState(false)
+
+  function openReschedule(booking: Booking) {
+    // Prefill date/time with current scheduled value so the teacher only
+    // adjusts what needs to change.
+    const d = new Date(booking.scheduled_at)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hh = String(d.getHours()).padStart(2, '0')
+    const mm = String(d.getMinutes()).padStart(2, '0')
+    setReschedDate(`${y}-${m}-${day}`)
+    setReschedTime(`${hh}:${mm}`)
+    setReschedReason('')
+    setReschedError('')
+    setRescheduleFor(booking)
+  }
+
+  function closeReschedule() {
+    setRescheduleFor(null)
+    setReschedError('')
+  }
+
+  function submitReschedule() {
+    if (!rescheduleFor) return
+    if (!reschedDate || !reschedTime) {
+      setReschedError(lang === 'es' ? 'Selecciona fecha y hora' : 'Pick a date and time')
+      return
+    }
+    const proposed = new Date(`${reschedDate}T${reschedTime}`)
+    if (isNaN(proposed.getTime())) {
+      setReschedError(lang === 'es' ? 'Fecha/hora inválida' : 'Invalid date/time')
+      return
+    }
+    if (proposed.getTime() < Date.now()) {
+      setReschedError(lang === 'es' ? 'La hora no puede estar en el pasado' : 'Time cannot be in the past')
+      return
+    }
+    setReschedError('')
+    setReschedSubmitting(true)
+    startTransition(async () => {
+      const result = await requestReschedule(rescheduleFor.id, proposed.toISOString(), reschedReason)
+      setReschedSubmitting(false)
+      if (result?.error) {
+        setReschedError(result.error)
+        return
+      }
+      // Optimistic: attach a pending request stub so the card badges immediately.
+      setConfirmed(prev =>
+        prev.map(b =>
+          b.id === rescheduleFor.id
+            ? {
+                ...b,
+                reschedule_request: {
+                  id: 'pending',
+                  proposed_scheduled_at: proposed.toISOString(),
+                  status: 'pending',
+                },
+              }
+            : b,
+        ),
+      )
+      closeReschedule()
+    })
+  }
+
+  function handleCancelReschedule(requestId: string, bookingId: string) {
+    startTransition(async () => {
+      const result = await cancelRescheduleRequest(requestId)
+      if (!result?.error) {
+        setConfirmed(prev =>
+          prev.map(b => (b.id === bookingId ? { ...b, reschedule_request: null } : b)),
+        )
+      }
+    })
+  }
 
   function handleConfirm(bookingId: string) {
     setLoadingId(bookingId)
@@ -332,12 +446,21 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span
-                              className="text-[10px] font-semibold px-2 py-0.5 rounded"
-                              style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }}
-                            >
-                              {tx.statusConfirmed}
-                            </span>
+                            {booking.reschedule_request?.status === 'pending' ? (
+                              <span
+                                className="text-[10px] font-semibold px-2 py-0.5 rounded"
+                                style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' }}
+                              >
+                                {tx.reschedulePending}
+                              </span>
+                            ) : (
+                              <span
+                                className="text-[10px] font-semibold px-2 py-0.5 rounded"
+                                style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }}
+                              >
+                                {tx.statusConfirmed}
+                              </span>
+                            )}
                             {canJoin && (
                               <Link
                                 href={`/${lang}/sala/${booking.id}`}
@@ -352,6 +475,32 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                             )}
                           </div>
                         </div>
+                        <div className="flex items-center justify-end gap-2 mt-2">
+                          {booking.reschedule_request?.status === 'pending' ? (
+                            <button
+                              onClick={() => handleCancelReschedule(booking.reschedule_request!.id, booking.id)}
+                              disabled={isPending || booking.reschedule_request.id === 'pending'}
+                              className="flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px] transition-all disabled:opacity-50"
+                              style={{ border: '1px solid #E5E7EB', color: '#9CA3AF', background: '#fff' }}
+                              onMouseEnter={e => { if (!isPending) { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FCA5A5' } }}
+                              onMouseLeave={e => { if (!isPending) { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.borderColor = '#E5E7EB' } }}
+                            >
+                              <X className="h-3 w-3" />
+                              {tx.rescheduleCancel}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openReschedule(booking)}
+                              className="flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px] transition-all"
+                              style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#fff' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#C41E3A'; e.currentTarget.style.color = '#C41E3A' }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#4B5563' }}
+                            >
+                              <CalendarClock className="h-3 w-3" />
+                              {tx.reschedule}
+                            </button>
+                          )}
+                        </div>
                       </motion.li>
                     )
                   })}
@@ -361,6 +510,106 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
           </div>
         </div>
       </div>
+
+      {/* Reschedule modal */}
+      <AnimatePresence>
+        {rescheduleFor && (
+          <motion.div
+            key="resched-backdrop"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.5)' }}
+            onClick={closeReschedule}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.15 }}
+              className="w-full max-w-md rounded-xl"
+              style={{ background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 flex items-start justify-between" style={{ borderBottom: '1px solid #E5E7EB' }}>
+                <div>
+                  <h3 className="text-[15px] font-black" style={{ color: '#111111' }}>{tx.rescheduleTitle}</h3>
+                  <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.rescheduleSubtitle}</p>
+                </div>
+                <button
+                  onClick={closeReschedule}
+                  className="rounded p-1 -mt-0.5 -mr-1"
+                  style={{ color: '#9CA3AF' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#111111'; e.currentTarget.style.background = '#F3F4F6' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.background = 'transparent' }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold block mb-1" style={{ color: '#4B5563' }}>{tx.rescheduleNewDate}</label>
+                    <input
+                      type="date"
+                      value={reschedDate}
+                      onChange={e => setReschedDate(e.target.value)}
+                      className="w-full rounded px-2 py-1.5 text-[13px] outline-none"
+                      style={{ border: '1px solid #E5E7EB', color: '#111111' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold block mb-1" style={{ color: '#4B5563' }}>{tx.rescheduleNewTime}</label>
+                    <input
+                      type="time"
+                      value={reschedTime}
+                      onChange={e => setReschedTime(e.target.value)}
+                      className="w-full rounded px-2 py-1.5 text-[13px] outline-none"
+                      style={{ border: '1px solid #E5E7EB', color: '#111111' }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold block mb-1" style={{ color: '#4B5563' }}>{tx.rescheduleReason}</label>
+                  <textarea
+                    value={reschedReason}
+                    onChange={e => setReschedReason(e.target.value)}
+                    placeholder={tx.reschedulePlaceholder}
+                    rows={3}
+                    className="w-full rounded px-2 py-1.5 text-[13px] outline-none resize-none"
+                    style={{ border: '1px solid #E5E7EB', color: '#111111' }}
+                  />
+                </div>
+                {reschedError && (
+                  <p className="text-[12px]" style={{ color: '#DC2626' }}>{reschedError}</p>
+                )}
+              </div>
+
+              <div className="px-5 py-3 flex items-center justify-end gap-2" style={{ borderTop: '1px solid #E5E7EB', background: '#FAFAFA' }}>
+                <button
+                  onClick={closeReschedule}
+                  className="px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
+                  style={{ color: '#4B5563', background: '#fff', border: '1px solid #E5E7EB' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}
+                >
+                  {tx.rescheduleCancelBtn}
+                </button>
+                <button
+                  onClick={submitReschedule}
+                  disabled={reschedSubmitting}
+                  className="px-3 py-1.5 rounded font-semibold text-[12px] transition-all disabled:opacity-50"
+                  style={{ background: '#C41E3A', color: '#fff' }}
+                  onMouseEnter={e => { if (!reschedSubmitting) e.currentTarget.style.background = '#9E1830' }}
+                  onMouseLeave={e => { if (!reschedSubmitting) e.currentTarget.style.background = '#C41E3A' }}
+                >
+                  {reschedSubmitting ? '…' : tx.rescheduleSubmit}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

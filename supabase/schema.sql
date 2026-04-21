@@ -129,6 +129,23 @@ create table public.profiles (
   primary key (id)
 );
 
+create table public.reschedule_requests (
+  id uuid not null default gen_random_uuid(),
+  booking_id uuid not null,
+  requested_by uuid not null,
+  requested_by_role text not null,
+  original_scheduled_at timestamp with time zone not null,
+  proposed_scheduled_at timestamp with time zone not null,
+  reason text,
+  status text not null default 'pending'::text,
+  reviewed_by uuid,
+  reviewed_at timestamp with time zone,
+  admin_note text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
 create table public.sessions (
   id uuid not null default uuid_generate_v4(),
   booking_id uuid not null,
@@ -210,6 +227,9 @@ alter table public.payments add constraint payments_booking_id_fkey foreign key 
 alter table public.payments add constraint payments_student_id_fkey foreign key (student_id) references public.students (id);
 alter table public.payments add constraint payments_teacher_id_fkey foreign key (teacher_id) references public.teachers (id);
 alter table public.profiles add constraint profiles_id_fkey foreign key (id) references auth.users (id) on delete cascade;
+alter table public.reschedule_requests add constraint reschedule_requests_booking_id_fkey foreign key (booking_id) references public.bookings (id) on delete cascade;
+alter table public.reschedule_requests add constraint reschedule_requests_requested_by_fkey foreign key (requested_by) references public.profiles (id) on delete cascade;
+alter table public.reschedule_requests add constraint reschedule_requests_reviewed_by_fkey foreign key (reviewed_by) references public.profiles (id) on delete set null;
 alter table public.sessions add constraint sessions_booking_id_fkey foreign key (booking_id) references public.bookings (id) on delete cascade;
 alter table public.students add constraint students_primary_teacher_id_fkey foreign key (primary_teacher_id) references public.teachers (id);
 alter table public.students add constraint students_profile_id_fkey foreign key (profile_id) references public.profiles (id) on delete cascade;
@@ -230,6 +250,8 @@ alter table public.payments add constraint payments_status_check CHECK ((status 
 alter table public.profiles add constraint profiles_preferred_currency_len CHECK (((preferred_currency IS NULL) OR (length(preferred_currency) = 3)));
 alter table public.profiles add constraint profiles_preferred_language_check CHECK ((preferred_language = ANY (ARRAY['es'::text, 'en'::text])));
 alter table public.profiles add constraint profiles_role_check CHECK ((role = ANY (ARRAY['student'::text, 'teacher'::text, 'admin'::text])));
+alter table public.reschedule_requests add constraint reschedule_requests_requested_by_role_check CHECK ((requested_by_role = ANY (ARRAY['teacher'::text, 'student'::text, 'admin'::text])));
+alter table public.reschedule_requests add constraint reschedule_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'cancelled'::text])));
 alter table public.sessions add constraint sessions_student_rating_check CHECK (((student_rating >= 1) AND (student_rating <= 5)));
 alter table public.students add constraint students_age_range_check CHECK ((age_range = ANY (ARRAY['under_18'::text, '18_25'::text, '26_40'::text, '40_plus'::text])));
 alter table public.students add constraint students_learning_style_check CHECK ((learning_style = ANY (ARRAY['visual'::text, 'auditory'::text, 'reading'::text, 'mixed'::text])));
@@ -264,6 +286,9 @@ CREATE INDEX idx_library_books_active ON public.library_books USING btree (creat
 CREATE INDEX idx_payments_student ON public.payments USING btree (student_id);
 CREATE INDEX idx_payments_teacher ON public.payments USING btree (teacher_id);
 CREATE UNIQUE INDEX plans_plan_key_key ON public.plans USING btree (plan_key);
+CREATE INDEX reschedule_requests_booking_idx ON public.reschedule_requests USING btree (booking_id);
+CREATE UNIQUE INDEX reschedule_requests_one_pending_per_booking ON public.reschedule_requests USING btree (booking_id) WHERE (status = 'pending'::text);
+CREATE INDEX reschedule_requests_status_idx ON public.reschedule_requests USING btree (status);
 
 -- ============================================================
 -- Row-Level Security
@@ -277,6 +302,7 @@ alter table public.library_books enable row level security;
 alter table public.payments enable row level security;
 alter table public.plans enable row level security;
 alter table public.profiles enable row level security;
+alter table public.reschedule_requests enable row level security;
 alter table public.sessions enable row level security;
 alter table public.students enable row level security;
 alter table public.subscriptions enable row level security;
@@ -335,6 +361,27 @@ create policy "Students can read teacher profiles" on public.profiles for select
   WHERE ((t.profile_id = profiles.id) AND (s.profile_id = auth.uid())))));
 create policy "Users can update own profile" on public.profiles for update using ((auth.uid() = id));
 create policy "Users can view own profile" on public.profiles for select using ((auth.uid() = id));
+create policy "reschedule_admin_all" on public.reschedule_requests for all using ((EXISTS ( SELECT 1
+   FROM profiles p
+  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))) with check ((EXISTS ( SELECT 1
+   FROM profiles p
+  WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))));
+create policy "reschedule_student_select" on public.reschedule_requests for select using ((EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN students s ON ((s.id = b.student_id)))
+  WHERE ((b.id = reschedule_requests.booking_id) AND (s.profile_id = auth.uid())))));
+create policy "reschedule_teacher_insert" on public.reschedule_requests for insert with check ((EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN teachers t ON ((t.id = b.teacher_id)))
+  WHERE ((b.id = reschedule_requests.booking_id) AND (t.profile_id = auth.uid())))));
+create policy "reschedule_teacher_select" on public.reschedule_requests for select using ((EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN teachers t ON ((t.id = b.teacher_id)))
+  WHERE ((b.id = reschedule_requests.booking_id) AND (t.profile_id = auth.uid())))));
+create policy "reschedule_teacher_update" on public.reschedule_requests for update using ((EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN teachers t ON ((t.id = b.teacher_id)))
+  WHERE ((b.id = reschedule_requests.booking_id) AND (t.profile_id = auth.uid())))));
 create policy "Session participants can view" on public.sessions for select using ((auth.uid() IN ( SELECT p.profile_id
    FROM (students p
      JOIN bookings b ON ((b.student_id = p.id)))
@@ -468,11 +515,23 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.set_reschedule_requests_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$function$
+;
+
 -- ============================================================
 -- Triggers
 -- ============================================================
 
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+CREATE TRIGGER trg_reschedule_requests_updated_at BEFORE UPDATE ON public.reschedule_requests FOR EACH ROW EXECUTE FUNCTION set_reschedule_requests_updated_at();
 
 -- ============================================================
 -- Event Triggers

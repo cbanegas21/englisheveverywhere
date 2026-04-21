@@ -176,6 +176,77 @@ async function assertPrimaryTeacherOk(
   }
 }
 
+// ── Reschedule-request actions (admin side) ──────────────────────────────────
+
+export async function approveRescheduleRequest(
+  requestId: string,
+  adminNote: string = '',
+) {
+  const admin = await assertAdminAndClient()
+
+  const { data: request } = await admin
+    .from('reschedule_requests')
+    .select('id, booking_id, proposed_scheduled_at, status')
+    .eq('id', requestId)
+    .single()
+  if (!request) throw new Error('Request not found')
+  if (request.status !== 'pending') throw new Error('Request already resolved')
+
+  // Move the booking to the proposed time first; only record the approval if
+  // the booking update succeeded so we never end up with an "approved" request
+  // whose booking didn't actually move.
+  const { error: bookingErr } = await admin
+    .from('bookings')
+    .update({ scheduled_at: request.proposed_scheduled_at })
+    .eq('id', request.booking_id)
+  if (bookingErr) throw new Error(bookingErr.message)
+
+  const { error: updateErr } = await admin
+    .from('reschedule_requests')
+    .update({
+      status: 'approved',
+      reviewed_at: new Date().toISOString(),
+      admin_note: adminNote.trim() || null,
+    })
+    .eq('id', requestId)
+  if (updateErr) throw new Error(updateErr.message)
+
+  revalidatePath('/', 'layout')
+}
+
+export async function rejectRescheduleRequest(
+  requestId: string,
+  adminNote: string = '',
+) {
+  const admin = await assertAdminAndClient()
+
+  const { data: request } = await admin
+    .from('reschedule_requests')
+    .select('id, status')
+    .eq('id', requestId)
+    .single()
+  if (!request) throw new Error('Request not found')
+  if (request.status !== 'pending') throw new Error('Request already resolved')
+
+  const { error } = await admin
+    .from('reschedule_requests')
+    .update({
+      status: 'rejected',
+      reviewed_at: new Date().toISOString(),
+      admin_note: adminNote.trim() || null,
+    })
+    .eq('id', requestId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/', 'layout')
+}
+
+// Small helper: gate-then-client so the two reschedule actions don't repeat.
+async function assertAdminAndClient() {
+  await assertAdmin()
+  return createAdminClient()
+}
+
 // Writes primary_teacher_id only if currently null — never silently reassigns.
 async function lockInPrimaryTeacher(studentId: string, teacherId: string): Promise<void> {
   const admin = createAdminClient()

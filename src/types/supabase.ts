@@ -396,6 +396,76 @@ export type Database = {
         }
         Relationships: []
       }
+      reschedule_requests: {
+        Row: {
+          admin_note: string | null
+          booking_id: string
+          created_at: string
+          id: string
+          original_scheduled_at: string
+          proposed_scheduled_at: string
+          reason: string | null
+          requested_by: string
+          requested_by_role: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_note?: string | null
+          booking_id: string
+          created_at?: string
+          id?: string
+          original_scheduled_at: string
+          proposed_scheduled_at: string
+          reason?: string | null
+          requested_by: string
+          requested_by_role: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_note?: string | null
+          booking_id?: string
+          created_at?: string
+          id?: string
+          original_scheduled_at?: string
+          proposed_scheduled_at?: string
+          reason?: string | null
+          requested_by?: string
+          requested_by_role?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reschedule_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reschedule_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reschedule_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           booking_id: string
