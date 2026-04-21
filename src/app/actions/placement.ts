@@ -285,3 +285,57 @@ function sendPlacementEmails(params: {
     }),
   }).catch(() => {})
 }
+
+const VALID_CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
+
+// Teacher sets a student's CEFR level post-assessment. Gated on the caller
+// being a teacher role AND having a booking relationship with the student
+// (mirrors the RLS SELECT policy on students for teacher access).
+export async function teacherSetStudentLevel(studentId: string, level: string) {
+  if (!VALID_CEFR.has(level)) {
+    return { error: 'Invalid CEFR level' }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'teacher') {
+    return { error: 'Only teachers can set a student level from this flow' }
+  }
+
+  const admin = createAdminClient()
+
+  const { data: teacher } = await admin
+    .from('teachers')
+    .select('id')
+    .eq('profile_id', user.id)
+    .single()
+  if (!teacher?.id) return { error: 'Teacher record not found' }
+
+  // Must have at least one booking with this student (any status except
+  // cancelled). Otherwise the teacher isn't supposed to see the student.
+  const { count } = await admin
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', teacher.id)
+    .eq('student_id', studentId)
+    .neq('status', 'cancelled')
+  if (!count) {
+    return { error: 'You have no booking with this student' }
+  }
+
+  const { error } = await admin
+    .from('students')
+    .update({ level })
+    .eq('id', studentId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}

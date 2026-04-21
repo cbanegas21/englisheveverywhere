@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { Users, TrendingUp, Calendar, ChevronRight, X, Briefcase, Target, Brain, User } from 'lucide-react'
+import { useEffect, useState, useTransition } from 'react'
+import { Users, TrendingUp, Calendar, ChevronRight, X, Briefcase, Target, Brain, User, Check } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Locale } from '@/lib/i18n/translations'
+import { teacherSetStudentLevel } from '@/app/actions/placement'
+
+const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
 
 const t = {
   en: {
@@ -27,6 +30,11 @@ const t = {
     noIntake: 'This student has not completed their learning profile yet.',
     styles: { visual: 'Visual', auditory: 'Auditory', reading: 'Reading / Writing', mixed: 'Mixed' },
     ages: { under_18: 'Under 18', '18_25': '18–25', '26_40': '26–40', '40_plus': '40+' },
+    setLevel: 'CEFR Level',
+    setLevelHint: 'Update after the diagnostic call.',
+    saveLevel: 'Save',
+    savingLevel: 'Saving…',
+    levelSaved: 'Level updated',
   },
   es: {
     title: 'Mis Estudiantes',
@@ -48,6 +56,11 @@ const t = {
     noIntake: 'Este estudiante aún no ha completado su perfil de aprendizaje.',
     styles: { visual: 'Visual', auditory: 'Auditivo', reading: 'Lectura / Escritura', mixed: 'Mixto' },
     ages: { under_18: 'Menos de 18', '18_25': '18–25', '26_40': '26–40', '40_plus': '40+' },
+    setLevel: 'Nivel CEFR',
+    setLevelHint: 'Actualízalo después de la llamada de diagnóstico.',
+    saveLevel: 'Guardar',
+    savingLevel: 'Guardando…',
+    levelSaved: 'Nivel actualizado',
   },
 }
 
@@ -125,9 +138,40 @@ interface Props { lang: Locale; bookings: Booking[] }
 
 export default function EstudiantesClient({ lang, bookings }: Props) {
   const tx = t[lang]
-  const students = groupByStudent(bookings)
+  const [localStudents, setLocalStudents] = useState(() => groupByStudent(bookings))
+  const students = localStudents
   const totalSessionsAll = bookings.length
   const [detailStudent, setDetailStudent] = useState<StudentSummary | null>(null)
+  const [levelInput, setLevelInput] = useState('')
+  const [levelError, setLevelError] = useState('')
+  const [levelSaved, setLevelSaved] = useState(false)
+  const [isPendingLevel, startLevelTransition] = useTransition()
+
+  useEffect(() => {
+    setLevelInput(detailStudent?.level || '')
+    setLevelError('')
+    setLevelSaved(false)
+  }, [detailStudent])
+
+  function handleSaveLevel() {
+    if (!detailStudent || !levelInput) return
+    setLevelError('')
+    setLevelSaved(false)
+    const targetId = detailStudent.student_id
+    const targetLevel = levelInput
+    startLevelTransition(async () => {
+      const result = await teacherSetStudentLevel(targetId, targetLevel)
+      if (result?.error) {
+        setLevelError(result.error)
+        return
+      }
+      setLevelSaved(true)
+      setLocalStudents(prev => prev.map(s =>
+        s.student_id === targetId ? { ...s, level: targetLevel } : s
+      ))
+      setDetailStudent(prev => prev ? { ...prev, level: targetLevel } : prev)
+    })
+  }
 
   return (
     <div className="min-h-full" style={{ background: '#F9F9F9' }}>
@@ -272,6 +316,52 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
                 >
                   <X className="h-4 w-4" />
                 </button>
+              </div>
+
+              {/* CEFR level editor */}
+              <div className="px-6 pt-6">
+                <div
+                  className="rounded-xl p-4"
+                  style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
+                    <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
+                      {tx.setLevel}
+                    </span>
+                  </div>
+                  <p className="text-[11px] mb-3" style={{ color: '#9CA3AF' }}>{tx.setLevelHint}</p>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={levelInput}
+                      onChange={e => { setLevelInput(e.target.value); setLevelSaved(false); setLevelError('') }}
+                      disabled={isPendingLevel}
+                      className="flex-1 rounded px-2 py-1.5 text-[12px] outline-none"
+                      style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#fff' }}
+                    >
+                      <option value="">—</option>
+                      {CEFR_LEVELS.map(l => (
+                        <option key={l} value={l}>{l}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleSaveLevel}
+                      disabled={isPendingLevel || !levelInput || levelInput === (detailStudent.level || '')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50"
+                      style={{ background: '#C41E3A', color: '#fff' }}
+                    >
+                      {isPendingLevel ? tx.savingLevel : tx.saveLevel}
+                    </button>
+                  </div>
+                  {levelError && (
+                    <p className="text-[11px] mt-2" style={{ color: '#DC2626' }}>{levelError}</p>
+                  )}
+                  {levelSaved && !levelError && (
+                    <p className="text-[11px] mt-2 inline-flex items-center gap-1" style={{ color: '#059669' }}>
+                      <Check className="h-3 w-3" /> {tx.levelSaved}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Intake panel */}
