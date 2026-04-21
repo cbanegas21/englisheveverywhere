@@ -11,7 +11,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
-    "gen-types": "node scripts/gen-types.mjs"
+    "gen-types": "node scripts/gen-types.mjs",
+    "dump-schema": "node scripts/dump-schema.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

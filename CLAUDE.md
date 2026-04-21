@@ -98,6 +98,9 @@ git push origin main      # Vercel builds on push. Do NOT run `vercel` CLI.
   ```
 - Add new migrations as `supabase/migrations/00N_description.sql` and apply
   them via the API above.
+- After applying, run `pnpm gen-types` + `pnpm dump-schema` to refresh
+  `src/types/supabase.ts` and `supabase/schema.sql` from the live DB. CI
+  fails if either file drifts from the live schema.
 - RLS is ON for every user-data table. Admin writes go through the service-role
   admin client (`src/lib/supabase/admin.ts`) AFTER `assertAdmin()`.
 
@@ -125,17 +128,26 @@ git push origin main      # Vercel builds on push. Do NOT run `vercel` CLI.
   margin comes from the subscription/teacher-rate gap, not from the
   per-session payout), then fires `generateSessionSummary` against Claude.
 
-## Known-broken areas (as of 2026-04-17)
+## Known-broken areas (as of 2026-04-20)
 
 1. **`src/app/api/stripe/webhook/route.ts:4-8`** — hardcoded `CLASS_COUNTS` uses
    legacy plan keys (`starter/estandar/intensivo → 4/8/16`). Real keys per
    `src/lib/pricing.ts` are `spark/drive/ascent/peak → 8/12/16/20`. A real
    Stripe purchase will silently fail to credit classes. Deferred until the
    Stripe-account decision is made (see `PROJECT.md` Payments).
-2. **`supabase/schema.sql` still drifted** — the initial-state file retains
-   the legacy `plans` seed and lacks the columns added in `008_*.sql` +
-   `010_*.sql`. Fresh builds end up correct only after running every
-   migration in order. Consolidating schema.sql is a low-priority cleanup.
+
+### Resolved on 2026-04-20
+- **`supabase/schema.sql` regenerated** from the live DB via
+  `scripts/dump-schema.mjs` (Management API → pg catalogs). Run
+  `pnpm dump-schema` to refresh after migrations. The file now reflects
+  actual prod state, not the drifted initial seed.
+- **`src/types/supabase.ts` added** — generated from the live DB schema
+  by `scripts/gen-types.mjs`. Refresh with `pnpm gen-types` after any
+  migration. CI fails the build if this file drifts from live.
+- **Tier 0 schema-drift probe** — `tests/e2e/schema-drift-probe.spec.ts`
+  walks migrations in order, computes the expected CHECK constraint /
+  unique index set (net of drops), and asserts each exists in prod.
+  Catches "migration committed but not applied" silent regressions.
 
 ### Resolved on 2026-04-17
 - Schema drift back-filled as `008_schema_drift_backfill.sql`.
