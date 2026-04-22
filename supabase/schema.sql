@@ -43,6 +43,15 @@ create table public.assignments (
   primary key (id)
 );
 
+create table public.auth_attempts (
+  id bigint not null default nextval('auth_attempts_id_seq'::regclass),
+  ip text not null,
+  action text not null,
+  email text,
+  attempted_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
 create table public.availability_slots (
   id uuid not null default uuid_generate_v4(),
   teacher_id uuid not null,
@@ -69,6 +78,9 @@ create table public.bookings (
   meeting_notes text,
   conductor_profile_id uuid,
   scheduled_email_ids text[] default '{}'::text[],
+  cancelled_by text,
+  cancellation_reason text,
+  cancelled_at timestamp with time zone,
   primary key (id)
 );
 
@@ -111,6 +123,13 @@ create table public.plans (
   is_active boolean default true,
   created_at timestamp with time zone not null default now(),
   plan_key text,
+  primary key (id)
+);
+
+create table public.processed_stripe_events (
+  id text not null,
+  event_type text not null,
+  processed_at timestamp with time zone not null default now(),
   primary key (id)
 );
 
@@ -246,7 +265,10 @@ alter table public.teachers add constraint teachers_profile_id_fkey foreign key 
 
 alter table public.assignment_submissions add constraint assignment_submissions_score_check CHECK (((score IS NULL) OR (score = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text, 'needs_work'::text, 'good'::text, 'excellent'::text]))));
 alter table public.assignments add constraint assignments_status_check CHECK ((status = ANY (ARRAY['open'::text, 'cancelled'::text])));
+alter table public.auth_attempts add constraint auth_attempts_action_check CHECK ((action = ANY (ARRAY['login'::text, 'signup'::text])));
 alter table public.availability_slots add constraint availability_slots_day_of_week_check CHECK (((day_of_week >= 0) AND (day_of_week <= 6)));
+alter table public.bookings add constraint bookings_cancellation_reason_check CHECK ((cancellation_reason = ANY (ARRAY['early'::text, 'late'::text, 'no_show_teacher'::text, 'no_show_student'::text, 'teacher_decline'::text, 'admin_refund'::text, 'other'::text])));
+alter table public.bookings add constraint bookings_cancelled_by_check CHECK ((cancelled_by = ANY (ARRAY['student'::text, 'teacher'::text, 'admin'::text, 'system'::text])));
 alter table public.bookings add constraint bookings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'completed'::text, 'cancelled'::text])));
 alter table public.library_books add constraint library_books_level_check CHECK (((level IS NULL) OR (level = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text, 'all'::text]))));
 alter table public.payments add constraint payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunded'::text])));
@@ -278,6 +300,7 @@ alter table public.teachers add constraint teachers_profile_id_key UNIQUE (profi
 CREATE INDEX idx_submissions_assignment ON public.assignment_submissions USING btree (assignment_id);
 CREATE INDEX idx_assignments_student ON public.assignments USING btree (student_id, created_at DESC);
 CREATE INDEX idx_assignments_teacher ON public.assignments USING btree (teacher_id, created_at DESC);
+CREATE INDEX auth_attempts_ip_action_time_idx ON public.auth_attempts USING btree (ip, action, attempted_at DESC);
 CREATE INDEX idx_availability_teacher ON public.availability_slots USING btree (teacher_id);
 CREATE UNIQUE INDEX bookings_student_time_unique ON public.bookings USING btree (student_id, scheduled_at) WHERE (status <> 'cancelled'::text);
 CREATE INDEX idx_bookings_pending_class_assignment ON public.bookings USING btree (scheduled_at) WHERE ((type = 'class'::text) AND (teacher_id IS NULL) AND (status <> 'cancelled'::text));
@@ -299,11 +322,13 @@ CREATE INDEX reschedule_requests_status_idx ON public.reschedule_requests USING 
 
 alter table public.assignment_submissions enable row level security;
 alter table public.assignments enable row level security;
+alter table public.auth_attempts enable row level security;
 alter table public.availability_slots enable row level security;
 alter table public.bookings enable row level security;
 alter table public.library_books enable row level security;
 alter table public.payments enable row level security;
 alter table public.plans enable row level security;
+alter table public.processed_stripe_events enable row level security;
 alter table public.profiles enable row level security;
 alter table public.reschedule_requests enable row level security;
 alter table public.sessions enable row level security;
@@ -369,7 +394,15 @@ create policy "reschedule_admin_all" on public.reschedule_requests for all using
   WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))) with check ((EXISTS ( SELECT 1
    FROM profiles p
   WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))));
+create policy "reschedule_student_insert" on public.reschedule_requests for insert with check ((EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN students s ON ((s.id = b.student_id)))
+  WHERE ((b.id = reschedule_requests.booking_id) AND (s.profile_id = auth.uid())))));
 create policy "reschedule_student_select" on public.reschedule_requests for select using ((EXISTS ( SELECT 1
+   FROM (bookings b
+     JOIN students s ON ((s.id = b.student_id)))
+  WHERE ((b.id = reschedule_requests.booking_id) AND (s.profile_id = auth.uid())))));
+create policy "reschedule_student_update" on public.reschedule_requests for update using ((EXISTS ( SELECT 1
    FROM (bookings b
      JOIN students s ON ((s.id = b.student_id)))
   WHERE ((b.id = reschedule_requests.booking_id) AND (s.profile_id = auth.uid())))));

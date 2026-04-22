@@ -305,6 +305,311 @@ export async function cancelRescheduleRequest(requestId: string) {
   return { success: true }
 }
 
+// ── Student-initiated cancel / reschedule / no-show report ─────────────────
+//
+// Pricing copy promises "Cancel anytime" but also "Classes cancelled with
+// less than 24-hour notice are forfeited." These three actions implement that
+// rule + give students a way to recover credit when the teacher no-shows.
+//
+// Audit fields (`cancelled_by`, `cancellation_reason`, `cancelled_at`) come
+// from migration 025 — they make refund eligibility deterministic instead of
+// inferred from timing after the fact.
+
+const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
+
+async function notifyAdminOfCancel(params: {
+  bookingId: string
+  studentName: string
+  reason: string
+  scheduledAt: string
+  refundIssued: boolean
+}) {
+  const apiKey = process.env.RESEND_API_KEY
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  if (!apiKey || apiKey === 're_placeholder') return
+
+  const scheduled = new Date(params.scheduledAt).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  })
+
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM || 'noreply@englishkolab.com',
+      to: adminEmail,
+      subject: `Booking cancelled — ${params.studentName} (${params.reason})`,
+      html: `
+        <p>${params.studentName} cancelled a class.</p>
+        <table>
+          <tr><td><strong>Reason</strong></td><td>${params.reason}</td></tr>
+          <tr><td><strong>Originally scheduled</strong></td><td>${scheduled}</td></tr>
+          <tr><td><strong>Class credit refunded</strong></td><td>${params.refundIssued ? 'Yes' : 'No'}</td></tr>
+        </table>
+        <p><a href="${appUrl}/es/admin/bookings">Review →</a></p>
+      `,
+    }),
+  }).catch(() => {})
+}
+
+export async function studentCancelBooking(bookingId: string, lang: string = 'es') {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+
+  const { data: student } = await admin
+    .from('students')
+    .select('id')
+    .eq('profile_id', user.id)
+    .single()
+  if (!student) return { error: 'Student profile not found' }
+
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('id, scheduled_at, status, type, student_id, teacher_id')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) return { error: 'Booking not found' }
+  if (booking.student_id !== student.id) return { error: 'Not your booking' }
+  if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+    return { error: lang === 'es' ? 'Esta clase ya no se puede cancelar.' : 'This class can no longer be cancelled.' }
+  }
+
+  const startMs = new Date(booking.scheduled_at).getTime()
+  const isLate = startMs - Date.now() < DAY_MS
+  const reason = isLate ? 'late' : 'early'
+
+  const { error: updErr } = await admin
+    .from('bookings')
+    .update({
+      status: 'cancelled',
+      cancelled_by: 'student',
+      cancellation_reason: reason,
+      cancelled_at: new Date().toISOString(),
+    })
+    .eq('id', bookingId)
+  if (updErr) return { error: updErr.message }
+
+  // Refund credit only if cancelled with ≥24h notice — matches the pricing
+  // copy ("classes cancelled with less than 24-hour notice are forfeited").
+  if (!isLate) {
+    await admin.rpc('increment_classes', { p_student_id: student.id })
+  }
+
+  cancelBookingReminders(bookingId).catch(() => {})
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  notifyAdminOfCancel({
+    bookingId,
+    studentName: profile?.full_name || user.email || 'Student',
+    reason,
+    scheduledAt: booking.scheduled_at,
+    refundIssued: !isLate,
+  }).catch(() => {})
+
+  revalidatePath('/', 'layout')
+  return {
+    success: true,
+    refunded: !isLate,
+    message: isLate
+      ? (lang === 'es'
+          ? 'Clase cancelada. Por estar dentro de las 24h, no se restituye el crédito.'
+          : 'Class cancelled. Cancelled within 24h — credit not restored.')
+      : (lang === 'es'
+          ? 'Clase cancelada y crédito restituido a tu cuenta.'
+          : 'Class cancelled and credit restored to your account.'),
+  }
+}
+
+export async function studentRescheduleBooking(
+  bookingId: string,
+  newScheduledAtIso: string,
+  lang: string = 'es',
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+
+  const { data: student } = await admin
+    .from('students')
+    .select('id')
+    .eq('profile_id', user.id)
+    .single()
+  if (!student) return { error: 'Student profile not found' }
+
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('id, scheduled_at, status, type, student_id, teacher_id')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) return { error: 'Booking not found' }
+  if (booking.student_id !== student.id) return { error: 'Not your booking' }
+  if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+    return { error: lang === 'es' ? 'Esta clase ya no se puede reagendar.' : 'This class can no longer be rescheduled.' }
+  }
+
+  const oldStartMs = new Date(booking.scheduled_at).getTime()
+  if (oldStartMs - Date.now() < DAY_MS) {
+    return {
+      error: lang === 'es'
+        ? 'Solo puedes reagendar con al menos 24h de anticipación. Para cambios de último momento, cancela y agenda una nueva.'
+        : 'You can only reschedule with 24+ hours notice. For last-minute changes, cancel and book a new class.',
+    }
+  }
+
+  const newDate = new Date(newScheduledAtIso)
+  if (isNaN(newDate.getTime())) return { error: 'Invalid new time' }
+  if (newDate.getTime() - Date.now() < DAY_MS) {
+    return {
+      error: lang === 'es'
+        ? 'El nuevo horario debe ser al menos 24h en el futuro.'
+        : 'The new time must be at least 24h in the future.',
+    }
+  }
+
+  // Conflict check against this student's other live bookings.
+  const { data: conflicting } = await admin
+    .from('bookings')
+    .select('id')
+    .eq('student_id', student.id)
+    .eq('scheduled_at', newDate.toISOString())
+    .neq('id', bookingId)
+    .neq('status', 'cancelled')
+    .maybeSingle()
+  if (conflicting) {
+    return {
+      error: lang === 'es'
+        ? 'Ya tienes una clase agendada para ese horario.'
+        : 'You already have a class booked for that time slot.',
+    }
+  }
+
+  // Move the booking. Status drops back to 'pending' so the teacher (if one
+  // was already assigned) re-confirms — the original confirmation was for the
+  // old time and shouldn't carry over silently.
+  const { error: updErr } = await admin
+    .from('bookings')
+    .update({
+      scheduled_at: newDate.toISOString(),
+      status: 'pending',
+    })
+    .eq('id', bookingId)
+  if (updErr) return { error: updErr.message }
+
+  // Wipe stale reminders. New ones get scheduled when the teacher re-confirms.
+  cancelBookingReminders(bookingId).catch(() => {})
+
+  revalidatePath('/', 'layout')
+  return {
+    success: true,
+    message: lang === 'es'
+      ? 'Clase reagendada. Tu maestro confirmará el nuevo horario pronto.'
+      : 'Class rescheduled. Your teacher will reconfirm the new time shortly.',
+  }
+}
+
+export async function reportTeacherNoShow(bookingId: string, lang: string = 'es') {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+
+  const { data: student } = await admin
+    .from('students')
+    .select('id')
+    .eq('profile_id', user.id)
+    .single()
+  if (!student) return { error: 'Student profile not found' }
+
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('id, scheduled_at, duration_minutes, status, student_id, teacher_id')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) return { error: 'Booking not found' }
+  if (booking.student_id !== student.id) return { error: 'Not your booking' }
+  if (booking.status === 'completed' || booking.status === 'cancelled') {
+    return { error: lang === 'es' ? 'Esta clase ya está cerrada.' : 'This class is already closed.' }
+  }
+
+  // Only allow reporting after the class window has fully passed — gives the
+  // teacher the full duration to show up + a 5-minute grace buffer.
+  const startMs = new Date(booking.scheduled_at).getTime()
+  const endMs = startMs + (booking.duration_minutes || 60) * 60_000
+  if (Date.now() < endMs + 5 * 60_000) {
+    return {
+      error: lang === 'es'
+        ? 'Espera a que termine el horario de la clase antes de reportar.'
+        : 'Wait until the class window has ended before reporting.',
+    }
+  }
+
+  // Cross-check the session row — if the teacher's track was published,
+  // started_at would be set and a no-show claim is invalid.
+  const { data: session } = await admin
+    .from('sessions')
+    .select('started_at')
+    .eq('booking_id', bookingId)
+    .maybeSingle()
+  if (session?.started_at) {
+    return {
+      error: lang === 'es'
+        ? 'Esta clase parece haberse iniciado. Si hay un problema, contáctanos.'
+        : 'This class appears to have started. If there is an issue, please contact support.',
+    }
+  }
+
+  const { error: updErr } = await admin
+    .from('bookings')
+    .update({
+      status: 'cancelled',
+      cancelled_by: 'student',
+      cancellation_reason: 'no_show_teacher',
+      cancelled_at: new Date().toISOString(),
+    })
+    .eq('id', bookingId)
+  if (updErr) return { error: updErr.message }
+
+  await admin.rpc('increment_classes', { p_student_id: student.id })
+
+  cancelBookingReminders(bookingId).catch(() => {})
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  notifyAdminOfCancel({
+    bookingId,
+    studentName: profile?.full_name || user.email || 'Student',
+    reason: 'no_show_teacher',
+    scheduledAt: booking.scheduled_at,
+    refundIssued: true,
+  }).catch(() => {})
+
+  revalidatePath('/', 'layout')
+  return {
+    success: true,
+    message: lang === 'es'
+      ? 'Reporte recibido. El crédito fue restituido y notificamos al equipo.'
+      : 'Report received. Credit restored and the team has been notified.',
+  }
+}
+
 export async function saveAvailabilitySlots(
   slots: { day_of_week: number; start_time: string; end_time: string }[],
   lang: string = 'es'

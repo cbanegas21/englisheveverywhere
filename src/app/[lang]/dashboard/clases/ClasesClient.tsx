@@ -5,9 +5,15 @@ import Link from 'next/link'
 import {
   Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X,
   ChevronLeft, Stethoscope, Search, TrendingUp, History, CalendarDays,
+  MoreVertical, CalendarClock, AlertOctagon, XCircle,
 } from 'lucide-react'
 import { getSessionByBookingId } from '@/app/actions/video'
 import type { SessionSummary } from '@/app/actions/video'
+import {
+  studentCancelBooking,
+  studentRescheduleBooking,
+  reportTeacherNoShow,
+} from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
 
@@ -59,6 +65,26 @@ const t = {
     statsCompleted: 'Completed',
     statsHours: 'Hours learned',
     bookingsThisMonth: (n: number) => `${n} ${n === 1 ? 'class' : 'classes'} this month`,
+    actions: 'Actions',
+    actionCancel: 'Cancel class',
+    actionReschedule: 'Reschedule',
+    actionNoShow: 'Report teacher no-show',
+    cancelTitleEarly: 'Cancel this class?',
+    cancelTitleLate: 'Cancel within 24 hours?',
+    cancelBodyEarly: 'You will get your class credit back. Are you sure?',
+    cancelBodyLate: 'This class starts in less than 24 hours. Per our policy, the credit is forfeited and will not be refunded.',
+    cancelConfirm: 'Yes, cancel',
+    cancelGoBack: 'Keep the class',
+    rescheduleTitle: 'Reschedule this class',
+    rescheduleHint: 'Pick a new date and time at least 24 hours from now. Your teacher will reconfirm the new slot.',
+    rescheduleNewLabel: 'New date & time',
+    rescheduleConfirm: 'Reschedule',
+    noShowTitle: 'Report teacher no-show',
+    noShowBody: 'Use this only if your teacher never joined the class. Your credit will be restored and our team will follow up.',
+    noShowConfirm: 'Submit report',
+    actionWorking: 'Working…',
+    actionDone: 'Done',
+    actionFailed: 'Something went wrong. Try again.',
   },
   es: {
     title: 'Mis Clases',
@@ -107,6 +133,26 @@ const t = {
     statsCompleted: 'Completadas',
     statsHours: 'Horas aprendidas',
     bookingsThisMonth: (n: number) => `${n} ${n === 1 ? 'clase' : 'clases'} este mes`,
+    actions: 'Acciones',
+    actionCancel: 'Cancelar clase',
+    actionReschedule: 'Reagendar',
+    actionNoShow: 'Reportar inasistencia del maestro',
+    cancelTitleEarly: '¿Cancelar esta clase?',
+    cancelTitleLate: '¿Cancelar dentro de 24 horas?',
+    cancelBodyEarly: 'Te devolveremos el crédito de tu clase. ¿Confirmas?',
+    cancelBodyLate: 'Esta clase empieza en menos de 24 horas. Según nuestra política, el crédito se pierde y no se reembolsará.',
+    cancelConfirm: 'Sí, cancelar',
+    cancelGoBack: 'Mantener la clase',
+    rescheduleTitle: 'Reagendar esta clase',
+    rescheduleHint: 'Elige una nueva fecha y hora con al menos 24 horas de anticipación. Tu maestro reconfirmará el nuevo horario.',
+    rescheduleNewLabel: 'Nueva fecha y hora',
+    rescheduleConfirm: 'Reagendar',
+    noShowTitle: 'Reportar inasistencia del maestro',
+    noShowBody: 'Úsalo solo si tu maestro no se conectó. Restituiremos tu crédito y nuestro equipo dará seguimiento.',
+    noShowConfirm: 'Enviar reporte',
+    actionWorking: 'Procesando…',
+    actionDone: 'Listo',
+    actionFailed: 'Algo salió mal. Intenta de nuevo.',
   },
 }
 
@@ -188,6 +234,34 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
   const [sessionData, setSessionData] = useState<SessionData | null>(null)
   const [loadingSession, setLoadingSession] = useState(false)
   const [search, setSearch] = useState('')
+
+  // Per-row kebab dropdown + action-modal state. `actionTarget` carries the
+  // booking the user is acting on plus the action; `actionStatus` toggles the
+  // submitting → done/error states inline so users get feedback without a
+  // page reload.
+  const [openMenuFor, setOpenMenuFor] = useState<string | null>(null)
+  const [actionTarget, setActionTarget] = useState<
+    | { booking: Booking; kind: 'cancel' | 'reschedule' | 'no_show' }
+    | null
+  >(null)
+  const [rescheduleNewIso, setRescheduleNewIso] = useState('')
+  const [actionStatus, setActionStatus] = useState<'idle' | 'working' | 'error'>('idle')
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    const id = setTimeout(() => setToast(null), 4500)
+    return () => clearTimeout(id)
+  }, [toast])
+
+  // Click-outside closes the kebab dropdown.
+  useEffect(() => {
+    if (!openMenuFor) return
+    function onDoc() { setOpenMenuFor(null) }
+    document.addEventListener('click', onDoc)
+    return () => document.removeEventListener('click', onDoc)
+  }, [openMenuFor])
 
   // Minute-tick drives the "Live" badge transition. Null on SSR for
   // hydration safety; React-19 rules-of-hooks forbids synchronous setState
@@ -294,6 +368,65 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
   function closeSummary() {
     setViewingBookingId(null)
     setSessionData(null)
+  }
+
+  function openAction(booking: Booking, kind: 'cancel' | 'reschedule' | 'no_show') {
+    setActionTarget({ booking, kind })
+    setActionStatus('idle')
+    setActionError(null)
+    if (kind === 'reschedule') {
+      // Pre-fill input as today+25h rounded to the nearest hour, formatted
+      // for <input type="datetime-local">. `nowTick` is already derived from
+      // wall-clock in an effect — using it satisfies react-hooks/purity.
+      const baseMs = (nowTick ?? nowSnapshotMs) + 25 * 60 * 60 * 1000
+      const d = new Date(baseMs)
+      d.setMinutes(0, 0, 0)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+      setRescheduleNewIso(local)
+    }
+    setOpenMenuFor(null)
+  }
+
+  function closeAction() {
+    setActionTarget(null)
+    setActionStatus('idle')
+    setActionError(null)
+    setRescheduleNewIso('')
+  }
+
+  async function runAction() {
+    if (!actionTarget) return
+    setActionStatus('working')
+    setActionError(null)
+    try {
+      let res: { success?: boolean; error?: string; message?: string } | undefined
+      if (actionTarget.kind === 'cancel') {
+        res = await studentCancelBooking(actionTarget.booking.id, lang)
+      } else if (actionTarget.kind === 'reschedule') {
+        if (!rescheduleNewIso) {
+          setActionStatus('error')
+          setActionError(tx.actionFailed)
+          return
+        }
+        const iso = new Date(rescheduleNewIso).toISOString()
+        res = await studentRescheduleBooking(actionTarget.booking.id, iso, lang)
+      } else if (actionTarget.kind === 'no_show') {
+        res = await reportTeacherNoShow(actionTarget.booking.id, lang)
+      }
+      if (res?.error) {
+        setActionStatus('error')
+        setActionError(res.error)
+        return
+      }
+      closeAction()
+      setToast(res?.message || tx.actionDone)
+      // Force a fresh server fetch so the booking list reflects the new state.
+      window.location.reload()
+    } catch (err) {
+      setActionStatus('error')
+      setActionError((err as Error).message || tx.actionFailed)
+    }
   }
 
   let parsedSummary: SessionSummary | null = null
@@ -689,6 +822,79 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                             />
                           )}
 
+                          {/* Kebab menu — cancel / reschedule / report no-show.
+                              Placement-test bookings skip the menu (different
+                              flow). Booking must be live (pending or confirmed) */}
+                          {activeTab === 'upcoming'
+                            && booking.type !== 'placement_test'
+                            && (booking.status === 'pending' || booking.status === 'confirmed')
+                            && (() => {
+                              const startMs = new Date(booking.scheduled_at).getTime()
+                              const endMs = startMs + (booking.duration_minutes || 60) * 60_000
+                              // Eligible to report no-show only after the class
+                              // window has fully passed (server enforces too).
+                              const canReportNoShow = nowTick !== null && nowTick > endMs + 5 * 60_000
+                              const isOpen = openMenuFor === booking.id
+                              return (
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenMenuFor(isOpen ? null : booking.id)
+                                    }}
+                                    className="flex items-center justify-center h-8 w-8 rounded-lg transition-all"
+                                    style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = '#E5E7EB'; e.currentTarget.style.color = '#111111' }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#6B7280' }}
+                                    aria-label={tx.actions}
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </button>
+                                  {isOpen && (
+                                    <div
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="absolute right-0 top-full mt-1 z-30 w-56 rounded-lg overflow-hidden shadow-lg"
+                                      style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+                                    >
+                                      <button
+                                        onClick={() => openAction(booking, 'reschedule')}
+                                        className="flex items-center gap-2 w-full text-left px-3 py-2.5 text-[12px] font-semibold transition-colors"
+                                        style={{ color: '#111111' }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = '#F9F9F9')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                      >
+                                        <CalendarClock className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
+                                        {tx.actionReschedule}
+                                      </button>
+                                      <button
+                                        onClick={() => openAction(booking, 'cancel')}
+                                        className="flex items-center gap-2 w-full text-left px-3 py-2.5 text-[12px] font-semibold transition-colors"
+                                        style={{ color: '#111111', borderTop: '1px solid #F3F4F6' }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = '#F9F9F9')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                      >
+                                        <XCircle className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
+                                        {tx.actionCancel}
+                                      </button>
+                                      {canReportNoShow && (
+                                        <button
+                                          onClick={() => openAction(booking, 'no_show')}
+                                          className="flex items-center gap-2 w-full text-left px-3 py-2.5 text-[12px] font-semibold transition-colors"
+                                          style={{ color: '#111111', borderTop: '1px solid #F3F4F6' }}
+                                          onMouseEnter={e => (e.currentTarget.style.background = '#F9F9F9')}
+                                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                        >
+                                          <AlertOctagon className="h-3.5 w-3.5" style={{ color: '#D97706' }} />
+                                          {tx.actionNoShow}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })()
+                          }
+
                           {isCompleted && (
                             <button
                               onClick={() => openSummary(booking.id)}
@@ -803,6 +1009,96 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Action modal — cancel / reschedule / no-show */}
+      {actionTarget && (() => {
+        const startMs = new Date(actionTarget.booking.scheduled_at).getTime()
+        const isLateCancel = startMs - (nowTick ?? nowSnapshotMs) < 24 * 60 * 60 * 1000
+        const title =
+          actionTarget.kind === 'reschedule' ? tx.rescheduleTitle
+          : actionTarget.kind === 'no_show' ? tx.noShowTitle
+          : (isLateCancel ? tx.cancelTitleLate : tx.cancelTitleEarly)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="absolute inset-0" style={{ background: 'rgba(17,17,17,0.5)', backdropFilter: 'blur(4px)' }} onClick={closeAction} />
+            <div className="relative w-full max-w-md rounded-2xl shadow-2xl" style={{ background: '#fff' }}>
+              <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid #E5E7EB' }}>
+                <span className="text-[14px] font-bold" style={{ color: '#111111' }}>{title}</span>
+                <button onClick={closeAction} className="transition-colors" style={{ color: '#9CA3AF' }} onMouseEnter={e => (e.currentTarget.style.color = '#111111')} onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                {actionTarget.kind === 'cancel' && (
+                  <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>
+                    {isLateCancel ? tx.cancelBodyLate : tx.cancelBodyEarly}
+                  </p>
+                )}
+                {actionTarget.kind === 'no_show' && (
+                  <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>
+                    {tx.noShowBody}
+                  </p>
+                )}
+                {actionTarget.kind === 'reschedule' && (
+                  <>
+                    <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>
+                      {tx.rescheduleHint}
+                    </p>
+                    <label className="block">
+                      <span className="text-[11px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#9CA3AF' }}>
+                        {tx.rescheduleNewLabel}
+                      </span>
+                      <input
+                        type="datetime-local"
+                        value={rescheduleNewIso}
+                        onChange={e => setRescheduleNewIso(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none transition-all"
+                        style={{ background: '#fff', border: '1px solid #E5E7EB', color: '#111111' }}
+                        onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
+                        onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                      />
+                    </label>
+                  </>
+                )}
+                {actionStatus === 'error' && actionError && (
+                  <div className="rounded-lg px-3 py-2 text-[12px]" style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }}>
+                    {actionError}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 justify-end pt-2">
+                  <button
+                    onClick={closeAction}
+                    disabled={actionStatus === 'working'}
+                    className="px-4 py-2 rounded-lg text-[12px] font-semibold transition-all"
+                    style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB' }}
+                  >
+                    {actionTarget.kind === 'cancel' ? tx.cancelGoBack : tx.close}
+                  </button>
+                  <button
+                    onClick={runAction}
+                    disabled={actionStatus === 'working' || (actionTarget.kind === 'reschedule' && !rescheduleNewIso)}
+                    className="px-4 py-2 rounded-lg text-[12px] font-bold transition-all"
+                    style={{ background: '#C41E3A', color: '#fff', opacity: actionStatus === 'working' ? 0.7 : 1 }}
+                  >
+                    {actionStatus === 'working'
+                      ? tx.actionWorking
+                      : actionTarget.kind === 'cancel' ? tx.cancelConfirm
+                      : actionTarget.kind === 'reschedule' ? tx.rescheduleConfirm
+                      : tx.noShowConfirm}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg shadow-lg px-4 py-3 text-[13px]"
+          style={{ background: '#111111', color: '#F9F9F9', border: '1px solid #111111' }}>
+          {toast}
         </div>
       )}
     </div>

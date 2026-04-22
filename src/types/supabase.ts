@@ -104,6 +104,30 @@ export type Database = {
           },
         ]
       }
+      auth_attempts: {
+        Row: {
+          action: string
+          attempted_at: string
+          email: string | null
+          id: number
+          ip: string
+        }
+        Insert: {
+          action: string
+          attempted_at?: string
+          email?: string | null
+          id?: number
+          ip: string
+        }
+        Update: {
+          action?: string
+          attempted_at?: string
+          email?: string | null
+          id?: number
+          ip?: string
+        }
+        Relationships: []
+      }
       availability_slots: {
         Row: {
           day_of_week: number
@@ -141,6 +165,9 @@ export type Database = {
       }
       bookings: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           conductor_profile_id: string | null
           created_at: string
           duration_minutes: number
@@ -158,6 +185,9 @@ export type Database = {
           video_room_url: string | null
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           conductor_profile_id?: string | null
           created_at?: string
           duration_minutes?: number
@@ -175,6 +205,9 @@ export type Database = {
           video_room_url?: string | null
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           conductor_profile_id?: string | null
           created_at?: string
           duration_minutes?: number
@@ -351,6 +384,24 @@ export type Database = {
           plan_key?: string | null
           price_usd?: number
           stripe_price_id?: string | null
+        }
+        Relationships: []
+      }
+      processed_stripe_events: {
+        Row: {
+          event_type: string
+          id: string
+          processed_at: string
+        }
+        Insert: {
+          event_type: string
+          id: string
+          processed_at?: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          processed_at?: string
         }
         Relationships: []
       }
