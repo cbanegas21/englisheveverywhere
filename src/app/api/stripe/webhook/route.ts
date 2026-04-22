@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { PRICING_MAP } from '@/lib/pricing'
 
 // Canonical class counts per plan — sourced from src/lib/pricing.ts so a
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
   const stripeKey = process.env.STRIPE_SECRET_KEY
 
-  if (!webhookSecret || webhookSecret === 'whsec_placeholder' || !stripeKey || stripeKey === 'sk_test_placeholder') {
+  if (!webhookSecret || webhookSecret.endsWith('_placeholder') || !stripeKey || stripeKey.endsWith('_placeholder')) {
     // Dev mode — just return 200
     return NextResponse.json({ received: true })
   }
@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Webhook Error: ${msg}` }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  // Webhook requests carry no user cookies — SSR client would hit RLS and
+  // silently no-op. Use the service-role admin client for all writes.
+  const supabase = createAdminClient()
 
   switch (event.type) {
     case 'checkout.session.completed': {
@@ -60,73 +62,65 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // Get student record
         const { data: student } = await supabase
           .from('students')
-          .select('id')
+          .select('id, classes_remaining')
           .eq('profile_id', userId)
-          .single()
+          .maybeSingle()
 
-        // Resolve the plan by plan_key. Looking up by classes_per_month
-        // was ambiguous — legacy rows share 8/16 counts with spark/ascent,
-        // and `.single()` errors out (PGRST116), silently skipping the credit.
-        // Aliased keys (starter/estandar/intensivo) collapse to their canonical
-        // equivalents so old checkout metadata still resolves.
-        const CANONICAL_BY_ALIAS: Record<string, string> = {
-          starter: 'spark',
-          estandar: 'drive',
-          intensivo: 'ascent',
+        if (!student) {
+          console.error('[stripe webhook] student not found for checkout', { userId, planKey })
+          break
         }
-        const canonicalKey = CANONICAL_BY_ALIAS[planKey] ?? planKey
 
-        const { data: plan } = await supabase
-          .from('plans')
-          .select('id')
-          .eq('plan_key', canonicalKey)
-          .eq('is_active', true)
-          .single()
+        // Increment rather than set — a student who still has leftover
+        // credits from a prior purchase must not lose them when they
+        // buy another pack. Matches simulatePurchase behavior.
+        const newCount = (student.classes_remaining || 0) + classes
 
-        if (student && plan) {
-          const stripeSubId = session.object.subscription as string | null
+        await supabase
+          .from('students')
+          .update({ classes_remaining: newCount, current_plan: planKey })
+          .eq('id', student.id)
+      }
+      break
+    }
 
-          // Upsert subscription using stripe_subscription_id as conflict key
-          await supabase.from('subscriptions').upsert({
-            student_id: student.id,
-            plan_id: plan.id,
-            status: 'active',
-            stripe_subscription_id: stripeSubId,
-            current_period_start: new Date().toISOString(),
-          }, { onConflict: 'stripe_subscription_id' })
+    case 'charge.refunded': {
+      const charge = event.data as { object: Record<string, unknown> }
+      const refunded = charge.object.amount_refunded as number
+      const total = charge.object.amount as number
+      const isFullRefund = refunded >= total
 
-          // Update student classes remaining
-          await supabase
+      // Only reverse credits on full refund — partial refunds (e.g. a
+      // goodwill credit) leave the class pack intact.
+      if (isFullRefund) {
+        const meta = (charge.object.metadata as Record<string, string> | null) ?? {}
+        const userId = meta.user_id
+        const planKey = meta.plan_key
+        if (userId && planKey && CLASS_COUNTS[planKey]) {
+          const { data: student } = await supabase
             .from('students')
-            .update({ classes_remaining: classes })
-            .eq('id', student.id)
+            .select('id, classes_remaining')
+            .eq('profile_id', userId)
+            .maybeSingle()
+          if (student) {
+            const newCount = Math.max(0, (student.classes_remaining || 0) - CLASS_COUNTS[planKey])
+            await supabase
+              .from('students')
+              .update({ classes_remaining: newCount })
+              .eq('id', student.id)
+          }
         }
       }
       break
     }
 
-    case 'customer.subscription.deleted': {
-      const sub = event.data as { object: Record<string, unknown> }
-      const stripeSubId = sub.object.id as string
-
-      await supabase
-        .from('subscriptions')
-        .update({ status: 'cancelled' })
-        .eq('stripe_subscription_id', stripeSubId)
-      break
-    }
-
-    case 'invoice.payment_failed': {
-      const invoice = event.data as { object: Record<string, unknown> }
-      const stripeSubId = invoice.object.subscription as string
-
-      await supabase
-        .from('subscriptions')
-        .update({ status: 'past_due' })
-        .eq('stripe_subscription_id', stripeSubId)
+    case 'charge.dispute.created':
+    case 'charge.dispute.closed': {
+      // No automatic action — surface via alerting later. Logging here so
+      // the dashboard at least records that the event arrived.
+      console.warn('[stripe webhook] dispute event', event.type, event.data)
       break
     }
 

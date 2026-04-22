@@ -7,7 +7,7 @@ import { PRICING_PLANS } from '@/lib/pricing'
 // Lazy-load Stripe to avoid issues when key is placeholder
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY
-  if (!key || key === 'sk_test_placeholder') return null
+  if (!key || key.endsWith('_placeholder')) return null
   const Stripe = require('stripe')
   return new Stripe(key, { apiVersion: '2025-01-27.acacia' })
 }
@@ -45,11 +45,12 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
 
   try {
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: 'payment',
       payment_method_types: ['card'],
       line_items: [{ price: plan.priceId, quantity: 1 }],
-      success_url: `${appUrl}/${lang}/dashboard/plan?success=1&plan=${planKey}`,
+      success_url: `${appUrl}/${lang}/dashboard/plan?success=1&plan=${planKey}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/${lang}/dashboard/plan?cancelled=1`,
+      client_reference_id: user.id,
       metadata: {
         user_id: user.id,
         plan_key: planKey,

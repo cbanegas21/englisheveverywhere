@@ -8,7 +8,7 @@ import {
   BookOpen, Zap, X, CreditCard, Calendar, Plus, Receipt,
   ChevronDown, Sparkles, TrendingUp,
 } from 'lucide-react'
-import { simulatePurchase } from '@/app/actions/purchase'
+import { createCheckoutSession } from '@/app/actions/stripe'
 import { savePreferredCurrency } from '@/app/actions/profile'
 import { PRICING_PLANS } from '@/lib/pricing'
 import { useCurrency } from '@/lib/useCurrency'
@@ -189,7 +189,20 @@ export default function PlanClient({
   const [selectedPlan, setSelectedPlan] = useState<(typeof PRICING_PLANS)[number] | null>(null)
   const [pendingPlan, setPendingPlan] = useState<(typeof PRICING_PLANS)[number] | null>(null)
   const [showAddMoreConfirm, setShowAddMoreConfirm] = useState(false)
-  const [purchaseResult, setPurchaseResult] = useState<PurchaseResult | null>(null)
+  const [purchaseResult] = useState<PurchaseResult | null>(() => {
+    // Stripe Checkout success redirect: ?success=1&plan=<key>. Reading in the
+    // initializer avoids the cascading-render lint trap from doing it in an effect.
+    if (typeof window === 'undefined') return null
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') !== '1') return null
+    const plan = PRICING_PLANS.find(p => p.key === params.get('plan'))
+    if (!plan) return null
+    return {
+      classesAdded: plan.classes,
+      newTotal: classesRemaining + plan.classes,
+      planName: lang === 'es' ? plan.nameEs : plan.nameEn,
+    }
+  })
   const [error, setError] = useState('')
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [, forceRender] = useState(0)
@@ -198,6 +211,17 @@ export default function PlanClient({
   useEffect(() => {
     const id = setInterval(() => forceRender(n => n + 1), 1500)
     return () => clearInterval(id)
+  }, [])
+
+  // Strip the Stripe success/cancel query params so a page refresh doesn't
+  // re-show the success modal. The modal state is already seeded from these
+  // params in the useState initializer above.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === '1' || params.get('cancelled') === '1') {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
   }, [])
 
   function handleSelectPlan(plan: (typeof PRICING_PLANS)[number]) {
@@ -225,16 +249,11 @@ export default function PlanClient({
     if (!selectedPlan) return
     setError('')
     startTransition(async () => {
-      const result = await simulatePurchase(selectedPlan.key, lang)
+      const result = await createCheckoutSession(selectedPlan.key, lang)
       if (result?.error) {
         setError(result.error)
-      } else if (result?.success) {
-        setSelectedPlan(null)
-        setPurchaseResult({
-          classesAdded: result.classesAdded,
-          newTotal: result.newTotal,
-          planName: result.planName,
-        })
+      } else if (result?.url) {
+        window.location.href = result.url
       }
     })
   }
