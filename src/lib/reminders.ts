@@ -22,12 +22,17 @@ const RESEND_BASE = 'https://api.resend.com'
 
 type ReminderWindow = '24h' | '1h'
 type Audience = 'student' | 'teacher'
+type Lang = 'es' | 'en'
 
 type Recipient = {
   audience: Audience
   email: string
   recipientName: string
   counterpartName: string
+  lang: Lang
+  // IANA zone name (e.g. "America/Tegucigalpa"). Fallback applied before this
+  // struct is built, so consumers can always rely on a valid zone here.
+  timezone: string
 }
 
 function isResendConfigured(): boolean {
@@ -35,16 +40,31 @@ function isResendConfigured(): boolean {
   return !!key && key !== 're_placeholder'
 }
 
-function formatScheduled(iso: string, lang: 'es' | 'en'): string {
+// Validate user-supplied IANA zones before handing to Intl. An unknown zone
+// throws RangeError inside toLocaleString, which would blow up the whole
+// schedule call. We try once and fall back to Tegucigalpa on failure.
+function safeZone(candidate: string | null | undefined): string {
+  const fallback = 'America/Tegucigalpa'
+  if (!candidate) return fallback
+  try {
+    new Date().toLocaleString('en-US', { timeZone: candidate })
+    return candidate
+  } catch {
+    return fallback
+  }
+}
+
+function formatScheduled(iso: string, lang: Lang, timezone: string): string {
   return new Date(iso).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Tegucigalpa',
+    timeZoneName: 'short',
+    timeZone: timezone,
   })
 }
 
 function reminderHtml(params: {
-  lang: 'es' | 'en'
+  lang: Lang
   audience: Audience
   window: ReminderWindow
   recipientName: string
@@ -161,8 +181,8 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
     .from('bookings')
     .select(`
       id, scheduled_at, scheduled_email_ids,
-      student:students(profile:profiles(full_name, email)),
-      teacher:teachers(profile:profiles(full_name, email))
+      student:students(profile:profiles(full_name, email, timezone, preferred_language)),
+      teacher:teachers(profile:profiles(full_name, email, timezone, preferred_language))
     `)
     .eq('id', bookingId)
     .maybeSingle()
@@ -176,7 +196,12 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
     await Promise.all(existing.map((id) => cancelOne(apiKey, id)))
   }
 
-  type ProfileLike = { full_name: string | null; email: string | null }
+  type ProfileLike = {
+    full_name: string | null
+    email: string | null
+    timezone: string | null
+    preferred_language: Lang | null
+  }
   const pickProfile = (raw: unknown): ProfileLike | null => {
     if (!raw) return null
     const unwrapOuter = Array.isArray(raw) ? (raw[0] as { profile?: unknown } | undefined) : (raw as { profile?: unknown })
@@ -197,6 +222,8 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
       email: studentProfile.email,
       recipientName: studentName,
       counterpartName: teacherName,
+      lang: studentProfile.preferred_language ?? 'es',
+      timezone: safeZone(studentProfile.timezone),
     })
   }
   if (teacherProfile?.email) {
@@ -205,6 +232,8 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
       email: teacherProfile.email,
       recipientName: teacherName,
       counterpartName: studentName,
+      lang: teacherProfile.preferred_language ?? 'es',
+      timezone: safeZone(teacherProfile.timezone),
     })
   }
   if (recipients.length === 0) {
@@ -215,9 +244,6 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
 
   const scheduledMs = new Date(booking.scheduled_at).getTime()
   const now = Date.now()
-  // Student-set locale: fall back to Spanish since the site default is 'es'.
-  const lang: 'es' | 'en' = 'es'
-  const scheduledPretty = formatScheduled(booking.scheduled_at, lang)
 
   const windows: Array<{ window: ReminderWindow; offsetMs: number }> = [
     { window: '24h', offsetMs: 24 * 60 * 60 * 1000 },
@@ -232,15 +258,19 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
     if (fireAtMs <= now + 60_000) continue
     const fireAtIso = new Date(fireAtMs).toISOString()
     for (const r of recipients) {
+      // Each recipient sees the time in their own zone + language. This is the
+      // Phase D change: prior to this, both recipients got es-HN / Tegucigalpa
+      // regardless of their profile settings.
+      const scheduledPretty = formatScheduled(booking.scheduled_at, r.lang, r.timezone)
       jobs.push(scheduleOne({
         apiKey,
         from: fromEmail,
         to: r.email,
         subject: w.window === '24h'
-          ? (lang === 'es' ? 'Tu clase es mañana' : 'Your class is tomorrow')
-          : (lang === 'es' ? 'Tu clase empieza pronto' : 'Your class starts soon'),
+          ? (r.lang === 'es' ? 'Tu clase es mañana' : 'Your class is tomorrow')
+          : (r.lang === 'es' ? 'Tu clase empieza pronto' : 'Your class starts soon'),
         html: reminderHtml({
-          lang,
+          lang: r.lang,
           audience: r.audience,
           window: w.window,
           recipientName: r.recipientName,

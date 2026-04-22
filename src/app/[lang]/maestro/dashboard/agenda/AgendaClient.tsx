@@ -23,6 +23,7 @@ interface Booking {
 
 interface Props {
   lang: Locale
+  timezone: string
   pendingBookings: Booking[]
   confirmedBookings: Booking[]
 }
@@ -94,24 +95,30 @@ const t = {
   },
 }
 
-function formatDate(iso: string, lang: Locale, tx: typeof t['en']) {
+function ymdInTz(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d)
+}
+
+function formatDate(iso: string, lang: Locale, tx: typeof t['en'], timeZone: string) {
   const d = new Date(iso)
   const now = new Date()
   const tomorrow = new Date(now)
   tomorrow.setDate(now.getDate() + 1)
-  if (d.toDateString() === now.toDateString()) return tx.today
-  if (d.toDateString() === tomorrow.toDateString()) return tx.tomorrow
+  if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
+  if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
   return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric'
+    weekday: 'short', month: 'short', day: 'numeric', timeZone,
   })
 }
 
-function formatTime(iso: string, lang: 'es' | 'en') {
+function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
   // Pin the locale so SSR and client render identically — passing []
   // picks up the env locale, which differs between Node and browser and
   // causes hydration mismatches (e.g. "04:00 PM" vs "04:00 p.m.").
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZone,
   })
 }
 
@@ -136,7 +143,7 @@ function typeLabel(type: string | null | undefined, tx: { typePlacement: string;
   return null
 }
 
-export default function AgendaClient({ lang, pendingBookings, confirmedBookings }: Props) {
+export default function AgendaClient({ lang, timezone, pendingBookings, confirmedBookings }: Props) {
   const tx = t[lang]
   const [isPending, startTransition] = useTransition()
   const [pending, setPending] = useState<Booking[]>(pendingBookings)
@@ -344,7 +351,7 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                             )}
                           </div>
                           <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                            {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at, lang)} · {booking.duration_minutes}{tx.mins}
+                            {formatDate(booking.scheduled_at, lang, tx, timezone)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                           </div>
                           <div className="flex gap-2 mt-3">
                             <button
@@ -442,7 +449,7 @@ export default function AgendaClient({ lang, pendingBookings, confirmedBookings 
                               )}
                             </div>
                             <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                              {formatDate(booking.scheduled_at, lang, tx)} · {formatTime(booking.scheduled_at, lang)} · {booking.duration_minutes}{tx.mins}
+                              {formatDate(booking.scheduled_at, lang, tx, timezone)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">

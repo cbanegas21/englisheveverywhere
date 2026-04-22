@@ -66,9 +66,21 @@ export default async function AgendaPage({ params }: Props) {
     reschedule_request: reschedulesByBooking.get(b.id) ?? null,
   }))
 
+  // Phase D: teacher's own timezone (canonical = profiles.timezone).
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone =
+    (profileRow as { timezone?: string | null } | null)?.timezone ||
+    (user.user_metadata?.timezone as string) ||
+    'America/Tegucigalpa'
+
   return (
     <AgendaClient
       lang={lang as Locale}
+      timezone={timezone}
       pendingBookings={(pendingBookings as any) || []}
       confirmedBookings={confirmedWithReschedule as any}
     />

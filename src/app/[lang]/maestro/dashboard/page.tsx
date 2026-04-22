@@ -46,8 +46,18 @@ export default async function TeacherDashboardPage({ params }: Props) {
     .eq('status', 'completed')
     .gte('scheduled_at', startOfMonth.toISOString())
 
+  // Phase D: prefer profiles.timezone (user-editable) over auth metadata.
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
-  const timezone = (user.user_metadata?.timezone as string) || 'America/Tegucigalpa'
+  const timezone =
+    (profileRow as { timezone?: string | null } | null)?.timezone ||
+    (user.user_metadata?.timezone as string) ||
+    'America/Tegucigalpa'
 
   return (
     <TeacherDashboardClient

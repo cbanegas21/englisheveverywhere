@@ -22,6 +22,14 @@ export default async function ClasesPage({ params }: Props) {
 
   const studentId = (student as { id?: string } | null)?.id || ''
 
+  // Phase D: source timezone from profiles.timezone (canonical — updated by
+  // /configuracion) rather than auth.users.user_metadata (stale after signup).
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+
   const { data: upcomingBookings } = await supabase
     .from('bookings')
     .select(`id, scheduled_at, duration_minutes, status, type, teacher_id, teacher:teachers(profile:profiles(full_name, avatar_url))`)
@@ -40,7 +48,10 @@ export default async function ClasesPage({ params }: Props) {
     .order('scheduled_at', { ascending: false })
     .limit(30)
 
-  const timezone = (user.user_metadata?.timezone as string) || 'America/Bogota'
+  const timezone =
+    (profileRow as { timezone?: string | null } | null)?.timezone ||
+    (user.user_metadata?.timezone as string) ||
+    'America/Bogota'
 
   return (
     <ClasesClient

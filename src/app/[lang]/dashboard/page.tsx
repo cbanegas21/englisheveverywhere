@@ -100,8 +100,20 @@ export default async function StudentDashboardPage({ params }: Props) {
       : ptProfile?.full_name ?? null
   }
 
+  // Phase D: canonical timezone lives on profiles.timezone (updated by the
+  // settings page). Auth user_metadata is the initial signup value and goes
+  // stale once the user edits their profile.
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student'
-  const timezone = (user.user_metadata?.timezone as string) || 'America/Bogota'
+  const timezone =
+    (profileRow as { timezone?: string | null } | null)?.timezone ||
+    (user.user_metadata?.timezone as string) ||
+    'America/Bogota'
 
   return (
     <StudentDashboardClient
