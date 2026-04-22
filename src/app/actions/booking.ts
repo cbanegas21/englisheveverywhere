@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 
 async function sendAdminBookingEmail(params: {
   bookingId: string
@@ -162,6 +163,10 @@ export async function confirmBooking(bookingId: string, lang: string = 'es') {
 
   if (error) return { error: error.message }
 
+  // Schedule Resend reminder emails for T-24h and T-1h. Fire-and-forget —
+  // we never want a Resend hiccup to fail the teacher's confirm action.
+  scheduleBookingReminders(bookingId).catch(() => {})
+
   revalidatePath('/', 'layout')
   return { success: true }
 }
@@ -201,6 +206,10 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
 
   // Restore the student's class
   await admin.rpc('increment_classes', { p_student_id: booking.student_id })
+
+  // Cancel any already-scheduled reminder emails (no-op if booking was still
+  // pending when declined and no reminders had been scheduled yet).
+  cancelBookingReminders(bookingId).catch(() => {})
 
   revalidatePath('/', 'layout')
   return { success: true }

@@ -130,13 +130,29 @@ git push origin main      # Vercel builds on push. Do NOT run `vercel` CLI.
   margin comes from the subscription/teacher-rate gap, not from the
   per-session payout), then fires `generateSessionSummary` against Claude.
 
-## Known-broken areas (as of 2026-04-20)
+## Known-broken areas
 
-1. **`src/app/api/stripe/webhook/route.ts:4-8`** — hardcoded `CLASS_COUNTS` uses
-   legacy plan keys (`starter/estandar/intensivo → 4/8/16`). Real keys per
-   `src/lib/pricing.ts` are `spark/drive/ascent/peak → 8/12/16/20`. A real
-   Stripe purchase will silently fail to credit classes. Deferred until the
-   Stripe-account decision is made (see `PROJECT.md` Payments).
+_None currently._
+
+### Resolved on 2026-04-21
+- **Stripe checkout went live** — real Products/Prices/webhook created on the
+  new EnglishKolab Stripe account (under Remote ACKtive LLC organization).
+  `createCheckoutSession` mode corrected from `subscription` to `payment`.
+  Webhook uses the admin Supabase client (previously hit RLS silently) and
+  *increments* `classes_remaining` rather than overwriting — stacking packs
+  now accrete correctly. Refund path decrements (full refund only).
+  `CLASS_COUNTS` in the webhook re-sourced from `src/lib/pricing.ts` plus
+  legacy aliases for in-flight older checkouts.
+- **Reminder emails: cron removed, Resend scheduled-delivery used instead.**
+  The Vercel cron (`*/15 * * * *`) exceeded Hobby plan's 1-per-day limit and
+  was blocking deploys. Rewritten: when a booking is confirmed,
+  `scheduleBookingReminders(bookingId)` (in `src/lib/reminders.ts`) queues
+  four emails on Resend with explicit `scheduled_at` timestamps (student @
+  T-24h, teacher @ T-24h, student @ T-1h, teacher @ T-1h). Resend email IDs
+  persist on `bookings.scheduled_email_ids` so cancel/reschedule paths can
+  call `cancelBookingReminders()` and issue `POST /emails/:id/cancel`. No
+  more cron, no more `vercel.json`, no more polling. Migration 023 drops the
+  old `reminder_24h_sent_at` / `reminder_1h_sent_at` columns + indexes.
 
 ### Resolved on 2026-04-20
 - **`supabase/schema.sql` regenerated** from the live DB via

@@ -147,9 +147,8 @@ export type Database = {
           id: string
           meeting_notes: string | null
           notes: Json | null
-          reminder_1h_sent_at: string | null
-          reminder_24h_sent_at: string | null
           scheduled_at: string
+          scheduled_email_ids: string[] | null
           status: string
           student_id: string
           student_notes: string | null
@@ -165,9 +164,8 @@ export type Database = {
           id?: string
           meeting_notes?: string | null
           notes?: Json | null
-          reminder_1h_sent_at?: string | null
-          reminder_24h_sent_at?: string | null
           scheduled_at: string
+          scheduled_email_ids?: string[] | null
           status?: string
           student_id: string
           student_notes?: string | null
@@ -183,9 +181,8 @@ export type Database = {
           id?: string
           meeting_notes?: string | null
           notes?: Json | null
-          reminder_1h_sent_at?: string | null
-          reminder_24h_sent_at?: string | null
           scheduled_at?: string
+          scheduled_email_ids?: string[] | null
           status?: string
           student_id?: string
           student_notes?: string | null

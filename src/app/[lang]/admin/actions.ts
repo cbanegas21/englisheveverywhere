@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 
@@ -150,6 +151,12 @@ export async function assignAndConfirmBooking(
   // Fire-and-forget student + teacher emails so both sides know the class is locked in.
   sendAssignmentEmail(bookingId)
 
+  // Schedule the 24h + 1h reminder emails on Resend's native scheduled-delivery.
+  // Idempotent: cancels any existing scheduled emails for this booking first,
+  // so re-running the admin "assign" action (e.g. force-switching teachers)
+  // won't leave dangling scheduled sends.
+  scheduleBookingReminders(bookingId).catch(() => {})
+
   revalidatePath('/', 'layout')
 }
 
@@ -210,6 +217,11 @@ export async function approveRescheduleRequest(
     })
     .eq('id', requestId)
   if (updateErr) throw new Error(updateErr.message)
+
+  // Re-schedule the reminder emails against the new time. `scheduleBookingReminders`
+  // is idempotent: it cancels the existing Resend sends (which were queued
+  // against the old `scheduled_at`) and queues fresh ones.
+  scheduleBookingReminders(request.booking_id).catch(() => {})
 
   revalidatePath('/', 'layout')
 }
@@ -332,6 +344,9 @@ export async function cancelBooking(bookingId: string) {
     .eq('id', bookingId)
 
   if (error) throw new Error(error.message)
+
+  cancelBookingReminders(bookingId).catch(() => {})
+
   revalidatePath('/', 'layout')
 }
 
@@ -472,6 +487,9 @@ export async function cancelBookingWithRefund(bookingId: string) {
     // under load. increment_classes is SECURITY DEFINER (migration 012).
     await admin.rpc('increment_classes', { p_student_id: booking.student_id })
   }
+
+  cancelBookingReminders(bookingId).catch(() => {})
+
   revalidatePath('/', 'layout')
 }
 
