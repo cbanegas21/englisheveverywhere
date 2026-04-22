@@ -20,12 +20,15 @@ import {
   X,
 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
-import { updateStudentProfile, type NotificationPreferences as Prefs } from '@/app/actions/profile'
+import {
+  updateStudentProfile,
+  requestEmailChange,
+  deleteMyAccount,
+  type NotificationPreferences as Prefs,
+} from '@/app/actions/profile'
 import TimezoneSelect from '@/components/TimezoneSelect'
 import NotificationPreferences from '@/components/NotificationPreferences'
 
-// TODO (Phase 4): wire "Delete account" to a real server action + auth flow
-// (requires cascading RLS-safe delete or a Supabase admin function).
 // TODO (Phase 4): wire avatar upload to Supabase Storage `avatars/{user.id}`
 // bucket (create bucket + policies if missing).
 
@@ -60,7 +63,12 @@ const t = {
     phonePh: '+504 9999 9999',
     phoneHint: 'Used for class reminders only.',
     email: 'Email address',
-    emailHint: 'Email cannot be changed.',
+    emailHint: 'We\'ll send a confirmation link to the new address before the change takes effect.',
+    emailChange: 'Change email',
+    emailSaving: 'Sending…',
+    emailPendingTitle: 'Confirmation sent',
+    emailSame: 'That\'s already your current email.',
+    emailInvalid: 'Enter a valid email.',
     saveProfile: 'Save profile',
 
     // Account
@@ -90,11 +98,12 @@ const t = {
     deleteDesc: 'Delete your profile, bookings and history. This cannot be undone.',
     deleteBtn: 'Delete my account',
     deleteModalTitle: 'Delete account?',
-    deleteModalBody: 'Type DELETE to confirm. Your data will be permanently removed.',
+    deleteModalBody: 'Type DELETE to confirm. We will cancel any upcoming classes, refund unused credits and anonymize your profile. This cannot be undone.',
     deleteTypePh: 'DELETE',
     deleteCancel: 'Cancel',
     deleteConfirm: 'Yes, delete everything',
-    deleteNotWired: 'This action is not yet available. Please contact support.',
+    deleteWorking: 'Deleting…',
+    deleteFailed: 'Could not delete your account. Please try again.',
 
     // Common
     saved: 'Saved',
@@ -128,7 +137,12 @@ const t = {
     phonePh: '+504 9999 9999',
     phoneHint: 'Se usa solo para recordatorios de clase.',
     email: 'Correo electrónico',
-    emailHint: 'El correo no se puede cambiar.',
+    emailHint: 'Te enviaremos un enlace de confirmación al nuevo correo antes de aplicar el cambio.',
+    emailChange: 'Cambiar correo',
+    emailSaving: 'Enviando…',
+    emailPendingTitle: 'Confirmación enviada',
+    emailSame: 'Ese ya es tu correo actual.',
+    emailInvalid: 'Ingresa un correo válido.',
     saveProfile: 'Guardar perfil',
 
     accountHeader: 'Cuenta',
@@ -155,11 +169,12 @@ const t = {
     deleteDesc: 'Elimina tu perfil, reservas e historial. No se puede deshacer.',
     deleteBtn: 'Eliminar mi cuenta',
     deleteModalTitle: '¿Eliminar cuenta?',
-    deleteModalBody: 'Escribe BORRAR para confirmar. Tus datos se eliminarán para siempre.',
+    deleteModalBody: 'Escribe BORRAR para confirmar. Cancelaremos tus próximas clases, reembolsaremos tus créditos sin usar y anonimizaremos tu perfil. No se puede deshacer.',
     deleteTypePh: 'BORRAR',
     deleteCancel: 'Cancelar',
     deleteConfirm: 'Sí, eliminar todo',
-    deleteNotWired: 'Esta acción aún no está disponible. Contacta a soporte.',
+    deleteWorking: 'Eliminando…',
+    deleteFailed: 'No pudimos eliminar tu cuenta. Inténtalo de nuevo.',
 
     saved: 'Guardado',
     saving: '…',
@@ -281,6 +296,7 @@ export default function ConfigStudentClient({
           <section className="min-w-0">
             {tab === 'profile' && (
               <ProfilePanel
+                lang={lang}
                 tx={tx}
                 initialFullName={fullName}
                 initialPhone={phone}
@@ -318,7 +334,7 @@ export default function ConfigStudentClient({
               />
             )}
             {tab === 'billing' && <BillingPanel lang={lang} tx={tx} />}
-            {tab === 'danger' && <DangerPanel tx={tx} keyword={deleteTypeKeyword} />}
+            {tab === 'danger' && <DangerPanel lang={lang} tx={tx} keyword={deleteTypeKeyword} />}
           </section>
         </div>
       </div>
@@ -331,12 +347,14 @@ export default function ConfigStudentClient({
 // ═══════════════════════════════════════════════════════════════════
 
 function ProfilePanel({
+  lang,
   tx,
   initialFullName,
   initialPhone,
   initialAvatarUrl,
   email,
 }: {
+  lang: Locale
   tx: typeof t['en']
   initialFullName: string
   initialPhone: string
@@ -350,6 +368,39 @@ function ProfilePanel({
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const [newEmail, setNewEmail] = useState(email)
+  const [emailSaving, setEmailSaving] = useState(false)
+  const [emailMsg, setEmailMsg] = useState('')
+  const [emailErr, setEmailErr] = useState('')
+  const trimmedNew = newEmail.trim().toLowerCase()
+  const emailDirty = trimmedNew.length > 0 && trimmedNew !== email.toLowerCase()
+
+  async function handleEmailChange() {
+    setEmailErr('')
+    setEmailMsg('')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedNew)) {
+      setEmailErr(tx.emailInvalid)
+      return
+    }
+    if (trimmedNew === email.toLowerCase()) {
+      setEmailErr(tx.emailSame)
+      return
+    }
+    setEmailSaving(true)
+    try {
+      const res = await requestEmailChange(trimmedNew, lang)
+      if (res.success) {
+        setEmailMsg(res.message || tx.emailPendingTitle)
+      } else {
+        setEmailErr(res.error || tx.saveError)
+      }
+    } catch {
+      setEmailErr(tx.saveError)
+    } finally {
+      setEmailSaving(false)
+    }
+  }
 
   const initials = (name || email || '?')
     .split(' ')
@@ -436,9 +487,43 @@ function ProfilePanel({
           />
         </Field>
 
-        {/* Email (read-only) */}
+        {/* Email (editable — triggers Supabase confirmation flow) */}
         <Field label={tx.email} hint={tx.emailHint}>
-          <InputLocked value={email} Icon={Mail} />
+          <div className="flex items-stretch gap-2">
+            <div className="flex-1 min-w-0">
+              <Input
+                value={newEmail}
+                onChange={(v) => { setNewEmail(v); setEmailErr(''); setEmailMsg('') }}
+                placeholder={email}
+                type="email"
+                Icon={Mail}
+              />
+            </div>
+            <button
+              onClick={handleEmailChange}
+              disabled={!emailDirty || emailSaving}
+              className="flex items-center gap-1.5 px-4 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
+              style={{
+                background: emailDirty && !emailSaving ? '#C41E3A' : '#F3F4F6',
+                color: emailDirty && !emailSaving ? '#fff' : '#9CA3AF',
+                cursor: emailDirty && !emailSaving ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {emailSaving ? tx.emailSaving : tx.emailChange}
+            </button>
+          </div>
+          {emailErr && (
+            <p className="text-[12px] mt-2" style={{ color: '#C41E3A' }}>{emailErr}</p>
+          )}
+          {emailMsg && (
+            <div
+              className="mt-2 px-3 py-2 rounded-lg text-[12px] flex items-start gap-2"
+              style={{ background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0' }}
+            >
+              <CheckCircle2 className="h-4 w-4 mt-[1px] flex-shrink-0" />
+              <span>{emailMsg}</span>
+            </div>
+          )}
         </Field>
 
         {/* Phone */}
@@ -612,10 +697,31 @@ function BillingPanel({ lang, tx }: { lang: Locale; tx: typeof t['en'] }) {
 // Danger panel
 // ═══════════════════════════════════════════════════════════════════
 
-function DangerPanel({ tx, keyword }: { tx: typeof t['en']; keyword: string }) {
+function DangerPanel({ lang, tx, keyword }: { lang: Locale; tx: typeof t['en']; keyword: string }) {
   const [open, setOpen] = useState(false)
   const [typed, setTyped] = useState('')
+  const [working, setWorking] = useState(false)
+  const [err, setErr] = useState('')
   const confirmed = typed.trim() === keyword
+
+  async function handleDelete() {
+    if (!confirmed || working) return
+    setWorking(true)
+    setErr('')
+    try {
+      const res = await deleteMyAccount(lang)
+      if (res.success) {
+        // Hard-nav to landing so the now-logged-out state fully resets.
+        window.location.href = `/${lang}`
+      } else {
+        setErr(res.error || tx.deleteFailed)
+        setWorking(false)
+      }
+    } catch {
+      setErr(tx.deleteFailed)
+      setWorking(false)
+    }
+  }
 
   return (
     <>
@@ -694,6 +800,7 @@ function DangerPanel({ tx, keyword }: { tx: typeof t['en']; keyword: string }) {
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
                 placeholder={keyword}
+                disabled={working}
                 className="w-full px-3 py-2.5 text-[13px] font-bold rounded-lg outline-none"
                 style={{
                   background: '#fff',
@@ -704,32 +811,32 @@ function DangerPanel({ tx, keyword }: { tx: typeof t['en']; keyword: string }) {
                 onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#DC2626' }}
                 onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#E5E7EB' }}
               />
-              <p className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.deleteNotWired}</p>
+              {err && (
+                <p className="text-[12px]" style={{ color: '#DC2626' }}>{err}</p>
+              )}
             </div>
 
             <div className="px-5 py-4 flex items-center justify-end gap-2" style={{ background: '#FAFAFA', borderTop: '1px solid #F3F4F6' }}>
               <button
-                onClick={() => setOpen(false)}
+                onClick={() => { if (!working) { setOpen(false); setTyped(''); setErr('') } }}
+                disabled={working}
                 className="px-4 py-2 rounded-lg text-[12px] font-bold transition-all"
-                style={{ background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB' }}
+                style={{ background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', cursor: working ? 'not-allowed' : 'pointer' }}
               >
                 {tx.deleteCancel}
               </button>
               <button
-                disabled={!confirmed}
-                onClick={() => {
-                  // TODO (Phase 4): call deleteAccount() server action.
-                  setOpen(false)
-                }}
+                disabled={!confirmed || working}
+                onClick={handleDelete}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold transition-all"
                 style={{
-                  background: confirmed ? '#DC2626' : '#F3F4F6',
-                  color: confirmed ? '#fff' : '#9CA3AF',
-                  cursor: confirmed ? 'pointer' : 'not-allowed',
+                  background: confirmed && !working ? '#DC2626' : '#F3F4F6',
+                  color: confirmed && !working ? '#fff' : '#9CA3AF',
+                  cursor: confirmed && !working ? 'pointer' : 'not-allowed',
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                {tx.deleteConfirm}
+                {working ? tx.deleteWorking : tx.deleteConfirm}
               </button>
             </div>
           </div>
@@ -860,31 +967,6 @@ function Input({
         }}
         onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#C41E3A' }}
         onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#E5E7EB' }}
-      />
-    </div>
-  )
-}
-
-function InputLocked({ value, Icon }: { value: string; Icon: typeof User }) {
-  return (
-    <div style={{ position: 'relative' }}>
-      <Icon
-        className="h-4 w-4"
-        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }}
-      />
-      <input
-        type="text"
-        value={value}
-        readOnly
-        className="w-full text-[13px] outline-none"
-        style={{
-          padding: '10px 12px 10px 36px',
-          borderRadius: '10px',
-          border: '1px solid #E5E7EB',
-          color: '#9CA3AF',
-          background: '#F9F9F9',
-          cursor: 'not-allowed',
-        }}
       />
     </div>
   )
