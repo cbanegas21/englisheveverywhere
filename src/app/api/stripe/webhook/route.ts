@@ -66,6 +66,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ledger error' }, { status: 500 })
   }
 
+  // Track DB write failures so we can release the ledger claim and let Stripe
+  // retry. Without this, a failing update after a successful ledger insert
+  // would leave a paying customer with no credits AND no retry path (the next
+  // retry would short-circuit as duplicate).
+  let processingError: string | null = null
+
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data as { object: Record<string, unknown> }
@@ -80,13 +86,20 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        const { data: student } = await supabase
+        const { data: student, error: lookupErr } = await supabase
           .from('students')
           .select('id, classes_remaining')
           .eq('profile_id', userId)
           .maybeSingle()
 
+        if (lookupErr) {
+          processingError = `checkout student lookup failed: ${lookupErr.message}`
+          break
+        }
         if (!student) {
+          // No matching student. The event isn't replayable by us regardless,
+          // so ack it as processed and log — avoids infinite Stripe retries
+          // against a broken metadata row.
           console.error('[stripe webhook] student not found for checkout', { userId, planKey })
           break
         }
@@ -96,10 +109,14 @@ export async function POST(req: NextRequest) {
         // buy another pack. Matches simulatePurchase behavior.
         const newCount = (student.classes_remaining || 0) + classes
 
-        await supabase
+        const { error: updateErr } = await supabase
           .from('students')
           .update({ classes_remaining: newCount, current_plan: planKey })
           .eq('id', student.id)
+
+        if (updateErr) {
+          processingError = `checkout credit update failed: ${updateErr.message}`
+        }
       }
       break
     }
@@ -117,17 +134,27 @@ export async function POST(req: NextRequest) {
         const userId = meta.user_id
         const planKey = meta.plan_key
         if (userId && planKey && CLASS_COUNTS[planKey]) {
-          const { data: student } = await supabase
+          const { data: student, error: lookupErr } = await supabase
             .from('students')
             .select('id, classes_remaining')
             .eq('profile_id', userId)
             .maybeSingle()
+
+          if (lookupErr) {
+            processingError = `refund student lookup failed: ${lookupErr.message}`
+            break
+          }
+
           if (student) {
             const newCount = Math.max(0, (student.classes_remaining || 0) - CLASS_COUNTS[planKey])
-            await supabase
+            const { error: updateErr } = await supabase
               .from('students')
               .update({ classes_remaining: newCount })
               .eq('id', student.id)
+
+            if (updateErr) {
+              processingError = `refund credit decrement failed: ${updateErr.message}`
+            }
           }
         }
       }
@@ -144,6 +171,22 @@ export async function POST(req: NextRequest) {
 
     default:
       break
+  }
+
+  // Release the ledger claim on failure so Stripe's retry can re-process.
+  // Doing this before the 500 response: deleting the row means the next
+  // retry won't see a duplicate and can re-run the handler to completion.
+  if (processingError) {
+    console.error('[stripe webhook] processing failed, releasing ledger claim', {
+      eventId: event.id,
+      eventType: event.type,
+      error: processingError,
+    })
+    await supabase
+      .from('processed_stripe_events')
+      .delete()
+      .eq('id', event.id)
+    return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })
