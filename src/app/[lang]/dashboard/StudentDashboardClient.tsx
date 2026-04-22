@@ -192,6 +192,7 @@ interface Props {
   placementScheduled: boolean
   placementScheduledAt: string | null
   placementConductorName?: string | null
+  primaryTeacherName?: string | null
   completedSessions: number
   scheduledClasses: number
   upcomingBookings: Booking[]
@@ -207,6 +208,7 @@ export default function StudentDashboardClient({
   placementScheduled,
   placementScheduledAt,
   placementConductorName,
+  primaryTeacherName,
   completedSessions,
   scheduledClasses,
   upcomingBookings,
@@ -421,6 +423,29 @@ export default function StudentDashboardClient({
             >
               {tx.upgrade}
             </Link>
+          </div>
+        )}
+
+        {/* Primary teacher card — shown only after admin locks in a continuity teacher */}
+        {primaryTeacherName && (
+          <div
+            className="rounded-xl p-4 flex items-center gap-3"
+            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+          >
+            <div
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-[12px] font-bold"
+              style={{ background: '#111111', color: '#F9F9F9' }}
+            >
+              {primaryTeacherName.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
+                {lang === 'es' ? 'Tu maestro asignado' : 'Your assigned teacher'}
+              </div>
+              <div className="text-[14px] font-bold mt-0.5 truncate" style={{ color: '#111111' }}>
+                {primaryTeacherName}
+              </div>
+            </div>
           </div>
         )}
 

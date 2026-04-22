@@ -87,6 +87,11 @@ function reminderHtml(params: {
           ${cta}
         </a>
       </p>
+      <p style="color:#6B7280;font-size:12px;margin:16px 0 0 0">${
+        isEs
+          ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.'
+          : 'You can join up to 90 minutes after the scheduled start time.'
+      }</p>
       <p style="color:#9CA3AF;font-size:12px;margin-top:32px">${withLine}</p>
     </div>
   `

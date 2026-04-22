@@ -17,7 +17,7 @@ export default async function StudentDashboardPage({ params }: Props) {
   // Fetch student data
   const { data: student } = await supabase
     .from('students')
-    .select('id, classes_remaining, placement_test_done, placement_scheduled, current_plan')
+    .select('id, classes_remaining, placement_test_done, placement_scheduled, current_plan, primary_teacher_id')
     .eq('profile_id', user.id)
     .single()
 
@@ -83,6 +83,23 @@ export default async function StudentDashboardPage({ params }: Props) {
     .in('status', ['confirmed', 'pending'])
     .gte('scheduled_at', new Date().toISOString())
 
+  // Surface the student's locked-in teacher (admin-assigned via primary_teacher_id)
+  // so the dashboard can answer "Can I get the same teacher every time?" with a
+  // direct yes — see Q30 in docs/USER_AUDIT.md.
+  const primaryTeacherId = (student as { primary_teacher_id?: string | null } | null)?.primary_teacher_id ?? null
+  let primaryTeacherName: string | null = null
+  if (primaryTeacherId) {
+    const { data: pt } = await supabase
+      .from('teachers')
+      .select('profile:profiles(full_name)')
+      .eq('id', primaryTeacherId)
+      .maybeSingle()
+    const ptProfile = (pt as { profile?: { full_name?: string | null } | { full_name?: string | null }[] } | null)?.profile
+    primaryTeacherName = Array.isArray(ptProfile)
+      ? ptProfile[0]?.full_name ?? null
+      : ptProfile?.full_name ?? null
+  }
+
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student'
   const timezone = (user.user_metadata?.timezone as string) || 'America/Bogota'
 
@@ -97,6 +114,7 @@ export default async function StudentDashboardPage({ params }: Props) {
       placementScheduled={student?.placement_scheduled || false}
       placementScheduledAt={placementBooking?.scheduled_at || null}
       placementConductorName={placementConductorName}
+      primaryTeacherName={primaryTeacherName}
       completedSessions={completedCount || 0}
       scheduledClasses={scheduledCount || 0}
       upcomingBookings={(upcomingBookings as any) || []}

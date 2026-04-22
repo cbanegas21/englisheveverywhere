@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutDashboard, Calendar, Users, BookOpen, CreditCard,
-  Settings, LogOut, Menu, X, GraduationCap, Clock, BarChart3, ClipboardList,
+  Settings, LogOut, Menu, X, GraduationCap, Clock, BarChart3, ClipboardList, HelpCircle,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import type { Locale } from '@/lib/i18n/translations'
@@ -198,6 +198,16 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
           <span style={{ fontSize: '14px' }}>{other === 'en' ? '🇺🇸' : '🇪🇸'}</span>
           <span>{other === 'en' ? 'Switch to English' : 'Cambiar a Español'}</span>
         </button>
+        <a
+          href="mailto:hola@englishkolab.com"
+          className="flex items-center gap-2 w-full px-3 py-2 mb-1 rounded text-[12px] transition-all"
+          style={{ color: 'rgba(249,249,249,0.4)' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#F9F9F9' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(249,249,249,0.4)' }}
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          {lang === 'es' ? 'Ayuda y contacto' : 'Help & contact'}
+        </a>
         <form action={signOut.bind(null, lang)}>
           <button
             type="submit"

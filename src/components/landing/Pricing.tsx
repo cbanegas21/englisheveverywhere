@@ -19,7 +19,7 @@ const t = {
     note: '* Classes cancelled with less than 24-hour notice are forfeited. Monthly plans renew automatically — cancel anytime.',
     included: 'Included in every pack',
     features: [
-      'Live 1-on-1 session via video',
+      'Live 1-on-1 session via video (60 min)',
       'Near-native bilingual teacher',
       'AI post-class summary + vocabulary',
       'CEFR level check every 4 classes',
@@ -43,7 +43,7 @@ const t = {
     note: '* Las clases canceladas con menos de 24h de aviso se pierden. Los planes mensuales se renuevan automáticamente — cancela cuando quieras.',
     included: 'Incluido en todos los packs',
     features: [
-      'Sesión 1-a-1 en vivo por video',
+      'Sesión 1-a-1 en vivo por video (60 min)',
       'Maestro bilingüe near-native',
       'Resumen post-clase con IA + vocabulario',
       'Revisión de nivel CEFR cada 4 clases',
@@ -100,8 +100,8 @@ export default function Pricing({ lang }: { lang: Locale }) {
         {currency !== 'USD' && (
           <p className="text-[12px] mb-6" style={{ color: '#9CA3AF' }}>
             {lang === 'es'
-              ? `* Precios mostrados en ${currency}. Tasa de cambio actualizada diariamente.`
-              : `* Prices shown in ${currency}. Exchange rate updated daily.`
+              ? `* Precios mostrados en ${currency} ≈ USD. Tasa de cambio actualizada diariamente. El cobro siempre se realiza en USD.`
+              : `* Prices shown in ${currency} ≈ USD. Exchange rate updated daily. Charges are always processed in USD.`
             }
           </p>
         )}

@@ -15,6 +15,7 @@ const t = {
           { label: 'Our teachers', href: '#teachers' },
           { label: 'Pricing', href: '#pricing' },
           { label: 'Log in', href: '/en/login' },
+          { label: 'Help & contact', href: 'mailto:hola@englishkolab.com' },
         ],
       },
       {
@@ -39,6 +40,7 @@ const t = {
           { label: 'Maestros', href: '#teachers' },
           { label: 'Precios', href: '#pricing' },
           { label: 'Ingresar', href: '/es/login' },
+          { label: 'Ayuda y contacto', href: 'mailto:hola@englishkolab.com' },
         ],
       },
       {
