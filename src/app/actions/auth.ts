@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { checkAuthRateLimit } from '@/lib/rateLimit'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
 // Layout guards remain the source of truth — cookie staleness never grants access.
@@ -26,6 +27,25 @@ export async function signUp(formData: FormData) {
   const role = formData.get('role') as 'student' | 'teacher'
   const lang = (formData.get('lang') as string) || 'es'
   const timezone = (formData.get('timezone') as string) || 'America/Bogota'
+
+  // Per-IP rate limit — 5 signup attempts per 15 min. Supabase has project-
+  // wide limits but doesn't stop an IP-bound bot; this does.
+  const limit = await checkAuthRateLimit('signup', email)
+  if (!limit.ok) {
+    const msg = lang === 'es'
+      ? 'Demasiados intentos. Intenta de nuevo en unos minutos.'
+      : 'Too many attempts. Try again in a few minutes.'
+    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}`)
+  }
+
+  // Minimum password policy. Supabase enforces nothing by default — this
+  // guard keeps 1-character passwords from landing in auth.users.
+  if (!password || password.length < 8) {
+    const msg = lang === 'es'
+      ? 'La contraseña debe tener al menos 8 caracteres.'
+      : 'Password must be at least 8 characters.'
+    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}`)
+  }
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -118,6 +138,16 @@ export async function signIn(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const lang = (formData.get('lang') as string) || 'es'
+
+  // Per-IP rate limit — 10 login attempts per 15 min. Protects against
+  // credential-stuffing; a real user fat-fingering never hits 10.
+  const limit = await checkAuthRateLimit('login', email)
+  if (!limit.ok) {
+    const msg = lang === 'es'
+      ? 'Demasiados intentos de inicio de sesión. Intenta de nuevo en unos minutos.'
+      : 'Too many login attempts. Try again in a few minutes.'
+    redirect(`/${lang}/login?error=${encodeURIComponent(msg)}`)
+  }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 

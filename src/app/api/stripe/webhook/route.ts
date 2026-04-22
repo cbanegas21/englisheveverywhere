@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
   }
 
-  let event: Record<string, unknown>
+  let event: { id: string; type: string; data: unknown }
 
   try {
     const Stripe = require('stripe')
@@ -47,6 +47,24 @@ export async function POST(req: NextRequest) {
   // Webhook requests carry no user cookies — SSR client would hit RLS and
   // silently no-op. Use the service-role admin client for all writes.
   const supabase = createAdminClient()
+
+  // Idempotency — insert event.id into the ledger BEFORE processing. Stripe
+  // retries failed/slow webhooks with the same id; a retry after a partial
+  // success must not re-apply credits. The PRIMARY KEY on event.id means a
+  // racing retry that loses gets a 23505 (unique violation) and returns the
+  // duplicate-ack branch. This is the atomic "claim this event" step.
+  const { error: ledgerError } = await supabase
+    .from('processed_stripe_events')
+    .insert({ id: event.id, event_type: event.type })
+
+  if (ledgerError) {
+    // Postgres unique-violation code — event already processed.
+    if (ledgerError.code === '23505') {
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+    console.error('[stripe webhook] ledger insert failed', ledgerError)
+    return NextResponse.json({ error: 'Ledger error' }, { status: 500 })
+  }
 
   switch (event.type) {
     case 'checkout.session.completed': {
