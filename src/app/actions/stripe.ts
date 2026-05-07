@@ -79,14 +79,21 @@ export async function createStripeConnectLink(lang: string = 'es') {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   try {
-    // Get or create Stripe Connect account
     const { data: teacher } = await supabase
       .from('teachers')
       .select('stripe_account_id')
       .eq('profile_id', user.id)
-      .single()
+      .maybeSingle()
 
-    let accountId = (teacher as any)?.stripe_account_id
+    if (!teacher) {
+      return {
+        error: lang === 'es'
+          ? 'Solo los maestros pueden configurar pagos.'
+          : 'Only teachers can set up payouts.',
+      }
+    }
+
+    let accountId = (teacher as any).stripe_account_id
 
     if (!accountId) {
       const account = await stripe.accounts.create({
