@@ -137,6 +137,19 @@ export async function assignAndConfirmBooking(
     }
   }
 
+  // Slot-conflict guard: don't drop this teacher onto a slot they've already
+  // been confirmed for with a different student. Two students booking the
+  // same wall-clock time stays legal at booking time (teacher_id is null);
+  // it only becomes a problem here, when admin picks who gets the slot.
+  if (!force && booking?.scheduled_at) {
+    const conflict = await teacherHasConflict(teacherId, booking.scheduled_at, bookingId)
+    if (conflict) {
+      throw new Error(
+        'Teacher already has a confirmed class at this time. Pick a different time or retry with force=true.',
+      )
+    }
+  }
+
   const { error } = await admin
     .from('bookings')
     .update({ teacher_id: teacherId, status: 'confirmed' })
@@ -181,6 +194,26 @@ async function assertPrimaryTeacherOk(
       'This student already has a primary teacher. Pass force=true to override the continuity rule.',
     )
   }
+}
+
+// True if the teacher already has a confirmed booking at this exact time
+// for a different booking. Distinct from isTeacherAvailable, which only
+// checks stated working hours — not other students already on the calendar.
+async function teacherHasConflict(
+  teacherId: string,
+  scheduledAt: string,
+  excludeBookingId: string,
+): Promise<boolean> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('bookings')
+    .select('id')
+    .eq('teacher_id', teacherId)
+    .eq('scheduled_at', scheduledAt)
+    .eq('status', 'confirmed')
+    .neq('id', excludeBookingId)
+    .limit(1)
+  return !!(data && data.length > 0)
 }
 
 // ── Reschedule-request actions (admin side) ──────────────────────────────────
@@ -800,6 +833,37 @@ export async function bulkAssignTeacher(
   )
   for (const sid of studentIds) {
     await assertPrimaryTeacherOk(sid, teacherId, force)
+  }
+
+  // Slot-conflict guards: (a) two bookings in this batch can't share the
+  // same wall-clock time on one teacher, (b) none of these times can already
+  // be held by an existing confirmed booking for this teacher.
+  if (!force) {
+    const { data: batch } = await admin
+      .from('bookings')
+      .select('id, scheduled_at')
+      .in('id', bookingIds)
+
+    const seen = new Set<string>()
+    for (const b of batch ?? []) {
+      if (!b.scheduled_at) continue
+      if (seen.has(b.scheduled_at)) {
+        throw new Error(
+          'This batch contains two bookings at the same time — assigning them to one teacher would double-book.',
+        )
+      }
+      seen.add(b.scheduled_at)
+    }
+
+    for (const b of batch ?? []) {
+      if (!b.scheduled_at) continue
+      const conflict = await teacherHasConflict(teacherId, b.scheduled_at, b.id)
+      if (conflict) {
+        throw new Error(
+          `Teacher already has a confirmed class at ${b.scheduled_at}. Adjust the batch or retry with force=true.`,
+        )
+      }
+    }
   }
 
   const { error } = await admin

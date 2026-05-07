@@ -105,8 +105,8 @@ export async function POST(req: NextRequest) {
         }
 
         // Increment rather than set — a student who still has leftover
-        // credits from a prior purchase must not lose them when they
-        // buy another pack. Matches simulatePurchase behavior.
+        // credits from a prior purchase must not lose them when they buy
+        // another pack.
         const newCount = (student.classes_remaining || 0) + classes
 
         const { error: updateErr } = await supabase
