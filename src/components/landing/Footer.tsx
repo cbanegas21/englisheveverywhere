@@ -21,7 +21,6 @@ const t = {
       {
         title: 'Company',
         links: [
-          { label: 'For teachers', href: '/en/teachers' },
           { label: 'Privacy policy', href: '/en/privacy' },
           { label: 'Terms of use', href: '/en/terms' },
         ],
@@ -46,7 +45,6 @@ const t = {
       {
         title: 'Empresa',
         links: [
-          { label: 'Para maestros', href: '/es/teachers' },
           { label: 'Privacidad', href: '/es/privacy' },
           { label: 'Términos', href: '/es/terms' },
         ],

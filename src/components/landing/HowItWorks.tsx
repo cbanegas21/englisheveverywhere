@@ -7,9 +7,9 @@ const t = {
   en: {
     steps: [
       { num: '01', title: 'Choose your pack',          desc: 'Pick 8, 12, 16, or 20 classes. One payment. No auto-renewal, ever. Your classes never expire.' },
-      { num: '02', title: 'We assign your teacher',     desc: 'Our team personally matches you with a near-native Honduran teacher based on your level, goals, and schedule.' },
+      { num: '02', title: 'We assign your teacher',     desc: 'Our team personally matches you with a near-native Latin American teacher based on your level, goals, and schedule.' },
       { num: '03', title: 'Schedule your sessions',     desc: 'Pick your weekly slots. Consistency is what creates real progress — same time, every week.' },
-      { num: '04', title: 'AI-powered class summaries', desc: 'After every class: vocabulary recap, grammar notes, personalized next steps. Automatically in your inbox.' },
+      { num: '04', title: 'AI-powered class summaries', desc: 'After every class: vocabulary recap, grammar notes, personalized next steps. Available right in your dashboard.' },
     ],
     sectionLabel: 'Simple process',
     title: 'Four steps.\nThat\'s it.',
@@ -18,9 +18,9 @@ const t = {
   es: {
     steps: [
       { num: '01', title: 'Elige tu pack',               desc: 'Escoge 8, 12, 16 o 20 clases. Un pago. Sin renovación automática. Tus clases nunca vencen.' },
-      { num: '02', title: 'Te asignamos tu maestro',     desc: 'Nuestro equipo te empareja personalmente con un maestro near-native de Honduras según tu nivel, objetivos y horario.' },
+      { num: '02', title: 'Te asignamos tu maestro',     desc: 'Nuestro equipo te empareja personalmente con un maestro near-native de Latinoamérica según tu nivel, objetivos y horario.' },
       { num: '03', title: 'Agenda tus sesiones',          desc: 'Elige tus horarios semanales. La constancia es lo que crea progreso real — misma hora, cada semana.' },
-      { num: '04', title: 'Resúmenes de clase con IA',   desc: 'Después de cada clase: vocabulario, notas de gramática, próximos pasos personalizados. Automáticamente en tu correo.' },
+      { num: '04', title: 'Resúmenes de clase con IA',   desc: 'Después de cada clase: vocabulario, notas de gramática, próximos pasos personalizados. Disponibles en tu dashboard.' },
     ],
     sectionLabel: 'Proceso simple',
     title: 'Cuatro pasos.\nNada más.',
