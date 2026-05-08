@@ -51,6 +51,7 @@ const t = {
     statusAwaitingTeacher: 'Awaiting teacher',
     statusLive: 'Live',
     teacherBeingAssigned: 'Teacher being assigned',
+    awaitingTeacherSubtext: "We'll match you with a teacher within 24 hours and email you when confirmed.",
     today: 'Today',
     tomorrow: 'Tomorrow',
     upgrade: 'Get more classes',
@@ -106,6 +107,7 @@ const t = {
     statusAwaitingTeacher: 'Asignando maestro',
     statusLive: 'En vivo',
     teacherBeingAssigned: 'Maestro por asignar',
+    awaitingTeacherSubtext: 'Te asignamos un maestro en menos de 24h y te avisamos por correo.',
     today: 'Hoy',
     tomorrow: 'Mañana',
     upgrade: 'Obtener más clases',
@@ -581,6 +583,11 @@ export default function StudentDashboardClient({
                         <div className="text-[13px] font-semibold truncate" style={{ color: awaitingTeacher ? '#9CA3AF' : '#111111', fontStyle: awaitingTeacher ? 'italic' : 'normal' }}>
                           {awaitingTeacher ? tx.teacherBeingAssigned : `${tx.with} ${teacherName}`}
                         </div>
+                        {awaitingTeacher && (
+                          <div className="text-[10px] leading-snug mt-0.5" style={{ color: '#9CA3AF', fontStyle: 'italic' }}>
+                            {tx.awaitingTeacherSubtext}
+                          </div>
+                        )}
                         <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
                           {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                         </div>

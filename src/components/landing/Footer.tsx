@@ -6,7 +6,7 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    tagline: 'Live English classes with near-native Honduran teachers. No subscriptions. Real progress.',
+    tagline: 'Live English classes with near-native Latin American teachers. No subscriptions. Real progress.',
     cols: [
       {
         title: 'Platform',
@@ -31,7 +31,7 @@ const t = {
     legal: 'Operated by Remote ACKtive LLC · Wyoming, USA',
   },
   es: {
-    tagline: 'Clases de inglés en vivo con maestros hondureños near-native. Sin suscripciones. Progreso real.',
+    tagline: 'Clases de inglés en vivo con maestros latinoamericanos near-native. Sin suscripciones. Progreso real.',
     cols: [
       {
         title: 'Plataforma',

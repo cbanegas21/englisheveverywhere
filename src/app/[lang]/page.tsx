@@ -5,7 +5,6 @@ import Hero from '@/components/landing/Hero'
 import HowItWorks from '@/components/landing/HowItWorks'
 import Teachers from '@/components/landing/Teachers'
 import Pricing from '@/components/landing/Pricing'
-import Testimonials from '@/components/landing/Testimonials'
 import FAQ from '@/components/landing/FAQ'
 import FinalCTA from '@/components/landing/FinalCTA'
 import Footer from '@/components/landing/Footer'
@@ -30,7 +29,6 @@ export default async function LandingPage({ params }: Props) {
       <HowItWorks lang={lang as Locale} />
       <Teachers lang={lang as Locale} />
       <Pricing lang={lang as Locale} />
-      <Testimonials lang={lang as Locale} />
       <FAQ lang={lang as Locale} />
       <FinalCTA lang={lang as Locale} />
       <Footer lang={lang as Locale} />
