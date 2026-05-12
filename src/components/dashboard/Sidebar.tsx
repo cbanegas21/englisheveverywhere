@@ -4,58 +4,63 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  LayoutDashboard, Calendar, Users, BookOpen, CreditCard,
-  Settings, LogOut, Menu, X, GraduationCap, Clock, BarChart3, ClipboardList, HelpCircle,
-} from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import type { Locale } from '@/lib/i18n/translations'
+import { EKMark } from '@/components/ui/EKMark'
 
-interface NavItem { icon: React.ElementType; label: string; href: string; badge?: string }
+interface NavItem {
+  glyph: string
+  label: string
+  href: string
+  badge?: string
+}
 
 const studentNav = {
   en: [
-    { icon: LayoutDashboard, label: 'Home', href: '/dashboard' },
-    { icon: Calendar, label: 'My classes', href: '/dashboard/clases' },
-    { icon: ClipboardList, label: 'Homework', href: '/dashboard/tareas' },
-    { icon: BookOpen, label: 'Library', href: '/dashboard/biblioteca' },
-    { icon: Users, label: 'My teacher', href: '/dashboard/maestros' },
-    { icon: BarChart3, label: 'My progress', href: '/dashboard/progreso' },
-    { icon: CreditCard, label: 'My plan', href: '/dashboard/plan' },
-    { icon: Settings, label: 'Settings', href: '/dashboard/configuracion' },
+    { glyph: '▤', label: 'Home', href: '/dashboard' },
+    { glyph: '▦', label: 'My classes', href: '/dashboard/clases' },
+    { glyph: '+', label: 'Schedule', href: '/dashboard/agendar' },
+    { glyph: '✎', label: 'Homework', href: '/dashboard/tareas' },
+    { glyph: '▥', label: 'Library', href: '/dashboard/biblioteca' },
+    { glyph: '○', label: 'My teacher', href: '/dashboard/maestros' },
+    { glyph: '↗', label: 'My progress', href: '/dashboard/progreso' },
+    { glyph: '◇', label: 'My plan', href: '/dashboard/plan' },
+    { glyph: '⚙', label: 'Settings', href: '/dashboard/configuracion' },
   ] as NavItem[],
   es: [
-    { icon: LayoutDashboard, label: 'Inicio', href: '/dashboard' },
-    { icon: Calendar, label: 'Mis clases', href: '/dashboard/clases' },
-    { icon: ClipboardList, label: 'Tareas', href: '/dashboard/tareas' },
-    { icon: BookOpen, label: 'Biblioteca', href: '/dashboard/biblioteca' },
-    { icon: Users, label: 'Mi maestro', href: '/dashboard/maestros' },
-    { icon: BarChart3, label: 'Mi progreso', href: '/dashboard/progreso' },
-    { icon: CreditCard, label: 'Mi plan', href: '/dashboard/plan' },
-    { icon: Settings, label: 'Configuración', href: '/dashboard/configuracion' },
+    { glyph: '▤', label: 'Inicio', href: '/dashboard' },
+    { glyph: '▦', label: 'Mis clases', href: '/dashboard/clases' },
+    { glyph: '+', label: 'Agendar', href: '/dashboard/agendar' },
+    { glyph: '✎', label: 'Tareas', href: '/dashboard/tareas' },
+    { glyph: '▥', label: 'Biblioteca', href: '/dashboard/biblioteca' },
+    { glyph: '○', label: 'Mi maestro', href: '/dashboard/maestros' },
+    { glyph: '↗', label: 'Mi progreso', href: '/dashboard/progreso' },
+    { glyph: '◇', label: 'Mi plan', href: '/dashboard/plan' },
+    { glyph: '⚙', label: 'Configuración', href: '/dashboard/configuracion' },
   ] as NavItem[],
 }
 
 const teacherNav = {
   en: [
-    { icon: LayoutDashboard, label: 'Home', href: '/maestro/dashboard' },
-    { icon: Calendar, label: 'My schedule', href: '/maestro/dashboard/agenda' },
-    { icon: GraduationCap, label: 'My students', href: '/maestro/dashboard/estudiantes' },
-    { icon: ClipboardList, label: 'Homework', href: '/maestro/dashboard/tareas' },
-    { icon: Clock, label: 'Availability', href: '/maestro/dashboard/disponibilidad' },
-    { icon: BookOpen, label: 'Materials', href: '/maestro/dashboard/materiales' },
-    { icon: CreditCard, label: 'Earnings', href: '/maestro/dashboard/ganancias' },
-    { icon: Settings, label: 'Settings', href: '/maestro/dashboard/configuracion' },
+    { glyph: '▤', label: 'Home', href: '/maestro/dashboard' },
+    { glyph: '▦', label: 'My schedule', href: '/maestro/dashboard/agenda' },
+    { glyph: '○', label: 'My students', href: '/maestro/dashboard/estudiantes' },
+    { glyph: '✎', label: 'Homework', href: '/maestro/dashboard/tareas' },
+    { glyph: '+', label: 'Availability', href: '/maestro/dashboard/disponibilidad' },
+    { glyph: '▥', label: 'Materials', href: '/maestro/dashboard/materiales' },
+    { glyph: '◇', label: 'Earnings', href: '/maestro/dashboard/ganancias' },
+    { glyph: '⚙', label: 'Settings', href: '/maestro/dashboard/configuracion' },
   ] as NavItem[],
   es: [
-    { icon: LayoutDashboard, label: 'Inicio', href: '/maestro/dashboard' },
-    { icon: Calendar, label: 'Mi agenda', href: '/maestro/dashboard/agenda' },
-    { icon: GraduationCap, label: 'Mis estudiantes', href: '/maestro/dashboard/estudiantes' },
-    { icon: ClipboardList, label: 'Tareas', href: '/maestro/dashboard/tareas' },
-    { icon: Clock, label: 'Disponibilidad', href: '/maestro/dashboard/disponibilidad' },
-    { icon: BookOpen, label: 'Materiales', href: '/maestro/dashboard/materiales' },
-    { icon: CreditCard, label: 'Ganancias', href: '/maestro/dashboard/ganancias' },
-    { icon: Settings, label: 'Configuración', href: '/maestro/dashboard/configuracion' },
+    { glyph: '▤', label: 'Inicio', href: '/maestro/dashboard' },
+    { glyph: '▦', label: 'Mi agenda', href: '/maestro/dashboard/agenda' },
+    { glyph: '○', label: 'Mis estudiantes', href: '/maestro/dashboard/estudiantes' },
+    { glyph: '✎', label: 'Tareas', href: '/maestro/dashboard/tareas' },
+    { glyph: '+', label: 'Disponibilidad', href: '/maestro/dashboard/disponibilidad' },
+    { glyph: '▥', label: 'Materiales', href: '/maestro/dashboard/materiales' },
+    { glyph: '◇', label: 'Ganancias', href: '/maestro/dashboard/ganancias' },
+    { glyph: '⚙', label: 'Configuración', href: '/maestro/dashboard/configuracion' },
   ] as NavItem[],
 }
 
@@ -95,29 +100,47 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
     return pathname.startsWith(full)
   }
 
+  const dim = 'rgba(244,239,230,0.5)'
+  const dimSoft = 'rgba(244,239,230,0.42)'
+  const text = '#F4EFE6'
+  const border = 'rgba(244,239,230,0.10)'
+
   const sidebarContent = (
     <div
       className="flex flex-col h-full"
-      style={{ background: '#111111', borderRight: '1px solid rgba(255,255,255,0.07)' }}
+      style={{
+        background: 'var(--ek-ink)',
+        borderRight: `1px solid ${border}`,
+        fontFamily: 'var(--ek-font-sans)',
+      }}
     >
       {/* Logo */}
-      <div className="px-5 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <Link href={`/${lang}`} className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0 text-[9px] font-black"
-            style={{ background: '#C41E3A', color: '#fff' }}
+      <div
+        className="px-[18px] py-[18px]"
+        style={{ borderBottom: `1px solid ${border}` }}
+      >
+        <Link
+          href={`/${lang}`}
+          className="inline-flex items-center gap-2"
+          style={{ textDecoration: 'none', lineHeight: 1 }}
+        >
+          <EKMark size={26} bg="var(--ek-ink)" barColor="#F4EFE6" />
+          <span
+            style={{
+              color: text,
+              fontWeight: 800,
+              fontSize: 14,
+              letterSpacing: '-0.02em',
+            }}
           >
-            EK
-          </div>
-          <span className="font-black text-[14px]" style={{ color: '#F9F9F9' }}>
             EnglishKolab
           </span>
         </Link>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-3 overflow-y-auto">
-        <ul className="space-y-0.5 px-3">
+      <nav className="flex-1 py-3 overflow-y-auto" style={{ padding: '12px 10px' }}>
+        <ul style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {nav.map((item) => {
             const active = isActive(item.href)
             return (
@@ -125,24 +148,49 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
                 <Link
                   href={`/${lang}${item.href}`}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded text-[13px] font-medium transition-all"
-                  style={
-                    active
-                      ? { background: 'rgba(196,30,58,0.1)', color: '#C41E3A' }
-                      : { color: 'rgba(249,249,249,0.5)' }
-                  }
-                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(249,249,249,0.85)' }}
-                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(249,249,249,0.5)' }}
+                  className="transition-colors"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 11,
+                    padding: '9px 12px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: active ? 'var(--ek-red)' : dim,
+                    background: active ? 'rgba(196,30,58,0.10)' : 'transparent',
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) (e.currentTarget as HTMLAnchorElement).style.color = text
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) (e.currentTarget as HTMLAnchorElement).style.color = dim
+                  }}
                 >
-                  <item.icon
-                    className="h-4 w-4 flex-shrink-0"
-                    style={{ color: active ? '#C41E3A' : 'inherit' }}
-                  />
-                  <span className="flex-1">{item.label}</span>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 16,
+                      textAlign: 'center',
+                      fontSize: 13,
+                      opacity: active ? 1 : 0.7,
+                      fontFamily: 'var(--ek-font-mono)',
+                    }}
+                  >
+                    {item.glyph}
+                  </span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
                   {item.badge && (
                     <span
-                      className="text-[10px] font-bold rounded px-1.5 py-0.5"
-                      style={{ background: 'rgba(196,30,58,0.15)', color: '#C41E3A' }}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        borderRadius: 4,
+                        padding: '2px 6px',
+                        background: 'rgba(196,30,58,0.15)',
+                        color: 'var(--ek-red)',
+                      }}
                     >
                       {item.badge}
                     </span>
@@ -155,68 +203,162 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
 
         {/* Become a teacher */}
         {role === 'student' && (
-          <div className="mt-4 mx-3 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <>
+            <div style={{ height: 14 }} />
             <Link
               href={`/${lang}/maestro/dashboard`}
-              className="flex items-center gap-3 px-3 py-2.5 rounded text-[13px] transition-all"
-              style={{ color: 'rgba(249,249,249,0.5)' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(249,249,249,0.85)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(249,249,249,0.5)' }}
+              className="transition-colors"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 11,
+                padding: '9px 12px',
+                marginTop: 4,
+                paddingTop: 14,
+                borderTop: `1px solid ${border}`,
+                fontSize: 13,
+                color: dim,
+                textDecoration: 'none',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = text)}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = dim)}
             >
-              <GraduationCap className="h-4 w-4 flex-shrink-0" style={{ color: 'inherit' }} />
+              <span
+                aria-hidden="true"
+                style={{ width: 16, textAlign: 'center', fontSize: 13, fontFamily: 'var(--ek-font-mono)' }}
+              >
+                ↗
+              </span>
               {lang === 'es' ? 'Enseñar en la plataforma' : 'Become a teacher'}
             </Link>
-          </div>
+          </>
         )}
       </nav>
 
       {/* User section — bottom */}
-      <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="flex items-center gap-3 mb-2">
+      <div style={{ padding: 14, borderTop: `1px solid ${border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <div
-            className="w-8 h-8 rounded flex items-center justify-center text-[11px] font-bold flex-shrink-0"
             style={{
-              background: 'rgba(196,30,58,0.15)',
-              color: '#C41E3A',
-              border: '1px solid rgba(196,30,58,0.2)',
+              width: 30,
+              height: 30,
+              borderRadius: 6,
+              background: 'rgba(196,30,58,0.18)',
+              border: '1px solid rgba(196,30,58,0.28)',
+              color: 'var(--ek-red)',
+              fontSize: 11,
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             {avatarInitials}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold truncate" style={{ color: '#F9F9F9' }}>{userName}</div>
-            <div className="text-[11px] truncate" style={{ color: 'rgba(249,249,249,0.4)' }}>{userEmail}</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: text,
+                lineHeight: 1.1,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {userName}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: dimSoft,
+                marginTop: 2,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {userEmail}
+            </div>
           </div>
         </div>
+
         <button
           onClick={handleLocaleSwitch}
-          className="flex items-center gap-2 w-full px-3 py-2 mb-1 rounded text-[12px] transition-all"
-          style={{ color: 'rgba(249,249,249,0.4)', opacity: switching ? 0.5 : 1 }}
-          onMouseEnter={e => { if (!switching) e.currentTarget.style.color = '#F9F9F9' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(249,249,249,0.4)' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '6px 10px',
+            marginBottom: 1,
+            borderRadius: 6,
+            fontSize: 11.5,
+            color: dimSoft,
+            opacity: switching ? 0.5 : 1,
+            background: 'transparent',
+            border: 0,
+            cursor: switching ? 'default' : 'pointer',
+            textAlign: 'left',
+            fontFamily: 'var(--ek-font-sans)',
+          }}
+          onMouseEnter={(e) => {
+            if (!switching) e.currentTarget.style.color = text
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = dimSoft
+          }}
         >
-          <span style={{ fontSize: '14px' }}>{other === 'en' ? '🇺🇸' : '🇪🇸'}</span>
+          <span style={{ fontSize: 13 }}>{other === 'en' ? '🇺🇸' : '🇪🇸'}</span>
           <span>{other === 'en' ? 'Switch to English' : 'Cambiar a Español'}</span>
         </button>
+
         <a
           href="mailto:hola@englishkolab.com"
-          className="flex items-center gap-2 w-full px-3 py-2 mb-1 rounded text-[12px] transition-all"
-          style={{ color: 'rgba(249,249,249,0.4)' }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#F9F9F9' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(249,249,249,0.4)' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '6px 10px',
+            marginBottom: 1,
+            borderRadius: 6,
+            fontSize: 11.5,
+            color: dimSoft,
+            textDecoration: 'none',
+            fontFamily: 'var(--ek-font-sans)',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = text)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = dimSoft)}
         >
-          <HelpCircle className="h-3.5 w-3.5" />
+          <span style={{ width: 13, textAlign: 'center', fontFamily: 'var(--ek-font-mono)' }}>?</span>
           {lang === 'es' ? 'Ayuda y contacto' : 'Help & contact'}
         </a>
+
         <form action={signOut.bind(null, lang)}>
           <button
             type="submit"
-            className="flex items-center gap-2 w-full px-3 py-2 rounded text-[12px] transition-all"
-            style={{ color: 'rgba(249,249,249,0.4)' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#F9F9F9' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(249,249,249,0.4)' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              padding: '6px 10px',
+              borderRadius: 6,
+              fontSize: 11.5,
+              color: dimSoft,
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+              textAlign: 'left',
+              fontFamily: 'var(--ek-font-sans)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = text)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = dimSoft)}
           >
-            <LogOut className="h-3.5 w-3.5" />
+            <span style={{ width: 13, textAlign: 'center', fontFamily: 'var(--ek-font-mono)' }}>⏻</span>
             {lang === 'es' ? 'Cerrar sesión' : 'Sign out'}
           </button>
         </form>
@@ -227,30 +369,31 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden md:flex w-[220px] flex-col h-screen sticky top-0 flex-shrink-0">
+      <aside className="hidden md:flex w-[224px] flex-col h-screen sticky top-0 flex-shrink-0">
         {sidebarContent}
       </aside>
 
       {/* Mobile top bar */}
       <div
         className="md:hidden flex items-center justify-between px-4 py-3"
-        style={{ background: '#111111', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ background: 'var(--ek-ink)', borderBottom: `1px solid ${border}` }}
       >
-        <Link href={`/${lang}`} className="flex items-center gap-2">
-          <div
-            className="w-6 h-6 rounded flex items-center justify-center text-[9px] font-black"
-            style={{ background: '#C41E3A', color: '#fff' }}
-          >
-            EK
-          </div>
-          <span className="font-black text-[14px]" style={{ color: '#F9F9F9' }}>EnglishKolab</span>
+        <Link
+          href={`/${lang}`}
+          className="inline-flex items-center gap-2"
+          style={{ textDecoration: 'none', lineHeight: 1 }}
+        >
+          <EKMark size={24} bg="var(--ek-ink)" barColor="#F4EFE6" />
+          <span style={{ color: text, fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em' }}>
+            EnglishKolab
+          </span>
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="transition-colors"
-          style={{ color: 'rgba(249,249,249,0.5)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#F9F9F9')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(249,249,249,0.5)')}
+          style={{ color: dim, background: 'transparent', border: 0, cursor: 'pointer' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = text)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = dim)}
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -261,15 +404,19 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
         {mobileOpen && (
           <>
             <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
               className="md:hidden fixed inset-0 z-40"
               style={{ background: 'rgba(0,0,0,0.6)' }}
             />
             <motion.aside
-              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
               transition={{ type: 'spring' as const, stiffness: 300, damping: 30 }}
-              className="md:hidden fixed left-0 top-0 bottom-0 w-[220px] z-50 flex flex-col"
+              className="md:hidden fixed left-0 top-0 bottom-0 w-[224px] z-50 flex flex-col"
             >
               {sidebarContent}
             </motion.aside>
