@@ -1,39 +1,96 @@
 @import "tailwindcss";
 
-/* ── EnglishKolab — Charcoal + Crimson Design System ─────────────── */
+/* ── EnglishKolab — Cálido Editorial Design System ───────────────── */
+/* Visual DNA: warm cream paper, red accent, dark hero cards with     */
+/* ghost serif numerals, Geist + Instrument Serif italic + JBM mono.  */
 
 :root {
-  /* Dark backgrounds */
-  --ee-dark:        #111111;
-  --ee-dark-2:      #1A1A1A;
-  --ee-dark-card:   #232323;
-  --ee-dark-border: rgba(255,255,255,0.07);
-
-  /* Light backgrounds */
-  --ee-bg:          #F9F9F9;
-  --ee-bg-card:     #FFFFFF;
-  --ee-bg-muted:    #F3F4F6;
-
-  /* Text on light */
-  --ee-ink:         #111111;
-  --ee-ink-2:       #4B5563;
-  --ee-ink-3:       #9CA3AF;
-
-  /* Text on dark */
-  --ee-dark-text:   #F9F9F9;
-  --ee-dark-text-2: rgba(249,249,249,0.6);
-  --ee-dark-text-3: rgba(249,249,249,0.35);
+  /* Surfaces — paper, cards, dark */
+  --ek-paper:        #F4EFE6;   /* main dashboard / section background */
+  --ek-paper-warm:   #FBF8F3;   /* warmer off-white for hero side cards */
+  --ek-paper-deep:   #EFE9DB;   /* notebook subtle background */
+  --ek-card:         #FFFFFF;   /* card surface on cream */
+  --ek-ink:          #111111;   /* dark hero cards, primary buttons */
+  --ek-ink-2:        #1A1A1A;
+  --ek-ink-soft:     #2A2620;
 
   /* Accents */
-  --ee-crimson:       #C41E3A;
-  --ee-crimson-hover: #9E1830;
-  --ee-crimson-tint:  rgba(196,30,58,0.08);
+  --ek-red:          #C41E3A;
+  --ek-red-hover:    #9E1830;
+  --ek-red-light:    #E8526A;
+  --ek-red-tint:     rgba(196,30,58,0.06);
+  --ek-red-tint-2:   rgba(196,30,58,0.08);
+  --ek-red-tint-3:   rgba(196,30,58,0.18);
+
+  /* Text on cream */
+  --ek-text:         #111111;
+  --ek-text-soft:    #5C5648;
+  --ek-text-muted:   #8C8578;
+  --ek-text-faint:   #C4BCAA;
+
+  /* Text on dark hero */
+  --ek-on-dark:           #F4EFE6;
+  --ek-on-dark-muted:     rgba(244,239,230,0.55);
+  --ek-on-dark-soft:      rgba(244,239,230,0.70);
+  --ek-on-dark-faint:     rgba(244,239,230,0.12);
+
+  /* Borders (warm-tinted) */
+  --ek-border:       #EAE4D6;
+  --ek-border-soft:  #EFE9DB;
+  --ek-border-mid:   #D4CDB8;
+  --ek-border-dark:  rgba(244,239,230,0.15);
+
+  /* Notebook / cuaderno */
+  --ek-notebook-bg:    #FBF6EC;
+  --ek-notebook-line:  rgba(80,60,30,0.18);
+  --ek-notebook-dash:  rgba(80,60,30,0.12);
+  --ek-notebook-ink:   #2A2010;
+  --ek-notebook-soft:  #5C4A28;
+  --ek-notebook-muted: #8C7A4A;
+  --ek-notebook-faint: #A89460;
+
+  /* Status */
+  --ek-success-text:   #1F6F4D;
+  --ek-success-bg:     #EEF7EE;
+  --ek-success-border: #C8E2C8;
+  --ek-success-dot:    #7DC97D;
+  --ek-warn-text:      #A04E18;
+  --ek-warn-bg:        #FBF2EC;
+  --ek-warn-border:    #F0D9C7;
+
+  /* Fonts — wired via next/font in app/layout.tsx as CSS vars */
+  --ek-font-sans:    var(--font-geist), 'Geist', system-ui, -apple-system, sans-serif;
+  --ek-font-serif:   var(--font-instrument-serif), 'Instrument Serif', Georgia, serif;
+  --ek-font-mono:    var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Radii — varies by surface, smaller on grids/cells, larger on hero cards */
+  --ek-radius-xs: 4px;
+  --ek-radius-sm: 6px;
+  --ek-radius-md: 8px;
+  --ek-radius-lg: 14px;
+  --ek-radius-xl: 16px;
+
+  /* ── Legacy aliases — keep until Phase 8 migration completes ─── */
+  --ee-dark:        var(--ek-ink);
+  --ee-dark-2:      var(--ek-ink-2);
+  --ee-dark-card:   #232323;
+  --ee-dark-border: var(--ek-border-dark);
+  --ee-bg:          var(--ek-paper);
+  --ee-bg-card:     var(--ek-card);
+  --ee-bg-muted:    var(--ek-paper-deep);
+  --ee-ink:         var(--ek-text);
+  --ee-ink-2:       var(--ek-text-soft);
+  --ee-ink-3:       var(--ek-text-muted);
+  --ee-dark-text:   var(--ek-on-dark);
+  --ee-dark-text-2: var(--ek-on-dark-soft);
+  --ee-dark-text-3: var(--ek-on-dark-muted);
+  --ee-crimson:       var(--ek-red);
+  --ee-crimson-hover: var(--ek-red-hover);
+  --ee-crimson-tint:  var(--ek-red-tint-2);
   --ee-gold:          #C5A028;
   --ee-gold-tint:     rgba(197,160,40,0.10);
-
-  /* Borders */
-  --ee-border:    #E5E7EB;
-  --ee-border-2:  #D1D5DB;
+  --ee-border:    var(--ek-border);
+  --ee-border-2:  var(--ek-border-mid);
 }
 
 /* ── Reset & Base ────────────────────────────────────────────────── */
@@ -42,18 +99,23 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: var(--ee-dark);
-  color: var(--ee-ink);
+  font-family: var(--ek-font-sans);
+  background-color: var(--ek-paper);
+  color: var(--ek-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: #1A1A1A; }
-::-webkit-scrollbar-thumb { background: #3D3D3D; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+/* Scrollbar — warm to match new palette */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--ek-paper-deep); }
+::-webkit-scrollbar-thumb { background: var(--ek-border-mid); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ek-text-muted); }
+
+/* Selection */
+::selection { background: var(--ek-red); color: #fff; }
 
 /* ── Animations ──────────────────────────────────────────────────── */
 
@@ -67,123 +129,262 @@ body {
   to   { opacity: 1; }
 }
 
-/* ── Utility classes ─────────────────────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
 
-/* Label — on dark bg */
-.ee-label {
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* ── Typography helpers (used directly via className) ────────────── */
+
+.ek-kicker {
+  font-family: var(--ek-font-mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ee-crimson);
-}
-
-/* Label variant — on light bg */
-.ee-label-light {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ee-crimson);
-}
-
-.ee-section-title {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 900;
-  color: var(--ee-ink);
-  line-height: 1.1;
-}
-
-.ee-section-title-dark {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 900;
-  color: var(--ee-dark-text);
-  line-height: 1.1;
-}
-
-.ee-body {
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--ee-ink-2);
-}
-
-.ee-body-dark {
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--ee-dark-text-2);
-}
-
-/* Primary CTA — crimson */
-.ee-btn-primary {
+  color: var(--ek-text-muted);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--ee-crimson);
+}
+.ek-kicker--red { color: var(--ek-red); }
+.ek-kicker--on-dark { color: var(--ek-on-dark-muted); }
+.ek-kicker::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.ek-kicker--no-dot::before { display: none; }
+
+.ek-italic {
+  font-family: var(--ek-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.ek-mono {
+  font-family: var(--ek-font-mono);
+  letter-spacing: 0.02em;
+  font-feature-settings: 'tnum' 1;
+}
+
+.ek-tnum {
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Section/page titles */
+.ek-display-xl {
+  font-family: var(--ek-font-sans);
+  font-weight: 800;
+  font-size: clamp(2.75rem, 7vw, 5.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  color: var(--ek-text);
+}
+
+.ek-display-l {
+  font-family: var(--ek-font-sans);
+  font-weight: 800;
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  color: var(--ek-text);
+}
+
+.ek-display-m {
+  font-family: var(--ek-font-sans);
+  font-weight: 800;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  color: var(--ek-text);
+}
+
+.ek-body {
+  font-family: var(--ek-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ek-text-soft);
+}
+
+.ek-body-large {
+  font-family: var(--ek-font-sans);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--ek-text-soft);
+}
+
+/* Tiny eyebrow above stat numbers, on cards */
+.ek-eyebrow {
+  font-family: var(--ek-font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ek-text-muted);
+}
+
+.ek-eyebrow--on-dark { color: var(--ek-on-dark-muted); }
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+
+.ek-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ek-font-sans);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+.ek-btn:active { transform: translateY(1px); }
+
+.ek-btn-primary {
+  background: var(--ek-ink);
   color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-  padding: 12px 28px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease;
-  text-decoration: none;
 }
-.ee-btn-primary:hover {
-  background: var(--ee-crimson-hover);
-  transform: translateY(-1px);
+.ek-btn-primary:hover { background: #000; }
+
+.ek-btn-red {
+  background: var(--ek-red);
+  color: #fff;
+}
+.ek-btn-red:hover { background: var(--ek-red-hover); }
+
+.ek-btn-ghost {
+  background: transparent;
+  color: var(--ek-text);
+  border: 1px solid var(--ek-ink);
+}
+.ek-btn-ghost:hover {
+  background: var(--ek-ink);
+  color: #fff;
 }
 
-/* Ghost on dark bg */
-.ee-btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.ek-btn-ghost--on-dark {
   background: transparent;
-  color: var(--ee-dark-text);
-  font-weight: 600;
-  font-size: 14px;
-  padding: 11px 28px;
-  border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.2);
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
-  text-decoration: none;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
 }
-.ee-btn-ghost:hover {
+.ek-btn-ghost--on-dark:hover {
+  background: rgba(255,255,255,0.08);
   border-color: rgba(255,255,255,0.5);
-  background: rgba(255,255,255,0.05);
 }
 
-/* Ghost on light bg */
-.ee-btn-ghost-light {
+.ek-btn-square {
+  border-radius: var(--ek-radius-md);
+}
+
+/* ── Cards & surfaces ────────────────────────────────────────────── */
+
+.ek-card {
+  background: var(--ek-card);
+  border: 1px solid var(--ek-border);
+  border-radius: var(--ek-radius-lg);
+}
+
+.ek-card-paper {
+  background: var(--ek-paper);
+  border: 1px solid var(--ek-border);
+  border-radius: var(--ek-radius-lg);
+}
+
+.ek-card-dark {
+  background: var(--ek-ink);
+  color: var(--ek-on-dark);
+  border-radius: var(--ek-radius-xl);
+}
+
+/* Status badge */
+.ek-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: transparent;
-  color: var(--ee-ink);
-  font-weight: 600;
-  font-size: 14px;
-  padding: 11px 28px;
-  border-radius: 4px;
-  border: 1px solid var(--ee-border-2);
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  font-family: var(--ek-font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: var(--ek-radius-xs);
+  border: 1px solid transparent;
+}
+.ek-badge--success {
+  background: var(--ek-success-bg);
+  color: var(--ek-success-text);
+  border-color: var(--ek-success-border);
+}
+.ek-badge--warn {
+  background: var(--ek-warn-bg);
+  color: var(--ek-warn-text);
+  border-color: var(--ek-warn-border);
+}
+.ek-badge--neutral {
+  background: var(--ek-paper);
+  color: var(--ek-text-soft);
+  border-color: var(--ek-border);
+}
+
+/* ── Legacy class aliases (Phase 1-7 components still use these) ── */
+
+.ee-label,
+.ee-label-light {
+  font-family: var(--ek-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ek-red);
+}
+
+.ee-section-title { @apply ek-display-l; color: var(--ek-text); }
+.ee-section-title-dark { @apply ek-display-l; color: var(--ek-on-dark); }
+.ee-body { font-family: var(--ek-font-sans); font-size: 15px; line-height: 1.7; color: var(--ek-text-soft); }
+.ee-body-dark { font-family: var(--ek-font-sans); font-size: 15px; line-height: 1.7; color: var(--ek-on-dark-muted); }
+
+.ee-btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--ek-red); color: #fff;
+  font-weight: 700; font-size: 14px; padding: 12px 28px;
+  border-radius: var(--ek-radius-xs); border: none; cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease; text-decoration: none;
+}
+.ee-btn-primary:hover { background: var(--ek-red-hover); transform: translateY(-1px); }
+
+.ee-btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; color: var(--ek-on-dark);
+  font-weight: 600; font-size: 14px; padding: 11px 28px;
+  border-radius: var(--ek-radius-xs); border: 1px solid rgba(255,255,255,0.2);
+  cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease;
   text-decoration: none;
 }
-.ee-btn-ghost-light:hover {
-  border-color: var(--ee-ink);
-  background: var(--ee-bg-muted);
-}
+.ee-btn-ghost:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.05); }
 
-.ee-card {
-  background: var(--ee-bg-card);
-  border: 1px solid var(--ee-border);
-  border-radius: 8px;
+.ee-btn-ghost-light {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; color: var(--ek-text);
+  font-weight: 600; font-size: 14px; padding: 11px 28px;
+  border-radius: var(--ek-radius-xs); border: 1px solid var(--ek-border-mid);
+  cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease;
+  text-decoration: none;
 }
+.ee-btn-ghost-light:hover { border-color: var(--ek-ink); background: var(--ek-paper-deep); }
 
-.ee-card-dark {
-  background: var(--ee-dark-card);
-  border: 1px solid var(--ee-dark-border);
-  border-radius: 8px;
-}
+.ee-card { background: var(--ek-card); border: 1px solid var(--ek-border); border-radius: var(--ek-radius-md); }
+.ee-card-dark { background: var(--ek-ink-2); border: 1px solid var(--ek-border-dark); border-radius: var(--ek-radius-md); }
