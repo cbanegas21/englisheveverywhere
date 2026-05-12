@@ -5,26 +5,28 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
+    eyebrow: '● How it works',
+    titleLead: 'Four steps.',
+    titleAccent: 'No surprises.',
+    side: 'No auto placement test. No marketplace. No group classes. Just your teacher and your schedule.',
     steps: [
-      { num: '01', title: 'Choose your pack',          desc: 'Pick 8, 12, 16, or 20 classes. One payment. No auto-renewal, ever. Your classes never expire.' },
-      { num: '02', title: 'We assign your teacher',     desc: 'Our team personally matches you with a near-native Latin American teacher based on your level, goals, and schedule.' },
-      { num: '03', title: 'Schedule your sessions',     desc: 'Pick your weekly slots. Consistency is what creates real progress — same time, every week.' },
-      { num: '04', title: 'AI-powered class summaries', desc: 'After every class: vocabulary recap, grammar notes, personalized next steps. Available right in your dashboard.' },
+      { n: '01', title: 'Choose your pack', body: '8, 12, 16 or 20 classes a month. One payment. No auto-renewal.' },
+      { n: '02', title: 'We assign your teacher', body: 'Latin American, near-native. Hand-matched to your level and schedule.' },
+      { n: '03', title: 'Book your times', body: 'Whenever you want. 6 a.m. Tuesday, 11 p.m. Sunday. You decide.' },
+      { n: '04', title: 'Take your live class', body: '60 minutes, 1 to 1, on video, inside the platform.' },
     ],
-    sectionLabel: 'Simple process',
-    title: 'Four steps.\nThat\'s it.',
-    sub: 'No placement test. No marketplace browsing. No strangers. We handle the matching — you just show up and learn.',
   },
   es: {
+    eyebrow: '● Cómo funciona',
+    titleLead: 'Cuatro pasos.',
+    titleAccent: 'sin sorpresas.',
+    side: 'Sin pruebas automáticas. Sin marketplace. Sin clases grupales. Solo tu maestro y tu horario.',
     steps: [
-      { num: '01', title: 'Elige tu pack',               desc: 'Escoge 8, 12, 16 o 20 clases. Un pago. Sin renovación automática. Tus clases nunca vencen.' },
-      { num: '02', title: 'Te asignamos tu maestro',     desc: 'Nuestro equipo te empareja personalmente con un maestro near-native de Latinoamérica según tu nivel, objetivos y horario.' },
-      { num: '03', title: 'Agenda tus sesiones',          desc: 'Elige tus horarios semanales. La constancia es lo que crea progreso real — misma hora, cada semana.' },
-      { num: '04', title: 'Resúmenes de clase con IA',   desc: 'Después de cada clase: vocabulario, notas de gramática, próximos pasos personalizados. Disponibles en tu dashboard.' },
+      { n: '01', title: 'Elige tu paquete', body: '8, 12, 16 o 20 clases al mes. Un solo pago. Sin renovación automática.' },
+      { n: '02', title: 'Te asignamos un maestro', body: 'Latinoamericano, casi nativo. Emparejado a mano según tu nivel y horario.' },
+      { n: '03', title: 'Reserva tus horarios', body: 'Cuando quieras. 6 a.m. del martes, 11 p.m. del domingo. Tú decides.' },
+      { n: '04', title: 'Toma tu clase en vivo', body: '60 minutos, 1 a 1, en video, dentro de la plataforma.' },
     ],
-    sectionLabel: 'Proceso simple',
-    title: 'Cuatro pasos.\nNada más.',
-    sub: 'Sin placement test. Sin marketplace. Sin extraños. Nosotros hacemos el emparejamiento — tú solo apareces y aprendes.',
   },
 }
 
@@ -32,78 +34,125 @@ export default function HowItWorks({ lang }: { lang: Locale }) {
   const tx = t[lang]
 
   return (
-    <section id="how-it-works" style={{ background: '#111111' }}>
-      <div className="max-w-6xl mx-auto px-6 py-24">
-
-        {/* Header */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-16">
+    <section
+      id="how-it-works"
+      style={{
+        background: 'var(--ek-paper-warm)',
+        padding: '96px clamp(24px, 6vw, 80px)',
+        fontFamily: 'var(--ek-font-sans)',
+      }}
+    >
+      <div className="max-w-7xl mx-auto">
+        <div
+          className="flex flex-col lg:flex-row lg:justify-between lg:items-end"
+          style={{ marginBottom: 64, gap: 24 }}
+        >
           <div>
-            <motion.p
-              className="ee-label mb-4"
-              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-            >
-              {tx.sectionLabel}
-            </motion.p>
+            <span className="ek-kicker ek-kicker--red">{tx.eyebrow}</span>
             <motion.h2
-              className="font-black whitespace-pre-line"
-              style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', color: '#F9F9F9', lineHeight: 1.05 }}
-              initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ delay: 0.05, duration: 0.5 }}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              style={{
+                fontFamily: 'var(--ek-font-sans)',
+                fontWeight: 800,
+                fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.0,
+                marginTop: 16,
+                color: 'var(--ek-text)',
+              }}
             >
-              {tx.title}
+              {tx.titleLead}
+              <br />
+              <span
+                style={{
+                  fontFamily: 'var(--ek-font-serif)',
+                  fontStyle: 'italic',
+                  fontWeight: 400,
+                }}
+              >
+                {tx.titleAccent}
+              </span>
             </motion.h2>
           </div>
-          <div className="flex items-end">
-            <motion.p
-              className="ee-body-dark max-w-md"
-              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-              viewport={{ once: true }} transition={{ delay: 0.1 }}
-            >
-              {tx.sub}
-            </motion.p>
-          </div>
+          <p
+            style={{
+              maxWidth: 360,
+              fontSize: 16,
+              lineHeight: 1.55,
+              color: 'var(--ek-text-soft)',
+            }}
+          >
+            {tx.side}
+          </p>
         </div>
 
-        {/* Steps — 2×2 grid */}
         <div
-          className="grid grid-cols-1 md:grid-cols-2 gap-px"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden' }}
+          className="grid"
+          style={{
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 24,
+          }}
         >
-          {tx.steps.map((step, i) => (
+          {tx.steps.map((s, i) => (
             <motion.div
-              key={i}
+              key={s.n}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.08, duration: 0.4 }}
-              className="p-8 group"
-              style={{ background: '#111111' }}
+              style={{
+                borderTop: '1px solid var(--ek-ink)',
+                paddingTop: 20,
+              }}
             >
-              {/* Step number — large ghost */}
-              <div className="relative mb-6">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <span
-                  className="text-[11px] font-black tracking-[0.15em] block"
-                  style={{ color: '#C41E3A' }}
+                  style={{
+                    fontFamily: 'var(--ek-font-mono)',
+                    fontSize: 12,
+                    color: 'var(--ek-red)',
+                    letterSpacing: '0.08em',
+                  }}
                 >
-                  {step.num}
+                  {s.n}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--ek-font-mono)',
+                    fontSize: 11,
+                    color: 'var(--ek-text-muted)',
+                  }}
+                >
+                  0{i + 1}/04
                 </span>
               </div>
-              <h3
-                className="text-[17px] font-bold mb-3"
-                style={{ color: '#F9F9F9' }}
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  marginTop: 32,
+                  letterSpacing: '-0.02em',
+                  color: 'var(--ek-text)',
+                }}
               >
-                {step.title}
-              </h3>
+                {s.title}
+              </div>
               <p
-                className="text-[14px] leading-relaxed"
-                style={{ color: 'rgba(249,249,249,0.5)' }}
+                style={{
+                  marginTop: 12,
+                  fontSize: 15,
+                  lineHeight: 1.5,
+                  color: 'var(--ek-text-soft)',
+                }}
               >
-                {step.desc}
+                {s.body}
               </p>
             </motion.div>
           ))}
         </div>
-
       </div>
     </section>
   )

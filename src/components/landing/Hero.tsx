@@ -3,34 +3,62 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
-import { Boxes } from '@/components/ui/background-boxes'
+import HeroBookingCard from './HeroBookingCard'
 
 const t = {
   en: {
-    label: 'Live 1-on-1 classes · Latin America',
-    title: 'Learn English.\nAnytime. Anywhere.\nAt your pace.',
-    body: 'Monthly plans of 8–20 live 1-on-1 classes (60 minutes each) with a bilingual, near-native teacher. Cancel anytime. CEFR-tracked progress every 4 classes.',
-    cta: 'Get Started',
-    ctaLogin: 'Log In',
+    eyebrow: 'Live English · 1 to 1',
+    titleLine1: 'Whenever',
+    titleAccent: 'you want.',
+    titleLine3: 'Literally whenever you want.',
+    body1: 'A class at',
+    bodyTime1: '6 a.m.',
+    body2: 'Tuesday. Or at',
+    bodyTime2: '11 p.m.',
+    body3: "Sunday. Book with 24 hours' notice, any time of day, any day of the week.",
+    ctaPrimary: 'Get started',
+    ctaSecondary: 'See how it works',
     ctaDashboard: 'Go to my Dashboard',
-    ctaSecondary: 'How it works',
-    trust: ['Cancel anytime', 'Near-native teachers', 'CEFR tracked'],
+    statClass: 'Each class',
+    statClassValue: '60',
+    statClassUnit: 'min',
+    statTeacher: 'Your teacher',
+    statTeacherValue: '1',
+    statTeacherUnit: 'to 1',
+    statHours: 'Booking',
+    statHoursValue: '24/7',
   },
   es: {
-    label: 'Clases 1-a-1 en vivo · Latinoamérica',
-    title: 'Aprende inglés.\nCuando quieras. Donde quieras.\nA tu ritmo.',
-    body: 'Planes mensuales de 8–20 clases 1-a-1 en vivo (60 minutos cada una) con un maestro bilingüe near-native. Cancela cuando quieras. Nivel CEFR revisado cada 4 clases.',
-    cta: 'Comenzar',
-    ctaLogin: 'Iniciar sesión',
+    eyebrow: 'Inglés en vivo · 1 a 1',
+    titleLine1: 'Cuando',
+    titleAccent: 'quieras.',
+    titleLine3: 'Literalmente cuando quieras.',
+    body1: 'Una clase a las',
+    bodyTime1: '6 a.m.',
+    body2: 'del martes. O las',
+    bodyTime2: '11 p.m.',
+    body3: 'del domingo. Reserva con 24 horas de anticipación, cualquier hora del día, cualquier día de la semana.',
+    ctaPrimary: 'Empezar ahora',
+    ctaSecondary: 'Ver cómo funciona',
     ctaDashboard: 'Ir a mi Dashboard',
-    ctaSecondary: 'Cómo funciona',
-    trust: ['Cancela cuando quieras', 'Maestros near-native', 'Nivel CEFR'],
+    statClass: 'Cada clase',
+    statClassValue: '60',
+    statClassUnit: 'min',
+    statTeacher: 'Tu maestro',
+    statTeacherValue: '1',
+    statTeacherUnit: 'a 1',
+    statHours: 'Reserva',
+    statHoursValue: '24/7',
   },
 }
 
 const FADE = {
   hidden: { opacity: 0, y: 10 },
-  show: (d: number) => ({ opacity: 1, y: 0, transition: { delay: d, duration: 0.55, ease: 'easeOut' as const } }),
+  show: (d: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: d, duration: 0.55, ease: 'easeOut' as const },
+  }),
 }
 
 export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLoggedIn?: boolean }) {
@@ -38,107 +66,245 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
 
   return (
     <section
-      className="relative pt-32 pb-28 px-6 overflow-hidden"
-      style={{ background: '#111111', minHeight: '92vh', display: 'flex', alignItems: 'center' }}
+      style={{
+        background: 'var(--ek-paper-warm)',
+        padding: '80px 24px 64px',
+        fontFamily: 'var(--ek-font-sans)',
+        color: 'var(--ek-text)',
+      }}
     >
-      {/* Background boxes — subtle isometric grid */}
-      <div className="absolute inset-0 w-full h-full z-0">
-        <Boxes />
-        {/* Radial mask to keep center clear for content */}
+      <div className="max-w-7xl mx-auto">
         <div
-          className="absolute inset-0"
+          className="grid items-end"
           style={{
-            background: 'radial-gradient(ellipse 80% 70% at 50% 50%, transparent 10%, rgba(17,17,17,0.75) 60%, #111111 100%)',
+            gridTemplateColumns: '1.25fr 1fr',
+            gap: 56,
           }}
-        />
-      </div>
+        >
+          {/* Left: huge headline + body + ctas + stats */}
+          <div className="min-w-0">
+            <motion.span
+              className="ek-kicker ek-kicker--red"
+              initial="hidden"
+              animate="show"
+              custom={0}
+              variants={FADE}
+            >
+              {tx.eyebrow}
+            </motion.span>
 
-      <div className="max-w-6xl mx-auto relative z-10 w-full">
-        <div className="max-w-3xl">
-
-          {/* Section label */}
-          <motion.p
-            className="ee-label mb-5"
-            initial="hidden" animate="show" custom={0}
-            variants={FADE}
-          >
-            {tx.label}
-          </motion.p>
-
-          {/* Headline */}
-          <motion.h1
-            initial="hidden" animate="show" custom={0.1}
-            variants={FADE}
-            className="font-black leading-[1.02] mb-6 whitespace-pre-line"
-            style={{
-              fontSize: 'clamp(3rem, 8vw, 6rem)',
-              color: '#F9F9F9',
-              letterSpacing: '-0.03em',
-            }}
-          >
-            {tx.title}
-          </motion.h1>
-
-          {/* Body */}
-          <motion.p
-            initial="hidden" animate="show" custom={0.2}
-            variants={FADE}
-            className="ee-body-dark max-w-xl mb-10 text-[16px]"
-          >
-            {tx.body}
-          </motion.p>
-
-          {/* CTAs */}
-          <motion.div
-            initial="hidden" animate="show" custom={0.3}
-            variants={FADE}
-            className="flex flex-col sm:flex-row gap-3 mb-10"
-          >
-            {isLoggedIn ? (
-              <Link href={`/${lang}/dashboard`} className="ee-btn-primary text-[15px] !py-3.5 !px-8">
-                {tx.ctaDashboard}
-              </Link>
-            ) : (
-              <>
-                <Link href={`/${lang}/registro`} className="ee-btn-primary text-[15px] !py-3.5 !px-8">
-                  {tx.cta}
-                </Link>
-                <Link href={`/${lang}/login`} className="ee-btn-ghost text-[15px] !py-3.5 !px-8">
-                  {tx.ctaLogin}
-                </Link>
-              </>
-            )}
-          </motion.div>
-
-          {/* Trust badges */}
-          <motion.div
-            initial="hidden" animate="show" custom={0.4}
-            variants={FADE}
-            className="flex flex-wrap gap-x-6 gap-y-2"
-          >
-            {tx.trust.map((item) => (
+            <motion.h1
+              initial="hidden"
+              animate="show"
+              custom={0.1}
+              variants={FADE}
+              style={{
+                margin: '28px 0 0',
+                fontFamily: 'var(--ek-font-sans)',
+                fontWeight: 800,
+                fontSize: 'clamp(3rem, 7vw, 5.5rem)',
+                letterSpacing: '-0.04em',
+                lineHeight: 0.98,
+                color: 'var(--ek-text)',
+              }}
+            >
+              {tx.titleLine1}
+              <br />
               <span
-                key={item}
-                className="text-[13px] font-medium flex items-center gap-2"
-                style={{ color: 'rgba(249,249,249,0.45)' }}
+                style={{
+                  fontFamily: 'var(--ek-font-serif)',
+                  fontStyle: 'italic',
+                  fontWeight: 400,
+                  letterSpacing: '-0.02em',
+                  fontSize: 'clamp(3.5rem, 8vw, 6rem)',
+                  color: 'var(--ek-red)',
+                  display: 'inline-block',
+                }}
               >
-                <span
-                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                  style={{ background: '#C41E3A' }}
-                />
-                {item}
+                {tx.titleAccent}
               </span>
-            ))}
-          </motion.div>
+              <br />
+              <span
+                style={{
+                  fontWeight: 700,
+                  fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
+                  letterSpacing: '-0.03em',
+                  display: 'inline-block',
+                  color: 'var(--ek-text)',
+                }}
+              >
+                {tx.titleLine3}
+              </span>
+            </motion.h1>
 
+            <motion.p
+              initial="hidden"
+              animate="show"
+              custom={0.2}
+              variants={FADE}
+              style={{
+                marginTop: 32,
+                fontSize: 18,
+                lineHeight: 1.55,
+                color: 'var(--ek-text-soft)',
+                maxWidth: 520,
+              }}
+            >
+              {tx.body1}{' '}
+              <em
+                style={{
+                  fontFamily: 'var(--ek-font-serif)',
+                  fontStyle: 'italic',
+                }}
+              >
+                {tx.bodyTime1}
+              </em>{' '}
+              {tx.body2}{' '}
+              <em
+                style={{
+                  fontFamily: 'var(--ek-font-serif)',
+                  fontStyle: 'italic',
+                }}
+              >
+                {tx.bodyTime2}
+              </em>{' '}
+              {tx.body3}
+            </motion.p>
+
+            <motion.div
+              initial="hidden"
+              animate="show"
+              custom={0.3}
+              variants={FADE}
+              style={{ display: 'flex', gap: 12, marginTop: 40, flexWrap: 'wrap' }}
+            >
+              {isLoggedIn ? (
+                <Link
+                  href={`/${lang}/dashboard`}
+                  className="ek-btn ek-btn-primary"
+                  style={{ padding: '18px 28px', fontSize: 16 }}
+                >
+                  {tx.ctaDashboard}
+                  <span style={{ fontSize: 18 }}>→</span>
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href={`/${lang}/registro`}
+                    className="ek-btn ek-btn-primary"
+                    style={{ padding: '18px 28px', fontSize: 16 }}
+                  >
+                    {tx.ctaPrimary}
+                    <span style={{ fontSize: 18 }}>→</span>
+                  </Link>
+                  <Link
+                    href="#how-it-works"
+                    className="ek-btn ek-btn-ghost"
+                    style={{ padding: '18px 28px', fontSize: 16 }}
+                  >
+                    {tx.ctaSecondary}
+                  </Link>
+                </>
+              )}
+            </motion.div>
+
+            {/* Inline stats row */}
+            <motion.div
+              initial="hidden"
+              animate="show"
+              custom={0.4}
+              variants={FADE}
+              style={{ marginTop: 40, display: 'flex', gap: 32, alignItems: 'center', flexWrap: 'wrap' }}
+            >
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                  {tx.statClassValue}
+                  <span
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 500,
+                      color: 'var(--ek-text-muted)',
+                      marginLeft: 4,
+                    }}
+                  >
+                    {' '}
+                    {tx.statClassUnit}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--ek-text-muted)',
+                    fontFamily: 'var(--ek-font-mono)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginTop: 4,
+                  }}
+                >
+                  {tx.statClass}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 36, background: 'var(--ek-border)' }} />
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                  {tx.statTeacherValue}
+                  <span
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 500,
+                      color: 'var(--ek-text-muted)',
+                      marginLeft: 4,
+                    }}
+                  >
+                    {' '}
+                    {tx.statTeacherUnit}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--ek-text-muted)',
+                    fontFamily: 'var(--ek-font-mono)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginTop: 4,
+                  }}
+                >
+                  {tx.statTeacher}
+                </div>
+              </div>
+              <div style={{ width: 1, height: 36, background: 'var(--ek-border)' }} />
+              <div>
+                <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                  {tx.statHoursValue}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--ek-text-muted)',
+                    fontFamily: 'var(--ek-font-mono)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginTop: 4,
+                  }}
+                >
+                  {tx.statHours}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Right: live booking card */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.55, ease: 'easeOut' }}
+            className="hidden lg:block min-w-0"
+          >
+            <HeroBookingCard lang={lang} />
+          </motion.div>
         </div>
       </div>
-
-      {/* Bottom fade to next section */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-24 z-10 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, transparent, #F9F9F9)' }}
-      />
     </section>
   )
 }

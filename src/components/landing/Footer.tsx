@@ -1,45 +1,51 @@
 'use client'
 
 import Link from 'next/link'
-import { Mail } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
+import { Logo } from '@/components/ui/Logo'
 
 const t = {
   en: {
-    tagline: 'Live English classes with near-native Latin American teachers. No subscriptions. Real progress.',
+    tagline: 'Learn English. Anytime. Anywhere. At your pace.',
     cols: [
       {
-        title: 'Platform',
+        title: 'Product',
         links: [
           { label: 'How it works', href: '#how-it-works' },
-          { label: 'Our teachers', href: '#teachers' },
           { label: 'Pricing', href: '#pricing' },
-          { label: 'Log in', href: '/en/login' },
-          { label: 'Help & contact', href: 'mailto:hola@englishkolab.com' },
+          { label: 'Teachers', href: '#teachers' },
+          { label: 'Questions', href: '#faq' },
         ],
       },
       {
         title: 'Company',
         links: [
-          { label: 'Privacy policy', href: '/en/privacy' },
-          { label: 'Terms of use', href: '/en/terms' },
+          { label: 'Privacy', href: '/en/privacy' },
+          { label: 'Terms', href: '/en/terms' },
+          { label: 'Contact', href: 'mailto:hola@englishkolab.com' },
+        ],
+      },
+      {
+        title: 'Language',
+        links: [
+          { label: 'English', href: '/en' },
+          { label: 'Español', href: '/es' },
         ],
       },
     ],
-    copyright: '© 2026 EnglishKolab',
-    legal: 'Operated by Remote ACKtive LLC · Wyoming, USA',
+    bottomLeft: '© 2026 Remote ACKtive LLC · Wyoming, USA',
+    bottomRight: 'Secure payments via Stripe · USD',
   },
   es: {
-    tagline: 'Clases de inglés en vivo con maestros latinoamericanos near-native. Sin suscripciones. Progreso real.',
+    tagline: 'Aprende inglés. Cuando quieras. Donde quieras. A tu ritmo.',
     cols: [
       {
-        title: 'Plataforma',
+        title: 'Producto',
         links: [
           { label: 'Cómo funciona', href: '#how-it-works' },
-          { label: 'Maestros', href: '#teachers' },
           { label: 'Precios', href: '#pricing' },
-          { label: 'Ingresar', href: '/es/login' },
-          { label: 'Ayuda y contacto', href: 'mailto:hola@englishkolab.com' },
+          { label: 'Maestros', href: '#teachers' },
+          { label: 'Preguntas', href: '#faq' },
         ],
       },
       {
@@ -47,69 +53,88 @@ const t = {
         links: [
           { label: 'Privacidad', href: '/es/privacy' },
           { label: 'Términos', href: '/es/terms' },
+          { label: 'Contacto', href: 'mailto:hola@englishkolab.com' },
+        ],
+      },
+      {
+        title: 'Idioma',
+        links: [
+          { label: 'Español', href: '/es' },
+          { label: 'English', href: '/en' },
         ],
       },
     ],
-    copyright: '© 2026 EnglishKolab',
-    legal: 'Operado por Remote ACKtive LLC · Wyoming, USA',
+    bottomLeft: '© 2026 Remote ACKtive LLC · Wyoming, USA',
+    bottomRight: 'Pagos seguros vía Stripe · USD',
   },
 }
 
 export default function Footer({ lang }: { lang: Locale }) {
   const tx = t[lang]
-
   return (
-    <footer style={{ background: '#111111' }}>
-      <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
-
-          {/* Brand */}
-          <div className="md:col-span-2">
-            <Link href={`/${lang}`} className="flex items-center gap-2.5 mb-4">
-              <div
-                className="h-8 w-8 rounded flex items-center justify-center text-[11px] font-black"
-                style={{ background: '#C41E3A', color: '#fff' }}
-              >
-                EK
-              </div>
-              <span className="text-[15px] font-black tracking-tight" style={{ color: '#F9F9F9' }}>
-                EnglishKolab
-              </span>
-            </Link>
-            <p className="text-[13px] leading-relaxed max-w-xs mb-6" style={{ color: 'rgba(249,249,249,0.35)' }}>
+    <footer
+      style={{
+        background: '#0A0A0A',
+        color: '#888',
+        padding: '48px clamp(24px, 6vw, 80px)',
+        fontFamily: 'var(--ek-font-sans)',
+      }}
+    >
+      <div className="max-w-7xl mx-auto">
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: '1.5fr 1fr 1fr 1fr',
+            gap: 48,
+          }}
+        >
+          <div>
+            <Logo onDark href={`/${lang}`} size={32} />
+            <p
+              style={{
+                marginTop: 16,
+                fontSize: 13,
+                lineHeight: 1.6,
+                maxWidth: 280,
+                color: '#888',
+              }}
+            >
               {tx.tagline}
             </p>
-            <a
-              href="mailto:c.banegaspaz2020@gmail.com"
-              className="h-9 w-9 rounded flex items-center justify-center transition-colors"
-              style={{ background: 'rgba(249,249,249,0.06)', color: 'rgba(249,249,249,0.35)', display: 'inline-flex' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#F9F9F9')}
-              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(249,249,249,0.35)')}
-            >
-              <Mail className="h-4 w-4" />
-            </a>
           </div>
 
-          {/* Link columns */}
           {tx.cols.map((col) => (
             <div key={col.title}>
-              <p
-                className="text-[11px] font-bold uppercase tracking-widest mb-5"
-                style={{ color: 'rgba(249,249,249,0.25)' }}
+              <div
+                style={{
+                  fontFamily: 'var(--ek-font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#666',
+                }}
               >
                 {col.title}
-              </p>
-              <ul className="space-y-3">
-                {col.links.map((link) => (
-                  <li key={link.label}>
+              </div>
+              <ul
+                style={{
+                  margin: '16px 0 0',
+                  padding: 0,
+                  listStyle: 'none',
+                  fontSize: 14,
+                  display: 'grid',
+                  gap: 10,
+                }}
+              >
+                {col.links.map((l) => (
+                  <li key={l.label}>
                     <Link
-                      href={link.href}
-                      className="text-[13px] transition-colors"
-                      style={{ color: 'rgba(249,249,249,0.4)' }}
-                      onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#F9F9F9')}
-                      onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(249,249,249,0.4)')}
+                      href={l.href}
+                      style={{ color: '#aaa', textDecoration: 'none' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = '#aaa')}
                     >
-                      {link.label}
+                      {l.label}
                     </Link>
                   </li>
                 ))}
@@ -117,14 +142,21 @@ export default function Footer({ lang }: { lang: Locale }) {
             </div>
           ))}
         </div>
-
-        {/* Bottom bar */}
         <div
-          className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-6"
-          style={{ borderTop: '1px solid rgba(249,249,249,0.06)' }}
+          style={{
+            borderTop: '1px solid #1F1F1F',
+            marginTop: 48,
+            paddingTop: 24,
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: 12,
+            color: '#666',
+            flexWrap: 'wrap',
+            gap: 12,
+          }}
         >
-          <p className="text-[12px]" style={{ color: 'rgba(249,249,249,0.2)' }}>{tx.copyright}</p>
-          <p className="text-[11px]" style={{ color: 'rgba(249,249,249,0.12)' }}>{tx.legal}</p>
+          <div>{tx.bottomLeft}</div>
+          <div>{tx.bottomRight}</div>
         </div>
       </div>
     </footer>

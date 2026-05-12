@@ -2,120 +2,162 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Minus } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    label: 'FAQ',
-    headline: 'Common questions.',
-    questions: [
-      { q: 'What level do I need to start?', a: 'None. We accept complete beginners (A0) through advanced speakers (C2). You can take a free 60-min diagnostic call with our team to assess your level, or self-declare if you\'ve been assessed elsewhere.' },
-      { q: 'How do the classes work?', a: 'All classes happen inside the EnglishKolab platform via live video. No Zoom, no Google Meet, no extra installs.' },
-      { q: 'Who chooses my teacher?', a: 'We do. Our team personally matches you with the best teacher for your level, goals, and schedule. Once assigned, your teacher\'s name shows on your dashboard and you meet them in your first scheduled class.' },
-      { q: 'What is your cancellation policy?', a: 'Cancel or reschedule with at least 24 hours notice at no charge. Classes without advance notice are forfeited.' },
-      { q: 'Do my classes expire?', a: 'No. Once you buy a pack, those classes are yours until you use them. No pressure, no countdown.' },
-      { q: 'What\'s included in every pack?', a: 'Live 1-on-1 video sessions, near-native teacher, AI post-class summaries, CEFR level tracking, and direct support.' },
-      { q: 'What\'s your refund policy?', a: 'Within 14 days of purchase, we can refund any classes you haven\'t scheduled or used. Scheduled and completed classes aren\'t refundable. Email hola@englishkolab.com to request.' },
+    eyebrow: '● Questions',
+    title: 'What you might',
+    titleAccent: 'be wondering.',
+    items: [
+      { q: 'Do classes expire?', a: 'No. Once you buy them, they\'re yours. No deadlines.' },
+      { q: 'Can I pick my teacher?', a: 'We assign a Latin American teacher to you based on your level, goals, and schedule — a person you get to know. If they\'re unavailable when you want to book, another teacher with your time window covers that class.' },
+      { q: 'Do I need Zoom or Meet?', a: 'No. Live classes happen inside the platform, on 1-to-1 video.' },
+      { q: 'How long are classes?', a: 'Sixty minutes each. 1 to 1, live, with your assigned teacher.' },
+      { q: 'Can I book at any hour?', a: 'Yes. Any time of day, any day of the week. Just 24 hours of advance notice.' },
+      { q: 'What currency do I pay in?', a: 'Charges are processed in USD via Stripe. We display the local equivalent in 20+ currencies.' },
     ],
   },
   es: {
-    label: 'Preguntas frecuentes',
-    headline: 'Preguntas comunes.',
-    questions: [
-      { q: '¿Qué nivel necesito para empezar?', a: 'Ninguno. Aceptamos desde principiantes (A0) hasta avanzados (C2). Puedes tomar una llamada de diagnóstico gratuita de 60 min con nuestro equipo para evaluar tu nivel, o declararlo tú mismo si ya lo conoces.' },
-      { q: '¿Cómo funcionan las clases?', a: 'Todas las clases se realizan dentro de la plataforma EnglishKolab por video en vivo. Sin Zoom, sin Google Meet, sin instalaciones extra.' },
-      { q: '¿Quién elige mi maestro?', a: 'Nosotros. Nuestro equipo te empareja personalmente con el mejor maestro para tu nivel, objetivos y horario. Una vez asignado, verás el nombre de tu maestro en tu dashboard y lo conocerás en tu primera clase agendada.' },
-      { q: '¿Cuál es la política de cancelación?', a: 'Cancela o reprograma con al menos 24 horas de aviso sin costo. Las clases sin aviso previo se pierden.' },
-      { q: '¿Mis clases vencen?', a: 'No. Una vez que compras un pack, esas clases son tuyas hasta que las uses. Sin presión, sin cuenta regresiva.' },
-      { q: '¿Qué incluye cada pack?', a: 'Sesiones 1-a-1 en vivo por video, maestro near-native, resúmenes con IA post-clase, seguimiento de nivel CEFR y soporte directo.' },
-      { q: '¿Cuál es la política de reembolso?', a: 'Dentro de los 14 días posteriores a la compra, podemos reembolsar cualquier clase que no hayas agendado ni usado. Las clases ya agendadas o completadas no son reembolsables. Escríbenos a hola@englishkolab.com para solicitarlo.' },
+    eyebrow: '● Preguntas',
+    title: 'Lo que',
+    titleAccent: 'quizás te preguntas.',
+    items: [
+      { q: '¿Las clases caducan?', a: 'No. Una vez compradas, son tuyas para siempre. Sin fechas límite.' },
+      { q: '¿Puedo elegir a mi maestro?', a: 'Te asignamos un maestro latinoamericano según tu nivel, metas y horario. Una persona que llegas a conocer. Si tu maestro no está libre cuando quieres reservar, otro maestro con tu horario cubre esa clase.' },
+      { q: '¿Necesito Zoom o Meet?', a: 'No. Las clases en vivo ocurren dentro de la plataforma, en video 1 a 1.' },
+      { q: '¿Cuánto duran las clases?', a: 'Sesenta minutos cada una. 1 a 1, en vivo, con tu maestro asignado.' },
+      { q: '¿Puedo reservar a cualquier hora?', a: 'Sí. Cualquier hora del día, cualquier día de la semana. Solo 24 horas de anticipación.' },
+      { q: '¿En qué moneda pago?', a: 'El cargo se hace en USD vía Stripe. Mostramos el equivalente en más de 20 monedas locales.' },
     ],
   },
 }
 
 export default function FAQ({ lang }: { lang: Locale }) {
-  const copy = t[lang]
+  const tx = t[lang]
   const [open, setOpen] = useState<number | null>(0)
 
   return (
-    <section id="faq" style={{ background: '#F9F9F9', borderTop: '1px solid #E5E7EB' }}>
-      <div className="max-w-3xl mx-auto px-6 py-24">
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-14"
+    <section
+      id="faq"
+      style={{
+        background: 'var(--ek-paper)',
+        padding: '96px clamp(24px, 6vw, 80px)',
+        fontFamily: 'var(--ek-font-sans)',
+      }}
+    >
+      <div className="max-w-7xl mx-auto">
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: '1fr 1.6fr',
+            gap: 'clamp(40px, 6vw, 80px)',
+          }}
         >
-          <p className="ee-label-light mb-4">{copy.label}</p>
-          <h2
-            className="font-black"
-            style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', color: '#111111', lineHeight: 1.1 }}
-          >
-            {copy.headline}
-          </h2>
-        </motion.div>
-
-        <div className="space-y-2">
-          {copy.questions.map((item, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 8 }}
+          <div>
+            <span className="ek-kicker ek-kicker--red">{tx.eyebrow}</span>
+            <motion.h2
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.35, delay: i * 0.04 }}
-              className="rounded overflow-hidden"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+              transition={{ duration: 0.5 }}
+              style={{
+                fontFamily: 'var(--ek-font-sans)',
+                fontWeight: 800,
+                fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
+                marginTop: 16,
+                color: 'var(--ek-text)',
+              }}
             >
-              <button
-                onClick={() => setOpen(open === i ? null : i)}
-                className="w-full flex items-center justify-between px-6 py-5 text-left"
+              {tx.title}{' '}
+              <span
+                style={{
+                  fontFamily: 'var(--ek-font-serif)',
+                  fontStyle: 'italic',
+                  fontWeight: 400,
+                }}
               >
-                <span
-                  className="font-bold text-[14px] pr-4"
-                  style={{ color: open === i ? '#C41E3A' : '#111111' }}
-                >
-                  {item.q}
-                </span>
-                <span
-                  className="flex-shrink-0 h-7 w-7 rounded flex items-center justify-center transition-colors"
+                {tx.titleAccent}
+              </span>
+            </motion.h2>
+          </div>
+
+          <div>
+            {tx.items.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.35, delay: i * 0.04 }}
+                style={{
+                  borderTop: i === 0 ? '1px solid var(--ek-ink)' : 'none',
+                  borderBottom: '1px solid var(--ek-border)',
+                  padding: '24px 0',
+                }}
+              >
+                <button
+                  onClick={() => setOpen(open === i ? null : i)}
                   style={{
-                    background: open === i ? 'rgba(196,30,58,0.08)' : '#F3F4F6',
-                    color: open === i ? '#C41E3A' : '#9CA3AF',
-                    border: `1px solid ${open === i ? 'rgba(196,30,58,0.15)' : 'transparent'}`,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    cursor: 'pointer',
+                    listStyle: 'none',
+                    fontSize: 18,
+                    fontWeight: 600,
+                    background: 'transparent',
+                    border: 0,
+                    padding: 0,
+                    textAlign: 'left',
+                    color: 'var(--ek-text)',
+                    fontFamily: 'var(--ek-font-sans)',
                   }}
                 >
-                  {open === i
-                    ? <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    : <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  }
-                </span>
-              </button>
-
-              <AnimatePresence initial={false}>
-                {open === i && (
-                  <motion.div
-                    key="content"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="overflow-hidden"
+                  <span>{item.q}</span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--ek-font-mono)',
+                      color: 'var(--ek-red)',
+                      fontSize: 18,
+                      transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.18s ease',
+                      display: 'inline-block',
+                    }}
                   >
-                    <div
-                      className="px-6 pb-5 text-[13px] leading-relaxed pt-1"
-                      style={{ borderTop: '1px solid #E5E7EB', color: '#4B5563' }}
+                    +
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {open === i && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      style={{ overflow: 'hidden' }}
                     >
-                      {item.a}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
+                      <p
+                        style={{
+                          marginTop: 12,
+                          fontSize: 16,
+                          color: 'var(--ek-text-soft)',
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        {item.a}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
         </div>
-
       </div>
     </section>
   )

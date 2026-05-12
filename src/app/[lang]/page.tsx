@@ -2,9 +2,12 @@ import type { Locale } from '@/lib/i18n/translations'
 import { cookies } from 'next/headers'
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
+import MorningBanner from '@/components/landing/MorningBanner'
 import TrustStrip from '@/components/landing/TrustStrip'
 import HowItWorks from '@/components/landing/HowItWorks'
 import Teachers from '@/components/landing/Teachers'
+import NotebookBanner from '@/components/landing/NotebookBanner'
+import HorasGrid from '@/components/landing/HorasGrid'
 import Pricing from '@/components/landing/Pricing'
 import FAQ from '@/components/landing/FAQ'
 import FinalCTA from '@/components/landing/FinalCTA'
@@ -25,15 +28,18 @@ export default async function LandingPage({ params }: Props) {
   const isLoggedIn = !!cookieStore.get('ee-role')?.value
 
   return (
-    <main className="overflow-x-hidden">
+    <main style={{ background: 'var(--ek-paper-warm)', overflowX: 'hidden' }}>
       <Navbar lang={lang as Locale} isLoggedIn={isLoggedIn} />
       <Hero lang={lang as Locale} isLoggedIn={isLoggedIn} />
+      <MorningBanner lang={lang as Locale} />
       <TrustStrip lang={lang as Locale} />
       <HowItWorks lang={lang as Locale} />
       <Teachers lang={lang as Locale} />
+      <NotebookBanner lang={lang as Locale} />
+      <HorasGrid lang={lang as Locale} />
       <Pricing lang={lang as Locale} />
       <FAQ lang={lang as Locale} />
-      <FinalCTA lang={lang as Locale} />
+      <FinalCTA lang={lang as Locale} isLoggedIn={isLoggedIn} />
       <Footer lang={lang as Locale} />
     </main>
   )

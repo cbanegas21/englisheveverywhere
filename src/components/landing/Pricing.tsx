@@ -2,59 +2,62 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { Check } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { useCurrency } from '@/lib/useCurrency'
 import { PRICING_PLANS } from '@/lib/pricing'
 
 const t = {
   en: {
-    label: 'Transparent pricing',
-    title: 'Simple monthly\nplans.',
-    sub: 'Choose a monthly plan and get your classes every month. Cancel anytime. No hidden fees. Your unused classes carry over.',
-    popular: 'Most popular',
-    classes: 'classes',
+    eyebrow: '● Plans',
+    titleLead: 'Pick your pack.',
+    titleAccent: 'Classes never expire.',
+    sub: 'One payment per month. No auto-renewal.',
+    popular: '★ most chosen',
     perClass: 'per class',
-    cta: 'Get started',
-    note: '* Classes cancelled with less than 24-hour notice are forfeited. Monthly plans renew automatically — cancel anytime.',
-    included: 'Included in every pack',
+    classes: 'classes',
+    perMonth: 'a month',
     features: [
-      'Live 1-on-1 session via video (60 min)',
-      'Near-native bilingual teacher',
-      'AI post-class summary + vocabulary',
-      'CEFR level check every 4 classes',
-      'Structured curriculum (Interchange + custom)',
+      '· 60 minutes · 1 to 1',
+      '· live, on the platform',
+      '· classes never expire',
+      '· no auto-renewal',
     ],
-    packDescs: {
-      spark:  'Start the habit. See it work.',
-      drive:  'A full month of real consistency.',
-      ascent: 'Serious progress, serious results.',
-      peak:   'Maximum exposure, maximum growth.',
-    },
+    cta: 'Choose',
+    note: '* Classes cancelled with less than 24-hour notice are forfeited.',
+    fxNote: (cur: string) =>
+      `* Prices shown in ${cur} ≈ USD. Exchange rate updated daily. Charges are always processed in USD.`,
+    tags: {
+      spark: 'Start the habit',
+      drive: 'A month of consistency',
+      ascent: 'Real progress',
+      peak: 'Maximum exposure',
+    } as Record<string, string>,
   },
   es: {
-    label: 'Precios transparentes',
-    title: 'Planes mensuales\nsimples.',
-    sub: 'Elige tu plan mensual y recibe tus clases cada mes. Cancela cuando quieras. Sin cargos ocultos. Tus clases sin usar se acumulan.',
-    popular: 'Más popular',
-    classes: 'clases',
+    eyebrow: '● Paquetes',
+    titleLead: 'Elige tu paquete.',
+    titleAccent: 'Las clases nunca caducan.',
+    sub: 'Un solo pago al mes. Sin renovación automática.',
+    popular: '★ más elegido',
     perClass: 'por clase',
-    cta: 'Comenzar',
-    note: '* Las clases canceladas con menos de 24h de aviso se pierden. Los planes mensuales se renuevan automáticamente — cancela cuando quieras.',
-    included: 'Incluido en todos los packs',
+    classes: 'clases',
+    perMonth: 'al mes',
     features: [
-      'Sesión 1-a-1 en vivo por video (60 min)',
-      'Maestro bilingüe near-native',
-      'Resumen post-clase con IA + vocabulario',
-      'Revisión de nivel CEFR cada 4 clases',
-      'Currículo estructurado (Interchange + propio)',
+      '· 60 minutos · 1 a 1',
+      '· en vivo, en la plataforma',
+      '· las clases nunca caducan',
+      '· sin renovación automática',
     ],
-    packDescs: {
-      spark:  'Empieza el hábito. Compruébalo.',
-      drive:  'Un mes completo de constancia real.',
-      ascent: 'Progreso serio, resultados serios.',
-      peak:   'Máxima exposición, máximo crecimiento.',
-    },
+    cta: 'Elegir',
+    note: '* Las clases canceladas con menos de 24h de aviso se pierden.',
+    fxNote: (cur: string) =>
+      `* Precios mostrados en ${cur} ≈ USD. Tasa de cambio actualizada diariamente. El cobro siempre se realiza en USD.`,
+    tags: {
+      spark: 'Empieza el hábito',
+      drive: 'Un mes de constancia',
+      ascent: 'Progreso real',
+      peak: 'Máxima exposición',
+    } as Record<string, string>,
   },
 }
 
@@ -64,168 +67,264 @@ export default function Pricing({ lang }: { lang: Locale }) {
   const isUsd = currency === 'USD'
 
   return (
-    <section id="pricing" style={{ background: '#F9F9F9', borderTop: '1px solid #E5E7EB' }}>
-      <div className="max-w-6xl mx-auto px-6 py-24">
-
-        {/* Header */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-16">
-          <div>
-            <motion.p
-              className="ee-label-light mb-4"
-              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+    <section
+      id="pricing"
+      style={{
+        background: 'var(--ek-paper-warm)',
+        padding: '96px clamp(24px, 6vw, 80px)',
+        fontFamily: 'var(--ek-font-sans)',
+      }}
+    >
+      <div className="max-w-7xl mx-auto">
+        <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <span className="ek-kicker ek-kicker--red" style={{ justifyContent: 'center' }}>
+            {tx.eyebrow}
+          </span>
+          <motion.h2
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            style={{
+              fontFamily: 'var(--ek-font-sans)',
+              fontWeight: 800,
+              fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
+              letterSpacing: '-0.03em',
+              lineHeight: 1.0,
+              marginTop: 16,
+              color: 'var(--ek-text)',
+            }}
+          >
+            {tx.titleLead}{' '}
+            <span
+              style={{
+                fontFamily: 'var(--ek-font-serif)',
+                fontStyle: 'italic',
+                fontWeight: 400,
+              }}
             >
-              {tx.label}
-            </motion.p>
-            <motion.h2
-              className="font-black whitespace-pre-line"
-              style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', color: '#111111', lineHeight: 1.1 }}
-              initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ delay: 0.05 }}
-            >
-              {tx.title}
-            </motion.h2>
-          </div>
-          <div className="flex items-end">
-            <motion.p
-              className="ee-body max-w-md"
-              initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-              viewport={{ once: true }} transition={{ delay: 0.1 }}
-            >
-              {tx.sub}
-            </motion.p>
-          </div>
+              {tx.titleAccent}
+            </span>
+          </motion.h2>
+          <p
+            style={{
+              marginTop: 16,
+              fontSize: 16,
+              lineHeight: 1.55,
+              color: 'var(--ek-text-soft)',
+            }}
+          >
+            {tx.sub}
+          </p>
         </div>
 
-        {/* Currency note */}
-        {currency !== 'USD' && (
-          <p className="text-[12px] mb-6" style={{ color: '#9CA3AF' }}>
-            {lang === 'es'
-              ? `* Precios mostrados en ${currency} ≈ USD. Tasa de cambio actualizada diariamente. El cobro siempre se realiza en USD.`
-              : `* Prices shown in ${currency} ≈ USD. Exchange rate updated daily. Charges are always processed in USD.`
-            }
+        {!isUsd && (
+          <p
+            style={{
+              textAlign: 'center',
+              fontSize: 12,
+              color: 'var(--ek-text-muted)',
+              marginBottom: 24,
+            }}
+          >
+            {tx.fxNote(currency)}
           </p>
         )}
 
-        {/* Pack cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+          }}
+        >
           {PRICING_PLANS.map((pack, i) => {
             const hl = pack.highlight
             const name = lang === 'es' ? pack.nameEs : pack.nameEn
-            const desc = tx.packDescs[pack.key as keyof typeof tx.packDescs]
+            const desc = tx.tags[pack.key]
             const perClass = pack.priceUsd / pack.classes
             const perClassDisplay = isUsd ? `$${perClass.toFixed(2)}` : convert(perClass)
             return (
               <motion.div
-                key={i}
+                key={pack.key}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.07, duration: 0.4 }}
-                className="rounded overflow-hidden flex flex-col"
                 style={{
-                  background: hl ? '#111111' : '#fff',
-                  border: hl ? '1px solid #111111' : '1px solid #E5E7EB',
-                  boxShadow: hl ? '0 12px 40px rgba(17,17,17,0.25)' : '0 2px 8px rgba(0,0,0,0.04)',
+                  padding: 28,
+                  background: hl ? 'var(--ek-ink)' : '#fff',
+                  color: hl ? '#fff' : 'var(--ek-text)',
+                  border: hl ? 'none' : '1px solid var(--ek-border)',
+                  borderRadius: 4,
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
               >
-                {/* Header */}
-                <div
-                  className="px-5 pt-5 pb-4"
-                  style={{ borderBottom: `1px solid ${hl ? 'rgba(255,255,255,0.08)' : '#E5E7EB'}` }}
-                >
-                  {hl && (
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded block w-fit mb-3"
-                      style={{ background: '#C41E3A', color: '#fff' }}
-                    >
-                      {tx.popular}
-                    </span>
-                  )}
-                  <p
-                    className="text-[11px] font-bold uppercase tracking-widest mb-2"
-                    style={{ color: hl ? 'rgba(255,255,255,0.4)' : '#9CA3AF' }}
+                {hl && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -10,
+                      left: 24,
+                      background: 'var(--ek-red)',
+                      color: '#fff',
+                      padding: '4px 10px',
+                      fontSize: 10,
+                      fontFamily: 'var(--ek-font-mono)',
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
                   >
-                    {name}
-                  </p>
-                  <div className="text-4xl font-black" style={{ color: hl ? '#F9F9F9' : '#111111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {convert(pack.priceUsd)}
+                    {tx.popular}
                   </div>
-                  <p className="text-[11px] mt-0.5" style={{ color: hl ? 'rgba(255,255,255,0.3)' : '#9CA3AF' }}>
-                    {lang === 'es' ? '/ mes' : '/ month'}
-                  </p>
-                  <p className="text-[12px] font-semibold mt-1" style={{ color: '#C41E3A' }}>
-                    {perClassDisplay} {tx.perClass}
-                  </p>
+                )}
+
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 800,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  {name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: hl ? 'rgba(255,255,255,0.55)' : 'var(--ek-text-muted)',
+                    marginTop: 4,
+                  }}
+                >
+                  {desc}
                 </div>
 
-                {/* Classes + desc */}
-                <div className="px-5 py-4 flex-1">
-                  <p className="text-3xl font-black mb-0.5" style={{ color: hl ? '#F9F9F9' : '#111111' }}>
+                <div
+                  style={{
+                    marginTop: 32,
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 56,
+                      fontWeight: 800,
+                      letterSpacing: '-0.03em',
+                      lineHeight: 1,
+                      fontFeatureSettings: '"tnum"',
+                    }}
+                  >
                     {pack.classes}
-                  </p>
-                  <p
-                    className="text-[11px] font-bold uppercase tracking-wide mb-3"
-                    style={{ color: hl ? 'rgba(255,255,255,0.3)' : '#9CA3AF' }}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: hl ? 'rgba(255,255,255,0.55)' : 'var(--ek-text-muted)',
+                      lineHeight: 1.2,
+                    }}
                   >
                     {tx.classes}
-                  </p>
-                  <p className="text-[13px] leading-relaxed" style={{ color: hl ? 'rgba(255,255,255,0.45)' : '#4B5563' }}>
-                    {desc}
-                  </p>
+                    <br />
+                    {tx.perMonth}
+                  </span>
                 </div>
 
-                {/* CTA */}
-                <div className="px-5 pb-5">
-                  <Link
-                    href={`/${lang}/registro`}
-                    className="block text-center text-[13px] font-bold py-2.5 rounded transition-all"
-                    style={
-                      hl
-                        ? { background: '#C41E3A', color: '#fff' }
-                        : { background: '#F3F4F6', color: '#111111', border: '1px solid #E5E7EB' }
-                    }
-                    onMouseEnter={e => {
-                      if (hl) (e.currentTarget as HTMLAnchorElement).style.background = '#9E1830'
-                      else (e.currentTarget as HTMLAnchorElement).style.background = '#E5E7EB'
-                    }}
-                    onMouseLeave={e => {
-                      if (hl) (e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A'
-                      else (e.currentTarget as HTMLAnchorElement).style.background = '#F3F4F6'
+                <div
+                  style={{
+                    height: 1,
+                    background: hl ? 'rgba(255,255,255,0.16)' : 'var(--ek-border)',
+                    margin: '28px 0',
+                  }}
+                />
+
+                <div
+                  style={{
+                    fontFamily: 'var(--ek-font-mono)',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: hl ? '#fff' : 'var(--ek-text)',
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
+                  {convert(pack.priceUsd)}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: hl ? 'rgba(255,255,255,0.55)' : 'var(--ek-text-muted)',
+                      marginLeft: 6,
+                      fontFamily: 'var(--ek-font-sans)',
                     }}
                   >
-                    {tx.cta}
-                  </Link>
+                    / {lang === 'es' ? 'mes' : 'month'}
+                  </span>
                 </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--ek-font-mono)',
+                    fontSize: 11,
+                    color: hl ? 'rgba(255,255,255,0.55)' : 'var(--ek-text-muted)',
+                    marginTop: 4,
+                  }}
+                >
+                  ≈ {perClassDisplay} {tx.perClass}
+                </div>
+
+                <ul
+                  style={{
+                    margin: '24px 0 0',
+                    padding: 0,
+                    listStyle: 'none',
+                    fontSize: 13,
+                    color: hl ? 'rgba(255,255,255,0.75)' : 'var(--ek-text-soft)',
+                    display: 'grid',
+                    gap: 10,
+                    lineHeight: 1.4,
+                    flex: 1,
+                  }}
+                >
+                  {tx.features.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
+
+                <Link
+                  href={`/${lang}/registro`}
+                  style={{
+                    marginTop: 28,
+                    width: '100%',
+                    padding: '14px 0',
+                    background: hl ? 'var(--ek-red)' : 'transparent',
+                    color: hl ? '#fff' : 'var(--ek-text)',
+                    border: hl ? 'none' : '1px solid var(--ek-ink)',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    borderRadius: 999,
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    textDecoration: 'none',
+                    fontFamily: 'var(--ek-font-sans)',
+                  }}
+                >
+                  {tx.cta} {name}
+                </Link>
               </motion.div>
             )
           })}
         </div>
 
-        {/* What's included */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="rounded p-6"
-          style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+        <p
+          style={{
+            fontSize: 11,
+            marginTop: 32,
+            textAlign: 'center',
+            color: 'var(--ek-text-muted)',
+          }}
         >
-          <p className="ee-label-light mb-5">{tx.included}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {tx.features.map((f) => (
-              <div key={f} className="flex items-start gap-3">
-                <div
-                  className="h-5 w-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: 'rgba(196,30,58,0.08)', border: '1px solid rgba(196,30,58,0.15)' }}
-                >
-                  <Check className="h-3 w-3" style={{ color: '#C41E3A' }} />
-                </div>
-                <span className="text-[13px] leading-relaxed" style={{ color: '#111111' }}>{f}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        <p className="text-[11px] mt-5 text-center" style={{ color: '#9CA3AF' }}>{tx.note}</p>
+          {tx.note}
+        </p>
       </div>
     </section>
   )
