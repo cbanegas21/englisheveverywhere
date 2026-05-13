@@ -3,17 +3,15 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  CheckCircle2, Check, AlertCircle, ArrowRight, ArrowDown,
-  BookOpen, Zap, X, CreditCard, Calendar, Plus, Receipt,
-  ChevronDown, Sparkles, TrendingUp,
-} from 'lucide-react'
+import { CheckCircle2, AlertCircle, X, CreditCard, ChevronDown, ArrowRight } from 'lucide-react'
 import { createCheckoutSession } from '@/app/actions/stripe'
 import { savePreferredCurrency } from '@/app/actions/profile'
 import { PRICING_PLANS } from '@/lib/pricing'
 import { useCurrency } from '@/lib/useCurrency'
 import CurrencySelect from '@/components/CurrencySelect'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
+import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 
 interface Props {
   lang: Locale
@@ -27,9 +25,10 @@ interface Props {
 
 const T = {
   en: {
-    title: 'Your Plan',
-    subtitle: 'Monthly plans — classes renew every month. Cancel anytime.',
-    classesLeft: 'classes remaining',
+    title: 'My plan',
+    subtitle: 'Monthly plans · Cancel anytime · Classes never expire',
+    currency: 'Currency',
+    classesLeft: 'classes available',
     currentPlanLabel: 'Current plan',
     freePlanName: 'No active plan',
     freePlanSub: 'Pick a plan below to start learning.',
@@ -40,50 +39,48 @@ const T = {
     statusPastDue: 'Past due',
     manageSub: 'Manage subscription',
     manageSubSoon: 'Coming soon',
-    comparePlans: 'Choose a plan',
+    comparePlans: 'Choose another plan',
     perMonth: '/ month',
     classes: 'classes',
-    perClass: 'per class',
+    perClassEach: 'per class',
     popular: 'Most popular',
     select: 'Get started',
     upgrade: 'Upgrade',
     downgrade: 'Downgrade',
-    current: 'Current plan',
-    plans: { spark: 'Spark', drive: 'Drive', ascent: 'Ascent', peak: 'Peak' },
+    current: '✓ Current plan',
+    plans: { spark: 'Spark', drive: 'Drive', ascent: 'Ascent', peak: 'Peak' } as Record<string, string>,
+    tags: {
+      spark: 'Start the habit',
+      drive: 'A month of consistency',
+      ascent: 'Real progress',
+      peak: 'Maximum exposure',
+    } as Record<string, string>,
     features: {
-      spark:  ['8 classes included', 'All teacher access', 'Progress tracking', 'Chat support'],
-      drive:  ['12 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings'],
-      ascent: ['16 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings', 'Dedicated advisor'],
-      peak:   ['20 classes included', 'All teacher access', 'Progress tracking', 'Priority support', 'Session recordings', 'Dedicated advisor', 'Monthly progress report'],
-    },
-    topUpTitle: 'Need more classes?',
-    topUpBody: 'Top-ups stack on top of your monthly balance. Unused classes carry over.',
-    topUpCta: 'Add classes',
-    faqTitle: 'Common questions',
+      spark: ['Access to all teachers', 'Progress tracking', 'Chat support'],
+      drive: ['Access to all teachers', 'Progress tracking', 'Priority support', 'Session recordings'],
+      ascent: ['Access to all teachers', 'Progress tracking', 'Priority support', 'Recordings', 'Dedicated advisor'],
+      peak: ['Access to all teachers', 'Priority support', 'Recordings', 'Dedicated advisor', 'Monthly report'],
+    } as Record<string, string[]>,
+    faqTitle: 'Frequently asked',
     faqs: [
-      { q: 'How does billing work?', a: 'Plans renew monthly on the same day. Your classes are credited immediately after each successful payment.' },
-      { q: 'Can I cancel anytime?', a: "Yes — cancel from the manage-subscription link and you'll keep access through the end of your current billing period." },
-      { q: 'Do unused classes expire?', a: "No. Any classes you haven't used carry over month to month for as long as your plan is active." },
-      { q: 'Can I change plans mid-month?', a: 'Yes. Upgrades take effect immediately and credits from your current plan are preserved. Downgrades apply at the next renewal.' },
+      { q: 'Do unused classes expire?', a: 'No. They stack month to month while your plan is active.' },
+      { q: 'Can I cancel?', a: 'Yes, anytime. You keep access through the end of the current period.' },
+      { q: 'Change plans?', a: 'Upgrades are immediate. Downgrades apply at the next renewal.' },
     ],
-    billingTitle: 'Billing history',
-    billingEmpty: 'No charges yet. Once you start a plan, receipts will appear here.',
-    billingDate: 'Date',
-    billingDesc: 'Description',
-    billingAmount: 'Amount',
-    billingStatus: 'Status',
-    confirmTitle: 'Confirm Purchase',
+    billingTitle: 'Your payments',
+    billingEmpty: 'No payments yet. Once you start a plan, receipts will appear here.',
+    confirmTitle: 'Confirm purchase',
     confirmPlan: 'Plan',
     confirmClasses: 'Classes',
     confirmPrice: 'Price',
-    confirmNote: 'This is a simulated purchase. No real charge is made.',
-    payNow: 'Pay Now',
+    confirmNote: 'You will be redirected to Stripe to complete payment.',
+    payNow: 'Pay now',
     paying: 'Processing…',
     cancelPay: 'Cancel',
-    successTitle: 'Purchase Complete!',
+    successTitle: 'Purchase complete!',
     successSub: (n: number) => `${n} classes have been added to your account.`,
-    successCta: 'Schedule Your First Class',
-    successCtaIntake: 'Complete Your Learning Profile First',
+    successCta: 'Schedule your first class',
+    successCtaIntake: 'Complete your learning profile first',
     addMoreTitle: 'Add more classes?',
     addMoreBody: (n: number) => `You still have ${n} class${n === 1 ? '' : 'es'} remaining. Adding a new plan will stack on top of your current balance.`,
     addMoreCurrent: 'Current balance',
@@ -92,8 +89,9 @@ const T = {
     addMoreCancel: 'Keep current plan',
   },
   es: {
-    title: 'Tu Plan',
-    subtitle: 'Planes mensuales — las clases se renuevan cada mes. Cancela cuando quieras.',
+    title: 'Mi plan',
+    subtitle: 'Planes mensuales · Cancela cuando quieras · Las clases no expiran',
+    currency: 'Moneda',
     classesLeft: 'clases disponibles',
     currentPlanLabel: 'Plan actual',
     freePlanName: 'Sin plan activo',
@@ -105,50 +103,48 @@ const T = {
     statusPastDue: 'Vencido',
     manageSub: 'Administrar suscripción',
     manageSubSoon: 'Próximamente',
-    comparePlans: 'Elige un plan',
+    comparePlans: 'Elige otro plan',
     perMonth: '/ mes',
     classes: 'clases',
-    perClass: 'por clase',
+    perClassEach: 'por clase',
     popular: 'Más popular',
     select: 'Empezar',
     upgrade: 'Mejorar',
-    downgrade: 'Bajar plan',
-    current: 'Plan actual',
-    plans: { spark: 'Chispa', drive: 'Impulso', ascent: 'Ascenso', peak: 'Cima' },
+    downgrade: 'Bajar',
+    current: '✓ Plan actual',
+    plans: { spark: 'Chispa', drive: 'Impulso', ascent: 'Ascenso', peak: 'Cima' } as Record<string, string>,
+    tags: {
+      spark: 'Empieza el hábito',
+      drive: 'Un mes de constancia',
+      ascent: 'Progreso real',
+      peak: 'Máxima exposición',
+    } as Record<string, string>,
     features: {
-      spark:  ['8 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte por chat'],
-      drive:  ['12 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones'],
-      ascent: ['16 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones', 'Asesor dedicado'],
-      peak:   ['20 clases incluidas', 'Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones', 'Asesor dedicado', 'Informe mensual de progreso'],
-    },
-    topUpTitle: '¿Necesitas más clases?',
-    topUpBody: 'Los top-ups se suman a tu saldo mensual. Las clases sin usar se acumulan.',
-    topUpCta: 'Agregar clases',
+      spark: ['Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte por chat'],
+      drive: ['Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones'],
+      ascent: ['Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones', 'Asesor dedicado'],
+      peak: ['Acceso a todos los maestros', 'Soporte prioritario', 'Grabaciones', 'Asesor dedicado', 'Informe mensual'],
+    } as Record<string, string[]>,
     faqTitle: 'Preguntas frecuentes',
     faqs: [
-      { q: '¿Cómo funciona el cobro?', a: 'Los planes se renuevan mensualmente el mismo día. Tus clases se acreditan justo después de cada pago exitoso.' },
-      { q: '¿Puedo cancelar cuando quiera?', a: 'Sí — cancela desde el enlace de administrar suscripción y mantendrás acceso hasta el final de tu periodo actual.' },
-      { q: '¿Vencen las clases sin usar?', a: 'No. Las clases sin usar se acumulan mes a mes mientras tu plan esté activo.' },
-      { q: '¿Puedo cambiar de plan a mitad de mes?', a: 'Sí. Los upgrades son inmediatos y conservas los créditos del plan actual. Los downgrades aplican en la siguiente renovación.' },
+      { q: '¿Las clases sin usar expiran?', a: 'No. Se acumulan mes a mes mientras tu plan esté activo.' },
+      { q: '¿Puedo cancelar?', a: 'Sí, en cualquier momento. Mantienes acceso hasta el final del periodo.' },
+      { q: '¿Cambiar de plan?', a: 'Upgrades son inmediatos. Downgrades aplican en la siguiente renovación.' },
     ],
-    billingTitle: 'Historial de pagos',
-    billingEmpty: 'Aún no hay cobros. Cuando inicies un plan, los recibos aparecerán aquí.',
-    billingDate: 'Fecha',
-    billingDesc: 'Descripción',
-    billingAmount: 'Monto',
-    billingStatus: 'Estado',
-    confirmTitle: 'Confirmar Compra',
+    billingTitle: 'Tus pagos',
+    billingEmpty: 'Aún no hay pagos. Cuando inicies un plan, los recibos aparecerán aquí.',
+    confirmTitle: 'Confirmar compra',
     confirmPlan: 'Plan',
     confirmClasses: 'Clases',
     confirmPrice: 'Precio',
-    confirmNote: 'Esta es una compra simulada. No se realizará ningún cargo real.',
-    payNow: 'Pagar Ahora',
+    confirmNote: 'Te redirigiremos a Stripe para completar el pago.',
+    payNow: 'Pagar ahora',
     paying: 'Procesando…',
     cancelPay: 'Cancelar',
-    successTitle: '¡Compra Completada!',
+    successTitle: '¡Compra completada!',
     successSub: (n: number) => `${n} clases han sido agregadas a tu cuenta.`,
-    successCta: 'Agendar tu Primera Clase',
-    successCtaIntake: 'Completa tu Perfil de Aprendizaje Primero',
+    successCta: 'Agendar tu primera clase',
+    successCtaIntake: 'Completa tu perfil de aprendizaje primero',
     addMoreTitle: '¿Agregar más clases?',
     addMoreBody: (n: number) => `Aún tienes ${n} clase${n === 1 ? '' : 's'} disponibles. El nuevo plan se sumará a tu saldo actual.`,
     addMoreCurrent: 'Saldo actual',
@@ -156,13 +152,6 @@ const T = {
     addMoreConfirm: 'Sí, agregar clases',
     addMoreCancel: 'Mantener plan actual',
   },
-}
-
-const PLAN_ICONS: Record<string, typeof BookOpen> = {
-  spark: Sparkles,
-  drive: Zap,
-  ascent: TrendingUp,
-  peak: Zap,
 }
 
 interface PurchaseResult {
@@ -181,6 +170,7 @@ export default function PlanClient({
   initialCurrency,
 }: Props) {
   const tx = T[lang]
+  const accent = 'var(--ek-red)'
   const { currency, changeCurrency, convert } = useCurrency({
     initialCurrency,
     onPersist: async (code) => { await savePreferredCurrency(code) },
@@ -190,12 +180,10 @@ export default function PlanClient({
   const [pendingPlan, setPendingPlan] = useState<(typeof PRICING_PLANS)[number] | null>(null)
   const [showAddMoreConfirm, setShowAddMoreConfirm] = useState(false)
   const [purchaseResult] = useState<PurchaseResult | null>(() => {
-    // Stripe Checkout success redirect: ?success=1&plan=<key>. Reading in the
-    // initializer avoids the cascading-render lint trap from doing it in an effect.
     if (typeof window === 'undefined') return null
     const params = new URLSearchParams(window.location.search)
     if (params.get('success') !== '1') return null
-    const plan = PRICING_PLANS.find(p => p.key === params.get('plan'))
+    const plan = PRICING_PLANS.find((p) => p.key === params.get('plan'))
     if (!plan) return null
     return {
       classesAdded: plan.classes,
@@ -207,15 +195,11 @@ export default function PlanClient({
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [, forceRender] = useState(0)
 
-  // Re-render once FX rates settle so prices in non-USD currencies populate.
   useEffect(() => {
-    const id = setInterval(() => forceRender(n => n + 1), 1500)
+    const id = setInterval(() => forceRender((n) => n + 1), 1500)
     return () => clearInterval(id)
   }, [])
 
-  // Strip the Stripe success/cancel query params so a page refresh doesn't
-  // re-show the success modal. The modal state is already seeded from these
-  // params in the useState initializer above.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
@@ -233,17 +217,8 @@ export default function PlanClient({
       setSelectedPlan(plan)
     }
   }
-
-  function handleConfirmAddMore() {
-    setShowAddMoreConfirm(false)
-    setSelectedPlan(pendingPlan)
-    setPendingPlan(null)
-  }
-
-  function handleCancelAddMore() {
-    setShowAddMoreConfirm(false)
-    setPendingPlan(null)
-  }
+  function handleConfirmAddMore() { setShowAddMoreConfirm(false); setSelectedPlan(pendingPlan); setPendingPlan(null) }
+  function handleCancelAddMore() { setShowAddMoreConfirm(false); setPendingPlan(null) }
 
   function handlePay() {
     if (!selectedPlan) return
@@ -259,70 +234,123 @@ export default function PlanClient({
   }
 
   const currentPlanDef = currentPlan
-    ? PRICING_PLANS.find(p => p.key === currentPlan) || null
+    ? PRICING_PLANS.find((p) => p.key === currentPlan) || null
     : null
 
   const statusLabel = (() => {
     switch (subscriptionStatus) {
-      case 'active':    return tx.statusActive
-      case 'trialing':  return tx.statusTrialing
+      case 'active': return tx.statusActive
+      case 'trialing': return tx.statusTrialing
       case 'cancelled': return tx.statusCancelled
-      case 'past_due':  return tx.statusPastDue
+      case 'past_due': return tx.statusPastDue
       default: return null
     }
   })()
 
   const renewalFormatted = renewalDate
     ? new Date(renewalDate).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-        day: 'numeric', month: 'long', year: 'numeric',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
       })
     : null
 
   // ── Success screen ────────────────────────────────────────────
   if (purchaseResult) {
     return (
-      <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-        <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-          <div className="max-w-[1440px] mx-auto">
-            <h1 className="text-[22px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-          </div>
-        </div>
-        <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-4">
+      <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+        <DashTopBar title={tx.title} sub={tx.subtitle} />
+        <div
+          style={{
+            padding: 24,
+            minHeight: '60vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="w-full max-w-[440px] rounded-3xl overflow-hidden text-center"
-            style={{ background: '#fff', border: '1px solid #E5E7EB', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}
+            style={{
+              width: '100%',
+              maxWidth: 480,
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border)',
+              borderRadius: 16,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.06)',
+              overflow: 'hidden',
+              textAlign: 'center',
+              fontFamily: 'var(--ek-font-sans)',
+            }}
           >
-            <div className="py-10 px-6" style={{ background: 'linear-gradient(135deg, #16A34A, #15803D)' }}>
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(255,255,255,0.2)' }}>
-                <CheckCircle2 className="h-8 w-8 text-white" />
+            <div style={{ padding: '40px 24px', background: 'var(--ek-ink)', color: 'var(--ek-on-dark)' }}>
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: '50%',
+                  margin: '0 auto 16px',
+                  background: 'rgba(255,255,255,0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <CheckCircle2 className="h-8 w-8" />
               </div>
-              <h2 className="text-[22px] font-black text-white mb-1">{tx.successTitle}</h2>
-              <p className="text-[14px] text-white/80">{tx.successSub(purchaseResult.classesAdded)}</p>
+              <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em' }}>
+                {tx.successTitle}
+              </h2>
+              <p style={{ marginTop: 6, fontSize: 14, color: 'var(--ek-on-dark-soft)' }}>
+                {tx.successSub(purchaseResult.classesAdded)}
+              </p>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="rounded-xl p-5" style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}>
-                <div className="text-[42px] font-black leading-none" style={{ color: '#111111' }}>
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div
+                style={{
+                  borderRadius: 12,
+                  padding: 20,
+                  background: 'var(--ek-paper)',
+                  border: '1px solid var(--ek-border)',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 42,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    color: 'var(--ek-text)',
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
                   {purchaseResult.newTotal}
                 </div>
-                <div className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{tx.classesLeft}</div>
-              </div>
-              <div className="flex items-center justify-between text-[13px]">
-                <span style={{ color: '#9CA3AF' }}>{tx.confirmPlan}</span>
-                <span className="font-semibold" style={{ color: '#111111' }}>{purchaseResult.planName}</span>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    marginTop: 8,
+                    color: 'var(--ek-text-muted)',
+                  }}
+                >
+                  {tx.classesLeft}
+                </div>
               </div>
               <Link
                 href={intakeDone ? `/${lang}/dashboard/agendar` : `/${lang}/dashboard/intake`}
-                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-lg font-bold text-[14px] transition-all"
-                style={{ background: '#C41E3A', color: '#fff' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                className="ek-btn ek-btn-red ek-btn-square"
+                style={{
+                  padding: '14px 0',
+                  fontSize: 14,
+                  justifyContent: 'center',
+                  width: '100%',
+                }}
               >
-                <Calendar className="h-4 w-4" />
-                {intakeDone ? tx.successCta : tx.successCtaIntake}
-                <ArrowRight className="h-3.5 w-3.5" />
+                {intakeDone ? tx.successCta : tx.successCtaIntake} →
               </Link>
             </div>
           </motion.div>
@@ -333,268 +361,570 @@ export default function PlanClient({
 
   // ── Main plan screen ─────────────────────────────────────────
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-
-      {/* Header */}
-      <div className="px-6 lg:px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <div className="max-w-[1440px] mx-auto flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-[22px] font-black tracking-tight" style={{ color: '#111111' }}>{tx.title}</h1>
-            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <DashTopBar
+        title={tx.title}
+        sub={tx.subtitle}
+        right={
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 14px',
+              borderRadius: 8,
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border-mid)',
+            }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-text-soft)' }}>
+              {tx.currency}:
+            </span>
+            <CurrencySelect
+              value={currency}
+              onChange={changeCurrency}
+              lang={lang}
+              variant="light"
+              compact
+            />
           </div>
-          <CurrencySelect value={currency} onChange={changeCurrency} lang={lang} />
-        </div>
-      </div>
+        }
+      />
 
-      <div className="max-w-[1440px] mx-auto px-6 lg:px-8 py-6 lg:py-8 grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+        {/* Current plan hero */}
+        {currentPlanDef ? (
+          <DarkHeroCard
+            ghost={tx.plans[currentPlanDef.key]?.toLowerCase()}
+            ghostSize={320}
+            ghostStyle={{ right: -40, bottom: -80, top: 'auto' }}
+            padding="32px 36px"
+            radius={16}
+            style={{ marginBottom: 32 }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr auto',
+                gap: 32,
+                alignItems: 'center',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.22em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ek-on-dark-muted)',
+                    fontWeight: 700,
+                    marginBottom: 12,
+                  }}
+                >
+                  {tx.currentPlanLabel}
+                </div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 'clamp(2.5rem, 4vw, 3rem)',
+                    fontWeight: 800,
+                    letterSpacing: '-0.035em',
+                    lineHeight: 1,
+                    color: 'var(--ek-on-dark)',
+                  }}
+                >
+                  {tx.plans[currentPlanDef.key]}
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>
+                  {statusLabel && (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '5px 12px',
+                        borderRadius: 999,
+                        background: 'rgba(255,255,255,0.12)',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: '0.15em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ek-on-dark)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          background: 'var(--ek-success-dot)',
+                        }}
+                      />
+                      {statusLabel}
+                    </span>
+                  )}
+                  {renewalFormatted && (
+                    <span style={{ fontSize: 12.5, color: 'var(--ek-on-dark-soft)' }}>
+                      {tx.renewsOn} <strong style={{ color: 'var(--ek-on-dark)' }}>{renewalFormatted}</strong>
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div
+                style={{
+                  background: 'rgba(244,239,230,0.10)',
+                  backdropFilter: 'blur(8px)',
+                  borderRadius: 12,
+                  padding: '20px 28px',
+                  textAlign: 'center',
+                  minWidth: 200,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 56,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    color: 'var(--ek-on-dark)',
+                    letterSpacing: '-0.03em',
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
+                  {classesRemaining}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ek-on-dark-muted)',
+                    fontWeight: 700,
+                    marginTop: 10,
+                  }}
+                >
+                  {tx.classesLeft}
+                </div>
+              </div>
+            </div>
+          </DarkHeroCard>
+        ) : (
+          <div
+            style={{
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border)',
+              borderRadius: 16,
+              padding: '32px 36px',
+              marginBottom: 32,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.22em',
+                textTransform: 'uppercase',
+                color: 'var(--ek-text-muted)',
+                fontWeight: 700,
+                marginBottom: 12,
+              }}
+            >
+              {tx.currentPlanLabel}
+            </div>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 'clamp(2rem, 3vw, 2.5rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                color: 'var(--ek-text)',
+              }}
+            >
+              {tx.freePlanName}
+            </h2>
+            <p style={{ marginTop: 8, fontSize: 14, color: 'var(--ek-text-soft)' }}>{tx.freePlanSub}</p>
+          </div>
+        )}
 
-        {/* Left column */}
-        <div className="space-y-6 min-w-0">
-
-          {/* Current plan hero */}
-          <CurrentPlanHero
-            lang={lang}
-            planName={currentPlanDef ? tx.plans[currentPlanDef.key as keyof typeof tx.plans] : null}
-            classesRemaining={classesRemaining}
-            statusLabel={statusLabel}
-            renewalFormatted={renewalFormatted}
-          />
-
-          {/* Plan comparison */}
-          <section id="plans" style={{ scrollMarginTop: 24 }}>
-            <h2 className="text-[16px] font-black mb-4" style={{ color: '#111111' }}>{tx.comparePlans}</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {PRICING_PLANS.map((plan) => {
-                const isCurrent = plan.key === currentPlan
-                const features = tx.features[plan.key as keyof typeof tx.features]
-                const planName = tx.plans[plan.key as keyof typeof tx.plans]
-                const currentIdx = currentPlanDef ? PRICING_PLANS.findIndex(p => p.key === currentPlanDef.key) : -1
-                const planIdx = PRICING_PLANS.findIndex(p => p.key === plan.key)
-                const action: 'select' | 'upgrade' | 'downgrade' | 'current' =
-                  isCurrent ? 'current'
-                  : currentIdx < 0 ? 'select'
-                  : planIdx > currentIdx ? 'upgrade'
-                  : 'downgrade'
-                const Icon = PLAN_ICONS[plan.key] || BookOpen
-                const perClass = plan.priceUsd / plan.classes
-                return (
+        {/* Plan comparison */}
+        <div style={{ marginBottom: 32 }}>
+          <h3
+            style={{
+              margin: '0 0 14px',
+              fontSize: 18,
+              fontWeight: 800,
+              color: 'var(--ek-text)',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {tx.comparePlans}
+          </h3>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 16,
+            }}
+          >
+            {PRICING_PLANS.map((plan) => {
+              const isCurrent = plan.key === currentPlan
+              const name = tx.plans[plan.key]
+              const tag = tx.tags[plan.key]
+              const features = tx.features[plan.key]
+              const perClass = plan.priceUsd / plan.classes
+              return (
+                <div
+                  key={plan.key}
+                  style={{
+                    background: 'var(--ek-card)',
+                    borderRadius: 14,
+                    border: `1.5px solid ${plan.highlight ? 'var(--ek-ink)' : 'var(--ek-border)'}`,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    position: 'relative',
+                    boxShadow: plan.highlight ? '0 12px 30px rgba(17,17,17,0.08)' : 'none',
+                  }}
+                >
+                  {plan.highlight && (
+                    <div
+                      style={{
+                        background: 'var(--ek-ink)',
+                        color: 'var(--ek-on-dark)',
+                        textAlign: 'center',
+                        padding: '6px 0',
+                        fontSize: 9,
+                        fontWeight: 700,
+                        letterSpacing: '0.2em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {tx.popular}
+                    </div>
+                  )}
                   <div
-                    key={plan.key}
-                    className="rounded-2xl overflow-hidden relative flex flex-col"
                     style={{
-                      background: '#fff',
-                      border: `1.5px solid ${plan.highlight ? '#111111' : '#E5E7EB'}`,
-                      boxShadow: plan.highlight ? '0 10px 30px rgba(17,17,17,0.1)' : '0 2px 6px rgba(0,0,0,0.04)',
+                      padding: '20px 20px 22px',
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
                     }}
                   >
-                    {plan.highlight && (
-                      <div
-                        className="text-[10px] font-bold text-center py-1.5 tracking-widest uppercase"
-                        style={{ background: '#111111', color: '#F9F9F9' }}
-                      >
-                        {tx.popular}
-                      </div>
-                    )}
-
-                    <div className="p-5 flex-1 flex flex-col">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div
-                          className="h-8 w-8 rounded-lg flex items-center justify-center"
-                          style={{ background: plan.highlight ? 'rgba(196,30,58,0.12)' : 'rgba(196,30,58,0.08)' }}
-                        >
-                          <Icon className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                        </div>
-                        <h3 className="text-[15px] font-black" style={{ color: '#111111' }}>{planName}</h3>
-                      </div>
-
-                      <div className="flex items-baseline gap-1 mb-0.5">
-                        <span className="text-[32px] font-black leading-none" style={{ color: '#111111' }}>
-                          {convert(plan.priceUsd)}
-                        </span>
-                        <span className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.perMonth}</span>
-                      </div>
-                      <p className="text-[11px] mb-4" style={{ color: '#9CA3AF' }}>
-                        {plan.classes} {tx.classes} · {convert(perClass)} {tx.perClass}
-                      </p>
-
-                      <button
-                        onClick={() => handleSelectPlan(plan)}
-                        disabled={action === 'current'}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-[12px] transition-all mb-5 disabled:opacity-60"
-                        style={
-                          action === 'current'
-                            ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
-                          : action === 'downgrade'
-                            ? { background: '#F9F9F9', color: '#374151', border: '1px solid #E5E7EB' }
-                          : plan.highlight
-                            ? { background: '#C41E3A', color: '#fff' }
-                          : { background: '#111111', color: '#F9F9F9' }
-                        }
-                        onMouseEnter={e => {
-                          if (action === 'current') return
-                          if (action === 'downgrade') e.currentTarget.style.background = '#F3F4F6'
-                          else if (plan.highlight) e.currentTarget.style.background = '#9E1830'
-                          else e.currentTarget.style.background = '#2D2D2D'
-                        }}
-                        onMouseLeave={e => {
-                          if (action === 'current') return
-                          if (action === 'downgrade') e.currentTarget.style.background = '#F9F9F9'
-                          else if (plan.highlight) e.currentTarget.style.background = '#C41E3A'
-                          else e.currentTarget.style.background = '#111111'
-                        }}
-                      >
-                        {action === 'current' && <><CheckCircle2 className="h-3.5 w-3.5" /> {tx.current}</>}
-                        {action === 'select'   && <>{tx.select} <ArrowRight className="h-3 w-3" /></>}
-                        {action === 'upgrade'  && <><ArrowRight className="h-3 w-3" /> {tx.upgrade}</>}
-                        {action === 'downgrade' && <><ArrowDown className="h-3 w-3" /> {tx.downgrade}</>}
-                      </button>
-
-                      <ul className="space-y-2 mt-auto">
-                        {features.map((f) => (
-                          <li key={f} className="flex items-start gap-2">
-                            <Check className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: '#C41E3A' }} strokeWidth={3} />
-                            <span className="text-[12px] leading-snug" style={{ color: '#4B5563' }}>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ek-text-muted)',
+                        fontWeight: 700,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {plan.classes} {tx.classes} / {lang === 'es' ? 'mes' : 'month'}
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
+                    <div
+                      style={{
+                        fontSize: 22,
+                        fontWeight: 800,
+                        color: 'var(--ek-text)',
+                        letterSpacing: '-0.02em',
+                        marginBottom: 6,
+                      }}
+                    >
+                      {name}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginBottom: 16 }}>
+                      {tag}
+                    </div>
 
-          {/* Billing history */}
-          <section className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <div className="px-6 py-4 flex items-center gap-2.5" style={{ borderBottom: '1px solid #F3F4F6' }}>
-              <Receipt className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-              <h2 className="text-[15px] font-black" style={{ color: '#111111' }}>{tx.billingTitle}</h2>
-            </div>
-            {/* TODO (Phase 4): pull from Stripe invoices API once live keys are set.
-                  Until then the history table is intentionally empty-state. */}
-            <div className="p-10 text-center">
-              <Receipt className="h-8 w-8 mx-auto mb-3" style={{ color: '#E5E7EB' }} />
-              <p className="text-[13px]" style={{ color: '#6B7280' }}>{tx.billingEmpty}</p>
-            </div>
-          </section>
+                    <div style={{ marginBottom: 4 }}>
+                      <span
+                        style={{
+                          fontSize: 38,
+                          fontWeight: 800,
+                          color: 'var(--ek-text)',
+                          letterSpacing: '-0.025em',
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {convert(plan.priceUsd)}
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginLeft: 4 }}>
+                        {tx.perMonth}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--ek-text-muted)',
+                        marginBottom: 18,
+                        fontFeatureSettings: '"tnum"',
+                      }}
+                    >
+                      ≈ {convert(perClass)} {tx.perClassEach}
+                    </div>
+
+                    <button
+                      onClick={() => handleSelectPlan(plan)}
+                      disabled={isCurrent}
+                      style={{
+                        padding: '11px 14px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: isCurrent ? 'default' : 'pointer',
+                        marginBottom: 18,
+                        border: 0,
+                        background: isCurrent
+                          ? 'var(--ek-success-bg)'
+                          : plan.highlight
+                            ? accent
+                            : 'var(--ek-ink)',
+                        color: isCurrent ? 'var(--ek-success-text)' : '#fff',
+                        fontFamily: 'var(--ek-font-sans)',
+                      }}
+                    >
+                      {isCurrent ? tx.current : tx.select}
+                    </button>
+
+                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
+                      {features.map((f, i) => (
+                        <li
+                          key={i}
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--ek-text-soft)',
+                            display: 'flex',
+                            gap: 8,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          <span style={{ color: accent, flexShrink: 0, fontWeight: 800 }}>✓</span>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
-        {/* Right column — sidebar */}
-        <aside className="space-y-6">
-
-          {/* Top-up card */}
-          <div
-            className="rounded-2xl p-6 relative overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #C41E3A, #8B1529)' }}
+        {/* Billing + FAQ */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 20 }}>
+          <section
+            style={{
+              background: 'var(--ek-card)',
+              borderRadius: 14,
+              border: '1px solid var(--ek-border)',
+              overflow: 'hidden',
+            }}
           >
-            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
-            <div className="absolute -right-4 bottom-0 h-20 w-20 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
-            <div className="relative">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full mb-3" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-                <Plus className="h-3 w-3 text-white" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white">{lang === 'es' ? 'Top-up' : 'Top up'}</span>
-              </div>
-              <h3 className="text-[17px] font-black text-white leading-tight mb-2">{tx.topUpTitle}</h3>
-              <p className="text-[12px] text-white/80 leading-relaxed mb-4">{tx.topUpBody}</p>
-              <a
-                href="#plans"
-                onClick={(e) => {
-                  e.preventDefault()
-                  const el = document.getElementById('plans')
-                  if (el) el.scrollIntoView({ behavior: 'smooth' })
+            <header style={{ padding: '16px 22px', borderBottom: '1px solid var(--ek-border-soft)' }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-text-muted)',
+                  fontWeight: 700,
                 }}
-                className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-lg text-[12px] font-bold transition-all"
-                style={{ background: '#fff', color: '#C41E3A' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#F9F9F9')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#fff')}
               >
-                {tx.topUpCta}
-                <ArrowRight className="h-3 w-3" />
-              </a>
+                {lang === 'es' ? 'Historial' : 'History'}
+              </div>
+              <h4
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: 'var(--ek-text)',
+                  letterSpacing: '-0.015em',
+                }}
+              >
+                {tx.billingTitle}
+              </h4>
+            </header>
+            <div style={{ padding: '40px 22px', textAlign: 'center' }}>
+              <p style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.billingEmpty}</p>
             </div>
-          </div>
+          </section>
 
-          {/* FAQ */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <div className="px-5 py-4" style={{ borderBottom: '1px solid #F3F4F6' }}>
-              <h3 className="text-[14px] font-black" style={{ color: '#111111' }}>{tx.faqTitle}</h3>
+          <aside
+            style={{
+              background: 'var(--ek-card)',
+              borderRadius: 14,
+              border: '1px solid var(--ek-border)',
+              padding: '20px 22px',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--ek-text-muted)',
+                fontWeight: 700,
+                marginBottom: 14,
+              }}
+            >
+              {tx.faqTitle}
             </div>
-            <div>
-              {tx.faqs.map((faq, i) => {
-                const isOpen = openFaq === i
-                return (
-                  <div key={i} style={{ borderBottom: i < tx.faqs.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
-                    <button
-                      onClick={() => setOpenFaq(isOpen ? null : i)}
-                      className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors"
-                      onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <span className="text-[12px] font-bold leading-tight" style={{ color: '#111111' }}>{faq.q}</span>
-                      <ChevronDown
-                        className="h-3.5 w-3.5 flex-shrink-0 transition-transform"
-                        style={{ color: '#9CA3AF', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                      />
-                    </button>
-                    {isOpen && (
-                      <div className="px-5 pb-4 text-[12px] leading-relaxed" style={{ color: '#4B5563' }}>
-                        {faq.a}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </aside>
+            {tx.faqs.map((faq, i) => {
+              const isOpen = openFaq === i
+              return (
+                <div
+                  key={i}
+                  style={{
+                    borderTop: i > 0 ? '1px solid var(--ek-border-soft)' : 'none',
+                    padding: '12px 0',
+                  }}
+                >
+                  <button
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      gap: 8,
+                      background: 'transparent',
+                      border: 0,
+                      cursor: 'pointer',
+                      padding: 0,
+                      textAlign: 'left',
+                      fontFamily: 'var(--ek-font-sans)',
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>
+                      {faq.q}
+                    </span>
+                    <ChevronDown
+                      className="h-3.5 w-3.5"
+                      style={{
+                        color: 'var(--ek-text-muted)',
+                        transition: 'transform 0.18s',
+                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      }}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--ek-text-soft)', lineHeight: 1.5 }}>
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </aside>
+        </div>
       </div>
 
-      {/* Add-more-classes confirmation modal */}
+      {/* Add-more confirm modal */}
       <AnimatePresence>
         {showAddMoreConfirm && pendingPlan && (
           <>
             <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={handleCancelAddMore}
-              className="fixed inset-0 z-40"
-              style={{ background: 'rgba(17,17,17,0.55)', backdropFilter: 'blur(3px)' }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(17,17,17,0.55)',
+                backdropFilter: 'blur(3px)',
+                zIndex: 40,
+              }}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[400px] rounded-2xl shadow-2xl z-50 overflow-hidden"
-              style={{ background: '#fff' }}
+              style={{
+                position: 'fixed',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '100%',
+                maxWidth: 420,
+                background: 'var(--ek-card)',
+                borderRadius: 16,
+                boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+                zIndex: 50,
+                overflow: 'hidden',
+                fontFamily: 'var(--ek-font-sans)',
+              }}
             >
-              <div className="px-6 pt-6 pb-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl mb-4" style={{ background: 'rgba(196,30,58,0.08)' }}>
-                  <AlertCircle className="h-5 w-5" style={{ color: '#C41E3A' }} />
+              <div style={{ padding: '24px 24px 16px' }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: 'var(--ek-red-tint-2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                  }}
+                >
+                  <AlertCircle className="h-5 w-5" style={{ color: accent }} />
                 </div>
-                <h3 className="font-bold text-[16px] mb-2" style={{ color: '#111111' }}>{tx.addMoreTitle}</h3>
-                <p className="text-[13px] leading-relaxed mb-5" style={{ color: '#4B5563' }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--ek-text)' }}>
+                  {tx.addMoreTitle}
+                </h3>
+                <p
+                  style={{
+                    fontSize: 13,
+                    lineHeight: 1.55,
+                    marginTop: 8,
+                    marginBottom: 20,
+                    color: 'var(--ek-text-soft)',
+                  }}
+                >
                   {tx.addMoreBody(classesRemaining)}
                 </p>
-                <div className="rounded-xl p-4 mb-5 space-y-2" style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}>
-                  <div className="flex items-center justify-between text-[13px]">
-                    <span style={{ color: '#9CA3AF' }}>{tx.addMoreCurrent}</span>
-                    <span className="font-bold" style={{ color: '#111111' }}>{classesRemaining} {tx.classes}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[13px]">
-                    <span style={{ color: '#9CA3AF' }}>{tx.addMoreNew}</span>
-                    <span className="font-bold" style={{ color: '#16A34A' }}>+{pendingPlan.classes} {tx.classes}</span>
-                  </div>
-                  <div className="h-px" style={{ background: '#E5E7EB' }} />
-                  <div className="flex items-center justify-between text-[13px]">
-                    <span className="font-semibold" style={{ color: '#111111' }}>Total</span>
-                    <span className="font-black" style={{ color: '#C41E3A' }}>
-                      {classesRemaining + pendingPlan.classes} {tx.classes}
-                    </span>
-                  </div>
+                <div
+                  style={{
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 20,
+                    background: 'var(--ek-paper)',
+                    border: '1px solid var(--ek-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <Row label={tx.addMoreCurrent} value={`${classesRemaining} ${tx.classes}`} />
+                  <Row
+                    label={tx.addMoreNew}
+                    value={`+${pendingPlan.classes} ${tx.classes}`}
+                    valueColor="var(--ek-success-text)"
+                  />
+                  <div style={{ height: 1, background: 'var(--ek-border)' }} />
+                  <Row
+                    label="Total"
+                    value={`${classesRemaining + pendingPlan.classes} ${tx.classes}`}
+                    valueColor={accent}
+                    bold
+                  />
                 </div>
-                <div className="flex gap-3">
-                  <button onClick={handleCancelAddMore} className="flex-1 py-3 rounded-lg font-medium text-[13px] transition-all" style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#F9F9F9' }}>{tx.addMoreCancel}</button>
-                  <button onClick={handleConfirmAddMore} className="flex-1 py-3 rounded-lg font-bold text-[13px] transition-all" style={{ background: '#C41E3A', color: '#fff' }}>{tx.addMoreConfirm}</button>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    onClick={handleCancelAddMore}
+                    className="ek-btn ek-btn-ghost ek-btn-square"
+                    style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center' }}
+                  >
+                    {tx.addMoreCancel}
+                  </button>
+                  <button
+                    onClick={handleConfirmAddMore}
+                    className="ek-btn ek-btn-red ek-btn-square"
+                    style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center' }}
+                  >
+                    {tx.addMoreConfirm}
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -607,60 +937,122 @@ export default function PlanClient({
         {selectedPlan && (
           <>
             <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => !isPending && setSelectedPlan(null)}
-              className="fixed inset-0 z-40"
-              style={{ background: 'rgba(17,17,17,0.55)', backdropFilter: 'blur(3px)' }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(17,17,17,0.55)',
+                backdropFilter: 'blur(3px)',
+                zIndex: 40,
+              }}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[420px] rounded-2xl shadow-2xl z-50 overflow-hidden"
-              style={{ background: '#fff' }}
+              style={{
+                position: 'fixed',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '100%',
+                maxWidth: 440,
+                background: 'var(--ek-card)',
+                borderRadius: 16,
+                boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+                zIndex: 50,
+                overflow: 'hidden',
+                fontFamily: 'var(--ek-font-sans)',
+              }}
             >
-              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                  <h3 className="font-bold text-[15px]" style={{ color: '#111111' }}>{tx.confirmTitle}</h3>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '18px 24px',
+                  borderBottom: '1px solid var(--ek-border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <CreditCard className="h-4 w-4" style={{ color: accent }} />
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--ek-text)' }}>
+                    {tx.confirmTitle}
+                  </h3>
                 </div>
-                <button onClick={() => !isPending && setSelectedPlan(null)} disabled={isPending} style={{ color: '#9CA3AF' }}>
+                <button
+                  onClick={() => !isPending && setSelectedPlan(null)}
+                  disabled={isPending}
+                  style={{ background: 'transparent', border: 0, color: 'var(--ek-text-muted)', cursor: 'pointer' }}
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="px-6 pt-5 pb-4 space-y-3">
-                {[
-                  [tx.confirmPlan, tx.plans[selectedPlan.key as keyof typeof tx.plans]],
-                  [tx.confirmClasses, `${selectedPlan.classes} ${tx.classes}`],
-                  [tx.confirmPrice, convert(selectedPlan.priceUsd)],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between text-[13px]">
-                    <span style={{ color: '#9CA3AF' }}>{label}</span>
-                    <span className="font-semibold" style={{ color: '#111111' }}>{value}</span>
-                  </div>
-                ))}
-                <div className="mt-1 pt-3 flex items-start gap-2 text-[11px] rounded-lg p-3" style={{ background: '#F9F9F9', borderTop: '1px solid #E5E7EB', color: '#9CA3AF' }}>
-                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-px" />
+
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <Row label={tx.confirmPlan} value={tx.plans[selectedPlan.key]} />
+                <Row label={tx.confirmClasses} value={`${selectedPlan.classes} ${tx.classes}`} />
+                <Row label={tx.confirmPrice} value={convert(selectedPlan.priceUsd)} bold />
+                <div
+                  style={{
+                    marginTop: 4,
+                    padding: 12,
+                    fontSize: 12,
+                    borderRadius: 8,
+                    background: 'var(--ek-paper)',
+                    color: 'var(--ek-text-soft)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 8,
+                  }}
+                >
+                  <AlertCircle className="h-3.5 w-3.5" style={{ flexShrink: 0, marginTop: 1 }} />
                   {tx.confirmNote}
                 </div>
               </div>
+
               {error && (
-                <div className="mx-6 mb-3 rounded p-3 text-[12px]" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}>
+                <div
+                  style={{
+                    margin: '0 24px 12px',
+                    padding: 12,
+                    fontSize: 12,
+                    borderRadius: 8,
+                    background: '#FEF2F2',
+                    border: '1px solid #FCA5A5',
+                    color: '#DC2626',
+                  }}
+                >
                   {error}
                 </div>
               )}
-              <div className="flex gap-3 px-6 pb-6">
-                <button onClick={() => !isPending && setSelectedPlan(null)} disabled={isPending} className="flex-1 py-3 rounded-lg font-medium text-[13px]" style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#F9F9F9' }}>
+
+              <div style={{ display: 'flex', gap: 12, padding: '0 24px 24px' }}>
+                <button
+                  onClick={() => !isPending && setSelectedPlan(null)}
+                  disabled={isPending}
+                  className="ek-btn ek-btn-ghost ek-btn-square"
+                  style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center' }}
+                >
                   {tx.cancelPay}
                 </button>
-                <button onClick={handlePay} disabled={isPending} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold text-[13px] disabled:opacity-60" style={{ background: '#C41E3A', color: '#fff' }}>
-                  {isPending ? (
-                    <>
-                      <span className="h-3.5 w-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                      {tx.paying}
-                    </>
-                  ) : (
+                <button
+                  onClick={handlePay}
+                  disabled={isPending}
+                  className="ek-btn ek-btn-red ek-btn-square"
+                  style={{
+                    flex: 1,
+                    padding: '12px 0',
+                    fontSize: 13,
+                    justifyContent: 'center',
+                    opacity: isPending ? 0.6 : 1,
+                  }}
+                >
+                  {isPending ? tx.paying : (
                     <>
                       <CreditCard className="h-3.5 w-3.5" />
                       {tx.payNow}
@@ -676,110 +1068,29 @@ export default function PlanClient({
   )
 }
 
-function CurrentPlanHero({
-  lang,
-  planName,
-  classesRemaining,
-  statusLabel,
-  renewalFormatted,
+function Row({
+  label,
+  value,
+  bold,
+  valueColor,
 }: {
-  lang: Locale
-  planName: string | null
-  classesRemaining: number
-  statusLabel: string | null
-  renewalFormatted: string | null
+  label: string
+  value: string
+  bold?: boolean
+  valueColor?: string
 }) {
-  const tx = T[lang]
-  const hasPlan = !!planName
-
   return (
-    <div
-      className="rounded-3xl overflow-hidden relative"
-      style={{
-        background: hasPlan ? 'linear-gradient(135deg, #C41E3A, #8B1529)' : '#fff',
-        border: hasPlan ? 'none' : '1px solid #E5E7EB',
-        boxShadow: hasPlan ? '0 20px 60px rgba(196,30,58,0.2)' : '0 2px 8px rgba(0,0,0,0.04)',
-      }}
-    >
-      {hasPlan && (
-        <>
-          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
-          <div className="absolute -right-8 bottom-0 h-40 w-40 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
-        </>
-      )}
-      <div className="relative p-6 lg:p-8 grid gap-5 md:grid-cols-[1fr_auto] items-center">
-        <div>
-          <p
-            className="text-[11px] font-bold uppercase tracking-widest mb-2"
-            style={{ color: hasPlan ? 'rgba(255,255,255,0.7)' : '#9CA3AF' }}
-          >
-            {tx.currentPlanLabel}
-          </p>
-          <h2
-            className="text-[26px] lg:text-[32px] font-black leading-tight mb-1"
-            style={{ color: hasPlan ? '#fff' : '#111111' }}
-          >
-            {planName || tx.freePlanName}
-          </h2>
-          {!hasPlan && (
-            <p className="text-[13px]" style={{ color: '#6B7280' }}>{tx.freePlanSub}</p>
-          )}
-          {hasPlan && (
-            <div className="flex flex-wrap items-center gap-3 mt-3">
-              {statusLabel && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-white" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                  {statusLabel}
-                </span>
-              )}
-              {renewalFormatted && (
-                <span className="text-[12px] text-white/80">
-                  {tx.renewsOn} <strong className="text-white">{renewalFormatted}</strong>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div
-          className="rounded-2xl p-5 text-center"
-          style={{
-            background: hasPlan ? 'rgba(255,255,255,0.12)' : '#F9F9F9',
-            backdropFilter: hasPlan ? 'blur(8px)' : undefined,
-            minWidth: '180px',
-          }}
-        >
-          <div
-            className="text-[44px] font-black leading-none tabular-nums"
-            style={{ color: hasPlan ? '#fff' : '#C41E3A' }}
-          >
-            {classesRemaining}
-          </div>
-          <div
-            className="text-[11px] font-semibold uppercase tracking-widest mt-2"
-            style={{ color: hasPlan ? 'rgba(255,255,255,0.7)' : '#9CA3AF' }}
-          >
-            {tx.classesLeft}
-          </div>
-        </div>
-      </div>
-
-      {hasPlan && (
-        <div className="relative px-6 lg:px-8 pb-5 flex items-center justify-end">
-          {/* TODO (Phase 4): wire to Stripe Billing Portal via customer_id lookup. */}
-          <button
-            disabled
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-bold transition-all opacity-70"
-            style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', cursor: 'not-allowed' }}
-          >
-            <CreditCard className="h-3.5 w-3.5" />
-            {tx.manageSub}
-            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full ml-1" style={{ background: 'rgba(255,255,255,0.15)' }}>
-              {tx.manageSubSoon}
-            </span>
-          </button>
-        </div>
-      )}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+      <span style={{ color: 'var(--ek-text-muted)' }}>{label}</span>
+      <span
+        style={{
+          fontWeight: bold ? 800 : 600,
+          color: valueColor || 'var(--ek-text)',
+          fontFeatureSettings: '"tnum"',
+        }}
+      >
+        {value}
+      </span>
     </div>
   )
 }

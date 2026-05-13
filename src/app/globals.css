@@ -352,8 +352,22 @@ body {
   color: var(--ek-red);
 }
 
-.ee-section-title { @apply ek-display-l; color: var(--ek-text); }
-.ee-section-title-dark { @apply ek-display-l; color: var(--ek-on-dark); }
+.ee-section-title {
+  font-family: var(--ek-font-sans);
+  font-weight: 800;
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  color: var(--ek-text);
+}
+.ee-section-title-dark {
+  font-family: var(--ek-font-sans);
+  font-weight: 800;
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  color: var(--ek-on-dark);
+}
 .ee-body { font-family: var(--ek-font-sans); font-size: 15px; line-height: 1.7; color: var(--ek-text-soft); }
 .ee-body-dark { font-family: var(--ek-font-sans); font-size: 15px; line-height: 1.7; color: var(--ek-on-dark-muted); }
 
