@@ -2,143 +2,140 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { TrendingUp, BookOpen, Clock, Award, Calendar, User, Phone, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
+import { Phone, ArrowRight } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { PRICING_MAP, type PricingPlanKey } from '@/lib/pricing'
-
-// ─── CEFR ────────────────────────────────────────────────────────────────
+import { DashTopBar } from '@/components/ui/DashTopBar'
+import { KickerStat } from '@/components/ui/KickerStat'
 
 const CEFR_LEVELS = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
 type CefrLevel = (typeof CEFR_LEVELS)[number]
 
 const LEVEL_LABELS: Record<CefrLevel, { en: string; es: string }> = {
-  A0: { en: 'Complete beginner',      es: 'Principiante completo' },
-  A1: { en: 'Beginner',               es: 'Principiante' },
-  A2: { en: 'Elementary',             es: 'Elemental' },
-  B1: { en: 'Intermediate',           es: 'Intermedio' },
-  B2: { en: 'Upper intermediate',     es: 'Intermedio alto' },
-  C1: { en: 'Advanced',               es: 'Avanzado' },
-  C2: { en: 'Mastery',                es: 'Maestría' },
+  A0: { en: 'Complete beginner', es: 'Principiante completo' },
+  A1: { en: 'Beginner', es: 'Principiante' },
+  A2: { en: 'Elementary', es: 'Elemental' },
+  B1: { en: 'Intermediate', es: 'Intermedio' },
+  B2: { en: 'Upper intermediate', es: 'Intermedio alto' },
+  C1: { en: 'Advanced', es: 'Avanzado' },
+  C2: { en: 'Mastery', es: 'Maestría' },
 }
 
-// ─── Survey answer labels ────────────────────────────────────────────────
-
 const GOAL_LABELS: Record<string, { en: string; es: string }> = {
-  work:     { en: 'Work',           es: 'Trabajo' },
-  travel:   { en: 'Travel',         es: 'Viajes' },
-  studies:  { en: 'Studies',        es: 'Estudios' },
-  growth:   { en: 'Personal growth',es: 'Crecimiento personal' },
-  emigrate: { en: 'Move abroad',    es: 'Emigrar' },
-  other:    { en: 'Other',          es: 'Otro' },
+  work: { en: 'Work', es: 'Trabajo' },
+  travel: { en: 'Travel', es: 'Viajes' },
+  studies: { en: 'Studies', es: 'Estudios' },
+  growth: { en: 'Personal growth', es: 'Crecimiento personal' },
+  emigrate: { en: 'Move abroad', es: 'Emigrar' },
+  other: { en: 'Other', es: 'Otro' },
 }
 
 const PACE_LABELS: Record<string, { en: string; es: string }> = {
-  relaxed:   { en: '1–2 classes/week',  es: '1-2 clases/semana' },
-  steady:    { en: '3 classes/week',    es: '3 clases/semana' },
-  intensive: { en: 'Every day',         es: 'Todos los días' },
+  relaxed: { en: '1–2 classes/week', es: '1-2 clases/semana' },
+  steady: { en: '3 classes/week', es: '3 clases/semana' },
+  intensive: { en: 'Every day', es: 'Todos los días' },
 }
 
 const STYLE_LABELS: Record<string, { en: string; es: string }> = {
-  listening: { en: 'Listening',  es: 'Escuchando' },
-  reading:   { en: 'Reading',    es: 'Leyendo' },
-  speaking:  { en: 'Speaking',   es: 'Hablando' },
-  writing:   { en: 'Writing',    es: 'Escribiendo' },
-  mixed:     { en: 'Mixed',      es: 'Combinado' },
+  listening: { en: 'Listening', es: 'Escuchando' },
+  reading: { en: 'Reading', es: 'Leyendo' },
+  speaking: { en: 'Speaking', es: 'Hablando' },
+  writing: { en: 'Writing', es: 'Escribiendo' },
+  mixed: { en: 'Mixed', es: 'Combinado' },
 }
-
-// ─── Translations ─────────────────────────────────────────────────────────
 
 const t = {
   en: {
-    title: 'My Progress',
-    subtitle: 'Your complete learning journey.',
-    // Stats
+    title: 'My progress',
+    subtitle: 'How you have improved since you started',
+    downloadReport: 'Download report (PDF)',
+    currentLevelKicker: 'Current level',
+    currentLevelDesc: (level: string, ahead: number) =>
+      `You can hold an everyday work conversation, share experiences and opinions with confidence. About ${ahead} classes to reach the next level.`,
     stats: {
-      completed: 'Classes completed',
-      hours: 'Hours learned',
-      level: 'Current level',
-      remaining: 'Classes remaining',
-      upcoming: 'Upcoming classes',
-      noLevel: 'Pending placement',
+      completed: 'Classes',
+      completedSub: 'so far',
+      hours: 'Hours',
+      hoursSub: '≈ a workday',
+      remaining: 'Available',
+      remainingSub: 'in your plan',
+      upcoming: 'Scheduled',
+      upcomingSub: 'upcoming',
     },
-    // Plan
-    planTitle: 'Current plan',
-    planNone: 'No active plan',
-    planCta: 'Get your first plan',
-    classesThisMonth: 'Classes this month',
-    classesTotal: 'classes in pack',
-    // Timeline
-    timelineTitle: 'Learning timeline',
-    timelineEmpty: 'Your learning journey starts here. Complete your first class to see your progress.',
-    duration: (m: number) => `${m} min`,
-    aiSummary: 'Session summary',
-    noSummary: 'Summary will appear after class.',
-    // Profile
-    profileTitle: 'My learning profile',
-    profileEmpty: 'Complete your placement test to see your learning profile.',
-    profileCta: 'Take placement test',
+    profileKicker: 'Your camino',
+    profileTitle: 'Your learning profile',
+    profileEmpty: 'Complete your placement to see your learning profile.',
+    profileCta: 'Take placement',
     goals: 'Learning goals',
     pace: 'Preferred pace',
     style: 'Learning style',
     notes: 'Notes for teacher',
-    // CEFR
-    cefrLabel: 'CEFR level progression',
-    noLevel: 'Not set yet',
-    noLevelSub: 'Complete your placement test to get your level.',
-    // Placement status
+    timelineKicker: 'Class history',
+    timelineTitle: 'Recent classes',
+    timelineEmpty: 'Your journey starts here. Complete your first class to see your progress.',
+    aiSummary: '◇ Summary',
+    noSummary: 'Summary will appear after the class.',
     placementTitle: 'Diagnostic call',
     placementNotScheduled: 'Schedule your free diagnostic call',
-    placementNotScheduledSub: 'We\'ll assess your level and build your personalized learning plan.',
+    placementNotScheduledSub: "We'll assess your level and build your personalized learning plan.",
     placementNotScheduledCta: 'Schedule call',
-    placementScheduledTitle: 'Diagnostic call scheduled',
-    placementScheduledSub: (date: string) => `Your call is booked for ${date}.`,
-    placementDoneTitle: 'Diagnostic completed',
+    placementScheduledTitle: '✓ Your diagnostic call is scheduled',
+    placementScheduledSub: (date: string, time: string) => `Booked for ${date} at ${time}.`,
+    placementDoneTitle: '✓ Diagnostic completed',
     placementDoneSub: (level: string) => `Your level was assessed as ${level}.`,
+    planTitle: 'Current plan',
+    planNone: 'No active plan',
+    planCta: 'Get your first plan',
+    classesThisMonth: 'This month',
+    classesTotal: 'classes in pack',
+    duration: (m: number) => `${m} min`,
   },
   es: {
-    title: 'Mi Progreso',
-    subtitle: 'Tu viaje de aprendizaje completo.',
+    title: 'Mi progreso',
+    subtitle: 'Cómo has avanzado desde que empezaste',
+    downloadReport: 'Descargar informe (PDF)',
+    currentLevelKicker: 'Nivel actual',
+    currentLevelDesc: (level: string, ahead: number) =>
+      `Puedes mantener una conversación de trabajo cotidiana, contar experiencias y opinar con seguridad. Te faltan unas ${ahead} clases para el siguiente nivel.`,
     stats: {
-      completed: 'Clases completadas',
-      hours: 'Horas aprendidas',
-      level: 'Nivel actual',
-      remaining: 'Clases disponibles',
-      upcoming: 'Clases próximas',
-      noLevel: 'Pendiente de diagnóstico',
+      completed: 'Clases',
+      completedSub: 'hasta ahora',
+      hours: 'Horas',
+      hoursSub: '≈ una jornada laboral',
+      remaining: 'Disponibles',
+      remainingSub: 'en tu plan',
+      upcoming: 'Agendadas',
+      upcomingSub: 'próximas',
     },
-    planTitle: 'Plan actual',
-    planNone: 'Sin plan activo',
-    planCta: 'Obtén tu primer plan',
-    classesThisMonth: 'Clases este mes',
-    classesTotal: 'clases en el pack',
-    timelineTitle: 'Historial de clases',
-    timelineEmpty: 'Tu viaje empieza aquí. Completa tu primera clase para ver tu progreso.',
-    duration: (m: number) => `${m} min`,
-    aiSummary: 'Resumen de sesión',
-    noSummary: 'El resumen aparecerá después de la clase.',
-    profileTitle: 'Mi perfil de aprendizaje',
+    profileKicker: 'Tu camino',
+    profileTitle: 'Tu perfil de aprendizaje',
     profileEmpty: 'Completa tu diagnóstico para ver tu perfil.',
     profileCta: 'Hacer diagnóstico',
     goals: 'Objetivos',
     pace: 'Ritmo preferido',
     style: 'Estilo de aprendizaje',
     notes: 'Notas para la maestra',
-    cefrLabel: 'Progresión de nivel CEFR',
-    noLevel: 'Aún no establecido',
-    noLevelSub: 'Completa tu diagnóstico para conocer tu nivel.',
-    // Placement status
+    timelineKicker: 'Historial de clases',
+    timelineTitle: 'Clases recientes',
+    timelineEmpty: 'Tu viaje empieza aquí. Completa tu primera clase para ver tu progreso.',
+    aiSummary: '◇ Resumen',
+    noSummary: 'El resumen aparecerá después de la clase.',
     placementTitle: 'Llamada diagnóstica',
     placementNotScheduled: 'Agenda tu llamada diagnóstica gratuita',
     placementNotScheduledSub: 'Evaluaremos tu nivel y crearemos tu plan de aprendizaje personalizado.',
     placementNotScheduledCta: 'Agendar llamada',
-    placementScheduledTitle: 'Llamada diagnóstica agendada',
-    placementScheduledSub: (date: string) => `Tu llamada está agendada para el ${date}.`,
-    placementDoneTitle: 'Diagnóstico completado',
+    placementScheduledTitle: '✓ Tu llamada diagnóstica está agendada',
+    placementScheduledSub: (date: string, time: string) => `Agendada para el ${date} a las ${time}.`,
+    placementDoneTitle: '✓ Diagnóstico completado',
     placementDoneSub: (level: string) => `Tu nivel fue evaluado como ${level}.`,
+    planTitle: 'Plan actual',
+    planNone: 'Sin plan activo',
+    planCta: 'Obtén tu primer plan',
+    classesThisMonth: 'Este mes',
+    classesTotal: 'clases en el pack',
+    duration: (m: number) => `${m} min`,
   },
 }
-
-// ─── Props ────────────────────────────────────────────────────────────────
 
 interface PlacementBooking {
   id: string
@@ -167,7 +164,7 @@ interface Props {
 
 function fmtDate(iso: string, lang: Locale) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    weekday: 'long', month: 'short', day: 'numeric',
   })
 }
 
@@ -177,7 +174,12 @@ function fmtTime(iso: string, lang: 'es' | 'en') {
   })
 }
 
-// ─── Component ────────────────────────────────────────────────────────────
+function monthShort(iso: string, lang: Locale): string {
+  return new Date(iso)
+    .toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { month: 'short' })
+    .toUpperCase()
+    .replace(/\./g, '')
+}
 
 export default function ProgresoClient({
   lang, level, classesRemaining, currentPlan, surveyAnswers,
@@ -185,93 +187,40 @@ export default function ProgresoClient({
   completedTotal, completedThisMonth, upcomingClasses, recentBookings,
 }: Props) {
   const tx = t[lang]
+  const accent = 'var(--ek-red)'
   const activeIndex = level ? CEFR_LEVELS.indexOf(level as CefrLevel) : -1
   const planInfo = currentPlan ? PRICING_MAP[currentPlan as PricingPlanKey] : null
   const planTotal = planInfo?.classes ?? 0
   const planProgress = planTotal > 0 ? Math.min(100, (completedThisMonth / planTotal) * 100) : 0
-  const hoursLearned = completedTotal // 1 class ≈ 1 hour
+  // Rough estimate: ~10 classes between adjacent CEFR levels
+  const classesToNextLevel = level && activeIndex < CEFR_LEVELS.length - 1 ? Math.max(0, 40 - (completedTotal % 40)) : 0
 
-  // Minute-tick so the placement card flips from "upcoming" to "past" without
-  // a reload. Null on SSR; React-19 rules-of-hooks forbid sync setState in
-  // an effect, so defer the initial set via a 0-ms timeout.
   const [now, setNow] = useState<number | null>(null)
   useEffect(() => {
-    const t = setTimeout(() => setNow(Date.now()), 0)
+    const tt = setTimeout(() => setNow(Date.now()), 0)
     const id = setInterval(() => setNow(Date.now()), 60_000)
-    return () => { clearTimeout(t); clearInterval(id) }
+    return () => { clearTimeout(tt); clearInterval(id) }
   }, [])
 
-  // ── Stats row ─────────────────────────────────────────────────
-
-  const stats = [
-    {
-      label: tx.stats.completed,
-      value: completedTotal,
-      icon: BookOpen,
-    },
-    {
-      label: tx.stats.upcoming,
-      value: upcomingClasses,
-      icon: Calendar,
-    },
-    {
-      label: level ? tx.stats.level : tx.stats.noLevel,
-      value: level
-        ? level
-        : placementTestDone
-        ? (lang === 'es' ? 'Revisando' : 'Reviewing')
-        : placementBooking
-        ? (lang === 'es' ? 'Agendada' : 'Scheduled')
-        : (lang === 'es' ? 'Sin agendar' : 'Not booked'),
-      icon: TrendingUp,
-      accent: !level,
-    },
-    {
-      label: tx.stats.remaining,
-      value: classesRemaining,
-      icon: Award,
-      urgent: classesRemaining === 0,
-    },
-  ]
-
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <DashTopBar
+        title={tx.title}
+        sub={tx.subtitle}
+        right={
+          <button
+            className="ek-btn ek-btn-ghost ek-btn-square"
+            style={{ padding: '9px 16px', fontSize: 12 }}
+            disabled
+          >
+            {tx.downloadReport}
+          </button>
+        }
+      />
 
-      {/* Header */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
-
-      <div className="px-8 py-6 max-w-3xl mx-auto space-y-5">
-
-        {/* ── Section 1: Stats row ──────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {stats.map(({ label, value, icon: Icon, urgent, accent }) => (
-            <div
-              key={label}
-              className="rounded-xl p-5"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded mb-3"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
-              >
-                <Icon className="h-4 w-4" style={{ color: '#C41E3A' }} />
-              </div>
-              <div
-                className="text-[26px] font-black"
-                style={{ color: urgent ? '#DC2626' : accent ? '#9CA3AF' : '#111111' }}
-              >
-                {value}
-              </div>
-              <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Placement status card ─────────────────────────── */}
-        {(() => {
+      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+        {/* Placement banner if not done */}
+        {!placementTestDone && (() => {
           const placementDate = placementBooking
             ? new Date(placementBooking.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
                 weekday: 'long', month: 'long', day: 'numeric',
@@ -281,394 +230,648 @@ export default function ProgresoClient({
             ? new Date(placementBooking.scheduled_at).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
             : null
 
-          if (placementTestDone) {
-            return (
-              <div
-                className="rounded-xl p-4 flex items-center gap-4"
-                style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}
-              >
-                <div
-                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-                  style={{ background: '#DCFCE7' }}
-                >
-                  <CheckCircle2 className="h-5 w-5" style={{ color: '#16A34A' }} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[13px] font-bold" style={{ color: '#15803D' }}>{tx.placementDoneTitle}</p>
-                  {level && (
-                    <p className="text-[12px] mt-0.5" style={{ color: '#16A34A' }}>
-                      {tx.placementDoneSub(level)}
-                    </p>
-                  )}
-                </div>
-                <span
-                  className="text-[11px] font-bold px-2.5 py-1 rounded flex-shrink-0"
-                  style={{ background: '#DCFCE7', color: '#16A34A', border: '1px solid #86EFAC' }}
-                >
-                  {level || '—'}
-                </span>
-              </div>
-            )
-          }
-
           if (placementBooking) {
-            // 60-min placement + 90-min post-call grace — matches
-            // getRoomAccess so the card doesn't call the session "past"
-            // while the student is still in the call. Before hydration
-            // (now === null), treat as not-past.
             const PLACEMENT_LIVE_WINDOW_MS = (60 + 90) * 60_000
             const isPast = now !== null
               ? now > new Date(placementBooking.scheduled_at).getTime() + PLACEMENT_LIVE_WINDOW_MS
               : false
-
             if (isPast) {
               return (
                 <div
-                  className="rounded-xl p-4 flex items-center gap-4"
-                  style={{ background: '#FFFBEB', border: '1px solid #FCD34D' }}
+                  style={{
+                    background: 'var(--ek-warn-bg)',
+                    border: '1px solid var(--ek-warn-border)',
+                    borderRadius: 12,
+                    padding: '14px 18px',
+                    marginBottom: 24,
+                    fontSize: 13,
+                    color: 'var(--ek-warn-text)',
+                    fontFamily: 'var(--ek-font-sans)',
+                  }}
                 >
-                  <div
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-                    style={{ background: '#FEF3C7' }}
-                  >
-                    <AlertCircle className="h-5 w-5" style={{ color: '#D97706' }} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[13px] font-bold" style={{ color: '#92400E' }}>
-                      {lang === 'es' ? 'Tu llamada diagnóstica ya pasó' : 'Your diagnostic call has passed'}
-                    </p>
-                    {placementDate && placementTime && (
-                      <p className="text-[12px] mt-0.5" style={{ color: '#B45309' }}>
-                        {lang === 'es'
-                          ? `Estaba agendada para el ${placementDate} a las ${placementTime}. Contáctanos: hola@englishkolab.com`
-                          : `It was scheduled for ${placementDate} at ${placementTime}. Contact us: hola@englishkolab.com`}
-                      </p>
-                    )}
-                  </div>
+                  {lang === 'es'
+                    ? `Tu llamada diagnóstica del ${placementDate} a las ${placementTime} ya pasó. Contáctanos: hola@englishkolab.com`
+                    : `Your diagnostic call from ${placementDate} at ${placementTime} has passed. Contact us: hola@englishkolab.com`}
                 </div>
               )
             }
-
             return (
               <div
-                className="rounded-xl p-4 flex items-center gap-4"
-                style={{ background: '#EFF6FF', border: '1px solid #93C5FD' }}
+                style={{
+                  background: 'var(--ek-card)',
+                  border: '1px solid var(--ek-success-border)',
+                  borderRadius: 12,
+                  padding: '14px 18px',
+                  marginBottom: 24,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  flexWrap: 'wrap',
+                  fontFamily: 'var(--ek-font-sans)',
+                }}
               >
-                <div
-                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-                  style={{ background: '#DBEAFE' }}
-                >
-                  <Phone className="h-5 w-5" style={{ color: '#2563EB' }} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[13px] font-bold" style={{ color: '#1D4ED8' }}>{tx.placementScheduledTitle} ✓</p>
-                  {placementDate && placementTime && (
-                    <p className="text-[12px] mt-0.5" style={{ color: '#3B82F6' }}>
-                      {lang === 'es'
-                        ? `Llamada diagnóstica agendada para el ${placementDate} a las ${placementTime}.`
-                        : `Diagnostic call scheduled for ${placementDate} at ${placementTime}.`}
-                    </p>
-                  )}
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>
+                    {tx.placementScheduledTitle}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 4 }}>
+                    {placementDate && placementTime && tx.placementScheduledSub(placementDate, placementTime)}
+                  </div>
                 </div>
               </div>
             )
           }
-
           return (
             <div
-              className="rounded-xl p-4 flex items-center gap-4"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+              style={{
+                background: 'var(--ek-card)',
+                border: '1px solid var(--ek-red-tint-3)',
+                borderRadius: 12,
+                padding: '14px 18px',
+                marginBottom: 24,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                flexWrap: 'wrap',
+                fontFamily: 'var(--ek-font-sans)',
+              }}
             >
               <div
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 8,
+                  background: 'var(--ek-red-tint)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
               >
-                <Phone className="h-5 w-5" style={{ color: '#C41E3A' }} />
+                <Phone className="h-5 w-5" style={{ color: accent }} />
               </div>
-              <div className="flex-1">
-                <p className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.placementNotScheduled}</p>
-                <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.placementNotScheduledSub}</p>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>
+                  {tx.placementNotScheduled}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 4 }}>
+                  {tx.placementNotScheduledSub}
+                </div>
               </div>
               <Link
                 href={`/${lang}/dashboard/placement`}
-                className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-                style={{ background: '#C41E3A', color: '#fff' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                className="ek-btn ek-btn-red ek-btn-square"
+                style={{ padding: '9px 16px', fontSize: 12 }}
               >
-                {tx.placementNotScheduledCta}
-                <ArrowRight className="h-3.5 w-3.5" />
+                {tx.placementNotScheduledCta} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           )
         })()}
 
-        {/* ── Section 2: CEFR level + plan ─────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          {/* CEFR */}
-          <div className="rounded-xl p-5" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded" style={{ background: 'rgba(196,30,58,0.08)' }}>
-                <TrendingUp className="h-4 w-4" style={{ color: '#C41E3A' }} />
-              </div>
-              <p className="text-[12px] font-bold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                {tx.cefrLabel}
-              </p>
+        {/* Level hero */}
+        <div
+          style={{
+            background: 'var(--ek-card)',
+            border: '1px solid var(--ek-border)',
+            borderRadius: 16,
+            padding: '32px 36px',
+            marginBottom: 24,
+            display: 'grid',
+            gridTemplateColumns: '1fr auto',
+            gap: 32,
+            alignItems: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              right: -20,
+              bottom: -60,
+              fontFamily: 'var(--ek-font-serif)',
+              fontStyle: 'italic',
+              fontSize: 260,
+              lineHeight: 0.8,
+              color: 'rgba(196,30,58,0.04)',
+              pointerEvents: 'none',
+            }}
+          >
+            {level || '?'}
+          </div>
+          <div style={{ position: 'relative' }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.22em',
+                textTransform: 'uppercase',
+                color: 'var(--ek-text-muted)',
+                fontWeight: 700,
+                marginBottom: 14,
+              }}
+            >
+              {tx.currentLevelKicker}
             </div>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className="flex h-14 w-14 items-center justify-center rounded text-[22px] font-black flex-shrink-0"
-                style={level ? { background: '#C41E3A', color: '#fff' } : { background: '#F3F4F6', color: '#9CA3AF' }}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 56,
+                  fontWeight: 800,
+                  letterSpacing: '-0.035em',
+                  color: 'var(--ek-text)',
+                  lineHeight: 1,
+                }}
               >
-                {level || '?'}
-              </div>
-              <div>
-                {level ? (
-                  <p className="text-[14px] font-bold" style={{ color: '#111111' }}>
-                    {LEVEL_LABELS[level as CefrLevel]?.[lang] || level}
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.noLevel}</p>
-                    <p className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.noLevelSub}</p>
-                  </>
-                )}
-              </div>
+                {level || '—'}
+              </h2>
+              <span
+                style={{
+                  fontSize: 22,
+                  fontWeight: 600,
+                  color: 'var(--ek-text-soft)',
+                  letterSpacing: '-0.015em',
+                }}
+              >
+                {level ? LEVEL_LABELS[level as CefrLevel]?.[lang] : (lang === 'es' ? 'Pendiente' : 'Pending')}
+              </span>
             </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 13.5,
+                color: 'var(--ek-text-soft)',
+                maxWidth: 540,
+                lineHeight: 1.55,
+              }}
+            >
+              {level
+                ? tx.currentLevelDesc(level, classesToNextLevel)
+                : (lang === 'es'
+                    ? 'Completa tu llamada diagnóstica para conocer tu nivel exacto.'
+                    : 'Complete your diagnostic call to learn your exact level.')}
+            </p>
 
-            <div className="flex items-center gap-1.5">
+            {/* CEFR ladder */}
+            <div style={{ display: 'flex', gap: 4, marginTop: 22, alignItems: 'center', flexWrap: 'wrap' }}>
               {CEFR_LEVELS.map((lvl, i) => {
                 const isActive = i === activeIndex
                 const isPast = i < activeIndex
                 return (
-                  <div key={lvl} className="flex items-center gap-1 flex-1">
+                  <div key={lvl} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <div
-                      className="flex h-6 w-6 items-center justify-center rounded text-[9px] font-bold flex-shrink-0"
-                      style={
-                        isActive
-                          ? { background: '#C41E3A', color: '#fff', boxShadow: '0 0 0 2px rgba(196,30,58,0.2)' }
-                          : isPast
-                          ? { background: '#C41E3A', color: '#fff', opacity: 0.35 }
-                          : { background: '#F3F4F6', color: '#9CA3AF' }
-                      }
+                      style={{
+                        padding: '7px 14px',
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        letterSpacing: 0.5,
+                        background: isActive ? accent : isPast ? 'var(--ek-ink)' : 'var(--ek-paper)',
+                        color: isActive ? '#fff' : isPast ? 'var(--ek-on-dark)' : 'var(--ek-text-muted)',
+                        border: isPast || isActive ? 0 : '1px solid var(--ek-border)',
+                        fontFeatureSettings: '"tnum"',
+                      }}
                     >
                       {lvl}
                     </div>
                     {i < CEFR_LEVELS.length - 1 && (
-                      <div className="h-0.5 flex-1" style={{ background: isPast ? 'rgba(196,30,58,0.35)' : '#F3F4F6' }} />
+                      <div
+                        style={{
+                          width: 24,
+                          height: 2,
+                          background: i < activeIndex ? 'var(--ek-ink)' : 'var(--ek-border)',
+                        }}
+                      />
                     )}
                   </div>
                 )
               })}
             </div>
           </div>
-
-          {/* Current plan */}
-          <div className="rounded-xl p-5" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded" style={{ background: 'rgba(196,30,58,0.08)' }}>
-                <Award className="h-4 w-4" style={{ color: '#C41E3A' }} />
-              </div>
-              <p className="text-[12px] font-bold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                {tx.planTitle}
-              </p>
-            </div>
-
-            {planInfo ? (
-              <>
-                <p className="text-[18px] font-black mb-1" style={{ color: '#111111' }}>{planInfo.name}</p>
-                <p className="text-[12px] mb-4" style={{ color: '#9CA3AF' }}>
-                  {planTotal} {tx.classesTotal}
-                </p>
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-[11px] font-medium" style={{ color: '#9CA3AF' }}>{tx.classesThisMonth}</p>
-                    <p className="text-[11px] font-bold" style={{ color: '#111111' }}>
-                      {completedThisMonth}/{planTotal}
-                    </p>
-                  </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ background: '#F3F4F6' }}>
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${planProgress}%`, background: '#C41E3A' }}
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-[14px] font-semibold mb-3" style={{ color: '#9CA3AF' }}>{tx.planNone}</p>
-                <Link
-                  href={`/${lang}/dashboard/plan`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded text-[12px] font-bold transition-all"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-                >
-                  {tx.planCta}
-                </Link>
-              </>
-            )}
-          </div>
         </div>
 
-        {/* ── Section 3: Learning timeline ──────────────────── */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
-            <Calendar className="h-4 w-4" style={{ color: '#C41E3A' }} />
-            <h2 className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.timelineTitle}</h2>
-          </div>
+        {/* Stats row */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <KickerStat kicker={tx.stats.completed} value={completedTotal} sub={tx.stats.completedSub} />
+          <KickerStat kicker={tx.stats.hours} value={`${completedTotal}h`} sub={tx.stats.hoursSub} />
+          <KickerStat kicker={tx.stats.remaining} value={classesRemaining} sub={tx.stats.remainingSub} />
+          <KickerStat kicker={tx.stats.upcoming} value={upcomingClasses} sub={tx.stats.upcomingSub} />
+        </div>
 
-          {recentBookings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ background: '#F3F4F6' }}>
-                <Calendar className="h-5 w-5" style={{ color: '#9CA3AF' }} />
+        {/* 2-column: timeline + plan/profile */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)',
+            gap: 20,
+          }}
+        >
+          {/* Timeline */}
+          <section
+            style={{
+              background: 'var(--ek-card)',
+              borderRadius: 14,
+              border: '1px solid var(--ek-border)',
+              overflow: 'hidden',
+            }}
+          >
+            <header
+              style={{
+                padding: '18px 22px 14px',
+                borderBottom: '1px solid var(--ek-border-soft)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-text-muted)',
+                  fontWeight: 700,
+                }}
+              >
+                {tx.timelineKicker}
               </div>
-              <p className="text-[13px] max-w-xs leading-relaxed" style={{ color: '#9CA3AF' }}>
-                {tx.timelineEmpty}
-              </p>
-            </div>
-          ) : (
-            <ul>
-              {recentBookings.map((booking, i) => {
-                const notes = booking.notes as { covered?: string; nextTopics?: string } | null
-                return (
-                  <li
-                    key={booking.id}
-                    className="px-5 py-4"
-                    style={{ borderBottom: i < recentBookings.length - 1 ? '1px solid #F3F4F6' : 'none' }}
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Date badge */}
-                      <div className="flex-shrink-0 text-center w-12">
-                        <div className="text-[9px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                          {new Date(booking.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { month: 'short' })}
+              <h3
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: 'var(--ek-text)',
+                  letterSpacing: '-0.015em',
+                }}
+              >
+                {tx.timelineTitle}
+              </h3>
+            </header>
+
+            {recentBookings.length === 0 ? (
+              <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, color: 'var(--ek-text-muted)', lineHeight: 1.55 }}>
+                  {tx.timelineEmpty}
+                </p>
+              </div>
+            ) : (
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {recentBookings.map((booking) => {
+                  const notes = booking.notes as { covered?: string; nextTopics?: string } | null
+                  return (
+                    <li
+                      key={booking.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '60px 1fr',
+                        gap: 16,
+                        padding: '18px 22px',
+                        borderBottom: '1px solid var(--ek-border-soft)',
+                      }}
+                    >
+                      <div style={{ textAlign: 'center' }}>
+                        <div
+                          style={{
+                            fontSize: 9.5,
+                            letterSpacing: '0.15em',
+                            textTransform: 'uppercase',
+                            color: 'var(--ek-text-muted)',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {monthShort(booking.scheduled_at, lang)}
                         </div>
-                        <div className="text-[20px] font-black leading-none" style={{ color: '#C41E3A' }}>
+                        <div
+                          style={{
+                            fontSize: 22,
+                            fontWeight: 800,
+                            color: accent,
+                            letterSpacing: '-0.025em',
+                            lineHeight: 1,
+                            marginTop: 2,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
                           {new Date(booking.scheduled_at).getDate()}
                         </div>
                       </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-[13px] font-semibold" style={{ color: '#111111' }}>
-                            {fmtDate(booking.scheduled_at, lang)}
-                          </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }}>
-                            {lang === 'es' ? 'Completada' : 'Completed'}
-                          </span>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: 'var(--ek-text)',
+                            marginBottom: 2,
+                            textTransform: 'capitalize',
+                          }}
+                        >
+                          {fmtDate(booking.scheduled_at, lang)}
                         </div>
-                        <p className="text-[11px] mb-2" style={{ color: '#9CA3AF' }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: 'var(--ek-text-muted)',
+                            marginBottom: 8,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
                           {fmtTime(booking.scheduled_at, lang)} · {tx.duration(booking.duration_minutes || 60)}
-                        </p>
-
+                        </div>
                         {notes?.covered ? (
-                          <div className="space-y-1">
-                            <p className="text-[11px] font-semibold" style={{ color: '#111111' }}>
-                              {tx.aiSummary}:
-                            </p>
-                            <p className="text-[12px] leading-relaxed" style={{ color: '#4B5563' }}>
+                          <div
+                            style={{
+                              background: 'var(--ek-paper)',
+                              borderRadius: 8,
+                              padding: '10px 12px',
+                              border: '1px solid var(--ek-border)',
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 9.5,
+                                letterSpacing: '0.18em',
+                                textTransform: 'uppercase',
+                                color: accent,
+                                fontWeight: 700,
+                                marginBottom: 4,
+                                fontFamily: 'var(--ek-font-mono)',
+                              }}
+                            >
+                              {tx.aiSummary}
+                            </div>
+                            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ek-ink-soft)', lineHeight: 1.55 }}>
                               {notes.covered}
                             </p>
                             {notes.nextTopics && (
-                              <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                              <p
+                                style={{
+                                  margin: '4px 0 0',
+                                  fontSize: 11.5,
+                                  color: 'var(--ek-text-muted)',
+                                  fontStyle: 'italic',
+                                  fontFamily: 'var(--ek-font-serif)',
+                                }}
+                              >
                                 → {notes.nextTopics}
                               </p>
                             )}
                           </div>
                         ) : (
-                          <p className="text-[11px]" style={{ color: '#E5E7EB' }}>{tx.noSummary}</p>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 11.5,
+                              color: 'var(--ek-text-muted)',
+                              fontStyle: 'italic',
+                              fontFamily: 'var(--ek-font-serif)',
+                            }}
+                          >
+                            {tx.noSummary}
+                          </p>
                         )}
                       </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
 
-        {/* ── Section 4: Learning profile ───────────────────── */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
-            <User className="h-4 w-4" style={{ color: '#C41E3A' }} />
-            <h2 className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.profileTitle}</h2>
-          </div>
-
-          {!surveyAnswers ? (
-            <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
-              <p className="text-[13px] mb-4" style={{ color: '#9CA3AF' }}>{tx.profileEmpty}</p>
-              {!placementTestDone && (
-                <Link
-                  href={`/${lang}/dashboard/placement`}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[13px] transition-all"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-                >
-                  {tx.profileCta}
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div className="p-5 space-y-4">
-              {/* Goals */}
-              {Array.isArray(surveyAnswers.goals) && surveyAnswers.goals.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>
-                    {tx.goals}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(surveyAnswers.goals as string[]).map(g => (
-                      <span
-                        key={g}
-                        className="text-[11px] font-semibold px-2.5 py-1 rounded"
-                        style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }}
-                      >
-                        {GOAL_LABELS[g]?.[lang] || g}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Pace */}
-                {typeof surveyAnswers.pace === 'string' && surveyAnswers.pace && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>{tx.pace}</p>
-                    <p className="text-[13px] font-semibold" style={{ color: '#111111' }}>
-                      {PACE_LABELS[surveyAnswers.pace]?.[lang] || surveyAnswers.pace}
-                    </p>
-                  </div>
-                )}
-
-                {/* Style */}
-                {typeof surveyAnswers.style === 'string' && surveyAnswers.style && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>{tx.style}</p>
-                    <p className="text-[13px] font-semibold" style={{ color: '#111111' }}>
-                      {STYLE_LABELS[surveyAnswers.style]?.[lang] || surveyAnswers.style}
-                    </p>
-                  </div>
-                )}
+          {/* Right column: plan + profile */}
+          <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Plan progress */}
+            <div
+              style={{
+                background: 'var(--ek-card)',
+                borderRadius: 14,
+                border: '1px solid var(--ek-border)',
+                padding: '20px 22px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-text-muted)',
+                  fontWeight: 700,
+                  marginBottom: 10,
+                }}
+              >
+                {tx.planTitle}
               </div>
+              {planInfo ? (
+                <>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ek-text)', letterSpacing: '-0.02em' }}>
+                    {planInfo.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 4, marginBottom: 16 }}>
+                    {planTotal} {tx.classesTotal}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--ek-text-muted)' }}>
+                        {tx.classesThisMonth}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: 'var(--ek-text)',
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {completedThisMonth}/{planTotal}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        height: 6,
+                        borderRadius: 3,
+                        background: 'var(--ek-paper)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${planProgress}%`,
+                          height: '100%',
+                          background: accent,
+                          borderRadius: 3,
+                          transition: 'width 0.4s',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text-muted)', marginBottom: 12 }}>
+                    {tx.planNone}
+                  </div>
+                  <Link
+                    href={`/${lang}/dashboard/plan`}
+                    className="ek-btn ek-btn-red ek-btn-square"
+                    style={{ padding: '9px 16px', fontSize: 12 }}
+                  >
+                    {tx.planCta}
+                  </Link>
+                </>
+              )}
+            </div>
 
-              {/* Notes */}
-              {typeof surveyAnswers.notes === 'string' && surveyAnswers.notes && (
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>{tx.notes}</p>
-                  <p className="text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
-                    {surveyAnswers.notes}
+            {/* Learning profile */}
+            <div
+              style={{
+                background: 'var(--ek-card)',
+                borderRadius: 14,
+                border: '1px solid var(--ek-border)',
+                padding: '20px 22px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-text-muted)',
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                {tx.profileKicker}
+              </div>
+              <h3
+                style={{
+                  margin: '0 0 16px',
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: 'var(--ek-text)',
+                  letterSpacing: '-0.015em',
+                }}
+              >
+                {tx.profileTitle}
+              </h3>
+
+              {!surveyAnswers ? (
+                <>
+                  <p style={{ fontSize: 12.5, color: 'var(--ek-text-soft)', marginBottom: 14, lineHeight: 1.55 }}>
+                    {tx.profileEmpty}
                   </p>
+                  {!placementTestDone && (
+                    <Link
+                      href={`/${lang}/dashboard/placement`}
+                      className="ek-btn ek-btn-red ek-btn-square"
+                      style={{ padding: '9px 16px', fontSize: 12 }}
+                    >
+                      {tx.profileCta}
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {Array.isArray(surveyAnswers.goals) && surveyAnswers.goals.length > 0 && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: '0.15em',
+                          textTransform: 'uppercase',
+                          color: 'var(--ek-text-muted)',
+                          marginBottom: 6,
+                        }}
+                      >
+                        {tx.goals}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {(surveyAnswers.goals as string[]).map((g) => (
+                          <span
+                            key={g}
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '5px 10px',
+                              borderRadius: 999,
+                              background: 'var(--ek-red-tint-2)',
+                              color: accent,
+                              border: '1px solid var(--ek-red-tint-3)',
+                            }}
+                          >
+                            {GOAL_LABELS[g]?.[lang] || g}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {typeof surveyAnswers.pace === 'string' && surveyAnswers.pace && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: '0.15em',
+                          textTransform: 'uppercase',
+                          color: 'var(--ek-text-muted)',
+                          marginBottom: 4,
+                        }}
+                      >
+                        {tx.pace}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ek-text)' }}>
+                        {PACE_LABELS[surveyAnswers.pace]?.[lang] || surveyAnswers.pace}
+                      </div>
+                    </div>
+                  )}
+                  {typeof surveyAnswers.style === 'string' && surveyAnswers.style && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: '0.15em',
+                          textTransform: 'uppercase',
+                          color: 'var(--ek-text-muted)',
+                          marginBottom: 4,
+                        }}
+                      >
+                        {tx.style}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ek-text)' }}>
+                        {STYLE_LABELS[surveyAnswers.style]?.[lang] || surveyAnswers.style}
+                      </div>
+                    </div>
+                  )}
+                  {typeof surveyAnswers.notes === 'string' && surveyAnswers.notes && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: '0.15em',
+                          textTransform: 'uppercase',
+                          color: 'var(--ek-text-muted)',
+                          marginBottom: 4,
+                        }}
+                      >
+                        {tx.notes}
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ek-text-soft)', lineHeight: 1.5 }}>
+                        {surveyAnswers.notes}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          </aside>
         </div>
-
       </div>
     </div>
   )
