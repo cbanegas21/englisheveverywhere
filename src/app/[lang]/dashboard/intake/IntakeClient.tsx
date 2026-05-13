@@ -20,7 +20,7 @@ const t = {
     questions: [
       {
         id: 'learning_goal',
-        label: 'What is your specific English learning goal?',
+        label: "What's your specific English goal?",
         placeholder: 'e.g. Pass the IELTS B2 by December, get a promotion, move to Canada…',
         type: 'textarea',
       },
@@ -32,18 +32,18 @@ const t = {
       },
       {
         id: 'learning_style',
-        label: 'What is your learning style?',
+        label: "What's your learning style?",
         type: 'radio',
         options: [
-          { value: 'visual',    label: 'Visual',    desc: 'I learn best with images, diagrams, and visual aids' },
-          { value: 'auditory',  label: 'Auditory',  desc: 'I learn best by listening and speaking' },
-          { value: 'reading',   label: 'Reading',   desc: 'I learn best by reading and writing' },
-          { value: 'mixed',     label: 'Mixed',     desc: 'I learn best with a combination of all methods' },
+          { value: 'visual',    label: 'Visual',    desc: 'I learn best with images, diagrams, and visual aids.' },
+          { value: 'auditory',  label: 'Auditory',  desc: 'I learn best by listening and speaking.' },
+          { value: 'reading',   label: 'Reading',   desc: 'I learn best by reading and writing.' },
+          { value: 'mixed',     label: 'Mixed',     desc: 'I learn best with a combination of all four.' },
         ],
       },
       {
         id: 'age_range',
-        label: 'What is your age range?',
+        label: "What's your age range?",
         type: 'radio',
         options: [
           { value: 'under_18', label: 'Under 18' },
@@ -55,18 +55,18 @@ const t = {
     ],
   },
   es: {
-    title: 'Perfil de Aprendizaje',
+    title: 'Perfil de aprendizaje',
     subtitle: 'Ayuda a tu maestro a personalizar cada clase. Toma 60 segundos.',
     step: (n: number, t: number) => `Paso ${n} de ${t}`,
     next: 'Siguiente',
     back: 'Atrás',
     saving: 'Guardando…',
-    finish: 'Empezar a Agendar',
+    finish: 'Empezar a agendar',
     questions: [
       {
         id: 'learning_goal',
         label: '¿Cuál es tu objetivo específico de inglés?',
-        placeholder: 'Ej: Pasar el IELTS B2 en diciembre, conseguir ascenso, emigrar a Canadá…',
+        placeholder: 'Ej: Pasar el IELTS B2 en diciembre, conseguir un ascenso, emigrar a Canadá…',
         type: 'textarea',
       },
       {

@@ -73,7 +73,7 @@ const QUESTIONS: Question[] = [
   },
   { id: 'notes', type: 'text', optional: true,
     en: 'Anything else you want your teacher to know before your first class?',
-    es: '¿Hay algo más que quieras que tu maestra sepa antes de tu primera clase?',
+    es: '¿Hay algo más que quieras que tu maestro sepa antes de tu primera clase?',
   },
 ]
 
@@ -160,7 +160,7 @@ const ui = {
     confirmDate: 'Date & time',
     confirmDuration: 'Duration',
     confirmDurationVal: '60 minutes · Free',
-    confirmNote: 'We will contact you through the platform for the call.',
+    confirmNote: "We'll reach out through the platform when it's call time.",
     confirmBtn: 'Confirm',
     confirming: 'Scheduling…',
     cancelBtn: 'Cancel',
@@ -197,7 +197,7 @@ const ui = {
     confirmDate: 'Fecha y hora',
     confirmDuration: 'Duración',
     confirmDurationVal: '60 minutos · Gratis',
-    confirmNote: 'Nos comunicaremos contigo a través de la plataforma para la llamada.',
+    confirmNote: 'Te contactaremos por la plataforma a la hora de la llamada.',
     confirmBtn: 'Confirmar',
     confirming: 'Agendando…',
     cancelBtn: 'Cancelar',

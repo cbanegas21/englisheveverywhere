@@ -86,7 +86,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     transcriptTitle: 'Live transcript',
     transcriptClose: 'Close transcript',
     transcriptEmpty: 'No speech detected yet. Start talking to see captions.',
-    transcriptUnsupported: 'Live transcript is not supported in this browser. Use Chrome or Edge.',
+    transcriptUnsupported: "Live transcript doesn't work in this browser. Use Chrome or Edge.",
     transcriptListening: 'Listening…',
   },
   es: {
