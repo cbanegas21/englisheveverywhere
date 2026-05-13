@@ -130,11 +130,36 @@ export default function AdminLibraryClient({ lang, books }: Props) {
   }
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
+      <div style={{ marginBottom: 24 }}>
+        <div
+          style={{
+            fontFamily: 'var(--ek-font-mono)',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--ek-text-muted)',
+            marginBottom: 6,
+          }}
+        >
+          ↳ Admin · Curriculum
+        </div>
+        <h1
+          style={{
+            fontFamily: 'var(--ek-font-sans)',
+            fontSize: 32,
+            fontWeight: 800,
+            letterSpacing: '-0.025em',
+            color: 'var(--ek-text)',
+            margin: 0,
+            lineHeight: 1.1,
+          }}
+        >
+          {tx.title}
+        </h1>
+        <p style={{ fontSize: 13, marginTop: 6, color: 'var(--ek-text-muted)' }}>{tx.subtitle}</p>
       </div>
 
       <div className="px-8 py-6 max-w-4xl mx-auto space-y-5">

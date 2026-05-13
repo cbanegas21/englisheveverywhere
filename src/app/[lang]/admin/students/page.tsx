@@ -113,13 +113,38 @@ export default async function AdminStudentsPage({ params }: Props) {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-[22px] font-black" style={{ color: '#111111' }}>Students</h1>
-          <p className="text-[13px] mt-1" style={{ color: '#6B7280' }}>
-            {enriched.length} registered student{enriched.length !== 1 ? 's' : ''}
-          </p>
+      <div className="mb-6">
+        <div
+          style={{
+            fontFamily: 'var(--ek-font-mono)',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--ek-text-muted)',
+            marginBottom: 6,
+          }}
+        >
+          ↳ Admin · CRM
         </div>
+        <h1
+          style={{
+            fontFamily: 'var(--ek-font-sans)',
+            fontSize: 32,
+            fontWeight: 800,
+            letterSpacing: '-0.025em',
+            color: 'var(--ek-text)',
+            lineHeight: 1.1,
+          }}
+        >
+          Students{' '}
+          <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--ek-text-muted)' }}>
+            ({enriched.length})
+          </span>
+        </h1>
+        <p style={{ fontSize: 13, marginTop: 6, color: 'var(--ek-text-muted)' }}>
+          {enriched.length} registered student{enriched.length !== 1 ? 's' : ''}
+        </p>
       </div>
 
       <StudentsTableClient students={enriched} lang={lang} />

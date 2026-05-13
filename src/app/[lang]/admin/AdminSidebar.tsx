@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, GraduationCap, CalendarCheck, BookOpen, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { EKMark } from '@/components/ui/EKMark'
 
 interface Props { lang: string }
 
@@ -21,83 +21,137 @@ export default function AdminSidebar({ lang }: Props) {
     ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', library: 'Biblioteca', signOut: 'Cerrar sesión', adminPanel: 'Panel admin' }
     : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', library: 'Library', signOut: 'Sign out', adminPanel: 'Admin Panel' }
 
+  // Mono glyphs match the student/teacher sidebar style — JBM mono characters
+  // instead of Lucide icons for the editorial direction.
   const nav = [
-    { href: `/${lang}/admin/overview`,  label: labels.overview,  icon: LayoutDashboard },
-    { href: `/${lang}/admin/students`,  label: labels.students,  icon: Users },
-    { href: `/${lang}/admin/teachers`,  label: labels.teachers,  icon: GraduationCap },
-    { href: `/${lang}/admin/bookings`,  label: labels.bookings,  icon: CalendarCheck },
-    { href: `/${lang}/admin/biblioteca`, label: labels.library,  icon: BookOpen },
+    { href: `/${lang}/admin/overview`,   label: labels.overview, glyph: '▤' },
+    { href: `/${lang}/admin/students`,   label: labels.students, glyph: '○' },
+    { href: `/${lang}/admin/teachers`,   label: labels.teachers, glyph: '◯' },
+    { href: `/${lang}/admin/bookings`,   label: labels.bookings, glyph: '▦' },
+    { href: `/${lang}/admin/biblioteca`, label: labels.library,  glyph: '▥' },
   ]
+
+  const dim = 'rgba(244,239,230,0.5)'
+  const text = '#F4EFE6'
+  const border = 'rgba(244,239,230,0.10)'
 
   return (
     <aside
-      className="flex flex-col w-[220px] min-h-screen flex-shrink-0"
-      style={{ background: '#111111', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      className="flex flex-col w-[224px] min-h-screen flex-shrink-0"
+      style={{
+        background: 'var(--ek-ink)',
+        borderRight: `1px solid ${border}`,
+        fontFamily: 'var(--ek-font-sans)',
+      }}
     >
       {/* Logo */}
-      <div className="px-5 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div
-          className="h-8 w-8 rounded flex items-center justify-center text-[10px] font-black flex-shrink-0"
-          style={{ background: '#C41E3A', color: '#fff' }}
+      <div
+        className="px-[18px] py-[18px]"
+        style={{ borderBottom: `1px solid ${border}` }}
+      >
+        <Link
+          href={`/${lang}/admin`}
+          className="inline-flex items-center gap-2"
+          style={{ textDecoration: 'none', lineHeight: 1 }}
         >
-          EK
-        </div>
-        <div>
-          <p className="text-[12px] font-black text-white leading-none">EnglishKolab</p>
-          <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{labels.adminPanel}</p>
-        </div>
+          <EKMark size={26} bg="var(--ek-ink)" barColor="#F4EFE6" />
+          <div>
+            <div style={{ color: text, fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em' }}>
+              EnglishKolab
+            </div>
+            <div
+              style={{
+                color: dim,
+                fontSize: 10,
+                marginTop: 2,
+                fontFamily: 'var(--ek-font-mono)',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {labels.adminPanel}
+            </div>
+          </div>
+        </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = pathname.startsWith(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all"
-              style={{
-                background: active ? 'rgba(196,30,58,0.15)' : 'transparent',
-                color: active ? '#C41E3A' : 'rgba(255,255,255,0.55)',
-              }}
-              onMouseEnter={e => {
-                if (!active) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
-                }
-              }}
-              onMouseLeave={e => {
-                if (!active) {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
-                }
-              }}
-            >
-              <Icon className="h-4 w-4 flex-shrink-0" />
-              {label}
-              {active && <span className="ml-auto h-1.5 w-1.5 rounded-full" style={{ background: '#C41E3A' }} />}
-            </Link>
-          )
-        })}
+      <nav className="flex-1" style={{ padding: '12px 10px' }}>
+        <ul style={{ display: 'flex', flexDirection: 'column', gap: 1, margin: 0, padding: 0, listStyle: 'none' }}>
+          {nav.map(({ href, label, glyph }) => {
+            const active = pathname.startsWith(href)
+            return (
+              <li key={href}>
+                <Link
+                  href={href}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 11,
+                    padding: '9px 12px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: active ? 'var(--ek-red)' : dim,
+                    background: active ? 'rgba(196,30,58,0.10)' : 'transparent',
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!active) (e.currentTarget as HTMLAnchorElement).style.color = text
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) (e.currentTarget as HTMLAnchorElement).style.color = dim
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 16,
+                      textAlign: 'center',
+                      fontSize: 13,
+                      opacity: active ? 1 : 0.7,
+                      fontFamily: 'var(--ek-font-mono)',
+                    }}
+                  >
+                    {glyph}
+                  </span>
+                  <span style={{ flex: 1 }}>{label}</span>
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ek-red)' }}
+                    />
+                  )}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       </nav>
 
       {/* Sign out */}
-      <div className="px-3 pb-5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+      <div style={{ padding: '14px', borderTop: `1px solid ${border}` }}>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all w-full"
-          style={{ color: 'rgba(255,255,255,0.35)' }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-            e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '6px 10px',
+            borderRadius: 6,
+            fontSize: 11.5,
+            color: 'rgba(244,239,230,0.42)',
+            background: 'transparent',
+            border: 0,
+            cursor: 'pointer',
+            textAlign: 'left',
+            fontFamily: 'var(--ek-font-sans)',
           }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = 'rgba(255,255,255,0.35)'
-          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = text)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(244,239,230,0.42)')}
         >
-          <LogOut className="h-4 w-4 flex-shrink-0" />
+          <span style={{ width: 13, textAlign: 'center', fontFamily: 'var(--ek-font-mono)' }}>⏻</span>
           {labels.signOut}
         </button>
       </div>

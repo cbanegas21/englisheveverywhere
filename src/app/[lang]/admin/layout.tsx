@@ -29,33 +29,57 @@ export default async function AdminLayout({ children, params }: Props) {
   const displayName = profile?.full_name || user.email?.split('@')[0] || 'Admin'
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#F4F4F5' }}>
+    <div className="flex min-h-screen" style={{ background: 'var(--ek-paper)' }}>
       <AdminSidebar lang={lang} />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header
-          className="px-8 py-4 flex items-center justify-between flex-shrink-0"
-          style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}
+          className="flex items-center justify-between flex-shrink-0"
+          style={{
+            background: 'var(--ek-card)',
+            borderBottom: '1px solid var(--ek-border)',
+            padding: '14px 28px',
+            fontFamily: 'var(--ek-font-sans)',
+          }}
         >
           <div />
           <div className="flex items-center gap-3">
             <AdminLangToggle lang={lang} />
             <div
-              className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
-              style={{ background: '#C41E3A' }}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                background: 'var(--ek-red)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+              }}
             >
               {displayName.charAt(0).toUpperCase()}
             </div>
-            <span className="text-[13px] font-medium" style={{ color: '#111111' }}>{displayName}</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ek-text)' }}>{displayName}</span>
             <span
-              className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
-              style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A' }}
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: 'var(--ek-red-tint)',
+                color: 'var(--ek-red)',
+                fontFamily: 'var(--ek-font-mono)',
+              }}
             >
               Admin
             </span>
-            <div className="w-px h-6 mx-1" style={{ background: '#E5E7EB' }} />
+            <div style={{ width: 1, height: 24, margin: '0 4px', background: 'var(--ek-border)' }} />
             <AdminTopBarLogout lang={lang} />
           </div>
         </header>

@@ -973,8 +973,38 @@ export default function BookingCalendarClient({
       {/* Page header */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111', margin: 0 }}>Bookings</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>Visual calendar — Honduras time (CST, UTC-6)</p>
+          <div
+            style={{
+              fontFamily: 'var(--ek-font-mono)',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--ek-text-muted)',
+              marginBottom: 6,
+            }}
+          >
+            ↳ Admin · Operations
+          </div>
+          <h1
+            style={{
+              fontFamily: 'var(--ek-font-sans)',
+              fontSize: 32,
+              fontWeight: 800,
+              letterSpacing: '-0.025em',
+              color: 'var(--ek-text)',
+              margin: 0,
+              lineHeight: 1.1,
+            }}
+          >
+            Bookings{' '}
+            <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--ek-text-muted)' }}>
+              this week
+            </span>
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--ek-text-muted)', margin: '6px 0 0' }}>
+            Visual calendar — Honduras time (CST, UTC-6)
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {(['week', 'day', 'board'] as const).map(v => (

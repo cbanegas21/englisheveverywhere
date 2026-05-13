@@ -83,8 +83,35 @@ export default async function AdminTeachersPage({ params }: Props) {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-[22px] font-black" style={{ color: '#111111' }}>Teachers</h1>
-        <p className="text-[13px] mt-1" style={{ color: '#6B7280' }}>
+        <div
+          style={{
+            fontFamily: 'var(--ek-font-mono)',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--ek-text-muted)',
+            marginBottom: 6,
+          }}
+        >
+          ↳ Admin · Team
+        </div>
+        <h1
+          style={{
+            fontFamily: 'var(--ek-font-sans)',
+            fontSize: 32,
+            fontWeight: 800,
+            letterSpacing: '-0.025em',
+            color: 'var(--ek-text)',
+            lineHeight: 1.1,
+          }}
+        >
+          Teachers{' '}
+          <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--ek-text-muted)' }}>
+            on the platform
+          </span>
+        </h1>
+        <p style={{ fontSize: 13, marginTop: 6, color: 'var(--ek-text-muted)' }}>
           {activeCount} active · {pendingCount} pending review
         </p>
       </div>

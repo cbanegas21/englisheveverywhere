@@ -87,7 +87,7 @@ test.describe('Tier 1.8 — Admin booking assignment', () => {
     expect(bookingId, 'seed booking insert must succeed').toBeTruthy()
 
     await page.goto('/es/admin/bookings')
-    await expect(page.getByRole('heading', { name: /^Bookings$/i })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /Bookings/i })).toBeVisible({ timeout: 10_000 })
 
     // Scope the Pending Assignments section by its heading — other bookings
     // from prior runs may still be in the queue, so we find the <tr> that
@@ -141,7 +141,7 @@ test.describe('Tier 1.8 — Admin booking assignment', () => {
     expect(bookingId).toBeTruthy()
 
     await page.goto('/es/admin/bookings')
-    await expect(page.getByRole('heading', { name: /^Bookings$/i })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /Bookings/i })).toBeVisible({ timeout: 10_000 })
 
     const row = page.locator('tr', { hasText: studentName! })
     await expect(row).toBeVisible({ timeout: 10_000 })
