@@ -2,125 +2,151 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import {
-  Calendar, ArrowRight, Star, Clock, BookOpen, TrendingUp,
-  Video, ChevronRight, AlertCircle, CheckCircle2, Sparkles
-} from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
+import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
+import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
+import { KickerStat } from '@/components/ui/KickerStat'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 const t = {
   en: {
-    greeting: 'Good morning',
-    greetingAfternoon: 'Good afternoon',
-    greetingEvening: 'Good evening',
-    subtitle: "Here's your English learning overview.",
+    greeting: 'good morning',
+    greetingAfternoon: 'good afternoon',
+    greetingEvening: 'good evening',
+    subtitleSuffix: '· Here is your day',
+    classesAvailable: (n: number) => `${n} classes available`,
+    addClass: '+ Schedule class',
+    nextClass: 'Next class',
+    yourTeacher: 'Your teacher',
+    teacherTBD: 'Being assigned',
+    duration: 'Duration',
+    minutes: 'minutes',
+    countdown: 'In',
+    joinRoom: 'Enter classroom',
+    reschedule: 'Reschedule',
     stats: {
-      classesLeft: 'Classes remaining',
-      scheduled: 'Classes scheduled',
-      completed: 'Completed sessions',
-      totalTime: 'Total studied',
+      available: 'Available',
+      availableSub: 'in your plan',
+      scheduled: 'Scheduled',
+      scheduledSub: 'upcoming',
+      completed: 'Completed',
+      completedSub: 'all-time',
+      totalTime: 'Total time',
+      totalTimeSub: 'hours of study',
     },
-    upcoming: 'Upcoming classes',
-    noUpcoming: 'No upcoming classes scheduled.',
-    noUpcomingSub: 'Book your first class with a certified teacher.',
-    bookNow: 'Book a class',
-    with: 'with',
-    mins: 'min',
-    viewAll: 'View all',
-    quickActions: 'Quick actions',
+    upcoming: 'Your upcoming classes',
+    upcomingKicker: 'Upcoming',
+    viewAll: 'See all →',
+    noUpcoming: 'No classes scheduled.',
+    noUpcomingSub: 'Book your first class with your teacher.',
+    bookNow: 'Schedule a class',
+    teacherBeingAssigned: 'Teacher being assigned',
+    awaitingTeacherSubtext: "We'll match you within 24 hours and email when confirmed.",
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    statusConfirmed: 'Confirmed',
+    statusPending: 'Pending',
+    statusAwaitingTeacher: 'Assigning',
+    statusLive: 'Live',
+    teacherCardKicker: 'Your assigned teacher',
+    quickActionsKicker: 'Quick actions',
+    actions: {
+      book: { title: 'Schedule another class', sub: 'Pick when, where, with whom' },
+      test: { title: 'Placement call', sub: 'Find your exact level' },
+      testScheduled: { title: 'View diagnostic call', sub: 'See your scheduled session' },
+      progress: { title: 'My progress', sub: 'Track your improvement' },
+    },
     placementBanner: {
       title: 'Schedule your free evaluation call',
-      sub: "Not sure what your level is? Let us figure it out together — free, no pressure, no judgment.",
+      sub: "Not sure of your level? Let's figure it out together. Free, no pressure.",
       cta: 'Get started',
     },
     placementScheduledBanner: {
-      title: '✓ Your diagnostic call is scheduled',
-      sub: 'View your session details',
-      withHost: (name: string) => `With ${name}`,
-      hostPending: 'Host will be assigned soon',
+      title: 'Your diagnostic call is scheduled',
+      with: (name: string) => `With ${name}`,
+      hostPending: 'Host being assigned',
       cta: 'View',
     },
     placementPastBanner: {
       title: 'Your diagnostic call has passed',
-      sub: (date: string) => `It was scheduled for ${date}. Please contact us to reschedule.`,
-      contact: 'hola@englishkolab.com',
+      sub: (date: string) => `It was scheduled for ${date}. Contact us to reschedule.`,
+      cta: 'Contact us',
     },
-    statusConfirmed: 'Confirmed',
-    statusPending: 'Pending',
-    statusAwaitingTeacher: 'Awaiting teacher',
-    statusLive: 'Live',
-    teacherBeingAssigned: 'Teacher being assigned',
-    awaitingTeacherSubtext: "We'll match you with a teacher within 24 hours and email you when confirmed.",
-    today: 'Today',
-    tomorrow: 'Tomorrow',
     upgrade: 'Get more classes',
     noClassesBanner: "You've used all your classes. Get a new pack to keep learning.",
-    allBookedBanner: 'Your plan is fully scheduled — all upcoming. Add more classes anytime.',
-    firstPlanBanner: 'Get your first plan to start learning',
+    allBookedBanner: 'Your plan is fully scheduled. Add more classes anytime.',
+    firstPlanBanner: 'Get your first plan to start learning.',
     firstPlanCta: 'See plans',
-    actions: {
-      book: { title: 'Schedule a class', sub: 'Pick a time with your teacher', href: '/dashboard/agendar' },
-      test: { title: 'Placement test', sub: 'Find your exact level', href: '/dashboard/placement' },
-      testScheduled: { title: 'View diagnostic call', sub: 'See your scheduled session', href: '/dashboard/placement' },
-      progress: { title: 'My progress', sub: 'Track your improvement', href: '/dashboard/progreso' },
-    },
   },
   es: {
-    greeting: 'Buenos días',
-    greetingAfternoon: 'Buenas tardes',
-    greetingEvening: 'Buenas noches',
-    subtitle: 'Resumen de tu aprendizaje de inglés.',
+    greeting: 'buenos días',
+    greetingAfternoon: 'buenas tardes',
+    greetingEvening: 'buenas noches',
+    subtitleSuffix: '· Aquí está tu día',
+    classesAvailable: (n: number) => `${n} clases disponibles`,
+    addClass: '+ Agendar clase',
+    nextClass: 'Próxima clase',
+    yourTeacher: 'Tu maestro',
+    teacherTBD: 'Por asignar',
+    duration: 'Duración',
+    minutes: 'minutos',
+    countdown: 'En',
+    joinRoom: 'Entrar al salón',
+    reschedule: 'Reagendar',
     stats: {
-      classesLeft: 'Clases disponibles',
-      scheduled: 'Clases agendadas',
-      completed: 'Sesiones completadas',
-      totalTime: 'Total estudiado',
+      available: 'Disponibles',
+      availableSub: 'en tu plan',
+      scheduled: 'Agendadas',
+      scheduledSub: 'próximas',
+      completed: 'Completadas',
+      completedSub: 'históricas',
+      totalTime: 'Tiempo total',
+      totalTimeSub: 'horas de estudio',
     },
-    upcoming: 'Próximas clases',
+    upcoming: 'Tus próximas clases',
+    upcomingKicker: 'Próximas',
+    viewAll: 'Ver todas →',
     noUpcoming: 'No tienes clases agendadas.',
-    noUpcomingSub: 'Agenda tu primera clase con un maestro certificado.',
+    noUpcomingSub: 'Agenda tu primera clase con tu maestro.',
     bookNow: 'Agendar clase',
-    with: 'con',
-    mins: 'min',
-    viewAll: 'Ver todas',
-    quickActions: 'Acciones rápidas',
+    teacherBeingAssigned: 'Maestro por asignar',
+    awaitingTeacherSubtext: 'Te asignamos un maestro en menos de 24h y te avisamos por correo.',
+    today: 'Hoy',
+    tomorrow: 'Mañana',
+    statusConfirmed: 'Confirmada',
+    statusPending: 'Pendiente',
+    statusAwaitingTeacher: 'Asignando',
+    statusLive: 'En vivo',
+    teacherCardKicker: 'Tu maestro asignado',
+    quickActionsKicker: 'Accesos rápidos',
+    actions: {
+      book: { title: 'Agendar otra clase', sub: 'Elige cuándo, dónde y con quién' },
+      test: { title: 'Llamada de nivel', sub: 'Encuentra tu nivel exacto' },
+      testScheduled: { title: 'Ver llamada diagnóstica', sub: 'Ver tu sesión agendada' },
+      progress: { title: 'Mi progreso', sub: 'Sigue tu mejora' },
+    },
     placementBanner: {
       title: 'Agenda tu llamada de diagnóstico gratuita',
-      sub: '¿No sabes cuál es tu nivel? Lo descubrimos juntos — gratis, sin presión, sin juicios.',
+      sub: '¿No sabes tu nivel? Lo descubrimos juntos. Gratis, sin presión.',
       cta: 'Comenzar',
     },
     placementScheduledBanner: {
-      title: '✓ Tu llamada diagnóstica está agendada',
-      sub: 'Ver detalles de tu sesión',
-      withHost: (name: string) => `Con ${name}`,
-      hostPending: 'Asignaremos un anfitrión pronto',
+      title: 'Tu llamada diagnóstica está agendada',
+      with: (name: string) => `Con ${name}`,
+      hostPending: 'Anfitrión por asignar',
       cta: 'Ver',
     },
     placementPastBanner: {
       title: 'Tu llamada diagnóstica ya pasó',
       sub: (date: string) => `Estaba agendada para el ${date}. Contáctanos para reagendar.`,
-      contact: 'hola@englishkolab.com',
+      cta: 'Contactar',
     },
-    statusConfirmed: 'Confirmada',
-    statusPending: 'Pendiente',
-    statusAwaitingTeacher: 'Asignando maestro',
-    statusLive: 'En vivo',
-    teacherBeingAssigned: 'Maestro por asignar',
-    awaitingTeacherSubtext: 'Te asignamos un maestro en menos de 24h y te avisamos por correo.',
-    today: 'Hoy',
-    tomorrow: 'Mañana',
     upgrade: 'Obtener más clases',
     noClassesBanner: 'Ya tomaste todas tus clases. Obtén un nuevo pack para seguir aprendiendo.',
-    allBookedBanner: 'Tu plan está completo — todas tus clases ya están agendadas. ¿Quieres añadir más?',
-    firstPlanBanner: 'Adquiere tu primer plan para comenzar a aprender',
+    allBookedBanner: 'Tu plan está completo. Puedes añadir más clases en cualquier momento.',
+    firstPlanBanner: 'Adquiere tu primer plan para comenzar a aprender.',
     firstPlanCta: 'Ver planes',
-    actions: {
-      book: { title: 'Agendar clase', sub: 'Elige tu horario', href: '/dashboard/agendar' },
-      test: { title: 'Placement test', sub: 'Encuentra tu nivel exacto', href: '/dashboard/placement' },
-      testScheduled: { title: 'Ver llamada diagnóstica', sub: 'Ver tu sesión agendada', href: '/dashboard/placement' },
-      progress: { title: 'Mi progreso', sub: 'Sigue tu mejora', href: '/dashboard/progreso' },
-    },
   },
 }
 
@@ -143,13 +169,12 @@ function getGreeting(lang: Locale, timezone: string) {
   return tx.greetingEvening
 }
 
-// Date helpers compare against the *student's* timezone, not the browser's.
-// A booking stored at 2026-04-22T00:30:00Z reads as "Apr 21" in America/Bogota
-// (UTC-5) but "Apr 22" in America/Tegucigalpa. We pin to the student's tz so
-// the calendar-cell day matches the time label beneath it.
 function ymdInTz(d: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   }).format(d)
 }
 
@@ -161,18 +186,56 @@ function formatDate(iso: string, lang: Locale, timeZone: string) {
   if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
   if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
   return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', timeZone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone,
   })
 }
 
 function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
-    hour: '2-digit', minute: '2-digit', timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
   })
 }
 
 function dayInTz(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat('en-US', { timeZone, day: 'numeric' }).format(new Date(iso))
+}
+
+function weekdayShort(iso: string, lang: Locale, timeZone: string): string {
+  return new Intl.DateTimeFormat(lang === 'es' ? 'es-HN' : 'en-US', {
+    weekday: 'short',
+    timeZone,
+  })
+    .format(new Date(iso))
+    .toUpperCase()
+    .replace(/\./g, '')
+}
+
+function monthShort(iso: string, lang: Locale, timeZone: string): string {
+  return new Intl.DateTimeFormat(lang === 'es' ? 'es-HN' : 'en-US', {
+    month: 'short',
+    timeZone,
+  })
+    .format(new Date(iso))
+    .toUpperCase()
+    .replace(/\./g, '')
+}
+
+function countdownText(iso: string, lang: Locale): string | null {
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms <= 0) return null
+  const totalMinutes = Math.floor(ms / 60_000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24)
+    return lang === 'es' ? `${days}d ${hours % 24}h` : `${days}d ${hours % 24}h`
+  }
+  return `${hours}h ${String(minutes).padStart(2, '0')}m`
 }
 
 interface Booking {
@@ -217,462 +280,830 @@ export default function StudentDashboardClient({
 }: Props) {
   const tx = t[lang]
   const firstName = userName.split(' ')[0]
+  const accent = 'var(--ek-red)'
 
   // Tick once a minute so the "Live" badge flips when a session starts/ends
   // without needing a full page reload. Hydration-safe: null on SSR.
-  // React-19 rules-of-hooks forbids synchronous setState inside an effect,
-  // so defer the initial set via a 0-ms timeout.
   const [now, setNow] = useState<number | null>(null)
   useEffect(() => {
-    const t = setTimeout(() => setNow(Date.now()), 0)
+    const tt = setTimeout(() => setNow(Date.now()), 0)
     const id = setInterval(() => setNow(Date.now()), 60_000)
-    return () => { clearTimeout(t); clearInterval(id) }
+    return () => {
+      clearTimeout(tt)
+      clearInterval(id)
+    }
   }, [])
 
+  const nextBooking = upcomingBookings[0]
+  const nextTeacher =
+    (nextBooking?.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || null
+  const nextHero = nextBooking
+    ? {
+        date: nextBooking.scheduled_at,
+        teacher: nextTeacher,
+        duration: nextBooking.duration_minutes,
+      }
+    : null
+
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-
-      {/* Top greeting bar */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>
-          {getGreeting(lang, timezone)}, {firstName}
-        </h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
-
-      <div className="px-8 py-6 max-w-5xl mx-auto space-y-6">
-
-        {/* Placement banner — 3 states */}
-        {!placementTestDone && !placementScheduled && (
-          <div
-            className="rounded-xl p-4 flex items-center gap-4"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
-            <div
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-              style={{ background: 'rgba(196,30,58,0.08)', border: '1px solid rgba(196,30,58,0.15)' }}
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <DashTopBar
+        title={
+          <span>
+            {lang === 'es' ? 'Hola, ' : 'Hi, '}
+            {firstName}
+            {' — '}
+            <TitleFlourish>{getGreeting(lang, timezone)}</TitleFlourish>
+          </span>
+        }
+        sub={`${timezone.split('/').pop()?.replace('_', ' ') ?? ''} ${tx.subtitleSuffix}`}
+        right={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 14px',
+                borderRadius: 999,
+                background: 'var(--ek-red-tint)',
+                border: '1px solid var(--ek-red-tint-3)',
+              }}
             >
-              <AlertCircle className="h-5 w-5" style={{ color: '#C41E3A' }} />
-            </div>
-            <div className="flex-1">
-              <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.placementBanner.title}</div>
-              <div className="text-[12px] mt-0.5 leading-relaxed" style={{ color: '#9CA3AF' }}>{tx.placementBanner.sub}</div>
-            </div>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>
+                {tx.classesAvailable(classesRemaining)}
+              </span>
+            </span>
             <Link
+              href={`/${lang}/dashboard/agendar`}
+              className="ek-btn ek-btn-primary ek-btn-square"
+              style={{ padding: '9px 16px', fontSize: 12 }}
+            >
+              {tx.addClass}
+            </Link>
+          </div>
+        }
+      />
+
+      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+        {/* Banners — all conditional, preserve every existing state */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+          {!placementTestDone && !placementScheduled && (
+            <BannerCard
+              tone="red"
+              title={tx.placementBanner.title}
+              sub={tx.placementBanner.sub}
+              cta={tx.placementBanner.cta}
               href={`/${lang}/dashboard/placement`}
-              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-              style={{ background: '#C41E3A', color: '#fff' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-            >
-              {tx.placementBanner.cta}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        )}
-        {!placementTestDone && placementScheduled && (() => {
-          // "Past" only after the live window closes (scheduled + duration +
-          // 90-min late cap that matches src/app/actions/video.ts getRoomAccess).
-          // Without this grace, the banner flips to "has passed" while the
-          // student is actively in the call.
-          const PLACEMENT_LIVE_WINDOW_MS = (60 + 90) * 60_000
-          // Before hydration (now === null), treat as not-past — safer than
-          // flashing "has passed" briefly on load.
-          const isPast = placementScheduledAt && now !== null
-            ? now > new Date(placementScheduledAt).getTime() + PLACEMENT_LIVE_WINDOW_MS
-            : false
-          const formattedDate = placementScheduledAt
-            ? new Date(placementScheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-                weekday: 'long', month: 'long', day: 'numeric',
-              })
-            : ''
+            />
+          )}
 
-          if (isPast) {
-            return (
+          {!placementTestDone &&
+            placementScheduled &&
+            (() => {
+              // "Past" only after the live window closes (scheduled + duration + 90-min late cap)
+              const PLACEMENT_LIVE_WINDOW_MS = (60 + 90) * 60_000
+              const isPast =
+                placementScheduledAt && now !== null
+                  ? now > new Date(placementScheduledAt).getTime() + PLACEMENT_LIVE_WINDOW_MS
+                  : false
+              const formattedDate = placementScheduledAt
+                ? new Date(placementScheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                  })
+                : ''
+
+              if (isPast) {
+                return (
+                  <BannerCard
+                    tone="warn"
+                    title={tx.placementPastBanner.title}
+                    sub={tx.placementPastBanner.sub(formattedDate)}
+                    cta={tx.placementPastBanner.cta}
+                    href="mailto:hola@englishkolab.com"
+                  />
+                )
+              }
+
+              return (
+                <BannerCard
+                  tone="success"
+                  title={tx.placementScheduledBanner.title}
+                  sub={
+                    placementConductorName
+                      ? tx.placementScheduledBanner.with(placementConductorName)
+                      : tx.placementScheduledBanner.hostPending
+                  }
+                  cta={tx.placementScheduledBanner.cta}
+                  href={`/${lang}/dashboard/placement`}
+                />
+              )
+            })()}
+
+          {classesRemaining === 0 && !currentPlan && completedSessions === 0 && (
+            <BannerCard
+              tone="neutral"
+              title={tx.firstPlanBanner}
+              cta={tx.firstPlanCta}
+              href={`/${lang}/dashboard/plan`}
+            />
+          )}
+
+          {classesRemaining === 0 &&
+            scheduledClasses === 0 &&
+            (currentPlan !== null || completedSessions > 0) && (
+              <BannerCard
+                tone="warn"
+                title={tx.noClassesBanner}
+                cta={tx.upgrade}
+                href={`/${lang}/dashboard/plan`}
+              />
+            )}
+
+          {classesRemaining === 0 && scheduledClasses > 0 && (
+            <BannerCard
+              tone="neutral"
+              title={tx.allBookedBanner}
+              cta={tx.upgrade}
+              href={`/${lang}/dashboard/plan`}
+            />
+          )}
+
+          {primaryTeacherName && (
+            <div
+              style={{
+                background: 'var(--ek-card)',
+                border: '1px solid var(--ek-border)',
+                borderRadius: 12,
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+              }}
+            >
               <div
-                className="rounded-xl p-4 flex items-center gap-4"
-                style={{ background: '#FFFBEB', border: '1px solid #FCD34D' }}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  background: 'var(--ek-ink)',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  flexShrink: 0,
+                }}
               >
+                {primaryTeacherName
+                  .split(' ')
+                  .map((s) => s[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div
-                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-                  style={{ background: '#FEF3C7' }}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ek-text-muted)',
+                  }}
                 >
-                  <AlertCircle className="h-5 w-5" style={{ color: '#D97706' }} />
+                  {tx.teacherCardKicker}
                 </div>
-                <div className="flex-1">
-                  <div className="text-[13px] font-semibold" style={{ color: '#92400E' }}>{tx.placementPastBanner.title}</div>
-                  <div className="text-[12px] mt-0.5" style={{ color: '#B45309' }}>{tx.placementPastBanner.sub(formattedDate)}</div>
-                </div>
-                <a
-                  href={`mailto:${tx.placementPastBanner.contact}`}
-                  className="flex-shrink-0 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-                  style={{ background: '#D97706', color: '#fff' }}
-                >
-                  {lang === 'es' ? 'Contactar' : 'Contact us'}
-                </a>
-              </div>
-            )
-          }
-
-          return (
-            <div
-              className="rounded-xl p-4 flex items-center gap-4"
-              style={{ background: '#fff', border: '1px solid #86EFAC' }}
-            >
-              <div
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-                style={{ background: '#F0FDF4' }}
-              >
-                <CheckCircle2 className="h-5 w-5" style={{ color: '#16A34A' }} />
-              </div>
-              <div className="flex-1">
-                <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{tx.placementScheduledBanner.title}</div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                  <span>{tx.placementScheduledBanner.sub}</span>
-                  <span aria-hidden="true" style={{ color: '#D1D5DB' }}>·</span>
-                  <span style={{ color: placementConductorName ? '#4B5563' : '#9CA3AF', fontStyle: placementConductorName ? 'normal' : 'italic' }}>
-                    {placementConductorName
-                      ? tx.placementScheduledBanner.withHost(placementConductorName)
-                      : tx.placementScheduledBanner.hostPending}
-                  </span>
-                </div>
-              </div>
-              <Link
-                href={`/${lang}/dashboard/placement`}
-                className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-                style={{ background: '#16A34A', color: '#fff' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#15803D')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#16A34A')}
-              >
-                {tx.placementScheduledBanner.cta}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          )
-        })()}
-
-        {/* No classes banner — fresh account vs used up */}
-        {classesRemaining === 0 && !currentPlan && completedSessions === 0 && (
-          <div
-            className="rounded-xl p-4 flex items-center gap-4"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
-            <div
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-              style={{ background: '#F3F4F6' }}
-            >
-              <Sparkles className="h-5 w-5" style={{ color: '#9CA3AF' }} />
-            </div>
-            <p className="flex-1 text-[13px]" style={{ color: '#4B5563' }}>{tx.firstPlanBanner}</p>
-            <Link
-              href={`/${lang}/dashboard/plan`}
-              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-              style={{ background: '#C41E3A', color: '#fff' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-            >
-              {tx.firstPlanCta}
-            </Link>
-          </div>
-        )}
-        {/* Classes-exhausted banner. Only surfaces when the plan is truly used
-            up — classesRemaining=0 AND no upcoming bookings remain. Previously
-            this fired as soon as the student *booked* their last class because
-            classes_remaining decrements on create, leading to "used all your
-            classes" copy while the student still had all those sessions ahead
-            of them (Fathom bug #8). */}
-        {classesRemaining === 0 && scheduledClasses === 0 && (currentPlan !== null || completedSessions > 0) && (
-          <div
-            className="rounded-xl p-4 flex items-center gap-4"
-            style={{ background: '#fff', border: '1px solid #FCA5A5' }}
-          >
-            <div
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-              style={{ background: '#FEF2F2' }}
-            >
-              <BookOpen className="h-5 w-5" style={{ color: '#DC2626' }} />
-            </div>
-            <p className="flex-1 text-[13px]" style={{ color: '#4B5563' }}>{tx.noClassesBanner}</p>
-            <Link
-              href={`/${lang}/dashboard/plan`}
-              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-              style={{ background: '#C41E3A', color: '#fff' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-            >
-              {tx.upgrade}
-            </Link>
-          </div>
-        )}
-        {classesRemaining === 0 && scheduledClasses > 0 && (
-          <div
-            className="rounded-xl p-4 flex items-center gap-4"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
-            <div
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded"
-              style={{ background: '#F3F4F6' }}
-            >
-              <Calendar className="h-5 w-5" style={{ color: '#6B7280' }} />
-            </div>
-            <p className="flex-1 text-[13px]" style={{ color: '#4B5563' }}>{tx.allBookedBanner}</p>
-            <Link
-              href={`/${lang}/dashboard/plan`}
-              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-semibold transition-all whitespace-nowrap"
-              style={{ background: '#fff', color: '#C41E3A', border: '1px solid #C41E3A' }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.background = '#FEF2F2' }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLAnchorElement; el.style.background = '#fff' }}
-            >
-              {tx.upgrade}
-            </Link>
-          </div>
-        )}
-
-        {/* Primary teacher card — shown only after admin locks in a continuity teacher */}
-        {primaryTeacherName && (
-          <div
-            className="rounded-xl p-4 flex items-center gap-3"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
-            <div
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-[12px] font-bold"
-              style={{ background: '#111111', color: '#F9F9F9' }}
-            >
-              {primaryTeacherName.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
-                {lang === 'es' ? 'Tu maestro asignado' : 'Your assigned teacher'}
-              </div>
-              <div className="text-[14px] font-bold mt-0.5 truncate" style={{ color: '#111111' }}>
-                {primaryTeacherName}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            {
-              label: tx.stats.classesLeft,
-              value: classesRemaining,
-              icon: BookOpen,
-              urgent: classesRemaining === 0 && scheduledClasses === 0,
-            },
-            {
-              label: tx.stats.scheduled,
-              value: scheduledClasses,
-              icon: Calendar,
-            },
-            {
-              label: tx.stats.completed,
-              value: completedSessions,
-              icon: CheckCircle2,
-            },
-            {
-              label: tx.stats.totalTime,
-              value: completedSessions > 0 ? `${completedSessions * 60}m` : '0m',
-              icon: Clock,
-              note: completedSessions === 0
-                ? (lang === 'es' ? 'Completa tu primera clase' : 'Complete your first class')
-                : undefined,
-            },
-          ].map(({ label, value, icon: Icon, urgent, note }) => (
-            <div
-              key={label}
-              className="rounded-xl p-5"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div className="flex items-center justify-between mb-3">
                 <div
-                  className="flex h-8 w-8 items-center justify-center rounded"
-                  style={{ background: '#F3F4F6' }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    marginTop: 2,
+                    color: 'var(--ek-text)',
+                    fontFamily: 'var(--ek-font-sans)',
+                  }}
                 >
-                  <Icon className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+                  {primaryTeacherName}
                 </div>
               </div>
-              <div
-                className="text-[24px] font-black mb-0.5"
-                style={{ color: urgent ? '#DC2626' : '#111111' }}
-              >
-                {value}
-              </div>
-              <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{label}</div>
-              {note && (
-                <p className="text-[10px] mt-1" style={{ color: '#9CA3AF' }}>{note}</p>
-              )}
             </div>
-          ))}
+          )}
         </div>
 
-        {/* Main content: upcoming + quick actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* Next class dark hero — only when a booking exists */}
+        {nextHero && (
+          <div style={{ marginBottom: 24 }}>
+            <DarkHeroCard
+              ghost={countdownText(nextHero.date, lang) ?? ''}
+              ghostSize={220}
+              padding="28px 32px"
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: 32,
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: '0.22em',
+                      textTransform: 'uppercase',
+                      color: 'var(--ek-on-dark-muted)',
+                      marginBottom: 14,
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent }} />
+                    {tx.nextClass}
+                  </div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: 'clamp(2rem, 3.2vw, 2.75rem)',
+                      fontWeight: 800,
+                      letterSpacing: '-0.035em',
+                      lineHeight: 1.0,
+                      color: 'var(--ek-on-dark)',
+                    }}
+                  >
+                    {formatDate(nextHero.date, lang, timezone)}, {formatTime(nextHero.date, lang, timezone)}
+                  </h2>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 28,
+                      marginTop: 18,
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #C41E3A, #8B1529)',
+                          color: '#fff',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {(nextHero.teacher || '?')
+                          .split(' ')
+                          .map((s) => s[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: 'var(--ek-on-dark-muted)',
+                            letterSpacing: 1.5,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {tx.yourTeacher}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: 'var(--ek-on-dark)',
+                            marginTop: 1,
+                            fontStyle: nextHero.teacher ? 'normal' : 'italic',
+                          }}
+                        >
+                          {nextHero.teacher || tx.teacherTBD}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ width: 1, height: 32, background: 'var(--ek-on-dark-faint)' }} />
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--ek-on-dark-muted)',
+                          letterSpacing: 1.5,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {tx.duration}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: 'var(--ek-on-dark)',
+                          marginTop: 1,
+                        }}
+                      >
+                        {nextHero.duration} {tx.minutes}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'stretch' }}>
+                  <JoinSessionButton
+                    lang={lang}
+                    bookingId={nextBooking!.id}
+                    scheduledAt={nextHero.date}
+                  />
+                  <Link
+                    href={`/${lang}/dashboard/agendar`}
+                    style={{
+                      background: 'transparent',
+                      color: 'var(--ek-on-dark-soft)',
+                      border: '1px solid var(--ek-on-dark-faint)',
+                      padding: '10px 22px',
+                      borderRadius: 10,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      textAlign: 'center',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {tx.reschedule}
+                  </Link>
+                </div>
+              </div>
+            </DarkHeroCard>
+          </div>
+        )}
 
-          {/* Upcoming classes — left 3/5 */}
-          <div
-            className="lg:col-span-3 rounded-xl overflow-hidden"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+        {/* Stats */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 16,
+            marginBottom: 28,
+          }}
+        >
+          <KickerStat
+            kicker={tx.stats.available}
+            value={classesRemaining}
+            sub={tx.stats.availableSub}
+          />
+          <KickerStat
+            kicker={tx.stats.scheduled}
+            value={scheduledClasses}
+            sub={tx.stats.scheduledSub}
+          />
+          <KickerStat
+            kicker={tx.stats.completed}
+            value={completedSessions}
+            sub={tx.stats.completedSub}
+          />
+          <KickerStat
+            kicker={tx.stats.totalTime}
+            value={`${completedSessions}h`}
+            sub={tx.stats.totalTimeSub}
+          />
+        </div>
+
+        {/* Upcoming + Quick Actions */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 1fr)',
+            gap: 20,
+          }}
+        >
+          {/* Upcoming list */}
+          <section
+            style={{
+              background: 'var(--ek-card)',
+              borderRadius: 14,
+              border: '1px solid var(--ek-border)',
+              overflow: 'hidden',
+            }}
           >
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
-              <h2 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.upcoming}</h2>
+            <header
+              style={{
+                padding: '18px 22px 14px',
+                borderBottom: '1px solid var(--ek-border-soft)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ek-text-muted)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {tx.upcomingKicker}
+                </div>
+                <h3
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: 22,
+                    fontWeight: 800,
+                    letterSpacing: '-0.02em',
+                    color: 'var(--ek-text)',
+                  }}
+                >
+                  {tx.upcoming}
+                </h3>
+              </div>
               <Link
                 href={`/${lang}/dashboard/clases`}
-                className="text-[12px] flex items-center gap-1 transition-colors"
-                style={{ color: '#9CA3AF' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#111111')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#9CA3AF')}
+                style={{
+                  fontSize: 12,
+                  color: 'var(--ek-text-muted)',
+                  textDecoration: 'none',
+                }}
               >
                 {tx.viewAll}
-                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
-            </div>
+            </header>
 
             {upcomingBookings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-                <div
-                  className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-                  style={{ background: '#F3F4F6' }}
+              <div
+                style={{
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: 'var(--ek-text)',
+                  }}
                 >
-                  <Calendar className="h-6 w-6" style={{ color: '#9CA3AF' }} />
-                </div>
-                <p className="text-[13px] font-semibold mb-1" style={{ color: '#111111' }}>{tx.noUpcoming}</p>
-                <p className="text-[12px] mb-5" style={{ color: '#9CA3AF' }}>{tx.noUpcomingSub}</p>
+                  {tx.noUpcoming}
+                </p>
+                <p
+                  style={{
+                    margin: '6px 0 20px',
+                    fontSize: 12,
+                    color: 'var(--ek-text-muted)',
+                  }}
+                >
+                  {tx.noUpcomingSub}
+                </p>
                 <Link
                   href={`/${lang}/dashboard/agendar`}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                  className="ek-btn ek-btn-red ek-btn-square"
+                  style={{ padding: '10px 22px', fontSize: 13 }}
                 >
-                  {tx.bookNow}
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  {tx.bookNow} →
                 </Link>
               </div>
             ) : (
-              <ul>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {upcomingBookings.map((booking) => {
-                  const teacherName = (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name || null
+                  const teacherName =
+                    (booking.teacher as { profile?: { full_name?: string } } | null)?.profile?.full_name ||
+                    null
                   const awaitingTeacher = !teacherName && booking.status === 'pending'
                   const startMs = new Date(booking.scheduled_at).getTime()
                   const endMs = startMs + (booking.duration_minutes || 60) * 60_000
                   const isLive = now !== null && now >= startMs && now <= endMs
+
                   return (
                     <li
                       key={booking.id}
-                      className="flex items-center gap-4 px-5 py-4"
-                      style={{ borderBottom: '1px solid #E5E7EB' }}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '64px 1fr auto auto',
+                        gap: 16,
+                        alignItems: 'center',
+                        padding: '18px 22px',
+                        borderBottom: '1px solid var(--ek-border-soft)',
+                      }}
                     >
-                      <div className="flex-shrink-0 text-center w-10">
-                        <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                          {formatDate(booking.scheduled_at, lang, timezone).slice(0, 3)}
+                      <div style={{ textAlign: 'center' }}>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            letterSpacing: '0.15em',
+                            textTransform: 'uppercase',
+                            color: 'var(--ek-text-muted)',
+                            fontFamily: 'var(--ek-font-mono)',
+                          }}
+                        >
+                          {weekdayShort(booking.scheduled_at, lang, timezone)}
                         </div>
-                        <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
+                        <div
+                          style={{
+                            fontSize: 24,
+                            fontWeight: 800,
+                            color: 'var(--ek-text)',
+                            letterSpacing: '-0.025em',
+                            lineHeight: 1,
+                            marginTop: 2,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
                           {dayInTz(booking.scheduled_at, timezone)}
                         </div>
-                      </div>
-
-                      <div
-                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
-                        style={{ background: '#F3F4F6' }}
-                      >
-                        <Video className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold truncate" style={{ color: awaitingTeacher ? '#9CA3AF' : '#111111', fontStyle: awaitingTeacher ? 'italic' : 'normal' }}>
-                          {awaitingTeacher ? tx.teacherBeingAssigned : `${tx.with} ${teacherName}`}
-                        </div>
-                        {awaitingTeacher && (
-                          <div className="text-[10px] leading-snug mt-0.5" style={{ color: '#9CA3AF', fontStyle: 'italic' }}>
-                            {tx.awaitingTeacherSubtext}
-                          </div>
-                        )}
-                        <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                          {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span
-                          className="text-[10px] font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1.5"
-                          style={
-                            isLive
-                              ? { background: '#C41E3A', color: '#fff', border: '1px solid #C41E3A' }
-                              : booking.status === 'confirmed'
-                              ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
-                              : awaitingTeacher
-                              ? { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' }
-                              : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
-                          }
+                        <div
+                          style={{
+                            fontSize: 9,
+                            letterSpacing: '0.15em',
+                            textTransform: 'uppercase',
+                            color: 'var(--ek-text-muted)',
+                            marginTop: 2,
+                          }}
                         >
-                          {isLive && (
-                            <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: '#fff' }} />
-                          )}
-                          {isLive
-                            ? tx.statusLive
+                          {monthShort(booking.scheduled_at, lang, timezone)}
+                        </div>
+                      </div>
+
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: awaitingTeacher ? 'var(--ek-text-muted)' : 'var(--ek-text)',
+                            fontStyle: awaitingTeacher ? 'italic' : 'normal',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {awaitingTeacher
+                            ? tx.teacherBeingAssigned
+                            : `${lang === 'es' ? 'Clase con' : 'Class with'} ${teacherName}`}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--ek-text-muted)',
+                            marginTop: 3,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes} {tx.minutes}
+                        </div>
+                      </div>
+
+                      <StatusBadge
+                        variant={
+                          isLive
+                            ? 'cancelled' /* red live */
                             : booking.status === 'confirmed'
+                              ? 'confirmed'
+                              : awaitingTeacher
+                                ? 'pending'
+                                : 'neutral'
+                        }
+                      >
+                        {isLive
+                          ? tx.statusLive
+                          : booking.status === 'confirmed'
                             ? tx.statusConfirmed
                             : awaitingTeacher
-                            ? tx.statusAwaitingTeacher
-                            : tx.statusPending}
-                        </span>
-                        {!awaitingTeacher && (
-                          <JoinSessionButton
-                            lang={lang}
-                            bookingId={booking.id}
-                            scheduledAt={booking.scheduled_at}
-                            variant="compact"
-                          />
-                        )}
-                      </div>
+                              ? tx.statusAwaitingTeacher
+                              : tx.statusPending}
+                      </StatusBadge>
+
+                      {!awaitingTeacher && (
+                        <JoinSessionButton
+                          lang={lang}
+                          bookingId={booking.id}
+                          scheduledAt={booking.scheduled_at}
+                          variant="compact"
+                        />
+                      )}
                     </li>
                   )
                 })}
               </ul>
             )}
-          </div>
+          </section>
 
-          {/* Quick actions — right 2/5 */}
-          <div className="lg:col-span-2 space-y-3">
-            <h2 className="text-[14px] font-bold mb-1" style={{ color: '#111111' }}>{tx.quickActions}</h2>
-            {([
-              { href: tx.actions.book.href, icon: Video, title: tx.actions.book.title, sub: tx.actions.book.sub },
-              ...(placementTestDone
-                ? []
-                : [{
-                    href: placementScheduled ? tx.actions.testScheduled.href : tx.actions.test.href,
-                    icon: Star,
-                    title: placementScheduled ? tx.actions.testScheduled.title : tx.actions.test.title,
-                    sub: placementScheduled ? tx.actions.testScheduled.sub : tx.actions.test.sub,
-                  }]
-              ),
-              { href: tx.actions.progress.href, icon: TrendingUp, title: tx.actions.progress.title, sub: tx.actions.progress.sub },
-            ] as Array<{ href: string; icon: React.ElementType; title: string; sub: string }>).map(({ href, icon: Icon, title, sub }) => (
-              <Link key={title} href={`/${lang}${href}`}>
-                <div
-                  className="flex items-center gap-3.5 p-4 rounded-xl transition-all cursor-pointer"
-                  style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#111111')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                >
-                  <div
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
-                    style={{ background: '#F3F4F6' }}
-                  >
-                    <Icon className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{title}</div>
-                    <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{sub}</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" style={{ color: '#E5E7EB' }} />
-                </div>
-              </Link>
-            ))}
-          </div>
+          {/* Quick actions */}
+          <aside style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--ek-text-muted)',
+                fontWeight: 700,
+                padding: '0 4px',
+              }}
+            >
+              {tx.quickActionsKicker}
+            </div>
+            <QuickAction
+              href={`/${lang}/dashboard/agendar`}
+              glyph="+"
+              title={tx.actions.book.title}
+              sub={tx.actions.book.sub}
+              accent={accent}
+            />
+            {!placementTestDone && (
+              <QuickAction
+                href={`/${lang}/dashboard/placement`}
+                glyph="○"
+                title={placementScheduled ? tx.actions.testScheduled.title : tx.actions.test.title}
+                sub={placementScheduled ? tx.actions.testScheduled.sub : tx.actions.test.sub}
+                accent={accent}
+              />
+            )}
+            <QuickAction
+              href={`/${lang}/dashboard/progreso`}
+              glyph="↗"
+              title={tx.actions.progress.title}
+              sub={tx.actions.progress.sub}
+              accent={accent}
+            />
+          </aside>
         </div>
       </div>
     </div>
+  )
+}
+
+function BannerCard({
+  tone,
+  title,
+  sub,
+  cta,
+  href,
+}: {
+  tone: 'red' | 'success' | 'warn' | 'neutral'
+  title: string
+  sub?: string
+  cta?: string
+  href?: string
+}) {
+  const palette = {
+    red: {
+      bg: 'var(--ek-card)',
+      border: 'var(--ek-red-tint-3)',
+      dotBg: 'var(--ek-red-tint)',
+      dotColor: 'var(--ek-red)',
+      btnBg: 'var(--ek-red)',
+      btnColor: '#fff',
+    },
+    success: {
+      bg: 'var(--ek-card)',
+      border: 'var(--ek-success-border)',
+      dotBg: 'var(--ek-success-bg)',
+      dotColor: 'var(--ek-success-text)',
+      btnBg: 'var(--ek-success-text)',
+      btnColor: '#fff',
+    },
+    warn: {
+      bg: 'var(--ek-warn-bg)',
+      border: 'var(--ek-warn-border)',
+      dotBg: '#FEF3C7',
+      dotColor: 'var(--ek-warn-text)',
+      btnBg: 'var(--ek-warn-text)',
+      btnColor: '#fff',
+    },
+    neutral: {
+      bg: 'var(--ek-card)',
+      border: 'var(--ek-border)',
+      dotBg: 'var(--ek-paper-deep)',
+      dotColor: 'var(--ek-text-muted)',
+      btnBg: 'var(--ek-ink)',
+      btnColor: '#fff',
+    },
+  }[tone]
+
+  return (
+    <div
+      style={{
+        background: palette.bg,
+        border: `1px solid ${palette.border}`,
+        borderRadius: 12,
+        padding: 18,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        flexWrap: 'wrap',
+      }}
+    >
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 8,
+          background: palette.dotBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          fontFamily: 'var(--ek-font-mono)',
+          fontSize: 18,
+          fontWeight: 700,
+          color: palette.dotColor,
+        }}
+      >
+        ●
+      </div>
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>{title}</div>
+        {sub && (
+          <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 4, lineHeight: 1.5 }}>{sub}</div>
+        )}
+      </div>
+      {cta && href && (
+        <Link
+          href={href}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '9px 16px',
+            borderRadius: 8,
+            background: palette.btnBg,
+            color: palette.btnColor,
+            fontSize: 12,
+            fontWeight: 700,
+            textDecoration: 'none',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          {cta} →
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function QuickAction({
+  href,
+  glyph,
+  title,
+  sub,
+  accent,
+}: {
+  href: string
+  glyph: string
+  title: string
+  sub: string
+  accent: string
+}) {
+  return (
+    <Link
+      href={href}
+      style={{
+        background: 'var(--ek-card)',
+        border: '1px solid var(--ek-border)',
+        borderRadius: 12,
+        padding: '16px 18px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        textDecoration: 'none',
+        color: 'inherit',
+      }}
+    >
+      <div
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 8,
+          background: 'var(--ek-red-tint-2)',
+          color: accent,
+          fontSize: 17,
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'var(--ek-font-mono)',
+          flexShrink: 0,
+        }}
+      >
+        {glyph}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>{title}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--ek-text-muted)', marginTop: 2 }}>{sub}</div>
+      </div>
+      <span style={{ color: 'var(--ek-text-faint)', fontSize: 16 }}>›</span>
+    </Link>
   )
 }

@@ -4,7 +4,7 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X,
-  ChevronLeft, Stethoscope, Search, TrendingUp, History, CalendarDays,
+  ChevronLeft, Stethoscope, Search,
   MoreVertical, CalendarClock, AlertOctagon, XCircle,
 } from 'lucide-react'
 import { getSessionByBookingId } from '@/app/actions/video'
@@ -16,55 +16,58 @@ import {
 } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
+import { DashTopBar } from '@/components/ui/DashTopBar'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 const t = {
   en: {
-    title: 'My Classes',
-    subtitle: 'Upcoming and past sessions.',
+    title: 'My classes',
+    subtitle: 'Upcoming and completed · Every class is saved with its summary',
+    bookClass: '+ Schedule class',
+    exportLabel: 'Export',
     tabUpcoming: 'Upcoming',
-    tabHistory: 'History',
+    tabHistory: 'Completed',
+    tabCancelled: 'Cancelled',
     noUpcoming: 'No upcoming classes',
     noUpcomingSub: 'Book a class to get started.',
     noPast: 'No completed classes yet',
     noPastSub: 'Your session history will appear here.',
-    bookClass: 'Book a class',
+    upcomingThisWeek: (n: number) => `${n} class${n !== 1 ? 'es' : ''} this week`,
+    historyTitle: 'Recent history',
+    historySub: 'Latest completed classes',
+    seeAllSuffix: (n: number) => `See all ${n} →`,
     with: 'with',
+    classWith: 'Class with',
     mins: 'min',
-    enterRoom: 'Join class',
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
-    statusAwaitingTeacher: 'Awaiting teacher',
+    statusAwaitingTeacher: 'Assigning',
     statusLive: 'Live',
-    teacherBeingAssigned: 'Teacher being assigned',
+    teacherBeingAssigned: 'Assigning teacher',
     statusCompleted: 'Completed',
     statusDiagnostic: 'Diagnostic call',
     today: 'Today',
     tomorrow: 'Tomorrow',
-    viewSummary: 'Summary',
-    summaryTitle: 'Class Summary',
-    covered: 'Topics Covered',
-    nextTopics: 'Next Session Suggestions',
-    progressNote: 'Progress Note',
-    teacherNotes: 'Teacher Notes',
+    viewSummary: 'Notebook',
+    aiSummary: '◇ AI Summary',
+    nextClass: 'Next class',
+    noSummaryYet: 'No summary saved for this class yet.',
+    summaryTitle: 'Class summary',
+    covered: 'Topics covered',
+    nextTopics: 'Next session suggestions',
+    progressNote: 'Progress note',
+    teacherNotes: 'Teacher notes',
     transcript: 'Transcript',
     transcriptEmpty: 'No transcript was captured for this class.',
     noSummary: 'No summary available for this session.',
-    noNotes: 'Your teacher did not leave notes for this session.',
-    loadingSession: 'Loading session data...',
+    loadingSession: 'Loading session data…',
     close: 'Close',
-    calendarTitle: 'Monthly overview',
-    days: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
-    search: 'Search by teacher name',
-    noResults: 'No classes match your search.',
+    search: 'Search by teacher',
     showing: 'Showing',
     clear: 'Clear',
-    noClassesOnDay: 'No classes on this day',
-    scheduleOne: 'Schedule one',
-    stats30d: 'Last 30 days',
-    statsTotal: 'Total classes',
-    statsCompleted: 'Completed',
-    statsHours: 'Hours learned',
-    bookingsThisMonth: (n: number) => `${n} ${n === 1 ? 'class' : 'classes'} this month`,
+    enterRoom: 'Enter',
+    detailsBtn: 'Details',
+    rescheduleBtn: 'Reschedule',
     actions: 'Actions',
     actionCancel: 'Cancel class',
     actionReschedule: 'Reschedule',
@@ -87,52 +90,53 @@ const t = {
     actionFailed: 'Something went wrong. Try again.',
   },
   es: {
-    title: 'Mis Clases',
-    subtitle: 'Sesiones próximas y pasadas.',
+    title: 'Mis clases',
+    subtitle: 'Próximas y completadas · Cada clase queda guardada con su resumen',
+    bookClass: '+ Agendar clase',
+    exportLabel: 'Exportar',
     tabUpcoming: 'Próximas',
-    tabHistory: 'Historial',
+    tabHistory: 'Completadas',
+    tabCancelled: 'Canceladas',
     noUpcoming: 'No tienes clases próximas',
     noUpcomingSub: 'Agenda una clase para comenzar.',
     noPast: 'Todavía no tienes clases completadas',
-    noPastSub: 'Tu historial de sesiones aparecerá aquí.',
-    bookClass: 'Agendar clase',
+    noPastSub: 'Tu historial aparecerá aquí.',
+    upcomingThisWeek: (n: number) => `${n} clase${n !== 1 ? 's' : ''} esta semana`,
+    historyTitle: 'Historial reciente',
+    historySub: 'Últimas clases completadas',
+    seeAllSuffix: (n: number) => `Ver las ${n} →`,
     with: 'con',
+    classWith: 'Clase con',
     mins: 'min',
-    enterRoom: 'Entrar a sala',
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
-    statusAwaitingTeacher: 'Asignando maestro',
+    statusAwaitingTeacher: 'Asignando',
     statusLive: 'En vivo',
-    teacherBeingAssigned: 'Maestro por asignar',
+    teacherBeingAssigned: 'Asignando maestro',
     statusCompleted: 'Completada',
     statusDiagnostic: 'Llamada diagnóstica',
     today: 'Hoy',
     tomorrow: 'Mañana',
-    viewSummary: 'Resumen',
-    summaryTitle: 'Resumen de Clase',
-    covered: 'Temas Cubiertos',
-    nextTopics: 'Sugerencias para la Próxima Sesión',
-    progressNote: 'Nota de Progreso',
-    teacherNotes: 'Notas del Maestro',
+    viewSummary: 'Cuaderno',
+    aiSummary: '◇ Resumen IA',
+    nextClass: 'Próxima clase',
+    noSummaryYet: 'Sin resumen guardado para esta clase aún.',
+    summaryTitle: 'Resumen de clase',
+    covered: 'Temas cubiertos',
+    nextTopics: 'Sugerencias para la próxima sesión',
+    progressNote: 'Nota de progreso',
+    teacherNotes: 'Notas del maestro',
     transcript: 'Transcripción',
     transcriptEmpty: 'No se capturó transcripción para esta clase.',
     noSummary: 'No hay resumen disponible para esta sesión.',
-    noNotes: 'Tu maestro no dejó notas para esta sesión.',
-    loadingSession: 'Cargando datos de sesión...',
+    loadingSession: 'Cargando datos de sesión…',
     close: 'Cerrar',
-    calendarTitle: 'Vista mensual',
-    days: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
     search: 'Buscar por maestro',
-    noResults: 'Ninguna clase coincide con tu búsqueda.',
     showing: 'Mostrando',
     clear: 'Limpiar',
-    noClassesOnDay: 'No hay clases este día',
-    scheduleOne: 'Agendar una',
-    stats30d: 'Últimos 30 días',
-    statsTotal: 'Clases totales',
-    statsCompleted: 'Completadas',
-    statsHours: 'Horas aprendidas',
-    bookingsThisMonth: (n: number) => `${n} ${n === 1 ? 'clase' : 'clases'} este mes`,
+    enterRoom: 'Entrar',
+    detailsBtn: 'Detalles',
+    rescheduleBtn: 'Reagendar',
     actions: 'Acciones',
     actionCancel: 'Cancelar clase',
     actionReschedule: 'Reagendar',
@@ -156,9 +160,6 @@ const t = {
   },
 }
 
-const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December']
-const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-
 function ymdInTz(d: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -173,7 +174,7 @@ function formatDate(iso: string, lang: Locale, timeZone: string) {
   if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
   if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
   return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', timeZone,
+    weekday: 'long', month: 'short', day: 'numeric', timeZone,
   })
 }
 
@@ -188,16 +189,17 @@ function dayInTz(iso: string, timeZone: string): string {
 }
 
 function monthShortInTz(iso: string, lang: Locale, timeZone: string): string {
-  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', { month: 'short', timeZone })
+  return new Date(iso)
+    .toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', { month: 'short', timeZone })
+    .toUpperCase()
+    .replace(/\./g, '')
 }
 
-function buildCalendarGrid(year: number, month: number): (number | null)[] {
-  const firstDay = new Date(year, month, 1).getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells: (number | null)[] = Array(firstDay).fill(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-  while (cells.length % 7 !== 0) cells.push(null)
-  return cells
+function weekdayLong(iso: string, lang: Locale, timeZone: string): string {
+  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
+    weekday: 'long',
+    timeZone,
+  })
 }
 
 interface Booking {
@@ -208,6 +210,7 @@ interface Booking {
   type?: string
   teacher_id?: string | null
   teacher?: { profile?: { full_name?: string; avatar_url?: string } } | null
+  meeting_notes?: string | null
 }
 
 interface SessionData {
@@ -229,16 +232,13 @@ interface Props {
 
 export default function ClasesClient({ lang, timezone, upcomingBookings, pastBookings }: Props) {
   const tx = t[lang]
+  const accent = 'var(--ek-red)'
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming')
   const [viewingBookingId, setViewingBookingId] = useState<string | null>(null)
   const [sessionData, setSessionData] = useState<SessionData | null>(null)
   const [loadingSession, setLoadingSession] = useState(false)
   const [search, setSearch] = useState('')
 
-  // Per-row kebab dropdown + action-modal state. `actionTarget` carries the
-  // booking the user is acting on plus the action; `actionStatus` toggles the
-  // submitting → done/error states inline so users get feedback without a
-  // page reload.
   const [openMenuFor, setOpenMenuFor] = useState<string | null>(null)
   const [actionTarget, setActionTarget] = useState<
     | { booking: Booking; kind: 'cancel' | 'reschedule' | 'no_show' }
@@ -255,7 +255,6 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
     return () => clearTimeout(id)
   }, [toast])
 
-  // Click-outside closes the kebab dropdown.
   useEffect(() => {
     if (!openMenuFor) return
     function onDoc() { setOpenMenuFor(null) }
@@ -263,34 +262,18 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
     return () => document.removeEventListener('click', onDoc)
   }, [openMenuFor])
 
-  // Minute-tick drives the "Live" badge transition. Null on SSR for
-  // hydration safety; React-19 rules-of-hooks forbids synchronous setState
-  // inside an effect, so defer the initial set via a 0-ms timeout.
+  // Minute-tick for the Live badge transition
   const [nowTick, setNowTick] = useState<number | null>(null)
   useEffect(() => {
-    const t = setTimeout(() => setNowTick(Date.now()), 0)
+    const tt = setTimeout(() => setNowTick(Date.now()), 0)
     const id = setInterval(() => setNowTick(Date.now()), 60_000)
-    return () => { clearTimeout(t); clearInterval(id) }
+    return () => { clearTimeout(tt); clearInterval(id) }
   }, [])
 
-  const today = new Date()
-  const [calMonth, setCalMonth] = useState(today.getMonth())
-  const [calYear, setCalYear] = useState(today.getFullYear())
-  const [selectedDay, setSelectedDay] = useState<{ y: number; m: number; d: number } | null>(null)
-
-  const bookingRefs = useRef<Record<string, HTMLLIElement | null>>({})
-
-  const allBookings = useMemo(() => [...upcomingBookings, ...pastBookings], [upcomingBookings, pastBookings])
   const bookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings
 
   const filteredBookings = useMemo(() => {
     let list = bookings
-    if (selectedDay) {
-      list = list.filter(b => {
-        const d = new Date(b.scheduled_at)
-        return d.getFullYear() === selectedDay.y && d.getMonth() === selectedDay.m && d.getDate() === selectedDay.d
-      })
-    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter(b => {
@@ -299,62 +282,12 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
       })
     }
     return list
-  }, [bookings, search, selectedDay])
+  }, [bookings, search])
 
   const isEmpty = filteredBookings.length === 0
-
   const [nowSnapshotMs] = useState(() => Date.now())
 
-  // 30-day stats
-  const stats = useMemo(() => {
-    const monthAgo = nowSnapshotMs - 30 * 24 * 60 * 60 * 1000
-    const last30 = allBookings.filter(b => new Date(b.scheduled_at).getTime() >= monthAgo)
-    const completed30 = last30.filter(b => b.status === 'completed')
-    const totalMinutes = completed30.reduce((s, b) => s + (b.duration_minutes || 0), 0)
-    return {
-      total: last30.length,
-      completed: completed30.length,
-      hours: Math.round(totalMinutes / 60),
-    }
-  }, [allBookings, nowSnapshotMs])
-
-  // Build set of booked days in current calendar month
-  const bookedDays = useMemo(() => {
-    const set = new Set<number>()
-    for (const b of allBookings) {
-      const d = new Date(b.scheduled_at)
-      if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
-        set.add(d.getDate())
-      }
-    }
-    return set
-  }, [allBookings, calYear, calMonth])
-
-  const bookingsThisMonth = useMemo(() => bookedDays.size, [bookedDays])
-
-  const calendarCells = buildCalendarGrid(calYear, calMonth)
-  const monthLabel = (lang === 'es' ? MONTHS_ES : MONTHS_EN)[calMonth]
-
-  function prevMonth() {
-    setSelectedDay(null)
-    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) }
-    else setCalMonth(m => m - 1)
-  }
-  function nextMonth() {
-    setSelectedDay(null)
-    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) }
-    else setCalMonth(m => m + 1)
-  }
-
-  function scrollToDay(day: number) {
-    const target = bookings.find(b => {
-      const d = new Date(b.scheduled_at)
-      return d.getDate() === day && d.getMonth() === calMonth && d.getFullYear() === calYear
-    })
-    if (target) {
-      bookingRefs.current[target.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }
+  const bookingRefs = useRef<Record<string, HTMLLIElement | null>>({})
 
   async function openSummary(bookingId: string) {
     setViewingBookingId(bookingId)
@@ -364,20 +297,13 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
     setSessionData(data)
     setLoadingSession(false)
   }
-
-  function closeSummary() {
-    setViewingBookingId(null)
-    setSessionData(null)
-  }
+  function closeSummary() { setViewingBookingId(null); setSessionData(null) }
 
   function openAction(booking: Booking, kind: 'cancel' | 'reschedule' | 'no_show') {
     setActionTarget({ booking, kind })
     setActionStatus('idle')
     setActionError(null)
     if (kind === 'reschedule') {
-      // Pre-fill input as today+25h rounded to the nearest hour, formatted
-      // for <input type="datetime-local">. `nowTick` is already derived from
-      // wall-clock in an effect — using it satisfies react-hooks/purity.
       const baseMs = (nowTick ?? nowSnapshotMs) + 25 * 60 * 60 * 1000
       const d = new Date(baseMs)
       d.setMinutes(0, 0, 0)
@@ -387,45 +313,30 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
     }
     setOpenMenuFor(null)
   }
-
   function closeAction() {
-    setActionTarget(null)
-    setActionStatus('idle')
-    setActionError(null)
-    setRescheduleNewIso('')
+    setActionTarget(null); setActionStatus('idle'); setActionError(null); setRescheduleNewIso('')
   }
 
   async function runAction() {
     if (!actionTarget) return
-    setActionStatus('working')
-    setActionError(null)
+    setActionStatus('working'); setActionError(null)
     try {
       let res: { success?: boolean; error?: string; message?: string } | undefined
       if (actionTarget.kind === 'cancel') {
         res = await studentCancelBooking(actionTarget.booking.id, lang)
       } else if (actionTarget.kind === 'reschedule') {
-        if (!rescheduleNewIso) {
-          setActionStatus('error')
-          setActionError(tx.actionFailed)
-          return
-        }
+        if (!rescheduleNewIso) { setActionStatus('error'); setActionError(tx.actionFailed); return }
         const iso = new Date(rescheduleNewIso).toISOString()
         res = await studentRescheduleBooking(actionTarget.booking.id, iso, lang)
       } else if (actionTarget.kind === 'no_show') {
         res = await reportTeacherNoShow(actionTarget.booking.id, lang)
       }
-      if (res?.error) {
-        setActionStatus('error')
-        setActionError(res.error)
-        return
-      }
+      if (res?.error) { setActionStatus('error'); setActionError(res.error); return }
       closeAction()
       setToast(res?.message || tx.actionDone)
-      // Force a fresh server fetch so the booking list reflects the new state.
       window.location.reload()
     } catch (err) {
-      setActionStatus('error')
-      setActionError((err as Error).message || tx.actionFailed)
+      setActionStatus('error'); setActionError((err as Error).message || tx.actionFailed)
     }
   }
 
@@ -434,521 +345,697 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
     try { parsedSummary = JSON.parse(sessionData.teacher_notes) } catch { parsedSummary = null }
   }
 
-  function getBadge(booking: Booking) {
-    if (booking.type === 'placement_test') {
-      return {
-        label: tx.statusDiagnostic,
-        style: { background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' },
-        icon: <Stethoscope className="h-3 w-3" />,
-      }
-    }
-    const startMs = new Date(booking.scheduled_at).getTime()
-    const endMs = startMs + (booking.duration_minutes || 60) * 60_000
-    const isLive = nowTick !== null && nowTick >= startMs && nowTick <= endMs && booking.status !== 'completed' && booking.status !== 'cancelled'
-    if (isLive) {
-      return {
-        label: tx.statusLive,
-        style: { background: '#C41E3A', color: '#fff', border: '1px solid #C41E3A' },
-        icon: <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: '#fff' }} />,
-      }
-    }
-    if (booking.status === 'confirmed') {
-      return {
-        label: tx.statusConfirmed,
-        style: { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' },
-        icon: null,
-      }
-    }
-    if (booking.status === 'completed') {
-      return {
-        label: tx.statusCompleted,
-        style: { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' },
-        icon: null,
-      }
-    }
-    if (booking.status === 'pending' && !booking.teacher_id) {
-      return {
-        label: tx.statusAwaitingTeacher,
-        style: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' },
-        icon: null,
-      }
-    }
-    return {
-      label: tx.statusPending,
-      style: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D' },
-      icon: null,
-    }
-  }
-
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-      {/* Header */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-[22px] font-black tracking-tight" style={{ color: '#111111' }}>{tx.title}</h1>
-            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <DashTopBar
+        title={tx.title}
+        sub={tx.subtitle}
+        right={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link
+              href={`/${lang}/dashboard/agendar`}
+              className="ek-btn ek-btn-primary ek-btn-square"
+              style={{ padding: '9px 16px', fontSize: 12 }}
+            >
+              {tx.bookClass}
+            </Link>
           </div>
-          <Link
-            href={`/${lang}/dashboard/agendar`}
-            className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-bold transition-all"
-            style={{ background: '#C41E3A', color: '#fff' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-            onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
-          >
-            <Calendar className="h-4 w-4" />
-            {tx.bookClass}
-          </Link>
+        }
+      />
+
+      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+        {/* Tabs + search */}
+        <div
+          style={{
+            display: 'flex',
+            marginBottom: 20,
+            borderBottom: '1px solid var(--ek-border)',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 4 }}>
+            {([
+              { key: 'upcoming' as const, label: tx.tabUpcoming, count: upcomingBookings.length },
+              { key: 'history' as const, label: tx.tabHistory, count: pastBookings.length },
+            ]).map((tab) => {
+              const active = activeTab === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    border: 0,
+                    color: active ? 'var(--ek-text)' : 'var(--ek-text-muted)',
+                    borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
+                    marginBottom: -1,
+                    fontFamily: 'var(--ek-font-sans)',
+                  }}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{ position: 'relative', width: 260, marginBottom: 6 }}>
+            <Search
+              className="h-3.5 w-3.5"
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--ek-text-muted)',
+              }}
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={tx.search}
+              style={{
+                width: '100%',
+                paddingLeft: 36,
+                paddingRight: 12,
+                paddingTop: 9,
+                paddingBottom: 9,
+                borderRadius: 8,
+                fontSize: 13,
+                outline: 'none',
+                background: 'var(--ek-card)',
+                border: '1px solid var(--ek-border)',
+                color: 'var(--ek-text)',
+                fontFamily: 'var(--ek-font-sans)',
+              }}
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="max-w-[1440px] mx-auto px-6 lg:px-8 py-6 lg:py-8">
-        <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-
-          {/* LEFT RAIL */}
-          <aside className="space-y-4">
-            {/* Monthly calendar */}
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
-                <button
-                  onClick={prevMonth}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-                  style={{ color: '#6B7280' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#111111' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6B7280' }}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <div className="text-center">
-                  <p className="text-[14px] font-black capitalize" style={{ color: '#111111' }}>
-                    {monthLabel} {calYear}
-                  </p>
-                  <p className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
-                    {tx.bookingsThisMonth(bookingsThisMonth)}
-                  </p>
-                </div>
-                <button
-                  onClick={nextMonth}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-                  style={{ color: '#6B7280' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#111111' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6B7280' }}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+        {/* List section */}
+        <section
+          style={{
+            background: 'var(--ek-card)',
+            borderRadius: 14,
+            border: '1px solid var(--ek-border)',
+            overflow: 'hidden',
+            marginBottom: 28,
+          }}
+        >
+          <header
+            style={{
+              padding: '16px 22px',
+              borderBottom: '1px solid var(--ek-border-soft)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-text-muted)',
+                  fontWeight: 700,
+                }}
+              >
+                {activeTab === 'upcoming' ? tx.tabUpcoming : tx.historyTitle}
               </div>
-
-              <div className="grid grid-cols-7 px-4 pt-4 pb-1">
-                {tx.days.map((d, i) => (
-                  <div key={i} className="text-center text-[10px] font-bold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                    {d}
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7 px-4 pb-4 gap-y-1.5">
-                {calendarCells.map((day, i) => {
-                  if (!day) return <div key={i} />
-                  const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear()
-                  const hasBooking = bookedDays.has(day)
-                  const isSelected = !!selectedDay && selectedDay.y === calYear && selectedDay.m === calMonth && selectedDay.d === day
-                  const activeBg = isToday || isSelected
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        if (isSelected) { setSelectedDay(null); return }
-                        setSelectedDay({ y: calYear, m: calMonth, d: day })
-                        if (hasBooking) scrollToDay(day)
-                      }}
-                      className="flex flex-col items-center py-1 rounded-lg transition-colors"
-                      style={{ cursor: 'pointer' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6' }}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <span
-                        className="text-[13px] font-bold w-8 h-8 flex items-center justify-center rounded-full tabular-nums"
-                        style={activeBg ? { background: '#C41E3A', color: '#fff' } : { color: hasBooking ? '#111111' : '#9CA3AF' }}
-                      >
-                        {day}
-                      </span>
-                      {hasBooking && !activeBg && (
-                        <span className="h-1 w-1 rounded-full mt-0.5" style={{ background: '#C41E3A' }} />
-                      )}
-                      {hasBooking && activeBg && (
-                        <span className="h-1 w-1 rounded-full mt-0.5" style={{ background: '#fff' }} />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+              <h3
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: 'var(--ek-text)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {activeTab === 'upcoming'
+                  ? tx.upcomingThisWeek(filteredBookings.length)
+                  : tx.historySub}
+              </h3>
             </div>
-
-            {/* 30-day stats */}
-            <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(196,30,58,0.08)' }}>
-                  <TrendingUp className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                </div>
-                <h3 className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.stats30d}</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: tx.statsTotal, value: stats.total },
-                  { label: tx.statsCompleted, value: stats.completed },
-                  { label: tx.statsHours, value: stats.hours },
-                ].map((s, i) => (
-                  <div key={i} className="text-center">
-                    <p className="text-[22px] font-black tabular-nums" style={{ color: '#111111' }}>{s.value}</p>
-                    <p className="text-[10px] mt-0.5 leading-tight" style={{ color: '#9CA3AF' }}>{s.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
-
-          {/* MAIN: Tabs + search + list */}
-          <main className="min-w-0 space-y-4">
-            {/* Tabs + search */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="flex gap-1 p-1 rounded-lg" style={{ background: '#F3F4F6' }}>
-                {([
-                  { key: 'upcoming' as const, label: tx.tabUpcoming, icon: CalendarDays, count: upcomingBookings.length },
-                  { key: 'history' as const, label: tx.tabHistory, icon: History, count: pastBookings.length },
-                ]).map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-semibold transition-all"
-                      style={
-                        activeTab === tab.key
-                          ? { background: '#fff', color: '#111111', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
-                          : { background: 'transparent', color: '#6B7280' }
-                      }
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {tab.label}
-                      <span
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums"
-                        style={{ background: activeTab === tab.key ? 'rgba(196,30,58,0.1)' : '#E5E7EB', color: activeTab === tab.key ? '#C41E3A' : '#6B7280' }}
-                      >
-                        {tab.count}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="relative flex-1 sm:max-w-xs sm:ml-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder={tx.search}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg text-[13px] outline-none transition-all"
-                  style={{ background: '#fff', border: '1px solid #E5E7EB', color: '#111111' }}
-                  onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                  onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                />
-              </div>
-            </div>
-
-            {/* Day-filter pill */}
-            {selectedDay && (
-              <div className="flex items-center gap-2">
-                <div
-                  className="inline-flex items-center gap-2 rounded-full text-[12px] font-semibold"
-                  style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A', padding: '6px 6px 6px 12px', border: '1px solid rgba(196,30,58,0.2)' }}
-                >
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>
-                    {tx.showing}{' '}
-                    {new Date(selectedDay.y, selectedDay.m, selectedDay.d).toLocaleDateString(
-                      lang === 'es' ? 'es-CO' : 'en-US',
-                      { weekday: 'short', month: 'short', day: 'numeric' }
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDay(null)}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold transition-colors"
-                    style={{ background: '#C41E3A', color: '#fff' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#9E1830')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '#C41E3A')}
-                  >
-                    <X className="h-3 w-3" />
-                    {tx.clear}
-                  </button>
-                </div>
-              </div>
+            {activeTab === 'history' && pastBookings.length > filteredBookings.length && (
+              <span style={{ fontSize: 12, color: 'var(--ek-text-muted)' }}>
+                {tx.seeAllSuffix(pastBookings.length)}
+              </span>
             )}
+          </header>
 
-            {/* List */}
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-              {isEmpty ? (
-                <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl mb-4" style={{ background: 'rgba(196,30,58,0.08)' }}>
-                    <Calendar className="h-7 w-7" style={{ color: '#C41E3A' }} />
-                  </div>
-                  <p className="text-[15px] font-bold mb-1" style={{ color: '#111111' }}>
-                    {selectedDay
-                      ? tx.noClassesOnDay
-                      : search
-                      ? tx.noResults
-                      : activeTab === 'upcoming' ? tx.noUpcoming : tx.noPast}
-                  </p>
-                  {!search && !selectedDay && (
-                    <p className="text-[12px] mb-6" style={{ color: '#9CA3AF' }}>
-                      {activeTab === 'upcoming' ? tx.noUpcomingSub : tx.noPastSub}
-                    </p>
-                  )}
-                  {selectedDay && (
-                    <p className="text-[12px] mb-6" style={{ color: '#9CA3AF' }}>
-                      {new Date(selectedDay.y, selectedDay.m, selectedDay.d).toLocaleDateString(
-                        lang === 'es' ? 'es-CO' : 'en-US',
-                        { weekday: 'long', month: 'long', day: 'numeric' }
-                      )}
-                    </p>
-                  )}
-                  {activeTab === 'upcoming' && !search && (
-                    <Link
-                      href={`/${lang}/dashboard/agendar`}
-                      className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg font-semibold text-[13px] transition-all"
-                      style={{ background: '#C41E3A', color: '#fff' }}
-                      onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                      onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+          {isEmpty ? (
+            <div style={{ padding: '64px 24px', textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ek-text)' }}>
+                {search
+                  ? lang === 'es' ? 'Ninguna clase coincide.' : 'No classes match.'
+                  : activeTab === 'upcoming'
+                    ? tx.noUpcoming
+                    : tx.noPast}
+              </p>
+              {!search && (
+                <p style={{ margin: '6px 0 20px', fontSize: 12, color: 'var(--ek-text-muted)' }}>
+                  {activeTab === 'upcoming' ? tx.noUpcomingSub : tx.noPastSub}
+                </p>
+              )}
+              {activeTab === 'upcoming' && !search && (
+                <Link
+                  href={`/${lang}/dashboard/agendar`}
+                  className="ek-btn ek-btn-red ek-btn-square"
+                  style={{ padding: '10px 22px', fontSize: 13 }}
+                >
+                  {tx.bookClass} →
+                </Link>
+              )}
+            </div>
+          ) : (
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {filteredBookings.map((booking) => {
+                const isCompleted = booking.status === 'completed'
+                const teacherName = booking.teacher?.profile?.full_name || null
+                const awaitingTeacher =
+                  booking.type !== 'placement_test' && !teacherName && booking.status === 'pending'
+                const startMs = new Date(booking.scheduled_at).getTime()
+                const endMs = startMs + (booking.duration_minutes || 60) * 60_000
+                const isLive =
+                  nowTick !== null &&
+                  nowTick >= startMs &&
+                  nowTick <= endMs &&
+                  booking.status !== 'completed' &&
+                  booking.status !== 'cancelled'
+                const isNext =
+                  activeTab === 'upcoming' &&
+                  booking === filteredBookings[0]
+
+                if (isCompleted) {
+                  // Past row with inline AI summary panel
+                  let parsed: SessionSummary | null = null
+                  if (booking.meeting_notes) {
+                    try { parsed = JSON.parse(booking.meeting_notes) } catch { parsed = null }
+                  }
+                  return (
+                    <li
+                      key={booking.id}
+                      ref={(el) => { bookingRefs.current[booking.id] = el }}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '70px 1fr 110px',
+                        gap: 18,
+                        alignItems: 'flex-start',
+                        padding: '20px 22px',
+                        borderBottom: '1px solid var(--ek-border-soft)',
+                      }}
                     >
-                      {selectedDay ? tx.scheduleOne : tx.bookClass}
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Link>
-                  )}
-                </div>
-              ) : (
-                <ul>
-                  {filteredBookings.map((booking) => {
-                    const isCompleted = booking.status === 'completed'
-                    const teacherName = booking.teacher?.profile?.full_name || null
-                    const teacherAvatar = booking.teacher?.profile?.avatar_url || null
-                    const awaitingTeacher = booking.type !== 'placement_test' && !teacherName
-                    const badge = getBadge(booking)
-
-                    return (
-                      <li
-                        key={booking.id}
-                        ref={el => { bookingRefs.current[booking.id] = el }}
-                        className="flex items-center gap-4 px-5 py-4 transition-colors"
-                        style={{ borderBottom: '1px solid #F3F4F6' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        {/* Date column */}
-                        <div className="flex-shrink-0 text-center w-14 py-1 rounded-lg" style={{ background: '#F9F9F9', border: '1px solid #F3F4F6' }}>
-                          <div className="text-[10px] uppercase tracking-wide font-bold" style={{ color: '#C41E3A' }}>
-                            {monthShortInTz(booking.scheduled_at, lang, timezone).replace('.', '')}
-                          </div>
-                          <div className="text-[20px] font-black leading-none mt-0.5 tabular-nums" style={{ color: '#111111' }}>
-                            {dayInTz(booking.scheduled_at, timezone)}
-                          </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div
+                          style={{
+                            fontSize: 9.5,
+                            letterSpacing: '0.15em',
+                            textTransform: 'uppercase',
+                            color: 'var(--ek-text-muted)',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {monthShortInTz(booking.scheduled_at, lang, timezone)}
                         </div>
-
-                        {/* Avatar + icon */}
-                        <div className="hidden sm:flex flex-shrink-0">
-                          {booking.type === 'placement_test' ? (
-                            <div className="h-11 w-11 rounded-full flex items-center justify-center" style={{ background: '#EFF6FF' }}>
-                              <Stethoscope className="h-5 w-5" style={{ color: '#1D4ED8' }} />
-                            </div>
-                          ) : teacherAvatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={teacherAvatar}
-                              alt={teacherName || ''}
-                              className="h-11 w-11 rounded-full object-cover"
-                              style={{ border: '2px solid #F3F4F6' }}
-                            />
-                          ) : (
-                            <div className="h-11 w-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(196,30,58,0.08)' }}>
-                              {isCompleted
-                                ? <CheckCircle2 className="h-5 w-5" style={{ color: '#C41E3A' }} />
-                                : <Video className="h-5 w-5" style={{ color: '#C41E3A' }} />
-                              }
-                            </div>
-                          )}
+                        <div
+                          style={{
+                            fontSize: 24,
+                            fontWeight: 800,
+                            color: 'var(--ek-text)',
+                            letterSpacing: '-0.025em',
+                            lineHeight: 1,
+                            marginTop: 2,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {dayInTz(booking.scheduled_at, timezone)}
                         </div>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: 'var(--ek-text-muted)',
+                            marginTop: 2,
+                            textTransform: 'capitalize',
+                          }}
+                        >
+                          {weekdayLong(booking.scheduled_at, lang, timezone)}
+                        </div>
+                      </div>
 
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div
-                            className="text-[14px] font-bold truncate"
-                            style={{ color: awaitingTeacher ? '#9CA3AF' : '#111111', fontStyle: awaitingTeacher ? 'italic' : 'normal' }}
+                      <div>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            marginBottom: 10,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 13.5,
+                              fontWeight: 700,
+                              color: 'var(--ek-text)',
+                            }}
                           >
                             {booking.type === 'placement_test'
                               ? (lang === 'es' ? 'Llamada diagnóstica' : 'Diagnostic call')
-                              : awaitingTeacher
-                              ? tx.teacherBeingAssigned
-                              : `${tx.with} ${teacherName}`
-                            }
-                          </div>
-                          <div className="flex items-center gap-2 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
-                            <span>{formatDate(booking.scheduled_at, lang, timezone)}</span>
-                            <span style={{ color: '#D1D5DB' }}>·</span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatTime(booking.scheduled_at, lang, timezone)}
-                            </span>
-                            <span style={{ color: '#D1D5DB' }}>·</span>
-                            <span>{booking.duration_minutes}{tx.mins}</span>
-                          </div>
-                        </div>
-
-                        {/* Right side: badge + CTA */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span
-                            className="hidden md:flex text-[10px] font-semibold px-2.5 py-1 rounded items-center gap-1"
-                            style={badge.style}
-                          >
-                            {badge.icon}
-                            {badge.label}
+                              : teacherName
+                                ? `${tx.with} ${teacherName}`
+                                : (lang === 'es' ? 'Sin maestro' : 'No teacher')}
                           </span>
+                          <StatusBadge variant="completed">{tx.statusCompleted}</StatusBadge>
+                        </div>
 
-                          {activeTab === 'upcoming' && !awaitingTeacher && (
-                            <JoinSessionButton
-                              lang={lang}
-                              bookingId={booking.id}
-                              scheduledAt={booking.scheduled_at}
-                              variant="compact"
-                            />
-                          )}
-
-                          {/* Kebab menu — cancel / reschedule / report no-show.
-                              Placement-test bookings skip the menu (different
-                              flow). Booking must be live (pending or confirmed) */}
-                          {activeTab === 'upcoming'
-                            && booking.type !== 'placement_test'
-                            && (booking.status === 'pending' || booking.status === 'confirmed')
-                            && (() => {
-                              const startMs = new Date(booking.scheduled_at).getTime()
-                              const endMs = startMs + (booking.duration_minutes || 60) * 60_000
-                              // Eligible to report no-show only after the class
-                              // window has fully passed (server enforces too).
-                              const canReportNoShow = nowTick !== null && nowTick > endMs + 5 * 60_000
-                              const isOpen = openMenuFor === booking.id
-                              return (
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setOpenMenuFor(isOpen ? null : booking.id)
-                                    }}
-                                    className="flex items-center justify-center h-8 w-8 rounded-lg transition-all"
-                                    style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = '#E5E7EB'; e.currentTarget.style.color = '#111111' }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#6B7280' }}
-                                    aria-label={tx.actions}
-                                  >
-                                    <MoreVertical className="h-3.5 w-3.5" />
-                                  </button>
-                                  {isOpen && (
-                                    <div
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="absolute right-0 top-full mt-1 z-30 w-56 rounded-lg overflow-hidden shadow-lg"
-                                      style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-                                    >
-                                      <button
-                                        onClick={() => openAction(booking, 'reschedule')}
-                                        className="flex items-center gap-2 w-full text-left px-3 py-2.5 text-[12px] font-semibold transition-colors"
-                                        style={{ color: '#111111' }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = '#F9F9F9')}
-                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                      >
-                                        <CalendarClock className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
-                                        {tx.actionReschedule}
-                                      </button>
-                                      <button
-                                        onClick={() => openAction(booking, 'cancel')}
-                                        className="flex items-center gap-2 w-full text-left px-3 py-2.5 text-[12px] font-semibold transition-colors"
-                                        style={{ color: '#111111', borderTop: '1px solid #F3F4F6' }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = '#F9F9F9')}
-                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                      >
-                                        <XCircle className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
-                                        {tx.actionCancel}
-                                      </button>
-                                      {canReportNoShow && (
-                                        <button
-                                          onClick={() => openAction(booking, 'no_show')}
-                                          className="flex items-center gap-2 w-full text-left px-3 py-2.5 text-[12px] font-semibold transition-colors"
-                                          style={{ color: '#111111', borderTop: '1px solid #F3F4F6' }}
-                                          onMouseEnter={e => (e.currentTarget.style.background = '#F9F9F9')}
-                                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                        >
-                                          <AlertOctagon className="h-3.5 w-3.5" style={{ color: '#D97706' }} />
-                                          {tx.actionNoShow}
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
+                        <div
+                          style={{
+                            background: 'var(--ek-paper)',
+                            borderRadius: 8,
+                            padding: '12px 14px',
+                            border: '1px solid var(--ek-border)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 9.5,
+                              letterSpacing: '0.18em',
+                              textTransform: 'uppercase',
+                              color: accent,
+                              fontWeight: 700,
+                              marginBottom: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontFamily: 'var(--ek-font-mono)',
+                            }}
+                          >
+                            {tx.aiSummary}
+                          </div>
+                          {parsed?.covered && parsed.covered.length > 0 ? (
+                            <>
+                              <div
+                                style={{
+                                  fontSize: 12.5,
+                                  color: 'var(--ek-ink-soft)',
+                                  lineHeight: 1.55,
+                                  marginBottom: 6,
+                                }}
+                              >
+                                {parsed.covered.slice(0, 2).join(' · ')}
+                              </div>
+                              {parsed.nextTopics && parsed.nextTopics[0] && (
+                                <div
+                                  style={{
+                                    fontSize: 11.5,
+                                    color: 'var(--ek-text-muted)',
+                                    fontStyle: 'italic',
+                                    fontFamily: 'var(--ek-font-serif)',
+                                  }}
+                                >
+                                  → {parsed.nextTopics[0]}
                                 </div>
-                              )
-                            })()
-                          }
-
-                          {isCompleted && (
-                            <button
-                              onClick={() => openSummary(booking.id)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
-                              style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#E5E7EB'; e.currentTarget.style.color = '#111111' }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#F3F4F6'; e.currentTarget.style.color = '#6B7280' }}
+                              )}
+                            </>
+                          ) : (
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: 'var(--ek-text-muted)',
+                                fontStyle: 'italic',
+                              }}
                             >
-                              <Sparkles className="h-3 w-3" />
-                              {tx.viewSummary}
-                            </button>
+                              {tx.noSummaryYet}
+                            </div>
                           )}
                         </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </div>
-          </main>
-        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <button
+                          onClick={() => openSummary(booking.id)}
+                          style={{
+                            background: 'transparent',
+                            color: 'var(--ek-text-soft)',
+                            border: '1px solid var(--ek-border-mid)',
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            fontFamily: 'var(--ek-font-sans)',
+                          }}
+                        >
+                          {tx.viewSummary}
+                        </button>
+                      </div>
+                    </li>
+                  )
+                }
+
+                // Upcoming row
+                return (
+                  <li
+                    key={booking.id}
+                    ref={(el) => { bookingRefs.current[booking.id] = el }}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '70px 1fr auto auto auto',
+                      gap: 16,
+                      alignItems: 'center',
+                      padding: '18px 22px',
+                      borderBottom: '1px solid var(--ek-border-soft)',
+                      background: isNext ? 'var(--ek-red-tint)' : 'transparent',
+                    }}
+                  >
+                    <div style={{ textAlign: 'center' }}>
+                      <div
+                        style={{
+                          fontSize: 9.5,
+                          letterSpacing: '0.15em',
+                          textTransform: 'uppercase',
+                          color: 'var(--ek-text-muted)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {monthShortInTz(booking.scheduled_at, lang, timezone)}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 28,
+                          fontWeight: 800,
+                          color: isNext ? accent : 'var(--ek-text)',
+                          letterSpacing: '-0.025em',
+                          lineHeight: 1,
+                          marginTop: 2,
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {dayInTz(booking.scheduled_at, timezone)}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--ek-text-muted)',
+                          marginTop: 2,
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {weekdayLong(booking.scheduled_at, lang, timezone)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: awaitingTeacher ? 'var(--ek-text-muted)' : 'var(--ek-text)',
+                        }}
+                      >
+                        {booking.type === 'placement_test' ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <Stethoscope className="h-3.5 w-3.5" style={{ color: accent }} />
+                            {tx.statusDiagnostic}
+                          </span>
+                        ) : awaitingTeacher ? (
+                          <em style={{ fontFamily: 'var(--ek-font-serif)' }}>{tx.teacherBeingAssigned}</em>
+                        ) : (
+                          `${tx.classWith} ${teacherName}`
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: 'var(--ek-text-muted)',
+                          marginTop: 3,
+                          fontFeatureSettings: '"tnum"',
+                        }}
+                      >
+                        {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes} {tx.mins}
+                      </div>
+                    </div>
+
+                    <StatusBadge
+                      variant={
+                        isLive
+                          ? 'cancelled'
+                          : booking.status === 'confirmed'
+                            ? 'confirmed'
+                            : awaitingTeacher
+                              ? 'pending'
+                              : 'neutral'
+                      }
+                    >
+                      {isLive
+                        ? tx.statusLive
+                        : booking.status === 'confirmed'
+                          ? tx.statusConfirmed
+                          : awaitingTeacher
+                            ? tx.statusAwaitingTeacher
+                            : tx.statusPending}
+                    </StatusBadge>
+
+                    {/* Kebab menu */}
+                    {booking.type !== 'placement_test' &&
+                      (booking.status === 'pending' || booking.status === 'confirmed') &&
+                      (() => {
+                        const canReportNoShow = nowTick !== null && nowTick > endMs + 5 * 60_000
+                        const isOpen = openMenuFor === booking.id
+                        return (
+                          <div style={{ position: 'relative' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setOpenMenuFor(isOpen ? null : booking.id)
+                              }}
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 6,
+                                background: 'var(--ek-paper)',
+                                color: 'var(--ek-text-soft)',
+                                border: '1px solid var(--ek-border-mid)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                              }}
+                              aria-label={tx.actions}
+                            >
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </button>
+                            {isOpen && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  position: 'absolute',
+                                  right: 0,
+                                  top: '100%',
+                                  marginTop: 4,
+                                  zIndex: 30,
+                                  width: 220,
+                                  background: 'var(--ek-card)',
+                                  border: '1px solid var(--ek-border)',
+                                  borderRadius: 8,
+                                  overflow: 'hidden',
+                                  boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                                }}
+                              >
+                                <button
+                                  onClick={() => openAction(booking, 'reschedule')}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '10px 12px',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: 'var(--ek-text)',
+                                    background: 'transparent',
+                                    border: 0,
+                                    cursor: 'pointer',
+                                    fontFamily: 'var(--ek-font-sans)',
+                                  }}
+                                >
+                                  <CalendarClock className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+                                  {tx.actionReschedule}
+                                </button>
+                                <button
+                                  onClick={() => openAction(booking, 'cancel')}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '10px 12px',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: 'var(--ek-text)',
+                                    background: 'transparent',
+                                    border: 0,
+                                    borderTop: '1px solid var(--ek-border-soft)',
+                                    cursor: 'pointer',
+                                    fontFamily: 'var(--ek-font-sans)',
+                                  }}
+                                >
+                                  <XCircle className="h-3.5 w-3.5" style={{ color: accent }} />
+                                  {tx.actionCancel}
+                                </button>
+                                {canReportNoShow && (
+                                  <button
+                                    onClick={() => openAction(booking, 'no_show')}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '10px 12px',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      color: 'var(--ek-text)',
+                                      background: 'transparent',
+                                      border: 0,
+                                      borderTop: '1px solid var(--ek-border-soft)',
+                                      cursor: 'pointer',
+                                      fontFamily: 'var(--ek-font-sans)',
+                                    }}
+                                  >
+                                    <AlertOctagon className="h-3.5 w-3.5" style={{ color: 'var(--ek-warn-text)' }} />
+                                    {tx.actionNoShow}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                    {!awaitingTeacher && (
+                      <JoinSessionButton
+                        lang={lang}
+                        bookingId={booking.id}
+                        scheduledAt={booking.scheduled_at}
+                        variant="compact"
+                      />
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
       </div>
 
-      {/* Summary modal */}
+      {/* Summary modal (full detail) */}
       {viewingBookingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0" style={{ background: 'rgba(17,17,17,0.5)', backdropFilter: 'blur(4px)' }} onClick={closeSummary} />
-          <div className="relative w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl" style={{ background: '#fff' }}>
-            <div className="flex items-center justify-between px-6 py-5 sticky top-0 bg-white" style={{ borderBottom: '1px solid #E5E7EB' }}>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                <span className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.summaryTitle}</span>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(17,17,17,0.5)',
+              backdropFilter: 'blur(4px)',
+            }}
+            onClick={closeSummary}
+          />
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: 460,
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              background: 'var(--ek-card)',
+              borderRadius: 16,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              fontFamily: 'var(--ek-font-sans)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px 24px',
+                position: 'sticky',
+                top: 0,
+                background: 'var(--ek-card)',
+                borderBottom: '1px solid var(--ek-border)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Sparkles className="h-4 w-4" style={{ color: accent }} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--ek-text)' }}>
+                  {tx.summaryTitle}
+                </span>
               </div>
-              <button onClick={closeSummary} className="transition-colors" style={{ color: '#9CA3AF' }} onMouseEnter={e => (e.currentTarget.style.color = '#111111')} onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}>
+              <button
+                onClick={closeSummary}
+                style={{ background: 'transparent', border: 0, color: 'var(--ek-text-muted)', cursor: 'pointer' }}
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="p-6 space-y-5">
+            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
               {loadingSession ? (
-                <div className="flex items-center justify-center py-8 gap-3">
-                  <span className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(196,30,58,0.2)', borderTopColor: '#C41E3A' }} />
-                  <p className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.loadingSession}</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0', gap: 12 }}>
+                  <span
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      border: '2px solid var(--ek-red-tint-3)',
+                      borderTopColor: accent,
+                      animation: 'spin 1s linear infinite',
+                    }}
+                  />
+                  <p style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.loadingSession}</p>
                 </div>
               ) : (
                 <>
                   {parsedSummary ? (
-                    <div className="space-y-4">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                       {parsedSummary.covered.length > 0 && (
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>{tx.covered}</p>
-                          <ul className="space-y-1.5">
+                          <p
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.18em',
+                              marginBottom: 8,
+                              color: 'var(--ek-text-muted)',
+                            }}
+                          >
+                            {tx.covered}
+                          </p>
+                          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
                             {parsedSummary.covered.map((item, i) => (
-                              <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: '#374151' }}>
-                                <span className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#C41E3A' }} />
+                              <li key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: 'var(--ek-ink-soft)' }}>
+                                <span style={{ marginTop: 7, width: 6, height: 6, borderRadius: '50%', background: accent, flexShrink: 0 }} />
                                 {item}
                               </li>
                             ))}
@@ -957,11 +1044,22 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                       )}
                       {parsedSummary.nextTopics.length > 0 && (
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>{tx.nextTopics}</p>
-                          <ul className="space-y-1.5">
+                          <p
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.18em',
+                              marginBottom: 8,
+                              color: 'var(--ek-text-muted)',
+                            }}
+                          >
+                            {tx.nextTopics}
+                          </p>
+                          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
                             {parsedSummary.nextTopics.map((item, i) => (
-                              <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: '#374151' }}>
-                                <ChevronRight className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
+                              <li key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: 'var(--ek-ink-soft)' }}>
+                                <ChevronRight className="h-3.5 w-3.5" style={{ marginTop: 2, color: 'var(--ek-text-muted)', flexShrink: 0 }} />
                                 {item}
                               </li>
                             ))}
@@ -969,40 +1067,109 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                         </div>
                       )}
                       {parsedSummary.progressNote && (
-                        <div className="rounded-xl p-4" style={{ background: 'rgba(196,30,58,0.05)', border: '1px solid rgba(196,30,58,0.1)' }}>
-                          <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#C41E3A' }}>{tx.progressNote}</p>
-                          <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>{parsedSummary.progressNote}</p>
+                        <div
+                          style={{
+                            borderRadius: 12,
+                            padding: 14,
+                            background: 'var(--ek-red-tint)',
+                            border: '1px solid var(--ek-red-tint-3)',
+                          }}
+                        >
+                          <p
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.18em',
+                              marginBottom: 6,
+                              color: accent,
+                            }}
+                          >
+                            {tx.progressNote}
+                          </p>
+                          <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
+                            {parsedSummary.progressNote}
+                          </p>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="rounded-xl p-5 text-center" style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}>
-                      <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.noSummary}</p>
+                    <div
+                      style={{
+                        borderRadius: 12,
+                        padding: 20,
+                        textAlign: 'center',
+                        background: 'var(--ek-paper)',
+                        border: '1px solid var(--ek-border)',
+                      }}
+                    >
+                      <p style={{ fontSize: 12, color: 'var(--ek-text-muted)' }}>{tx.noSummary}</p>
                     </div>
                   )}
                   {sessionData?.notes && (
-                    <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '1.25rem' }}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <FileText className="h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
-                        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>{tx.teacherNotes}</p>
+                    <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+                        <p
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.18em',
+                            color: 'var(--ek-text-muted)',
+                          }}
+                        >
+                          {tx.teacherNotes}
+                        </p>
                       </div>
-                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: '#374151' }}>{sessionData.notes}</p>
+                      <p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', color: 'var(--ek-ink-soft)' }}>
+                        {sessionData.notes}
+                      </p>
                     </div>
                   )}
-                  <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '1.25rem' }}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <FileText className="h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
-                      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>{tx.transcript}</p>
+                  <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+                      <p
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.18em',
+                          color: 'var(--ek-text-muted)',
+                        }}
+                      >
+                        {tx.transcript}
+                      </p>
                     </div>
                     {sessionData?.transcript ? (
                       <div
-                        className="text-[12px] leading-relaxed whitespace-pre-wrap rounded-lg p-3 max-h-64 overflow-y-auto"
-                        style={{ color: '#374151', background: '#FAFAFA', border: '1px solid #E5E7EB' }}
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.55,
+                          whiteSpace: 'pre-wrap',
+                          borderRadius: 8,
+                          padding: 12,
+                          maxHeight: 256,
+                          overflowY: 'auto',
+                          color: 'var(--ek-ink-soft)',
+                          background: 'var(--ek-paper)',
+                          border: '1px solid var(--ek-border)',
+                        }}
                       >
                         {sessionData.transcript}
                       </div>
                     ) : (
-                      <p className="text-[12px] italic" style={{ color: '#9CA3AF' }}>{tx.transcriptEmpty}</p>
+                      <p
+                        style={{
+                          fontSize: 12,
+                          fontStyle: 'italic',
+                          color: 'var(--ek-text-muted)',
+                          fontFamily: 'var(--ek-font-serif)',
+                        }}
+                      >
+                        {tx.transcriptEmpty}
+                      </p>
                     )}
                   </div>
                 </>
@@ -1012,81 +1179,140 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
         </div>
       )}
 
-      {/* Action modal — cancel / reschedule / no-show */}
+      {/* Action modal */}
       {actionTarget && (() => {
         const startMs = new Date(actionTarget.booking.scheduled_at).getTime()
         const isLateCancel = startMs - (nowTick ?? nowSnapshotMs) < 24 * 60 * 60 * 1000
         const title =
           actionTarget.kind === 'reschedule' ? tx.rescheduleTitle
-          : actionTarget.kind === 'no_show' ? tx.noShowTitle
-          : (isLateCancel ? tx.cancelTitleLate : tx.cancelTitleEarly)
+            : actionTarget.kind === 'no_show' ? tx.noShowTitle
+              : (isLateCancel ? tx.cancelTitleLate : tx.cancelTitleEarly)
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div className="absolute inset-0" style={{ background: 'rgba(17,17,17,0.5)', backdropFilter: 'blur(4px)' }} onClick={closeAction} />
-            <div className="relative w-full max-w-md rounded-2xl shadow-2xl" style={{ background: '#fff' }}>
-              <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid #E5E7EB' }}>
-                <span className="text-[14px] font-bold" style={{ color: '#111111' }}>{title}</span>
-                <button onClick={closeAction} className="transition-colors" style={{ color: '#9CA3AF' }} onMouseEnter={e => (e.currentTarget.style.color = '#111111')} onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(17,17,17,0.5)',
+                backdropFilter: 'blur(4px)',
+              }}
+              onClick={closeAction}
+            />
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: 440,
+                background: 'var(--ek-card)',
+                borderRadius: 16,
+                boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+                fontFamily: 'var(--ek-font-sans)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '20px 24px',
+                  borderBottom: '1px solid var(--ek-border)',
+                }}
+              >
+                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--ek-text)' }}>{title}</span>
+                <button
+                  onClick={closeAction}
+                  style={{ background: 'transparent', border: 0, color: 'var(--ek-text-muted)', cursor: 'pointer' }}
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="p-6 space-y-4">
+              <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {actionTarget.kind === 'cancel' && (
-                  <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>
+                  <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
                     {isLateCancel ? tx.cancelBodyLate : tx.cancelBodyEarly}
                   </p>
                 )}
                 {actionTarget.kind === 'no_show' && (
-                  <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>
+                  <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
                     {tx.noShowBody}
                   </p>
                 )}
                 {actionTarget.kind === 'reschedule' && (
                   <>
-                    <p className="text-[13px] leading-relaxed" style={{ color: '#374151' }}>
+                    <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
                       {tx.rescheduleHint}
                     </p>
-                    <label className="block">
-                      <span className="text-[11px] font-bold uppercase tracking-widest mb-1.5 block" style={{ color: '#9CA3AF' }}>
+                    <label style={{ display: 'block' }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.18em',
+                          marginBottom: 6,
+                          display: 'block',
+                          color: 'var(--ek-text-muted)',
+                        }}
+                      >
                         {tx.rescheduleNewLabel}
                       </span>
                       <input
                         type="datetime-local"
                         value={rescheduleNewIso}
-                        onChange={e => setRescheduleNewIso(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-lg text-[13px] outline-none transition-all"
-                        style={{ background: '#fff', border: '1px solid #E5E7EB', color: '#111111' }}
-                        onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                        onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                        onChange={(e) => setRescheduleNewIso(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 8,
+                          fontSize: 13,
+                          outline: 'none',
+                          background: 'var(--ek-card)',
+                          border: '1px solid var(--ek-border)',
+                          color: 'var(--ek-text)',
+                          fontFamily: 'var(--ek-font-sans)',
+                        }}
                       />
                     </label>
                   </>
                 )}
                 {actionStatus === 'error' && actionError && (
-                  <div className="rounded-lg px-3 py-2 text-[12px]" style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }}>
+                  <div
+                    style={{
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      fontSize: 12,
+                      background: 'var(--ek-red-tint)',
+                      color: accent,
+                      border: '1px solid var(--ek-red-tint-3)',
+                    }}
+                  >
                     {actionError}
                   </div>
                 )}
-                <div className="flex items-center gap-2 justify-end pt-2">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
                   <button
                     onClick={closeAction}
                     disabled={actionStatus === 'working'}
-                    className="px-4 py-2 rounded-lg text-[12px] font-semibold transition-all"
-                    style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB' }}
+                    className="ek-btn ek-btn-ghost ek-btn-square"
+                    style={{ padding: '10px 16px', fontSize: 12 }}
                   >
                     {actionTarget.kind === 'cancel' ? tx.cancelGoBack : tx.close}
                   </button>
                   <button
                     onClick={runAction}
                     disabled={actionStatus === 'working' || (actionTarget.kind === 'reschedule' && !rescheduleNewIso)}
-                    className="px-4 py-2 rounded-lg text-[12px] font-bold transition-all"
-                    style={{ background: '#C41E3A', color: '#fff', opacity: actionStatus === 'working' ? 0.7 : 1 }}
+                    className="ek-btn ek-btn-red ek-btn-square"
+                    style={{
+                      padding: '10px 16px',
+                      fontSize: 12,
+                      opacity: actionStatus === 'working' ? 0.7 : 1,
+                    }}
                   >
                     {actionStatus === 'working'
                       ? tx.actionWorking
                       : actionTarget.kind === 'cancel' ? tx.cancelConfirm
-                      : actionTarget.kind === 'reschedule' ? tx.rescheduleConfirm
-                      : tx.noShowConfirm}
+                        : actionTarget.kind === 'reschedule' ? tx.rescheduleConfirm
+                          : tx.noShowConfirm}
                   </button>
                 </div>
               </div>
@@ -1096,8 +1322,22 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
       })()}
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg shadow-lg px-4 py-3 text-[13px]"
-          style={{ background: '#111111', color: '#F9F9F9', border: '1px solid #111111' }}>
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 50,
+            maxWidth: 360,
+            background: 'var(--ek-ink)',
+            color: 'var(--ek-on-dark)',
+            padding: '14px 18px',
+            borderRadius: 10,
+            fontSize: 13,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.2)',
+            fontFamily: 'var(--ek-font-sans)',
+          }}
+        >
           {toast}
         </div>
       )}
