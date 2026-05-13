@@ -35,13 +35,17 @@ declare global {
 
 interface Args {
   enabled: boolean
+  /** BCP-47 lang code for the speech recognizer. Defaults to en-US. Switch
+   *  to 'es-ES' when the student/teacher prefers Spanish recognition; the
+   *  control bar exposes a toggle. */
+  lang?: string
 }
 
 // Live transcript via browser SpeechRecognition. Each participant captions
 // themselves; the result is broadcast over LiveKit's 'transcript' data
 // channel so the peer sees captions for both speakers. Recognition restarts
 // on `onend` (Chrome caps ~30s of silence) for the life of the call.
-export function useLiveTranscript({ enabled }: Args) {
+export function useLiveTranscript({ enabled, lang = 'en-US' }: Args) {
   const { localParticipant } = useLocalParticipant()
 
   const [finals, setFinals] = useState<TranscriptLine[]>([])
@@ -109,7 +113,7 @@ export function useLiveTranscript({ enabled }: Args) {
     const rec = new Ctor()
     rec.continuous = true
     rec.interimResults = true
-    rec.lang = 'en-US'
+    rec.lang = lang
 
     let stopped = false
 
@@ -158,7 +162,7 @@ export function useLiveTranscript({ enabled }: Args) {
       try { rec.stop() } catch { /* ignore */ }
       setListening(false)
     }
-  }, [enabled, localParticipant.identity, localParticipant.name])
+  }, [enabled, lang, localParticipant.identity, localParticipant.name])
 
   const clear = useCallback(() => {
     setFinals([])

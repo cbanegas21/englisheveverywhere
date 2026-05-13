@@ -5,6 +5,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
 import { useTimer } from '../hooks/useTimer'
+import { EKMark } from '@/components/ui/EKMark'
 
 interface Props {
   lang: Locale
@@ -25,17 +26,18 @@ export function TopBar({ lang, isTeacher, myName, otherName, scheduledAt, durati
       style={{ background: 'rgba(0,0,0,0.30)', borderBottom: `1px solid ${VIDEO_THEME.border}` }}
     >
       <div className="flex items-center gap-3">
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded-lg shadow-md"
-          style={{ background: VIDEO_THEME.brand, boxShadow: `0 4px 16px ${VIDEO_THEME.brandTint30}` }}
-        >
-          <span className="text-[10px] font-black text-white">EK</span>
-        </div>
+        <EKMark size={28} bg="#000" barColor="#F4EFE6" />
         <div>
-          <div className="text-xs font-bold text-white">
+          <div
+            className="text-xs font-bold"
+            style={{ color: '#fff', fontFamily: 'var(--ek-font-sans)' }}
+          >
             {tx.sessionWith} {otherName}
           </div>
-          <div className="text-[10px]" style={{ color: VIDEO_THEME.textSubtle }}>
+          <div
+            className="text-[10px]"
+            style={{ color: VIDEO_THEME.textSubtle, fontFamily: 'var(--ek-font-sans)' }}
+          >
             {isTeacher ? tx.teacher : tx.student}: {myName}
           </div>
         </div>

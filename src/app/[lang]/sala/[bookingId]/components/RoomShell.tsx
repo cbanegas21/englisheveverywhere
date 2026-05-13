@@ -17,6 +17,7 @@ import { useLeaveFlow } from '../hooks/useLeaveFlow'
 import { useRoomLayout } from '../hooks/useRoomLayout'
 import { useSelfViewPosition } from '../hooks/useSelfViewPosition'
 import { useLiveTranscript } from '../hooks/useLiveTranscript'
+import { useLiveVocab } from '../hooks/useLiveVocab'
 import { TopBar } from './TopBar'
 import { VideoTile } from './VideoTile'
 import { LocalSelfView, SelfViewPill } from './LocalSelfView'
@@ -27,7 +28,7 @@ import { NotesPanel } from './NotesPanel'
 import { ChatPanel } from './ChatPanel'
 import { DeviceMenu } from './DeviceMenu'
 import { Whiteboard } from './Whiteboard'
-import { TranscriptPanel } from './TranscriptPanel'
+import { CuadernoPanel } from './CuadernoPanel'
 import { ConnectingScreen } from './ConnectingScreen'
 import { LeavingScreen } from './LeavingScreen'
 
@@ -62,8 +63,21 @@ export function RoomShell({
 
   // Live transcript. Runs for the life of the call so the teacher's leave
   // flow can persist a complete transcript — the panel toggle only affects
-  // visibility, not capture.
-  const transcript = useLiveTranscript({ enabled: true })
+  // visibility, not capture. Default recognizer language follows the UI
+  // locale; user can toggle ES/EN from the cuaderno header at any time.
+  const [recognizerLang, setRecognizerLang] = useState<'es-ES' | 'en-US'>(
+    lang === 'es' ? 'es-ES' : 'en-US'
+  )
+  const transcript = useLiveTranscript({ enabled: true, lang: recognizerLang })
+
+  // Live AI cuaderno — extracts teaching-worthy vocab from the running
+  // transcript every ~30s via Claude haiku 4.5. Best-effort, silent on
+  // failure (no Anthropic key = empty vocab list, panel still works).
+  const liveVocab = useLiveVocab({
+    finals: transcript.finals,
+    uiLang: lang,
+    enabled: true,
+  })
 
   const { isLeaving, leave } = useLeaveFlow({
     isTeacher, bookingId, sessionId, lang, onComplete,
@@ -114,7 +128,11 @@ export function RoomShell({
   const [showChat, setShowChat] = useState(false)
   const [showDevices, setShowDevices] = useState(false)
   const [showWhiteboard, setShowWhiteboard] = useState(false)
-  const [showTranscript, setShowTranscript] = useState(false)
+  // Cuaderno is the editorial replacement for the prior TranscriptPanel —
+  // a paper-cream notebook on the right with both AI vocab and raw
+  // transcript tabs. Defaults to ON; the control-bar toggle now collapses
+  // it (for small screens or when the student wants pure video focus).
+  const [showCuaderno, setShowCuaderno] = useState(true)
   const [isCameraOff, setIsCameraOff] = useState(false)
 
   // Whiteboard open/close is mirrored across peers via a lightweight control
@@ -191,7 +209,8 @@ export function RoomShell({
         scheduledAt={scheduledAt}
         durationMinutes={durationMinutes}
       />
-      <div ref={stageRef} className="flex-1 relative">
+      <div className="flex flex-1 min-h-0">
+      <div ref={stageRef} className="flex-1 relative min-w-0">
         {activeShareTrack ? (
           <>
             <ScreenShareView lang={lang} shareTrack={activeShareTrack} />
@@ -259,8 +278,8 @@ export function RoomShell({
           onToggleDevices={() => setShowDevices(p => !p)}
           showWhiteboard={showWhiteboard}
           onToggleWhiteboard={toggleWhiteboard}
-          showTranscript={showTranscript}
-          onToggleTranscript={() => setShowTranscript(p => !p)}
+          showTranscript={showCuaderno}
+          onToggleTranscript={() => setShowCuaderno(p => !p)}
         />
         {isTeacher && (
           <NotesPanel
@@ -289,15 +308,19 @@ export function RoomShell({
           show={showWhiteboard}
           onClose={closeWhiteboard}
         />
-        <TranscriptPanel
-          lang={lang}
-          show={showTranscript}
-          onClose={() => setShowTranscript(false)}
-          finals={transcript.finals}
-          interims={transcript.interims}
-          supported={transcript.supported}
-          listening={transcript.listening}
-        />
+      </div>
+      <CuadernoPanel
+        lang={lang}
+        show={showCuaderno}
+        finals={transcript.finals}
+        interims={transcript.interims}
+        supported={transcript.supported}
+        listening={transcript.listening}
+        vocab={liveVocab.entries}
+        isExtractingVocab={liveVocab.isExtracting}
+        recognizerLang={recognizerLang}
+        onChangeRecognizerLang={setRecognizerLang}
+      />
       </div>
     </div>
   )

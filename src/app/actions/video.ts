@@ -411,3 +411,83 @@ export async function getSessionByBookingId(bookingId: string): Promise<{
 
   return session || null
 }
+
+// ─── Live AI cuaderno ──────────────────────────────────────────────────────
+// Called every ~30 seconds from useLiveVocab during an active class. Sends
+// the recent transcript chunk to Claude haiku 4.5 and asks for any
+// teaching-worthy vocabulary the student probably doesn't know yet.
+// Result is rendered live in the cuaderno sidebar.
+//
+// Cost note: with ~200-500 tokens per chunk and a 60-min class running 120
+// chunks max, this is ~$0.05-0.10 per class on claude-haiku-4-5. Budget
+// guard: returns [] if ANTHROPIC_API_KEY is missing (graceful degrade) and
+// if `text` is too short to bother extracting from.
+
+export interface CuadernoVocabItem {
+  word: string
+  translation: string
+  example: string
+}
+
+export async function extractLiveVocab(
+  text: string,
+  options: { lang?: 'es' | 'en'; alreadyKnown?: string[] } = {}
+): Promise<CuadernoVocabItem[]> {
+  const trimmed = text.trim()
+  if (trimmed.length < 60) return []
+
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return []
+
+  const lang = options.lang || 'es'
+  const known = (options.alreadyKnown || []).slice(0, 60).join(', ')
+  const langLabel = lang === 'es' ? 'Spanish' : 'English'
+
+  const prompt = `You are an English-teaching assistant. Below is a 30-second chunk of a live English-class conversation (the speakers may mix Spanish and English).
+
+Extract AT MOST 2 vocabulary items the Spanish-speaking learner probably does NOT know yet — single English words OR short phrasal verbs / idioms. Skip basic words (greetings, "yes", "no", "good", "thank you"). Skip anything already in the "alreadyKnown" list.
+
+Reply with ${langLabel} translation and a short English example sentence taken from or inspired by the chunk.
+
+Respond with valid JSON only — no markdown:
+[
+  { "word": "<english>", "translation": "<${langLabel}>", "example": "<short english sentence>" }
+]
+
+If nothing teaching-worthy in the chunk, respond with [].
+
+Chunk:
+${trimmed.slice(0, 1800)}
+
+Already known:
+${known || '(none yet)'}`
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 320,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (!response.ok) return []
+    const data = await response.json()
+    const raw: string = data.content?.[0]?.text || '[]'
+    const cleaned = raw.replace(/```(?:json)?\n?/g, '').replace(/```\n?/g, '').trim()
+    const parsed = JSON.parse(cleaned)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((x): x is CuadernoVocabItem =>
+        !!x && typeof x.word === 'string' && typeof x.translation === 'string' && typeof x.example === 'string'
+      )
+      .slice(0, 2)
+  } catch {
+    return []
+  }
+}
