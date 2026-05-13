@@ -28,7 +28,7 @@ async function loginAs(page: Page, email: string, password: string, expectRedire
   await page.fill('input[name="password"]', password)
   await page.getByRole('button', { name: /ingresar|log in/i }).click()
   try {
-    await page.waitForURL(expectRedirect, { timeout: 15_000 })
+    await page.waitForURL(expectRedirect, { timeout: 45_000 })
     return true
   } catch {
     return false
@@ -103,7 +103,7 @@ test.describe('Tier 1.5 — Student intake form flow', () => {
       // page then checks classes_remaining + intake_done — both should be
       // satisfied now, so we land on the calendar.
       await expect.poll(() => page.url(), { timeout: 10_000 }).toMatch(/\/dashboard\/agendar/)
-      await expect(page.getByRole('heading', { name: /Agendar Clase/i })).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByRole('heading', { name: /Agenda|Agendar Clase/i })).toBeVisible({ timeout: 10_000 })
 
       // DB invariants — all four fields persisted, intake_done flipped.
       const { data: row } = await fx!.admin

@@ -26,7 +26,9 @@ async function loginAs(page: Page, email: string, password: string, expectRedire
   await page.fill('input[name="password"]', password)
   await page.getByRole('button', { name: /ingresar|log in/i }).click()
   try {
-    await page.waitForURL(expectRedirect, { timeout: 15_000 })
+    // 45s — first dashboard SSR compile with webpack dev server can exceed 15s
+    // when the route hasn't been touched yet in the worker.
+    await page.waitForURL(expectRedirect, { timeout: 45_000 })
     return true
   } catch {
     return false
@@ -200,12 +202,13 @@ test.describe('Tier 1.1 — Booking lifecycle (display + decline)', () => {
       await fresh.goto('/es/dashboard/clases')
       await expect(fresh.getByRole('heading', { name: /Mis Clases/i })).toBeVisible({ timeout: 15_000 })
 
-      // Tab is a button whose accessible name includes "Historial" + count badge.
-      // getByText(/Completada/i) would also match the "Completadas" stats label —
-      // so scope the Resumen button (which is the authoritative "in history view" signal) instead.
-      await fresh.getByRole('button', { name: /Historial/ }).click()
+      // History/Completed tab — copy switched from "Historial" → "Completadas"
+      // in the Cálido Editorial rewrite. Match either to remain robust.
+      await fresh.getByRole('button', { name: /Completadas|Historial/ }).click()
 
-      const resumen = fresh.getByRole('button', { name: /Resumen/i }).first()
+      // Open-summary button — copy switched from "Resumen" → "Cuaderno" in the
+      // editorial rewrite. Both regex alternatives keep the test robust.
+      const resumen = fresh.getByRole('button', { name: /Cuaderno|Resumen/i }).first()
       await expect(resumen).toBeVisible({ timeout: 10_000 })
     } finally {
       await fresh.close()

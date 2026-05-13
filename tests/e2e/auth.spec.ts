@@ -22,7 +22,7 @@ test.describe('Authentication', () => {
     await page.getByRole('button', { name: /ingresar|log in/i }).click()
 
     try {
-      await page.waitForURL(/\/dashboard(\/|$)/, { timeout: 15_000 })
+      await page.waitForURL(/\/dashboard(\/|$)/, { timeout: 45_000 })
     } catch {
       test.skip(true, `Student login failed — set E2E_STUDENT_PASSWORD to match ${ACCOUNTS.student.email}`)
     }
@@ -36,7 +36,7 @@ test.describe('Authentication', () => {
     await page.getByRole('button', { name: /ingresar|log in/i }).click()
 
     try {
-      await page.waitForURL(/\/maestro\/dashboard(\/|$)/, { timeout: 15_000 })
+      await page.waitForURL(/\/maestro\/dashboard(\/|$)/, { timeout: 45_000 })
     } catch {
       test.skip(true, `Teacher login failed — set E2E_TEACHER_PASSWORD to match ${ACCOUNTS.teacher.email}`)
     }

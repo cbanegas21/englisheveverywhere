@@ -33,7 +33,7 @@ async function loginAs(page: Page, email: string, password: string, expectRedire
   await page.fill('input[name="password"]', password)
   await page.getByRole('button', { name: /ingresar|log in/i }).click()
   try {
-    await page.waitForURL(expectRedirect, { timeout: 15_000 })
+    await page.waitForURL(expectRedirect, { timeout: 45_000 })
     return true
   } catch {
     return false
@@ -66,12 +66,13 @@ test.describe('Tier 1.3 — createBooking happy path + classes guard', () => {
       test.skip(!ok, 'Student login failed — check env')
 
       await page.goto('/es/dashboard/agendar')
-      await expect(page.getByRole('heading', { name: /Agendar Clase/i })).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByRole('heading', { name: /Agenda|Agendar Clase/i })).toBeVisible({ timeout: 10_000 })
 
-      // Slot buttons render labels like "9 AM" / "3 PM" (hourLabel in AgendarClient).
-      // The UI disables <24h cells (renders "Muy pronto" divs instead of buttons),
-      // so any clickable hour button is by definition ≥24h away.
-      const slot = page.getByRole('button', { name: /^\d{1,2}\s(AM|PM)$/i }).first()
+      // Available slots are buttons labelled "libre" (Cálido Editorial rewrite).
+      // Disabled <24h cells render as empty divs, so any clickable "libre" button
+      // is by definition ≥24h away. Old test used hour-label cells ("9 AM"); the
+      // editorial direction moved hour labels to the leftmost row column.
+      const slot = page.getByRole('button', { name: /^libre$/i }).first()
       await expect(slot).toBeVisible({ timeout: 10_000 })
       await slot.click()
 
@@ -134,7 +135,7 @@ test.describe('Tier 1.3 — createBooking happy path + classes guard', () => {
       await expect.poll(() => page.url(), { timeout: 10_000 }).toMatch(/\/dashboard\/plan/)
 
       // Agendar heading must NOT appear — we should be on the plan page.
-      await expect(page.getByRole('heading', { name: /Agendar Clase/i })).toHaveCount(0)
+      await expect(page.getByRole('heading', { name: /Agenda|Agendar Clase/i })).toHaveCount(0)
 
       // DB invariants — counter stayed 0, no new row regardless.
       const after = await getClassesRemaining(fx!)

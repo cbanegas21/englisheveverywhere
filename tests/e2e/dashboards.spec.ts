@@ -7,7 +7,7 @@ async function tryLogin(page: Page, email: string, password: string): Promise<bo
   await page.fill('input[name="password"]', password)
   await page.getByRole('button', { name: /ingresar|log in/i }).click()
   try {
-    await page.waitForURL(/\/dashboard/, { timeout: 15_000 })
+    await page.waitForURL(/\/dashboard/, { timeout: 45_000 })
     return true
   } catch {
     return false

@@ -19,7 +19,7 @@ async function loginAs(page: Page, email: string, password: string, expectRedire
   await page.fill('input[name="password"]', password)
   await page.getByRole('button', { name: /ingresar|log in/i }).click()
   try {
-    await page.waitForURL(expectRedirect, { timeout: 15_000 })
+    await page.waitForURL(expectRedirect, { timeout: 45_000 })
     return true
   } catch {
     return false
