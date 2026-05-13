@@ -7,6 +7,7 @@ import { ArrowRight, Globe, Clock, Check, Upload, FileText, X } from 'lucide-rea
 import { completeStudentOnboarding, completeTeacherOnboarding } from '@/app/actions/onboarding'
 import type { Locale } from '@/lib/i18n/translations'
 import TimezoneSelect from '@/components/TimezoneSelect'
+import { Logo } from '@/components/ui/Logo'
 
 const BIO_MIN_CHARS = 20
 const CV_MAX_BYTES = 10 * 1024 * 1024
@@ -252,19 +253,11 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--ek-paper)' }}>
 
       {/* Top nav */}
       <div className="flex items-center justify-between px-8 py-5" style={{ borderBottom: '1px solid #E5E7EB' }}>
-        <div className="flex items-center gap-2">
-          <div
-            className="h-7 w-7 rounded flex items-center justify-center text-[10px] font-black"
-            style={{ background: '#C41E3A', color: '#fff' }}
-          >
-            EK
-          </div>
-          <span className="font-black text-[15px]" style={{ color: '#111111' }}>EnglishKolab</span>
-        </div>
+        <Logo size={28} />
         {!done && (
           <span className="text-[12px] font-medium" style={{ color: '#9CA3AF' }}>
             {tx.stepLabel} {step} {tx.of} {totalSteps}

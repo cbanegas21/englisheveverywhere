@@ -193,7 +193,7 @@ export default async function TermsPage({ params }: { params: Promise<{ lang: Lo
 
   return (
     <>
-      <main className="min-h-screen" style={{ background: '#F9F9F9' }}>
+      <main className="min-h-screen" style={{ background: 'var(--ek-paper)' }}>
         <div className="max-w-3xl mx-auto px-6 py-16">
           <h1 className="text-[40px] font-black mb-2 tracking-tight" style={{ color: '#111111' }}>
             {tx.title}

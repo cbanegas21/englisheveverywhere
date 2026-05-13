@@ -78,7 +78,7 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
   return (
     <main
       className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: '#F9F9F9' }}
+      style={{ background: 'var(--ek-paper)' }}
     >
       <div
         className="w-full max-w-sm rounded-2xl p-8"

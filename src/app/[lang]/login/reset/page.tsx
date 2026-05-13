@@ -147,7 +147,7 @@ export default function ResetPage({ params }: ResetPageProps) {
   return (
     <div
       className="min-h-screen flex items-center justify-center px-6 py-12"
-      style={{ background: '#F9F9F9' }}
+      style={{ background: 'var(--ek-paper)' }}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}

@@ -7,6 +7,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { signIn } from '@/app/actions/auth'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
+import { Logo } from '@/components/ui/Logo'
 
 const t = {
   en: {
@@ -87,20 +88,10 @@ function LoginForm({ lang }: { lang: Locale }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--ek-paper)' }}>
       {/* Top bar */}
       <div className="px-8 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #E5E7EB' }}>
-        <Link href={`/${lang}`} className="flex items-center gap-2">
-          <div
-            className="h-7 w-7 rounded flex items-center justify-center text-[10px] font-black"
-            style={{ background: '#C41E3A', color: '#fff' }}
-          >
-            EK
-          </div>
-          <span className="text-[14px] font-black tracking-tight" style={{ color: '#111111' }}>
-            EnglishKolab
-          </span>
-        </Link>
+        <Logo href={`/${lang}`} size={28} />
         <p className="text-[13px]" style={{ color: '#9CA3AF' }}>
           {tx.noAccount}{' '}
           <Link
@@ -159,7 +150,7 @@ function LoginForm({ lang }: { lang: Locale }) {
                 style={{
                   border: '1px solid #E5E7EB',
                   color: '#111111',
-                  background: '#F9F9F9',
+                  background: 'var(--ek-paper)',
                 }}
                 onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                 onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
@@ -191,7 +182,7 @@ function LoginForm({ lang }: { lang: Locale }) {
                   style={{
                     border: '1px solid #E5E7EB',
                     color: '#111111',
-                    background: '#F9F9F9',
+                    background: 'var(--ek-paper)',
                   }}
                   onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                   onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
@@ -295,7 +286,7 @@ export default function LoginPage({ params }: Props) {
   useEffect(() => { params.then(({ lang: l }) => setLang(l as Locale)) }, [params])
 
   return (
-    <Suspense fallback={<div className="min-h-screen" style={{ background: '#F9F9F9' }} />}>
+    <Suspense fallback={<div className="min-h-screen" style={{ background: 'var(--ek-paper)' }} />}>
       <LoginForm lang={lang} />
     </Suspense>
   )

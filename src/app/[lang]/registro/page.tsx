@@ -7,6 +7,7 @@ import { Eye, EyeOff, Check, MailCheck, GraduationCap, BookOpen } from 'lucide-r
 import { signUp } from '@/app/actions/auth'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
+import { Logo } from '@/components/ui/Logo'
 
 const t = {
   en: {
@@ -93,17 +94,7 @@ function detectTimezone() {
 function TopBar({ lang, tx }: { lang: Locale; tx: typeof t['en'] }) {
   return (
     <div className="px-8 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #E5E7EB' }}>
-      <Link href={`/${lang}`} className="flex items-center gap-2">
-        <div
-          className="h-7 w-7 rounded flex items-center justify-center text-[10px] font-black"
-          style={{ background: '#C41E3A', color: '#fff' }}
-        >
-          EK
-        </div>
-        <span className="text-[14px] font-black tracking-tight" style={{ color: '#111111' }}>
-          EnglishKolab
-        </span>
-      </Link>
+      <Logo href={`/${lang}`} size={28} />
       <p className="text-[13px]" style={{ color: '#9CA3AF' }}>
         {tx.alreadyAccount}{' '}
         <Link
@@ -162,7 +153,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
   /* STEP 1 — Role selection */
   if (step === 'role') {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#F9F9F9' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--ek-paper)' }}>
         <TopBar lang={lang} tx={tx} />
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
@@ -246,7 +237,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
   /* STEP 3 — Success */
   if (step === 'success') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: '#F9F9F9' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ background: 'var(--ek-paper)' }}>
         <div
           className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
           style={{ background: 'rgba(196,30,58,0.08)' }}
@@ -274,7 +265,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
 
   /* STEP 2 — Form */
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--ek-paper)' }}>
       <TopBar lang={lang} tx={tx} />
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
@@ -317,7 +308,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
                 required
                 placeholder={tx.namePlaceholder}
                 className="w-full rounded px-3.5 py-3 text-[14px] transition-all outline-none"
-                style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
+                style={{ border: '1px solid #E5E7EB', color: '#111111', background: 'var(--ek-paper)' }}
                 onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                 onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
               />
@@ -330,7 +321,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
                 required
                 placeholder={tx.emailPlaceholder}
                 className="w-full rounded px-3.5 py-3 text-[14px] transition-all outline-none"
-                style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
+                style={{ border: '1px solid #E5E7EB', color: '#111111', background: 'var(--ek-paper)' }}
                 onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                 onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
               />
@@ -345,7 +336,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
                   minLength={8}
                   placeholder={tx.passwordPlaceholder}
                   className="w-full rounded px-3.5 py-3 pr-10 text-[14px] transition-all outline-none"
-                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
+                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: 'var(--ek-paper)' }}
                   onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                   onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
                 />
@@ -418,7 +409,7 @@ export default function RegistroPage({ params }: { params: Promise<{ lang: strin
   useEffect(() => { params.then(({ lang: l }) => setLang(l as Locale)) }, [params])
 
   return (
-    <Suspense fallback={<div className="min-h-screen" style={{ background: '#F9F9F9' }} />}>
+    <Suspense fallback={<div className="min-h-screen" style={{ background: 'var(--ek-paper)' }} />}>
       <RegistroContent lang={lang} />
     </Suspense>
   )
