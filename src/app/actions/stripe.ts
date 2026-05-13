@@ -71,6 +71,26 @@ export async function createStripeConnectLink(lang: string = 'es') {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
+  // Defense in depth: verify the caller's profile role is 'teacher' BEFORE
+  // doing anything Stripe-side. Without this, a student session could
+  // trigger stripe.accounts.create on the next call and create an orphan
+  // Stripe Connect account tied to their email. The downstream `!teacher`
+  // teachers-table check is a second guard, not the primary one.
+  // Regression-tested by tests/e2e/server-action-authz.spec.ts.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || profile.role !== 'teacher') {
+    return {
+      error: lang === 'es'
+        ? 'Solo los maestros pueden configurar pagos.'
+        : 'Only teachers can set up payouts.',
+    }
+  }
+
   const stripe = getStripe()
   if (!stripe) {
     return { url: 'https://connect.stripe.com/setup/c/placeholder' }
@@ -85,13 +105,7 @@ export async function createStripeConnectLink(lang: string = 'es') {
       .eq('profile_id', user.id)
       .maybeSingle()
 
-    if (!teacher) {
-      return {
-        error: lang === 'es'
-          ? 'Solo los maestros pueden configurar pagos.'
-          : 'Only teachers can set up payouts.',
-      }
-    }
+    if (!teacher) return { error: lang === 'es' ? 'Solo los maestros pueden configurar pagos.' : 'Only teachers can set up payouts.' }
 
     let accountId = (teacher as any).stripe_account_id
 
