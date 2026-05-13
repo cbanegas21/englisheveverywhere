@@ -72,7 +72,7 @@ export default async function MaestroPendingPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--ek-paper)' }}>
       {/* Top bar */}
       <div
         className="px-8 py-4 flex items-center justify-between"

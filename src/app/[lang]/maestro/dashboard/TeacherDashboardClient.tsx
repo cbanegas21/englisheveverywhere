@@ -10,6 +10,7 @@ import { useState, useTransition, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
+import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 
 const t = {
   en: {
@@ -175,37 +176,45 @@ export default function TeacherDashboardClient({
   }
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
-      {/* Top header bar */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>
-              {getGreeting(lang)}, {firstName}
-            </h1>
-            <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-          </div>
-
-          {/* Active/inactive toggle */}
+      <DashTopBar
+        title={
+          <span>
+            {getGreeting(lang)}, {firstName}
+            {' — '}
+            <TitleFlourish>{tx.subtitle.replace(/\.$/, '')}</TitleFlourish>
+          </span>
+        }
+        right={
           <button
             onClick={toggleActive}
             disabled={isPending}
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded text-[13px] font-semibold transition-all flex-shrink-0"
-            style={
-              active
-                ? { border: '1px solid #86EFAC', background: '#F0FDF4', color: '#16A34A' }
-                : { border: '1px solid #E5E7EB', background: '#fff', color: '#4B5563' }
-            }
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '9px 16px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'var(--ek-font-sans)',
+              border: active ? '1px solid var(--ek-success-border)' : '1px solid var(--ek-border-mid)',
+              background: active ? 'var(--ek-success-bg)' : 'var(--ek-card)',
+              color: active ? 'var(--ek-success-text)' : 'var(--ek-text-soft)',
+              opacity: isPending ? 0.6 : 1,
+              whiteSpace: 'nowrap',
+            }}
           >
             {active
-              ? <ToggleRight className="h-4 w-4" style={{ color: '#16A34A' }} />
-              : <ToggleLeft className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+              ? <ToggleRight className="h-4 w-4" style={{ color: 'var(--ek-success-text)' }} />
+              : <ToggleLeft className="h-4 w-4" style={{ color: 'var(--ek-text-muted)' }} />
             }
             {active ? tx.activeToggle : tx.inactiveToggle}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="px-8 py-6 max-w-5xl mx-auto space-y-6">
 

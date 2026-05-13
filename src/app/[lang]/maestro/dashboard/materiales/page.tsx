@@ -47,7 +47,7 @@ export default async function MaterialesPage({ params }: Props) {
   const isEs = lang === 'es'
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
       {/* Header */}
       <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>

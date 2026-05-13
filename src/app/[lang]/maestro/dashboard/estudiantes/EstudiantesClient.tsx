@@ -5,6 +5,7 @@ import { Users, TrendingUp, Calendar, ChevronRight, X, Briefcase, Target, Brain,
 import { AnimatePresence, motion } from 'framer-motion'
 import type { Locale } from '@/lib/i18n/translations'
 import { teacherSetStudentLevel } from '@/app/actions/placement'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
 
@@ -180,13 +181,9 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
   }
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
-      {/* Header */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div className="px-8 py-6 max-w-4xl mx-auto space-y-5">
 
@@ -328,7 +325,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
               <div className="px-6 pt-6">
                 <div
                   className="rounded-xl p-4"
-                  style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                  style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
@@ -379,7 +376,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
                 {!detailStudent.learning_goal && !detailStudent.work_description && !detailStudent.learning_style ? (
                   <div
                     className="rounded-xl p-5 text-center"
-                    style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                    style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
                   >
                     <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.noIntake}</p>
                   </div>
@@ -388,7 +385,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
                     {detailStudent.learning_goal && (
                       <div
                         className="rounded-xl p-4"
-                        style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                        style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <Target className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
@@ -405,7 +402,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
                     {detailStudent.work_description && (
                       <div
                         className="rounded-xl p-4"
-                        style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                        style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <Briefcase className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
@@ -423,7 +420,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
                       {detailStudent.learning_style && (
                         <div
                           className="rounded-xl p-4"
-                          style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                          style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
                         >
                           <div className="flex items-center gap-1.5 mb-1">
                             <Brain className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
@@ -439,7 +436,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
                       {detailStudent.age_range && (
                         <div
                           className="rounded-xl p-4"
-                          style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                          style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
                         >
                           <div className="flex items-center gap-1.5 mb-1">
                             <User className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />

@@ -100,7 +100,7 @@ export default function ConfigTeacherClient({ lang, fullName, bio, specializatio
   }
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
       {/* Header */}
       <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
@@ -201,7 +201,7 @@ export default function ConfigTeacherClient({ lang, fullName, bio, specializatio
                 type="email"
                 value={email}
                 readOnly
-                style={{ ...inputStyle, background: '#F9F9F9', color: '#9CA3AF', cursor: 'not-allowed' }}
+                style={{ ...inputStyle, background: 'var(--ek-paper)', color: '#9CA3AF', cursor: 'not-allowed' }}
               />
               <p className="text-[11px] mt-1.5" style={{ color: '#9CA3AF' }}>{tx.emailReadOnly}</p>
             </div>

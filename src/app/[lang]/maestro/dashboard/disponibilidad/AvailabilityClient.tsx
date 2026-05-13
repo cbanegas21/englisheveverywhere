@@ -93,7 +93,7 @@ TIME_OPTIONS.push('23:59')
 const selectStyle = {
   border: '1px solid #E5E7EB',
   color: '#111111',
-  background: '#F9F9F9',
+  background: 'var(--ek-paper)',
   borderRadius: '6px',
   padding: '8px 12px',
   fontSize: '13px',
@@ -173,7 +173,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
   }
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
       {/* Header */}
       <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
@@ -197,7 +197,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                 <button
                   onClick={() => { setBulkError(''); setBulkOpen(true) }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
+                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: 'var(--ek-paper)' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
                 >
@@ -207,7 +207,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                 <button
                   onClick={addSlot}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#F9F9F9' }}
+                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: 'var(--ek-paper)' }}
                   onMouseEnter={e => (e.currentTarget.style.borderColor = '#C41E3A')}
                   onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
                 >
@@ -530,7 +530,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                 <button
                   onClick={() => setBulkOpen(false)}
                   className="flex-1 py-3 rounded font-medium text-[13px] transition-all"
-                  style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#F9F9F9' }}
+                  style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: 'var(--ek-paper)' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
                   onMouseLeave={e => (e.currentTarget.style.background = '#F9F9F9')}
                 >

@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Calendar, CheckCircle2, X, Clock, Video, Users, AlertCircle, CalendarClock } from 'lucide-react'
 import { confirmBooking, declineBooking, requestReschedule, cancelRescheduleRequest } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 interface Booking {
   id: string
@@ -260,26 +261,33 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
   }
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
-      {/* Header */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-            <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-          </div>
-          {pending.length > 0 && (
+      <DashTopBar
+        title={tx.title}
+        sub={tx.subtitle}
+        right={
+          pending.length > 0 ? (
             <span
-              className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded ml-2"
-              style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 14px',
+                borderRadius: 999,
+                background: 'var(--ek-red-tint)',
+                border: '1px solid var(--ek-red-tint-3)',
+                fontSize: 12,
+                fontWeight: 700,
+                color: 'var(--ek-red)',
+              }}
             >
               <AlertCircle className="h-3.5 w-3.5" />
-              {pending.length}
+              {pending.length} {lang === 'es' ? 'pendientes' : 'pending'}
             </span>
-          )}
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       <div className="px-8 py-6 max-w-5xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -373,7 +381,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                               onClick={() => handleDecline(booking.id)}
                               disabled={loadingId === booking.id || isPending}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[11px] transition-all disabled:opacity-50"
-                              style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#F9F9F9' }}
+                              style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: 'var(--ek-paper)' }}
                               onMouseEnter={e => { e.currentTarget.style.borderColor = '#FCA5A5'; e.currentTarget.style.color = '#DC2626' }}
                               onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#4B5563' }}
                             >

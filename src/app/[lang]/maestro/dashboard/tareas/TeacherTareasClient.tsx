@@ -5,6 +5,7 @@ import { ClipboardList, Plus, X, Check, Clock, CheckCircle2, XCircle } from 'luc
 import { AnimatePresence, motion } from 'framer-motion'
 import { createAssignment, cancelAssignment, gradeSubmission } from '@/app/actions/assignments'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 const SCORES = ['A1','A2','B1','B2','C1','C2','needs_work','good','excellent'] as const
 
@@ -116,27 +117,23 @@ export default function TeacherTareasClient({ lang, students, assignments }: Pro
   const [detail, setDetail] = useState<Assignment | null>(null)
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
-      {/* Header */}
-      <div
-        className="px-8 py-6 flex items-center justify-between"
-        style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}
-      >
-        <div>
-          <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-          <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          disabled={students.length === 0}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded text-[12px] font-semibold transition-all disabled:opacity-50"
-          style={{ background: '#C41E3A', color: '#fff' }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {tx.newBtn}
-        </button>
-      </div>
+      <DashTopBar
+        title={tx.title}
+        sub={tx.subtitle}
+        right={
+          <button
+            onClick={() => setShowCreate(true)}
+            disabled={students.length === 0}
+            className="ek-btn ek-btn-red ek-btn-square"
+            style={{ padding: '9px 16px', fontSize: 12, opacity: students.length === 0 ? 0.5 : 1 }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {tx.newBtn}
+          </button>
+        }
+      />
 
       <div className="px-8 py-6 max-w-4xl mx-auto space-y-5">
 
@@ -460,7 +457,7 @@ function DetailModal({
                 </div>
                 <div
                   className="rounded-xl p-4"
-                  style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+                  style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
                 >
                   <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: '#111111' }}>
                     {assignment.submission.text}
@@ -514,7 +511,7 @@ function DetailModal({
           ) : (
             <div
               className="rounded-xl p-4 text-center"
-              style={{ background: '#F9F9F9', border: '1px solid #E5E7EB' }}
+              style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
             >
               <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.waiting}</p>
             </div>

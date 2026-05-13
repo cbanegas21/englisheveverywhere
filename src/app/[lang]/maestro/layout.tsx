@@ -46,7 +46,7 @@ export default async function MaestroLayout({ children, params }: Props) {
   const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#F9F9F9' }}>
+    <div className="flex min-h-screen" style={{ background: 'var(--ek-paper)' }}>
       <Sidebar
         lang={lang as Locale}
         role="teacher"

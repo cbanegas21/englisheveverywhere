@@ -77,7 +77,7 @@ export default function GananciasClient({
   const tx = t[lang]
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
       <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
         <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
         <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
