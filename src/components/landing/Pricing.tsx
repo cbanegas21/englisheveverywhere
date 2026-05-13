@@ -16,14 +16,16 @@ const t = {
     perClass: 'per class',
     classes: 'classes',
     perMonth: 'a month',
+    includedKicker: '↳ Same in every plan',
+    includedTitle: 'What you get, regardless of pack:',
     features: [
-      '· 60 minutes · 1 to 1',
-      '· live, on the platform',
-      '· classes never expire',
-      '· no auto-renewal',
+      { label: '60-minute classes', sub: '1 to 1, live on video' },
+      { label: 'Near-native teacher', sub: 'Latin American, hand-matched to you' },
+      { label: 'Classes never expire', sub: "Use them at your pace, no deadlines" },
+      { label: 'No auto-renewal', sub: 'Pay once, then pay again only if you want' },
     ],
     cta: 'Choose',
-    note: '* Classes cancelled with less than 24-hour notice are forfeited.',
+    note: '* Classes cancelled with less than 24 hours notice are forfeited.',
     fxNote: (cur: string) =>
       `* Prices shown in ${cur} ≈ USD. Exchange rate updated daily. Charges are always processed in USD.`,
     tags: {
@@ -42,11 +44,13 @@ const t = {
     perClass: 'por clase',
     classes: 'clases',
     perMonth: 'al mes',
+    includedKicker: '↳ Lo mismo en cada paquete',
+    includedTitle: 'Lo que recibes, sin importar el paquete:',
     features: [
-      '· 60 minutos · 1 a 1',
-      '· en vivo, en la plataforma',
-      '· las clases nunca caducan',
-      '· sin renovación automática',
+      { label: 'Clases de 60 minutos', sub: '1 a 1, en vivo por video' },
+      { label: 'Maestro casi nativo', sub: 'Latinoamericano, asignado a mano' },
+      { label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo, sin fechas límite' },
+      { label: 'Sin renovación automática', sub: 'Pagas una vez y vuelves a pagar solo si quieres' },
     ],
     cta: 'Elegir',
     note: '* Las clases canceladas con menos de 24h de aviso se pierden.',
@@ -272,48 +276,136 @@ export default function Pricing({ lang }: { lang: Locale }) {
                   ≈ {perClassDisplay} {tx.perClass}
                 </div>
 
-                <ul
-                  style={{
-                    margin: '24px 0 0',
-                    padding: 0,
-                    listStyle: 'none',
-                    fontSize: 13,
-                    color: hl ? 'rgba(255,255,255,0.75)' : 'var(--ek-text-soft)',
-                    display: 'grid',
-                    gap: 10,
-                    lineHeight: 1.4,
-                    flex: 1,
-                  }}
-                >
-                  {tx.features.map((f) => (
-                    <li key={f}>{f}</li>
-                  ))}
-                </ul>
-
                 <Link
                   href={`/${lang}/registro`}
                   style={{
-                    marginTop: 28,
+                    marginTop: 'auto',
+                    paddingTop: 28,
                     width: '100%',
-                    padding: '14px 0',
-                    background: hl ? 'var(--ek-red)' : 'transparent',
-                    color: hl ? '#fff' : 'var(--ek-text)',
-                    border: hl ? 'none' : '1px solid var(--ek-ink)',
-                    fontWeight: 600,
-                    fontSize: 14,
-                    borderRadius: 999,
-                    cursor: 'pointer',
-                    textAlign: 'center',
                     textDecoration: 'none',
                     fontFamily: 'var(--ek-font-sans)',
                   }}
                 >
-                  {tx.cta} {name}
+                  <span
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '14px 0',
+                      background: hl ? 'var(--ek-red)' : 'transparent',
+                      color: hl ? '#fff' : 'var(--ek-text)',
+                      border: hl ? 'none' : '1px solid var(--ek-ink)',
+                      fontWeight: 600,
+                      fontSize: 14,
+                      borderRadius: 999,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {tx.cta} {name}
+                  </span>
                 </Link>
               </motion.div>
             )
           })}
         </div>
+
+        {/* Shared "Included in every plan" panel — replaces the per-card
+            feature lists that were identical across all 4 cards (just
+            noisy repetition with no differentiation). The four bullets
+            are real, the plans are otherwise identical except for the
+            class count + price. */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
+          style={{
+            marginTop: 32,
+            padding: '28px 32px',
+            background: 'var(--ek-card)',
+            border: '1px solid var(--ek-border)',
+            borderRadius: 14,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--ek-font-mono)',
+              fontSize: 11,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--ek-red)',
+              marginBottom: 6,
+            }}
+          >
+            {tx.includedKicker}
+          </div>
+          <div
+            style={{
+              fontSize: 17,
+              fontWeight: 700,
+              letterSpacing: '-0.015em',
+              color: 'var(--ek-text)',
+              marginBottom: 20,
+            }}
+          >
+            {tx.includedTitle}
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 18,
+            }}
+          >
+            {tx.features.map((f, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    background: 'var(--ek-red-tint-2)',
+                    color: 'var(--ek-red)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--ek-font-mono)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    marginTop: 2,
+                  }}
+                >
+                  ✓
+                </span>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: 'var(--ek-text)',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {f.label}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--ek-text-muted)',
+                      marginTop: 3,
+                      lineHeight: 1.45,
+                      fontFamily: 'var(--ek-font-serif)',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    {f.sub}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
 
         <p
           style={{

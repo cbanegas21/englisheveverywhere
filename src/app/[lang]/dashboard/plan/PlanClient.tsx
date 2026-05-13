@@ -55,12 +55,18 @@ const T = {
       ascent: 'Real progress',
       peak: 'Maximum exposure',
     } as Record<string, string>,
-    features: {
-      spark: ['Access to all teachers', 'Progress tracking', 'Chat support'],
-      drive: ['Access to all teachers', 'Progress tracking', 'Priority support', 'Session recordings'],
-      ascent: ['Access to all teachers', 'Progress tracking', 'Priority support', 'Recordings', 'Dedicated advisor'],
-      peak: ['Access to all teachers', 'Priority support', 'Recordings', 'Dedicated advisor', 'Monthly report'],
-    } as Record<string, string[]>,
+    // Plans differ ONLY in classes/month and price. Everything else is
+    // identical — listing tiered features here would be aspirational
+    // (overclaim). Render the shared list once via includedFeatures
+    // below the comparison grid.
+    includedKicker: '↳ Same in every plan',
+    includedTitle: 'What you get, regardless of pack:',
+    includedFeatures: [
+      { label: '60-minute classes', sub: '1 to 1, live on video' },
+      { label: 'Near-native teacher', sub: 'Latin American, hand-matched to you' },
+      { label: 'Classes never expire', sub: 'Use them at your pace, no deadlines' },
+      { label: 'No auto-renewal', sub: 'Pay once, then pay again only if you want' },
+    ] as Array<{ label: string; sub: string }>,
     faqTitle: 'Frequently asked',
     faqs: [
       { q: 'Do unused classes expire?', a: 'No. They stack month to month while your plan is active.' },
@@ -119,12 +125,14 @@ const T = {
       ascent: 'Progreso real',
       peak: 'Máxima exposición',
     } as Record<string, string>,
-    features: {
-      spark: ['Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte por chat'],
-      drive: ['Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones de sesiones'],
-      ascent: ['Acceso a todos los maestros', 'Seguimiento de progreso', 'Soporte prioritario', 'Grabaciones', 'Asesor dedicado'],
-      peak: ['Acceso a todos los maestros', 'Soporte prioritario', 'Grabaciones', 'Asesor dedicado', 'Informe mensual'],
-    } as Record<string, string[]>,
+    includedKicker: '↳ Lo mismo en cada paquete',
+    includedTitle: 'Lo que recibes, sin importar el paquete:',
+    includedFeatures: [
+      { label: 'Clases de 60 minutos', sub: '1 a 1, en vivo por video' },
+      { label: 'Maestro casi nativo', sub: 'Latinoamericano, asignado a mano' },
+      { label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo, sin fechas límite' },
+      { label: 'Sin renovación automática', sub: 'Pagas una vez y vuelves a pagar solo si quieres' },
+    ] as Array<{ label: string; sub: string }>,
     faqTitle: 'Preguntas frecuentes',
     faqs: [
       { q: '¿Las clases sin usar expiran?', a: 'No. Se acumulan mes a mes mientras tu plan esté activo.' },
@@ -568,7 +576,6 @@ export default function PlanClient({
               const isCurrent = plan.key === currentPlan
               const name = tx.plans[plan.key]
               const tag = tx.tags[plan.key]
-              const features = tx.features[plan.key]
               const perClass = plan.priceUsd / plan.classes
               return (
                 <div
@@ -684,28 +691,105 @@ export default function PlanClient({
                     >
                       {isCurrent ? tx.current : tx.select}
                     </button>
-
-                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
-                      {features.map((f, i) => (
-                        <li
-                          key={i}
-                          style={{
-                            fontSize: 12,
-                            color: 'var(--ek-text-soft)',
-                            display: 'flex',
-                            gap: 8,
-                            lineHeight: 1.45,
-                          }}
-                        >
-                          <span style={{ color: accent, flexShrink: 0, fontWeight: 800 }}>✓</span>
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 </div>
               )
             })}
+          </div>
+
+          {/* Shared "Same in every plan" panel — plans differ ONLY in
+              classes-per-month and price. Listing tiered features
+              (recordings, dedicated advisor, monthly report) on a
+              per-card basis was overclaiming features that don't
+              actually differ in product. */}
+          <div
+            style={{
+              marginTop: 24,
+              padding: '24px 28px',
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border)',
+              borderRadius: 14,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'var(--ek-font-mono)',
+                fontSize: 11,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: accent,
+                marginBottom: 4,
+              }}
+            >
+              {tx.includedKicker}
+            </div>
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 700,
+                letterSpacing: '-0.015em',
+                color: 'var(--ek-text)',
+                marginBottom: 18,
+              }}
+            >
+              {tx.includedTitle}
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: 16,
+              }}
+            >
+              {tx.includedFeatures.map((f, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      flexShrink: 0,
+                      width: 20,
+                      height: 20,
+                      borderRadius: 5,
+                      background: 'var(--ek-red-tint-2)',
+                      color: accent,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      marginTop: 1,
+                    }}
+                  >
+                    ✓
+                  </span>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: 'var(--ek-text)',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {f.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11.5,
+                        color: 'var(--ek-text-muted)',
+                        marginTop: 2,
+                        lineHeight: 1.45,
+                        fontFamily: 'var(--ek-font-serif)',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      {f.sub}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
