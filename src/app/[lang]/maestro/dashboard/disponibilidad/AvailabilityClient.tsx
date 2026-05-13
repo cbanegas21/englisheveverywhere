@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Plus, Trash2, Clock, Save, CheckCircle2, AlertCircle, Layers, X } from 'lucide-react'
 import { saveAvailabilitySlots } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 interface Slot {
   id?: string
@@ -175,11 +176,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
-      {/* Header */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div className="px-8 py-6 max-w-4xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

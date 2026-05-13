@@ -2,6 +2,7 @@
 
 import { Calendar, Video, CheckCircle2, DollarSign, Wallet } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 interface Session {
   id: string
@@ -78,10 +79,7 @@ export default function GananciasClient({
 
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div className="px-8 py-6 max-w-4xl mx-auto space-y-6">
 

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import type { Locale } from '@/lib/i18n/translations'
+import { Logo } from '@/components/ui/Logo'
 
 interface Props {
   params: Promise<{ lang: string }>
@@ -78,17 +79,7 @@ export default async function MaestroPendingPage({ params }: Props) {
         className="px-8 py-4 flex items-center justify-between"
         style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}
       >
-        <div className="flex items-center gap-2">
-          <div
-            className="h-7 w-7 rounded flex items-center justify-center text-[10px] font-black"
-            style={{ background: '#C41E3A', color: '#fff' }}
-          >
-            EK
-          </div>
-          <span className="text-[14px] font-black tracking-tight" style={{ color: '#111111' }}>
-            EnglishKolab
-          </span>
-        </div>
+        <Logo size={28} />
         <form action={handleSignOut}>
           <button
             type="submit"

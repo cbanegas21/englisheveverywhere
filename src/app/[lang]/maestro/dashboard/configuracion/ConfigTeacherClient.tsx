@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { User, Mail, Lock, FileText, Tag, CheckCircle2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { updateTeacherProfile } from '@/app/actions/profile'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 const t = {
   en: {
@@ -102,11 +103,7 @@ export default function ConfigTeacherClient({ lang, fullName, bio, specializatio
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
-      {/* Header */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div className="px-8 py-6 max-w-xl mx-auto space-y-5">
 
