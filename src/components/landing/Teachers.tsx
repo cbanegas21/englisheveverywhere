@@ -9,9 +9,9 @@ const t = {
     titleLead: 'One teacher.',
     titleAccent: 'Yours.',
     body:
-      "We are not a marketplace. You do not browse a hundred profiles. We hand-match you with a near-native Latin American teacher based on your level, your goals, and your schedule. You get to know them. They get to know you.",
+      "We're not a marketplace. You don't browse a hundred profiles. We hand-match you with a near-native Latin American teacher based on your level, your goals, and your schedule. You get to know them. They get to know you.",
     bodyContd:
-      "If your teacher is off when you want to learn, another teacher with your schedule covers that class — so 24/7 still means 24/7.",
+      "If your teacher isn't free when you want to learn, another teacher who matches your hours covers that class — so 24/7 really means 24/7.",
     facts: [
       { k: 'Origin', v: 'Latin America' },
       { k: 'Level', v: 'Near-native' },

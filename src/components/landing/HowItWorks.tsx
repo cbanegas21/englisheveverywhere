@@ -19,7 +19,7 @@ const t = {
   es: {
     eyebrow: '● Cómo funciona',
     titleLead: 'Cuatro pasos.',
-    titleAccent: 'sin sorpresas.',
+    titleAccent: 'Sin sorpresas.',
     side: 'Sin pruebas automáticas. Sin marketplace. Sin clases grupales. Solo tu maestro y tu horario.',
     steps: [
       { n: '01', title: 'Elige tu paquete', body: '8, 12, 16 o 20 clases al mes. Un solo pago. Sin renovación automática.' },

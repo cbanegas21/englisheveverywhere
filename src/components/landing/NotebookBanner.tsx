@@ -4,8 +4,8 @@ const t = {
   en: {
     eyebrow: '● Class after class',
     title: 'Your notebook fills up.',
-    accent: 'Your English too.',
-    body: 'Every class leaves a mark. New vocabulary, a phrase that sticks, an accent that sharpens. Your teacher remembers where you left off.',
+    accent: 'So does your English.',
+    body: 'Every class leaves a mark — new vocabulary, a phrase that sticks, an accent that sharpens. Your teacher remembers where you left off.',
   },
   es: {
     eyebrow: '● Clase tras clase',

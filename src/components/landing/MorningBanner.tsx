@@ -3,9 +3,9 @@ import type { Locale } from '@/lib/i18n/translations'
 const t = {
   en: {
     eyebrow: '● 06:14 · Tuesday',
-    title: 'Before coffee,',
-    accent: 'a class.',
-    body: 'While the sun rises, you already have 30 new words. Your teacher is awake in San José, in Bogotá, in CDMX.',
+    title: 'A class',
+    accent: 'before coffee.',
+    body: "By the time the sun's up, you've added 30 new words. Your teacher is already awake — San José, Bogotá, CDMX.",
   },
   es: {
     eyebrow: '● 06:14 · martes',

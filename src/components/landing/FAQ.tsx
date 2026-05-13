@@ -10,12 +10,12 @@ const t = {
     title: 'What you might',
     titleAccent: 'be wondering.',
     items: [
-      { q: 'Do classes expire?', a: 'No. Once you buy them, they\'re yours. No deadlines.' },
-      { q: 'Can I pick my teacher?', a: 'We assign a Latin American teacher to you based on your level, goals, and schedule — a person you get to know. If they\'re unavailable when you want to book, another teacher with your time window covers that class.' },
-      { q: 'Do I need Zoom or Meet?', a: 'No. Live classes happen inside the platform, on 1-to-1 video.' },
-      { q: 'How long are classes?', a: 'Sixty minutes each. 1 to 1, live, with your assigned teacher.' },
-      { q: 'Can I book at any hour?', a: 'Yes. Any time of day, any day of the week. Just 24 hours of advance notice.' },
-      { q: 'What currency do I pay in?', a: 'Charges are processed in USD via Stripe. We display the local equivalent in 20+ currencies.' },
+      { q: 'Do classes expire?', a: "No. Once you've bought them, they're yours. No deadlines, ever." },
+      { q: 'Can I choose my teacher?', a: "We assign you a Latin American teacher based on your level, goals, and schedule — someone you get to know. If they're not free when you want to book, another teacher whose hours match yours covers that class." },
+      { q: 'Do I need Zoom or Google Meet?', a: 'No. Live classes happen right inside the platform, on 1-to-1 video.' },
+      { q: 'How long is each class?', a: 'Sixty minutes. 1 to 1, live, with your assigned teacher.' },
+      { q: 'Can I book at any hour?', a: 'Yes — any time of day, any day of the week. You just need 24 hours of advance notice.' },
+      { q: 'What currency do I pay in?', a: 'Charges run through Stripe in USD. We show the local equivalent in 20+ currencies.' },
     ],
   },
   es: {

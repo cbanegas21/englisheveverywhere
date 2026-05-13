@@ -8,7 +8,7 @@ const t = {
     eyebrow: '● Schedule',
     titleLead: '168 hours in a week.',
     titleAccent: "All of them are yours.",
-    sideLine: 'Book with 24 hours notice. Any time of day. Any day of the week.',
+    sideLine: 'Book 24 hours ahead. Any time of day. Any day of the week.',
     clockLabel: '↳ Local time',
     clockTime: '03:24',
     clockCaption: 'Someone, somewhere in Latin America, is learning English.',

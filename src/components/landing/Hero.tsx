@@ -15,7 +15,7 @@ const t = {
     bodyTime1: '6 a.m.',
     body2: 'Tuesday. Or at',
     bodyTime2: '11 p.m.',
-    body3: "Sunday. Book with 24 hours' notice, any time of day, any day of the week.",
+    body3: 'Sunday. Book 24 hours ahead — any time of day, any day of the week.',
     ctaPrimary: 'Get started',
     ctaSecondary: 'See how it works',
     ctaDashboard: 'Go to my Dashboard',

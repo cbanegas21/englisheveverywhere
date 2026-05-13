@@ -453,7 +453,7 @@ const T = {
     vocabEmpty: 'New words will appear here as you speak.',
     transcriptEmpty: 'Captions will appear here as the class continues.',
     unsupported:
-      'Live captions are not supported in this browser. Try Chrome or Edge to enable the cuaderno.',
+      "Live captions don't work in this browser. Use Chrome or Edge to enable the cuaderno.",
     justNow: 'just now',
     footer: 'Saved automatically when the class ends.',
   },
