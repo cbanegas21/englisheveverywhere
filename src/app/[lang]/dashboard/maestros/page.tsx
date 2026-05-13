@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
+import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 
 interface Props {
   params: Promise<{ lang: string }>
@@ -12,7 +14,6 @@ interface TeacherProfile {
   avatar_url: string | null
 }
 
-// Supabase PostgREST returns foreign-key joins as arrays; we normalize to single object after fetch
 interface TeacherRow {
   id: string
   bio: string | null
@@ -30,59 +31,189 @@ interface TeacherQueryResult {
 const t = {
   en: {
     title: 'My teacher',
-    subtitle: 'Your teacher is personally assigned by our team based on your level and goals.',
-    assignedLabel: 'Your assigned teacher',
+    flourish: 'yours',
+    subtitle: 'Hand-matched to your level and schedule · One teacher · Yours',
+    assignedKicker: '↳ Your assigned teacher',
     specialties: 'Specialties',
-    viewProfile: 'View full profile',
+    bioKicker: 'Bio',
+    levelKicker: 'Your level',
+    backupKicker: '↳ Backup coverage',
+    backupBody:
+      'When your teacher is off at the time you want to learn, another teacher with your schedule covers that class. 24/7 still means 24/7.',
     pendingTitle: 'Your teacher is being assigned',
     pendingBody: 'Our team is matching you with the best teacher for your level and goals.',
     pendingNote: 'Questions? Write us at hola@englishkolab.com',
     assignedSoonTitle: 'Your teacher will be assigned soon',
-    assignedSoonBody: "Once you complete your diagnostic call and purchase classes, we'll assign the perfect teacher for you based on your level and goals.",
+    assignedSoonBody:
+      "Once you complete your diagnostic call and purchase classes, we'll assign the perfect teacher for you based on your level and goals.",
     placementTitle: 'Schedule your free placement call',
-    placementBody: 'Before we assign your teacher, complete your placement call so we can match you with the right level.',
+    placementBody:
+      "Before we assign your teacher, complete your placement call so we can match you with the right level.",
     placementCta: 'Schedule placement call',
     placementScheduledTitle: 'Your placement call is scheduled',
-    placementScheduledBody: 'After your placement call we\'ll match you with the right teacher for your level.',
+    placementScheduledBody:
+      "After your placement call we'll match you with the right teacher for your level.",
     placementScheduledLabel: 'Scheduled for',
-    sessions: 'sessions taught',
-    rating: 'rating',
     errorMsg: 'Something went wrong. Please try again.',
+    tryAgain: 'Try again',
   },
   es: {
     title: 'Mi maestro',
-    subtitle: 'Tu maestro es asignado personalmente por nuestro equipo según tu nivel y objetivos.',
-    assignedLabel: 'Tu maestro asignado',
+    flourish: 'el tuyo',
+    subtitle: 'Emparejado a mano con tu nivel y horario · Un maestro · El tuyo',
+    assignedKicker: '↳ Tu maestro asignado',
     specialties: 'Especialidades',
-    viewProfile: 'Ver perfil completo',
+    bioKicker: 'Bio',
+    levelKicker: 'Tu nivel',
+    backupKicker: '↳ Cobertura de respaldo',
+    backupBody:
+      'Si tu maestro no está libre cuando quieres aprender, otro maestro con tu horario cubre esa clase. 24/7 sigue siendo 24/7.',
     pendingTitle: 'Tu maestro está siendo asignado',
-    pendingBody: 'Nuestro equipo te está emparejando con el mejor maestro para tu nivel y objetivos.',
+    pendingBody:
+      'Nuestro equipo te está emparejando con el mejor maestro para tu nivel y objetivos.',
     pendingNote: '¿Preguntas? Escríbenos a hola@englishkolab.com',
-    assignedSoonTitle: 'Tu maestra será asignada pronto',
-    assignedSoonBody: 'Una vez que completes tu llamada diagnóstica y paguéis por clases, asignaremos a la mejor maestra para ti según tu nivel y objetivos.',
+    assignedSoonTitle: 'Tu maestro será asignado pronto',
+    assignedSoonBody:
+      'Una vez que completes tu llamada diagnóstica y pagues por clases, asignaremos al mejor maestro para ti según tu nivel y objetivos.',
     placementTitle: 'Agenda tu llamada de diagnóstico gratuita',
-    placementBody: 'Antes de asignarte un maestro, completa tu llamada de diagnóstico para poder emparejarte con el nivel correcto.',
+    placementBody:
+      'Antes de asignarte un maestro, completa tu llamada de diagnóstico para emparejarte con el nivel correcto.',
     placementCta: 'Agendar llamada de diagnóstico',
     placementScheduledTitle: 'Tu llamada de diagnóstico está agendada',
-    placementScheduledBody: 'Después de tu llamada te emparejaremos con la maestra adecuada para tu nivel.',
+    placementScheduledBody:
+      'Después de tu llamada te emparejaremos con el maestro adecuado para tu nivel.',
     placementScheduledLabel: 'Programada para',
-    sessions: 'clases impartidas',
-    rating: 'calificación',
     errorMsg: 'Ocurrió un error. Intenta de nuevo.',
+    tryAgain: 'Intentar de nuevo',
   },
 }
 
 function getInitials(name?: string | null): string {
   if (!name) return '?'
-  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
+function EmptyStateCard({
+  kicker,
+  title,
+  body,
+  cta,
+  ctaHref,
+  detail,
+}: {
+  kicker?: string
+  title: string
+  body: string
+  cta?: string
+  ctaHref?: string
+  detail?: { label: string; value: string }
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--ek-card)',
+        border: '1px solid var(--ek-border)',
+        borderRadius: 16,
+        padding: 40,
+        textAlign: 'center',
+        fontFamily: 'var(--ek-font-sans)',
+      }}
+    >
+      {kicker && (
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--ek-text-muted)',
+            marginBottom: 14,
+            fontFamily: 'var(--ek-font-mono)',
+          }}
+        >
+          {kicker}
+        </div>
+      )}
+      <h2
+        style={{
+          margin: 0,
+          fontSize: 22,
+          fontWeight: 800,
+          color: 'var(--ek-text)',
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {title}
+      </h2>
+      <p
+        style={{
+          margin: '12px auto 0',
+          fontSize: 14,
+          color: 'var(--ek-text-soft)',
+          lineHeight: 1.55,
+          maxWidth: 380,
+        }}
+      >
+        {body}
+      </p>
+      {detail && (
+        <div
+          style={{
+            display: 'inline-flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 4,
+            marginTop: 20,
+            padding: '10px 18px',
+            background: 'var(--ek-red-tint)',
+            border: '1px solid var(--ek-red-tint-3)',
+            borderRadius: 8,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--ek-red)',
+              fontFamily: 'var(--ek-font-mono)',
+            }}
+          >
+            {detail.label}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)' }}>
+            {detail.value}
+          </span>
+        </div>
+      )}
+      {cta && ctaHref && (
+        <Link
+          href={ctaHref}
+          className="ek-btn ek-btn-red ek-btn-square"
+          style={{ marginTop: 24, padding: '12px 22px', fontSize: 14 }}
+        >
+          {cta} →
+        </Link>
+      )}
+    </div>
+  )
 }
 
 export default async function MiMaestroPage({ params }: Props) {
-  const { lang } = await params
-  const tx = t[lang as Locale]
+  const { lang: rawLang } = await params
+  const lang = (rawLang as Locale) || 'es'
+  const tx = t[lang]
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
   try {
@@ -98,7 +229,6 @@ export default async function MiMaestroPage({ params }: Props) {
     const placementDone = student.placement_test_done ?? false
     const level = student.level || null
 
-    // Detect a scheduled-but-not-yet-completed placement call
     const { data: placementBooking } = await supabase
       .from('bookings')
       .select('scheduled_at, status')
@@ -113,7 +243,6 @@ export default async function MiMaestroPage({ params }: Props) {
 
     let teacher: TeacherRow | null = null
     if (level && studentId) {
-      // Get teacher ID from most recent confirmed/completed class booking
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .select('teacher_id')
@@ -127,7 +256,6 @@ export default async function MiMaestroPage({ params }: Props) {
       if (bookingError) {
         console.error('[maestros] Booking lookup error:', bookingError.code, bookingError.message)
       } else if (booking?.teacher_id) {
-        // RLS policy "Students can read teacher profiles" allows this join for enrolled students
         const { data: teacherRow, error: teacherError } = await supabase
           .from('teachers')
           .select('id, bio, specializations, profile:profiles(full_name, avatar_url)')
@@ -137,155 +265,185 @@ export default async function MiMaestroPage({ params }: Props) {
           console.error('[maestros] Teacher fetch error:', teacherError.message)
         } else if (teacherRow) {
           const raw = teacherRow as TeacherQueryResult
-          // Normalize profile: PostgREST may return array or object depending on relationship type
-          const profileData = Array.isArray(raw.profile) ? (raw.profile[0] ?? null) : raw.profile
+          const profileData = Array.isArray(raw.profile) ? raw.profile[0] ?? null : raw.profile
           teacher = { ...raw, profile: profileData } as TeacherRow
         }
       }
     }
 
     return (
-      <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-        <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-          <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-          <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-        </div>
+      <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+        <DashTopBar
+          title={
+            <span>
+              {tx.title} <TitleFlourish>{tx.flourish}</TitleFlourish>
+            </span>
+          }
+          sub={tx.subtitle}
+        />
 
-        <div className="px-8 py-6 max-w-2xl mx-auto">
-          {!placementDone && !placementScheduledAt ? (
-            /* State 1a: No placement call scheduled yet */
-            <div
-              className="rounded-xl p-10 text-center"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div
-                className="h-14 w-14 rounded mx-auto mb-5 flex items-center justify-center"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6"/>
-                  <line x1="8" y1="2" x2="8" y2="6"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </div>
-              <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.placementTitle}</h2>
-              <p className="text-[14px] leading-relaxed max-w-sm mx-auto mb-6" style={{ color: '#4B5563' }}>
-                {tx.placementBody}
-              </p>
-              <Link
-                href={`/${lang}/dashboard/placement`}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded font-bold text-[14px] transition-colors bg-[#C41E3A] hover:bg-[#9E1830] text-white"
-              >
-                {tx.placementCta} →
-              </Link>
-            </div>
-          ) : !placementDone && placementScheduledAt ? (
-            /* State 1b: Placement scheduled but not yet completed */
-            <div
-              className="rounded-xl p-10 text-center"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div
-                className="h-14 w-14 rounded mx-auto mb-5 flex items-center justify-center"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
-                </svg>
-              </div>
-              <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.placementScheduledTitle}</h2>
-              <p className="text-[14px] leading-relaxed max-w-sm mx-auto mb-4" style={{ color: '#4B5563' }}>
-                {tx.placementScheduledBody}
-              </p>
-              <div
-                className="inline-flex flex-col items-center gap-1 px-5 py-3 rounded"
-                style={{ background: 'rgba(196,30,58,0.06)', border: '1px solid rgba(196,30,58,0.15)' }}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#C41E3A' }}>
-                  {tx.placementScheduledLabel}
-                </p>
-                <p className="text-[14px] font-bold" style={{ color: '#111111' }}>
-                  {new Date(placementScheduledAt).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
-                    weekday: 'long', month: 'long', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
+        <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+          {!placementDone && !placementScheduledAt && (
+            <EmptyStateCard
+              kicker={tx.placementTitle.toUpperCase()}
+              title={tx.placementTitle}
+              body={tx.placementBody}
+              cta={tx.placementCta}
+              ctaHref={`/${lang}/dashboard/placement`}
+            />
+          )}
+
+          {!placementDone && placementScheduledAt && (
+            <EmptyStateCard
+              kicker={tx.placementScheduledTitle.toUpperCase()}
+              title={tx.placementScheduledTitle}
+              body={tx.placementScheduledBody}
+              detail={{
+                label: tx.placementScheduledLabel,
+                value: new Date(placementScheduledAt).toLocaleString(
+                  lang === 'es' ? 'es-HN' : 'en-US',
+                  {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
                     timeZone: 'America/Tegucigalpa',
-                  })}
-                </p>
-              </div>
-            </div>
-          ) : !level ? (
-            /* State 2: Placement done, waiting for level + teacher assignment */
-            <div
-              className="rounded-xl p-10 text-center"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div
-                className="h-14 w-14 rounded mx-auto mb-5 flex items-center justify-center"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                </svg>
-              </div>
-              <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.pendingTitle}</h2>
-              <p className="text-[14px] leading-relaxed max-w-sm mx-auto mb-4" style={{ color: '#4B5563' }}>
-                {tx.pendingBody}
-              </p>
-              <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.pendingNote}</p>
-            </div>
-          ) : teacher ? (
-            /* State 3: Level set AND teacher assigned */
-            <div
-              className="rounded-xl overflow-hidden"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div className="px-6 py-4" style={{ borderBottom: '1px solid #E5E7EB', background: '#F3F4F6' }}>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
-                  {tx.assignedLabel}
-                </p>
-              </div>
+                  }
+                ),
+              }}
+            />
+          )}
 
-              <div className="px-6 py-6">
-                <div className="flex items-start gap-5 mb-6">
+          {placementDone && !level && (
+            <EmptyStateCard
+              title={tx.pendingTitle}
+              body={`${tx.pendingBody}\n\n${tx.pendingNote}`}
+            />
+          )}
+
+          {placementDone && level && !teacher && (
+            <EmptyStateCard
+              title={tx.assignedSoonTitle}
+              body={`${tx.assignedSoonBody}\n\n${tx.pendingNote}`}
+            />
+          )}
+
+          {placementDone && level && teacher && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)',
+                gap: 20,
+              }}
+            >
+              {/* Teacher profile dark hero */}
+              <DarkHeroCard
+                ghost={getInitials(teacher.profile?.full_name)}
+                ghostSize={280}
+                ghostStyle={{ right: -20, top: -40 }}
+                padding="32px 36px"
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.22em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ek-on-dark-muted)',
+                    fontWeight: 700,
+                    marginBottom: 14,
+                    fontFamily: 'var(--ek-font-mono)',
+                  }}
+                >
+                  {tx.assignedKicker}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
                   <div
-                    className="h-16 w-16 rounded flex-shrink-0 flex items-center justify-center text-[18px] font-black overflow-hidden"
-                    style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A' }}
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #C41E3A, #8B1529)',
+                      color: '#fff',
+                      fontSize: 22,
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                    }}
                   >
                     {teacher.profile?.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={teacher.profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={teacher.profile.avatar_url}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
                     ) : (
                       getInitials(teacher.profile?.full_name)
                     )}
                   </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-[18px] font-black mb-1" style={{ color: '#111111' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <h2
+                      style={{
+                        margin: 0,
+                        fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
+                        fontWeight: 800,
+                        letterSpacing: '-0.025em',
+                        color: 'var(--ek-on-dark)',
+                        lineHeight: 1,
+                      }}
+                    >
                       {teacher.profile?.full_name || 'Your Teacher'}
                     </h2>
                   </div>
                 </div>
 
                 {teacher.bio && (
-                  <p className="text-[14px] leading-relaxed mb-5" style={{ color: '#4B5563' }}>
+                  <p
+                    style={{
+                      fontSize: 14.5,
+                      color: 'var(--ek-on-dark-soft)',
+                      lineHeight: 1.6,
+                      marginBottom: 20,
+                      maxWidth: 580,
+                    }}
+                  >
                     {teacher.bio}
                   </p>
                 )}
 
                 {(teacher.specializations?.length ?? 0) > 0 && (
-                  <div className="mb-6">
-                    <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#9CA3AF' }}>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ek-on-dark-muted)',
+                        marginBottom: 10,
+                        fontFamily: 'var(--ek-font-mono)',
+                      }}
+                    >
                       {tx.specialties}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       {teacher.specializations!.map((s) => (
                         <span
                           key={s}
-                          className="text-[11px] font-semibold px-2.5 py-1 rounded"
-                          style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }}
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: '6px 12px',
+                            borderRadius: 999,
+                            background: 'rgba(244,239,230,0.12)',
+                            color: 'var(--ek-on-dark)',
+                            border: '1px solid rgba(244,239,230,0.18)',
+                          }}
                         >
                           {s}
                         </span>
@@ -293,29 +451,79 @@ export default async function MiMaestroPage({ params }: Props) {
                     </div>
                   </div>
                 )}
+              </DarkHeroCard>
 
+              {/* Right: level + backup coverage */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {level && (
+                  <div
+                    style={{
+                      background: 'var(--ek-card)',
+                      border: '1px solid var(--ek-border)',
+                      borderRadius: 14,
+                      padding: '22px 24px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ek-text-muted)',
+                        marginBottom: 10,
+                      }}
+                    >
+                      {tx.levelKicker}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 48,
+                        fontWeight: 800,
+                        color: 'var(--ek-text)',
+                        letterSpacing: '-0.03em',
+                        lineHeight: 1,
+                        fontFeatureSettings: '"tnum"',
+                      }}
+                    >
+                      {level}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    background: 'var(--ek-card)',
+                    border: '1px solid var(--ek-border)',
+                    borderRadius: 14,
+                    padding: '22px 24px',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: '0.18em',
+                      textTransform: 'uppercase',
+                      color: 'var(--ek-red)',
+                      marginBottom: 10,
+                      fontFamily: 'var(--ek-font-mono)',
+                    }}
+                  >
+                    {tx.backupKicker}
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13.5,
+                      color: 'var(--ek-text-soft)',
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    {tx.backupBody}
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
-            /* Level set but no confirmed teacher booking yet */
-            <div
-              className="rounded-xl p-10 text-center"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div
-                className="h-14 w-14 rounded mx-auto mb-5 flex items-center justify-center"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="8" r="4"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                </svg>
-              </div>
-              <h2 className="text-[18px] font-black mb-2" style={{ color: '#111111' }}>{tx.assignedSoonTitle}</h2>
-              <p className="text-[14px] leading-relaxed max-w-sm mx-auto mb-4" style={{ color: '#4B5563' }}>
-                {tx.assignedSoonBody}
-              </p>
-              <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.pendingNote}</p>
             </div>
           )}
         </div>
@@ -324,20 +532,15 @@ export default async function MiMaestroPage({ params }: Props) {
   } catch (err) {
     console.error('[maestros] Unexpected error:', err)
     return (
-      <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-        <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-          <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        </div>
-        <div className="px-8 py-6 max-w-2xl mx-auto">
-          <div className="rounded-xl p-8 text-center" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <p className="text-[14px] mb-4" style={{ color: '#9CA3AF' }}>{tx.errorMsg}</p>
-            <Link
-              href={`/${lang}/dashboard/maestros`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[13px] transition-colors bg-[#C41E3A] hover:bg-[#9E1830] text-white"
-            >
-              {lang === 'es' ? 'Intentar de nuevo' : 'Try again'}
-            </Link>
-          </div>
+      <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+        <DashTopBar title={tx.title} />
+        <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+          <EmptyStateCard
+            title={tx.errorMsg}
+            body=""
+            cta={tx.tryAgain}
+            ctaHref={`/${lang}/dashboard/maestros`}
+          />
         </div>
       </div>
     )
