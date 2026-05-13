@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { saveIntake } from '@/app/actions/intake'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 const t = {
   en: {
@@ -147,12 +148,8 @@ export default function IntakeClient({ lang }: Props) {
   const progress = ((step) / total) * 100
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-      {/* Header */}
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div className="flex items-start justify-center px-4 py-12">
         <div className="w-full max-w-[520px]">

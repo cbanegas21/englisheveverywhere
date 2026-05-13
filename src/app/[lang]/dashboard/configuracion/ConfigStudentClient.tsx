@@ -28,6 +28,7 @@ import {
 } from '@/app/actions/profile'
 import TimezoneSelect from '@/components/TimezoneSelect'
 import NotificationPreferences from '@/components/NotificationPreferences'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 
 // TODO (Phase 4): wire avatar upload to Supabase Storage `avatars/{user.id}`
 // bucket (create bucket + policies if missing).
@@ -219,14 +220,9 @@ export default function ConfigStudentClient({
   ]
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-      <div className="px-6 md:px-10 py-8 max-w-[1440px] mx-auto">
-        <header className="mb-6">
-          <h1 className="text-[28px] md:text-[32px] font-black tracking-tight" style={{ color: '#111111' }}>
-            {tx.title}
-          </h1>
-          <p className="text-[14px] mt-1" style={{ color: '#6B7280' }}>{tx.subtitle}</p>
-        </header>
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
+      <div className="px-6 md:px-10 py-6 max-w-[1280px] mx-auto">
 
         {/* Mobile tabs (horizontal scroll) */}
         <nav

@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
-import { BookOpen, X, Loader2 } from 'lucide-react'
+import { useEffect, useState, useTransition, useMemo } from 'react'
+import { X, Loader2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { getBookSignedUrl } from '@/app/actions/library'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
+import { KickerStat } from '@/components/ui/KickerStat'
 
 interface Book {
   id: string
@@ -23,36 +25,81 @@ interface Props {
 const t = {
   en: {
     title: 'Library',
-    subtitle: 'Curriculum books and reading materials.',
+    subtitle: 'Curriculum books and reading materials · view-only',
     empty: 'No books available yet.',
     emptySub: 'The EnglishKolab team is curating the library. Books will appear here.',
-    read: 'Open book',
+    read: 'Open →',
     loading: 'Opening…',
     viewerError: 'Could not open this book. Please try again.',
     levelAll: 'All levels',
     closeLabel: 'Close viewer',
     noDownloadNote: 'Viewing only. Downloads are disabled.',
+    stats: {
+      total: 'Books',
+      totalSub: 'in your library',
+      levels: 'Levels',
+      levelsSub: 'covered',
+      latest: 'Latest',
+      latestSub: 'added',
+    },
+    filterAll: 'All',
+    open: 'Open',
   },
   es: {
     title: 'Biblioteca',
-    subtitle: 'Libros y materiales de lectura.',
+    subtitle: 'Libros y materiales de lectura · solo lectura',
     empty: 'Todavía no hay libros disponibles.',
     emptySub: 'El equipo de EnglishKolab está organizando la biblioteca. Los libros aparecerán aquí.',
-    read: 'Abrir libro',
+    read: 'Abrir →',
     loading: 'Abriendo…',
     viewerError: 'No se pudo abrir este libro. Inténtalo de nuevo.',
     levelAll: 'Todos los niveles',
     closeLabel: 'Cerrar visor',
     noDownloadNote: 'Solo lectura. La descarga está desactivada.',
+    stats: {
+      total: 'Libros',
+      totalSub: 'en tu biblioteca',
+      levels: 'Niveles',
+      levelsSub: 'cubiertos',
+      latest: 'Más reciente',
+      latestSub: 'añadido',
+    },
+    filterAll: 'Todos',
+    open: 'Abrir',
   },
+}
+
+function fmtDate(iso: string, lang: Locale) {
+  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 export default function BibliotecaClient({ lang, books }: Props) {
   const tx = t[lang]
+  const accent = 'var(--ek-red)'
   const [openBook, setOpenBook] = useState<Book | null>(null)
   const [signedUrl, setSignedUrl] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
+  const [filter, setFilter] = useState<string>('all')
+
+  const levels = useMemo(() => {
+    const set = new Set<string>()
+    for (const b of books) if (b.level) set.add(b.level)
+    return Array.from(set).sort()
+  }, [books])
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return books
+    return books.filter((b) => b.level === filter)
+  }, [books, filter])
+
+  const latest = useMemo(() => {
+    if (books.length === 0) return null
+    return books.reduce((a, b) => (new Date(a.created_at) > new Date(b.created_at) ? a : b))
+  }, [books])
 
   function handleOpen(book: Book) {
     setError('')
@@ -77,69 +124,200 @@ export default function BibliotecaClient({ lang, books }: Props) {
   }
 
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
 
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <h1 className="text-[20px] font-black" style={{ color: '#111111' }}>{tx.title}</h1>
-        <p className="text-[13px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-      </div>
-
-      <div className="px-8 py-6 max-w-5xl mx-auto">
-        {books.length === 0 ? (
+      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+        {books.length > 0 && (
           <div
-            className="rounded-xl p-10 flex flex-col items-center text-center"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 16,
+              marginBottom: 24,
+            }}
           >
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-              style={{ background: 'rgba(196,30,58,0.08)' }}
-            >
-              <BookOpen className="h-6 w-6" style={{ color: '#C41E3A' }} />
-            </div>
-            <p className="text-[13px] font-semibold mb-1" style={{ color: '#111111' }}>{tx.empty}</p>
-            <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.emptySub}</p>
+            <KickerStat kicker={tx.stats.total} value={books.length} sub={tx.stats.totalSub} />
+            <KickerStat kicker={tx.stats.levels} value={levels.length || '—'} sub={tx.stats.levelsSub} />
+            <KickerStat
+              kicker={tx.stats.latest}
+              value={latest ? fmtDate(latest.created_at, lang) : '—'}
+              sub={tx.stats.latestSub}
+            />
+          </div>
+        )}
+
+        {/* Level filter tabs */}
+        {levels.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 4,
+              marginBottom: 20,
+              borderBottom: '1px solid var(--ek-border)',
+              flexWrap: 'wrap',
+            }}
+          >
+            {([{ key: 'all', label: tx.filterAll }, ...levels.map((l) => ({ key: l, label: l === 'all' ? tx.levelAll : l }))]).map(
+              (tab) => {
+                const active = filter === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setFilter(tab.key)}
+                    style={{
+                      padding: '10px 16px',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: 'transparent',
+                      border: 0,
+                      color: active ? 'var(--ek-text)' : 'var(--ek-text-muted)',
+                      borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
+                      marginBottom: -1,
+                      fontFamily: 'var(--ek-font-sans)',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              }
+            )}
+          </div>
+        )}
+
+        {filtered.length === 0 ? (
+          <div
+            style={{
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border)',
+              borderRadius: 14,
+              padding: 60,
+              textAlign: 'center',
+            }}
+          >
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)' }}>{tx.empty}</p>
+            <p style={{ marginTop: 6, fontSize: 12, color: 'var(--ek-text-muted)' }}>{tx.emptySub}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {books.map(book => (
+          <section
+            style={{
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border)',
+              borderRadius: 14,
+              overflow: 'hidden',
+            }}
+          >
+            {filtered.map((book, i) => (
               <button
                 key={book.id}
                 onClick={() => handleOpen(book)}
-                className="text-left rounded-xl p-5 transition-all cursor-pointer"
-                style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#C41E3A'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(196,30,58,0.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.boxShadow = 'none' }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '40px 1fr auto auto',
+                  gap: 16,
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '16px 22px',
+                  borderBottom: i < filtered.length - 1 ? '1px solid var(--ek-border-soft)' : 'none',
+                  background: 'transparent',
+                  border: 0,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--ek-font-sans)',
+                }}
               >
-                <div className="flex items-start justify-between mb-4">
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 8,
+                    background: 'var(--ek-red-tint-2)',
+                    color: accent,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--ek-font-mono)',
+                    fontSize: 18,
+                    fontWeight: 700,
+                  }}
+                >
+                  ▭
+                </div>
+                <div style={{ minWidth: 0 }}>
                   <div
-                    className="flex h-10 w-10 items-center justify-center rounded"
-                    style={{ background: 'rgba(196,30,58,0.08)' }}
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: 'var(--ek-text)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
                   >
-                    <BookOpen className="h-5 w-5" style={{ color: '#C41E3A' }} />
+                    {book.title}
                   </div>
+                  {book.description && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--ek-text-muted)',
+                        marginTop: 3,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {book.description}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   {book.level && (
                     <span
-                      className="text-[10px] font-semibold px-2 py-1 rounded"
-                      style={{ background: '#F3F4F6', color: '#6B7280' }}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        padding: '4px 8px',
+                        borderRadius: 4,
+                        background: 'var(--ek-paper)',
+                        color: 'var(--ek-text-soft)',
+                        border: '1px solid var(--ek-border)',
+                        fontFamily: 'var(--ek-font-mono)',
+                      }}
                     >
                       {book.level === 'all' ? tx.levelAll : book.level}
                     </span>
                   )}
-                </div>
-                <div className="text-[14px] font-bold mb-1.5" style={{ color: '#111111' }}>{book.title}</div>
-                {book.description && (
-                  <p className="text-[12px] leading-relaxed line-clamp-2" style={{ color: '#4B5563' }}>
-                    {book.description}
-                  </p>
-                )}
-                <div className="mt-4 pt-4" style={{ borderTop: '1px solid #E5E7EB' }}>
-                  <span className="text-[11px] font-semibold" style={{ color: '#C41E3A' }}>
-                    {tx.read} →
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--ek-text-muted)',
+                      fontFeatureSettings: '"tnum"',
+                    }}
+                  >
+                    {fmtDate(book.created_at, lang)}
                   </span>
                 </div>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    background: 'var(--ek-paper)',
+                    color: 'var(--ek-text)',
+                    border: '1px solid var(--ek-border-mid)',
+                  }}
+                >
+                  {tx.open}
+                </span>
               </button>
             ))}
-          </div>
+          </section>
         )}
       </div>
 
@@ -160,7 +338,12 @@ export default function BibliotecaClient({ lang, books }: Props) {
 }
 
 function BookViewer({
-  lang, book, signedUrl, loading, error, onClose,
+  lang,
+  book,
+  signedUrl,
+  loading,
+  error,
+  onClose,
 }: {
   lang: Locale
   book: Book
@@ -171,10 +354,6 @@ function BookViewer({
 }) {
   const tx = t[lang]
 
-  // Block the right-click context menu on the wrapper so the student can't
-  // save the embedded PDF. The <iframe#toolbar=0> param hides Chrome's
-  // built-in PDF download button; wrapper intercepts right-click to
-  // block "Save as". Not airtight but a meaningful deterrent for MVP.
   useEffect(() => {
     function handleContextMenu(e: MouseEvent) {
       const target = e.target as HTMLElement
@@ -187,59 +366,120 @@ function BookViewer({
   return (
     <>
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 z-40"
-        style={{ background: 'rgba(0,0,0,0.75)' }}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 40 }}
       />
       <motion.div
         data-book-viewer
-        initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
-        className="fixed inset-4 md:inset-10 z-50 rounded-xl overflow-hidden flex flex-col"
-        style={{ background: '#111111', boxShadow: '0 40px 80px rgba(0,0,0,0.4)' }}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        style={{
+          position: 'fixed',
+          inset: 16,
+          zIndex: 50,
+          borderRadius: 14,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--ek-ink)',
+          boxShadow: '0 40px 80px rgba(0,0,0,0.4)',
+          fontFamily: 'var(--ek-font-sans)',
+        }}
       >
         <div
-          className="flex items-center justify-between px-5 py-3 flex-shrink-0"
-          style={{ background: '#111111', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 20px',
+            background: 'var(--ek-ink)',
+            borderBottom: '1px solid rgba(244,239,230,0.10)',
+            flexShrink: 0,
+          }}
         >
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-bold truncate" style={{ color: '#fff' }}>{book.title}</p>
-            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{tx.noDownloadNote}</p>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 14,
+                fontWeight: 800,
+                color: 'var(--ek-on-dark)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {book.title}
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 10, color: 'var(--ek-on-dark-muted)' }}>
+              {tx.noDownloadNote}
+            </p>
           </div>
           <button
             onClick={onClose}
             aria-label={tx.closeLabel}
-            className="ml-3 p-1.5 rounded transition-colors"
-            style={{ color: 'rgba(255,255,255,0.5)' }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'transparent' }}
+            style={{
+              marginLeft: 12,
+              padding: 6,
+              borderRadius: 6,
+              color: 'var(--ek-on-dark-muted)',
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+            }}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div
-          className="flex-1 relative select-none"
-          style={{ background: '#2A2A2A', userSelect: 'none', WebkitUserSelect: 'none' }}
+          style={{
+            flex: 1,
+            position: 'relative',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            background: '#2A2A2A',
+          }}
         >
           {loading && !signedUrl && !error && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#C41E3A' }} />
-                <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.6)' }}>{tx.loading}</p>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--ek-red)' }} />
+                <p style={{ fontSize: 12, color: 'var(--ek-on-dark-muted)' }}>{tx.loading}</p>
               </div>
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 flex items-center justify-center px-8 text-center">
-              <p className="text-[13px]" style={{ color: '#FCA5A5' }}>{error || tx.viewerError}</p>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 32,
+                textAlign: 'center',
+              }}
+            >
+              <p style={{ fontSize: 13, color: '#FCA5A5' }}>{error || tx.viewerError}</p>
             </div>
           )}
           {signedUrl && (
             <iframe
               src={`${signedUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-              className="w-full h-full"
-              style={{ border: 'none', background: '#2A2A2A' }}
+              style={{ width: '100%', height: '100%', border: 'none', background: '#2A2A2A' }}
               title={book.title}
             />
           )}
