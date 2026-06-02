@@ -6,8 +6,7 @@ import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cancelBookingReminders } from '@/lib/reminders'
-
-const ROLE_COOKIE = 'ek_role'
+import { ROLE_COOKIE } from '@/lib/authCookie'
 
 export interface NotificationPreferences {
   email?: boolean

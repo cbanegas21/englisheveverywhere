@@ -26,9 +26,9 @@ const t = {
       {
         heading: '3. Plans, classes, and payment',
         body: [
-          'Plans are sold as a fixed number of classes per period at the prices displayed on the Service. Payment is processed by Stripe. By purchasing a plan you authorize us to charge your payment method for the plan amount plus any applicable taxes.',
-          'Classes credited to your account must be used within the period stated at purchase. Unused classes expire at the end of the period unless otherwise stated.',
-          'Prices are shown in USD and may be converted to your local currency by Stripe.',
+          'Plans are sold as a fixed number of classes at the prices displayed on the Service. Payment is a one-time charge processed by Stripe — there is no subscription or auto-renewal. By purchasing a plan you authorize us to charge your payment method for the plan amount plus any applicable taxes.',
+          'Classes purchased under current plans do not expire. Unused classes remain in your account until used, and additional purchases stack with any classes you already have.',
+          'Prices are shown in USD. We may display an estimated local-currency equivalent for reference only; all charges are processed in USD by Stripe.',
         ],
       },
       {
@@ -116,9 +116,9 @@ const t = {
       {
         heading: '3. Planes, clases y pago',
         body: [
-          'Los planes se venden como un número fijo de clases por período a los precios mostrados en el Servicio. Los pagos son procesados por Stripe. Al comprar un plan autorizas el cargo a tu método de pago por el importe del plan más los impuestos aplicables.',
-          'Las clases acreditadas a tu cuenta deben usarse dentro del período indicado al momento de la compra. Las clases no utilizadas expiran al final del período salvo que se indique lo contrario.',
-          'Los precios se muestran en USD y pueden ser convertidos a tu moneda local por Stripe.',
+          'Los planes se venden como un número fijo de clases a los precios mostrados en el Servicio. El pago es un cargo único procesado por Stripe — no hay suscripción ni renovación automática. Al comprar un plan autorizas el cargo a tu método de pago por el importe del plan más los impuestos aplicables.',
+          'Las clases compradas en los planes actuales no expiran. Las clases no utilizadas permanecen en tu cuenta hasta que las uses, y las compras adicionales se acumulan con las clases que ya tengas.',
+          'Los precios se muestran en USD. Podemos mostrar un equivalente estimado en tu moneda local solo como referencia; todos los cargos se procesan en USD por Stripe.',
         ],
       },
       {

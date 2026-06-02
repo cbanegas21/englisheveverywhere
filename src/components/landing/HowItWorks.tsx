@@ -11,9 +11,9 @@ const t = {
     side: 'No auto placement test. No marketplace. No group classes. Just your teacher and your schedule.',
     steps: [
       { n: '01', title: 'Choose your pack', body: '8, 12, 16 or 20 classes a month. One payment. No auto-renewal.' },
-      { n: '02', title: 'We assign your teacher', body: 'Latin American, near-native. Hand-matched to your level and schedule.' },
-      { n: '03', title: 'Book your times', body: 'Whenever you want. 6 a.m. Tuesday, 11 p.m. Sunday. You decide.' },
-      { n: '04', title: 'Take your live class', body: '60 minutes, 1 to 1, on video, inside the platform.' },
+      { n: '02', title: 'Take your free call', body: 'A quick human call sets your level and goals. Always free.' },
+      { n: '03', title: 'Book your times', body: 'Whenever you want — any hour, any day. You pick, 24h ahead.' },
+      { n: '04', title: 'We match a teacher — you go live', body: 'We assign an available teacher to each class. 60 min, 1 to 1, on video.' },
     ],
   },
   es: {
@@ -23,9 +23,9 @@ const t = {
     side: 'Sin pruebas automáticas. Sin marketplace. Sin clases grupales. Solo tu maestro y tu horario.',
     steps: [
       { n: '01', title: 'Elige tu paquete', body: '8, 12, 16 o 20 clases al mes. Un solo pago. Sin renovación automática.' },
-      { n: '02', title: 'Te asignamos un maestro', body: 'Latinoamericano, casi nativo. Emparejado a mano según tu nivel y horario.' },
-      { n: '03', title: 'Reserva tus horarios', body: 'Cuando quieras. 6 a.m. del martes, 11 p.m. del domingo. Tú decides.' },
-      { n: '04', title: 'Toma tu clase en vivo', body: '60 minutos, 1 a 1, en video, dentro de la plataforma.' },
+      { n: '02', title: 'Toma tu llamada gratis', body: 'Una breve llamada humana define tu nivel y tus metas. Siempre gratis.' },
+      { n: '03', title: 'Reserva tus horarios', body: 'Cuando quieras — cualquier hora, cualquier día. Tú eliges, con 24h de anticipación.' },
+      { n: '04', title: 'Te asignamos maestro y entras en vivo', body: 'Asignamos un maestro disponible a cada clase. 60 min, 1 a 1, en video.' },
     ],
   },
 }

@@ -558,7 +558,7 @@ export async function resetStudentPassword(email: string) {
   if (error) throw new Error(error.message)
   // Send via Resend
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   if (apiKey && apiKey !== 're_placeholder' && data?.properties?.action_link) {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -683,7 +683,7 @@ function sendBookingEmails(params: {
   bookingId: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   if (!apiKey || apiKey === 're_placeholder') return
 
   const admin = createAdminClient()
@@ -764,7 +764,7 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
 
   // Send welcome email (non-blocking)
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
     fetch('https://api.resend.com/emails', {
@@ -800,7 +800,7 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
   await admin.from('profiles').update({ role: 'student' }).eq('id', profileId)
 
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
     fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -900,7 +900,7 @@ export async function bulkAssignTeacher(
 
 function sendAssignmentEmail(bookingId: string) {
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (!apiKey || apiKey === 're_placeholder') return
 

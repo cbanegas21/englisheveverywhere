@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { locales, defaultLocale } from '@/lib/i18n/translations'
+import { ROLE_COOKIE } from '@/lib/authCookie'
 
 function getLocale(request: NextRequest): string {
   // Respect persisted locale cookie (set when user toggles language).
@@ -45,7 +46,7 @@ export function proxy(request: NextRequest) {
   // Role-guard fast path. Cookie-absent = let layout guards handle auth/role
   // (they read profiles.role as the canonical source). Cookie-present mismatch
   // = short-circuit redirect so the wrong-role UI never flashes.
-  const role = request.cookies.get('ee-role')?.value
+  const role = request.cookies.get(ROLE_COOKIE)?.value
   if (!role) return NextResponse.next()
 
   const segments = pathname.split('/').filter(Boolean)

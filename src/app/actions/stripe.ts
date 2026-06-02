@@ -56,6 +56,17 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
         plan_key: planKey,
         lang,
       },
+      // Propagate the same metadata to the PaymentIntent → Charge. Without this,
+      // payment-mode metadata lives only on the Session, so the charge.refunded
+      // webhook (which reads charge.metadata) has nothing to key on and never
+      // reverses class credits. See docs/AUDIT_TICKETS.md EK-004.
+      payment_intent_data: {
+        metadata: {
+          user_id: user.id,
+          plan_key: planKey,
+          lang,
+        },
+      },
       customer_email: user.email,
     })
 

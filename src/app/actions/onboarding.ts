@@ -117,7 +117,7 @@ async function sendTeacherApplicationEmails(params: {
   lang: 'es' | 'en'
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (!apiKey || apiKey === 're_placeholder') return

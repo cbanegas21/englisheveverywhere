@@ -6,10 +6,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { checkAuthRateLimit } from '@/lib/rateLimit'
+import { ROLE_COOKIE } from '@/lib/authCookie'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
 // Layout guards remain the source of truth — cookie staleness never grants access.
-const ROLE_COOKIE = 'ee-role'
 const ROLE_COOKIE_OPTS = {
   path: '/',
   maxAge: 60 * 60 * 24 * 30,
@@ -101,11 +101,12 @@ export async function signUp(formData: FormData) {
       const confirmationUrl = linkData?.properties?.action_link
       if (confirmationUrl) {
         const resend = new Resend(process.env.RESEND_API_KEY)
-        const fromAddr = process.env.EMAIL_FROM || 'onboarding@resend.dev'
+        // Fall back to the verified englishkolab.com sender (NOT the Resend
+        // sandbox), so confirmation email reaches real users even if EMAIL_FROM
+        // is unset in the environment. See docs/AUDIT_TICKETS.md EK-005.
+        const fromAddr = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
         const maskedKey = (process.env.RESEND_API_KEY || '').slice(0, 8) + '...'
         console.log(`[signUp] Sending confirmation email — to: ${email}, from: ${fromAddr}, key: ${maskedKey}`)
-        // NOTE: onboarding@resend.dev (sandbox) only delivers to Resend account owner.
-        // For other recipients to receive email, verify a custom domain in Resend dashboard.
         const { error: resendError } = await resend.emails.send({
           from: fromAddr,
           to: email,
