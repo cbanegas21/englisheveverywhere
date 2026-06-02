@@ -17,7 +17,7 @@ export default async function TeacherDashboardPage({ params }: Props) {
   // Fetch teacher data
   const { data: teacher } = await supabase
     .from('teachers')
-    .select('id, rating, total_sessions, is_active, specializations')
+    .select('id, rating, total_sessions, is_active, accepting_students, specializations')
     .eq('profile_id', user.id)
     .single()
 
@@ -67,7 +67,7 @@ export default async function TeacherDashboardPage({ params }: Props) {
       timezone={timezone}
       rating={teacher?.rating || 0}
       totalSessions={teacher?.total_sessions || 0}
-      isActive={teacher?.is_active || false}
+      accepting={teacher?.accepting_students ?? true}
       specializations={teacher?.specializations || []}
       thisMonthSessions={thisMonthCount || 0}
       upcomingSessions={(upcomingSessions as any) || []}

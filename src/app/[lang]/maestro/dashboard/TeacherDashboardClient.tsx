@@ -131,7 +131,7 @@ interface Props {
   timezone: string
   rating: number
   totalSessions: number
-  isActive: boolean
+  accepting: boolean
   specializations: string[]
   thisMonthSessions: number
   upcomingSessions: Session[]
@@ -144,7 +144,7 @@ export default function TeacherDashboardClient({
   timezone,
   rating,
   totalSessions,
-  isActive: initialActive,
+  accepting: initialActive,
   specializations,
   thisMonthSessions,
   upcomingSessions,
@@ -164,12 +164,15 @@ export default function TeacherDashboardClient({
   }, [])
   const [isPending, startTransition] = useTransition()
 
+  // Teacher's "accepting new students" preference. Decoupled from is_active
+  // (admin approval) so toggling it can never lock the teacher out of their
+  // dashboard. See migration 028 / audit EK-011.
   function toggleActive() {
     const supabase = createClient()
     startTransition(async () => {
       await supabase
         .from('teachers')
-        .update({ is_active: !active })
+        .update({ accepting_students: !active })
         .eq('profile_id', profileId)
       setActive(!active)
     })

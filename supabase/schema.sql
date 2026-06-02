@@ -231,6 +231,7 @@ create table public.teachers (
   cv_storage_path text,
   cv_uploaded_at timestamp with time zone,
   cv_original_filename text,
+  accepting_students boolean not null default true,
   primary key (id)
 );
 

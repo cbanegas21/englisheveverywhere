@@ -701,6 +701,7 @@ export type Database = {
       }
       teachers: {
         Row: {
+          accepting_students: boolean
           admin_notes: string | null
           bio: string | null
           certifications: string[] | null
@@ -718,6 +719,7 @@ export type Database = {
           total_sessions: number | null
         }
         Insert: {
+          accepting_students?: boolean
           admin_notes?: string | null
           bio?: string | null
           certifications?: string[] | null
@@ -735,6 +737,7 @@ export type Database = {
           total_sessions?: number | null
         }
         Update: {
+          accepting_students?: boolean
           admin_notes?: string | null
           bio?: string | null
           certifications?: string[] | null
