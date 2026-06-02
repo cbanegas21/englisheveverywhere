@@ -206,7 +206,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
           <>
             <div style={{ height: 14 }} />
             <Link
-              href={`/${lang}/maestro/dashboard`}
+              href={`mailto:hola@englishkolab.com?subject=${encodeURIComponent(lang === 'es' ? 'Me interesa enseñar en EnglishKolab' : 'Interested in teaching at EnglishKolab')}`}
               className="transition-colors"
               style={{
                 display: 'flex',

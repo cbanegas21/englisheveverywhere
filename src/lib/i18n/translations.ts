@@ -47,7 +47,7 @@ export const translations = {
     },
     pricing: {
       title: 'Transparent pricing',
-      subtitle: 'No hidden fees. Cancel anytime.',
+      subtitle: 'No hidden fees. No auto-renewal.',
       perMonth: '/ month',
       classesPerMonth: 'classes per month',
       popular: 'Most popular',
@@ -119,7 +119,7 @@ export const translations = {
     },
     pricing: {
       title: 'Precios transparentes',
-      subtitle: 'Sin cargos ocultos. Cancela cuando quieras.',
+      subtitle: 'Sin cargos ocultos. Sin renovación automática.',
       perMonth: '/ mes',
       classesPerMonth: 'clases por mes',
       popular: 'Más popular',

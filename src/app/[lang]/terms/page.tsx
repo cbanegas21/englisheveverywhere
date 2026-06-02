@@ -1,4 +1,5 @@
 import type { Locale } from '@/lib/i18n/translations'
+import Navbar from '@/components/landing/Navbar'
 import Footer from '@/components/landing/Footer'
 
 const CONTACT_EMAIL = 'c.banegaspaz2020@gmail.com'
@@ -193,6 +194,7 @@ export default async function TermsPage({ params }: { params: Promise<{ lang: Lo
 
   return (
     <>
+      <Navbar lang={lang} />
       <main className="min-h-screen" style={{ background: 'var(--ek-paper)' }}>
         <div className="max-w-3xl mx-auto px-6 py-16">
           <h1 className="text-[40px] font-black mb-2 tracking-tight" style={{ color: '#111111' }}>

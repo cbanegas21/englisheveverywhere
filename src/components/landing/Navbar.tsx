@@ -78,10 +78,12 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-7">
           {[
-            { label: tx.how, href: '#how-it-works' },
-            { label: tx.teachers, href: '#teachers' },
-            { label: tx.pricing, href: '#pricing' },
-            { label: tx.faq, href: '#faq' },
+            // Absolute (/${lang}#...) so they also work from subpages like
+            // /contact, /privacy, /terms — not just the home page. Audit EK-036.
+            { label: tx.how, href: `/${lang}#how-it-works` },
+            { label: tx.teachers, href: `/${lang}#teachers` },
+            { label: tx.pricing, href: `/${lang}#pricing` },
+            { label: tx.faq, href: `/${lang}#faq` },
           ].map((item) => (
             <Link
               key={item.label}
@@ -269,10 +271,10 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
           </div>
 
           {[
-            { label: tx.how, href: '#how-it-works' },
-            { label: tx.teachers, href: '#teachers' },
-            { label: tx.pricing, href: '#pricing' },
-            { label: tx.faq, href: '#faq' },
+            { label: tx.how, href: `/${lang}#how-it-works` },
+            { label: tx.teachers, href: `/${lang}#teachers` },
+            { label: tx.pricing, href: `/${lang}#pricing` },
+            { label: tx.faq, href: `/${lang}#faq` },
             ...(!isLoggedIn ? [{ label: tx.login, href: `/${lang}/login` }] : []),
           ].map((item) => (
             <Link

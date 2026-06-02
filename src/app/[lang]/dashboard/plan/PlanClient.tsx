@@ -26,7 +26,7 @@ interface Props {
 const T = {
   en: {
     title: 'My plan',
-    subtitle: 'Monthly plans · Cancel anytime · Classes never expire',
+    subtitle: 'Monthly packs · No auto-renewal · Classes never expire',
     currency: 'Currency',
     classesLeft: 'classes available',
     currentPlanLabel: 'Current plan',
@@ -96,7 +96,7 @@ const T = {
   },
   es: {
     title: 'Mi plan',
-    subtitle: 'Planes mensuales · Cancela cuando quieras · Las clases no expiran',
+    subtitle: 'Paquetes mensuales · Sin renovación automática · Las clases no expiran',
     currency: 'Moneda',
     classesLeft: 'clases disponibles',
     currentPlanLabel: 'Plan actual',
