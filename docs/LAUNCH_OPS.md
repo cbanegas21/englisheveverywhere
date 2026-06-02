@@ -3,7 +3,12 @@
 Things that can't be done in code and need Carlos to action in a dashboard.
 Created 2026-06-01 alongside the launch-readiness work.
 
-## 1. Enable admin MFA (do before launch)
+## 1. Enable admin MFA — DEFERRED by Carlos (2026-06-02)
+
+**Decision:** not a launch blocker for the initial soft launch; revisit
+post-launch. Accepted risk: a leaked admin password has no second factor, so a
+compromised admin login = full platform access. Low traffic at launch makes this
+acceptable for now. Steps below for when you're ready (≈5 min):
 
 A leaked admin password currently owns the whole platform. Enable TOTP MFA:
 
