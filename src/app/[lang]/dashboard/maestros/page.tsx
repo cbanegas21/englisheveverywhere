@@ -229,6 +229,14 @@ export default async function MiMaestroPage({ params }: Props) {
     const placementDone = student.placement_test_done ?? false
     const level = student.level || null
 
+    // Show times in the student's own timezone, not hardcoded Honduras (EK-012/044).
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', user.id)
+      .maybeSingle()
+    const studentTz = (profileRow as { timezone?: string | null } | null)?.timezone || 'America/Tegucigalpa'
+
     const { data: placementBooking } = await supabase
       .from('bookings')
       .select('scheduled_at, status')
@@ -317,7 +325,8 @@ export default async function MiMaestroPage({ params }: Props) {
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
-                    timeZone: 'America/Tegucigalpa',
+                    timeZoneName: 'short',
+                    timeZone: studentTz,
                   }
                 ),
               }}
