@@ -50,13 +50,13 @@ const t = {
     subtitle: 'How you have improved since you started',
     downloadReport: 'Download report (PDF)',
     currentLevelKicker: 'Current level',
-    currentLevelDesc: (level: string, ahead: number) =>
-      `You can hold an everyday work conversation, share experiences and opinions with confidence. About ${ahead} classes to reach the next level.`,
+    currentLevelDesc:
+      "You can hold an everyday work conversation, share experiences and opinions with confidence. Your teacher will let you know when you're ready for the next level.",
     stats: {
       completed: 'Classes',
       completedSub: 'so far',
       hours: 'Hours',
-      hoursSub: '≈ a workday',
+      hoursSub: 'of live class',
       remaining: 'Available',
       remainingSub: 'in your plan',
       upcoming: 'Scheduled',
@@ -95,13 +95,13 @@ const t = {
     subtitle: 'Cómo has avanzado desde que empezaste',
     downloadReport: 'Descargar informe (PDF)',
     currentLevelKicker: 'Nivel actual',
-    currentLevelDesc: (level: string, ahead: number) =>
-      `Puedes mantener una conversación de trabajo cotidiana, contar experiencias y opinar con seguridad. Te faltan unas ${ahead} clases para el siguiente nivel.`,
+    currentLevelDesc:
+      'Puedes mantener una conversación de trabajo cotidiana, contar experiencias y opinar con seguridad. Tu maestro te dirá cuándo estés listo para el siguiente nivel.',
     stats: {
       completed: 'Clases',
       completedSub: 'hasta ahora',
       hours: 'Horas',
-      hoursSub: '≈ una jornada laboral',
+      hoursSub: 'de clase en vivo',
       remaining: 'Disponibles',
       remainingSub: 'en tu plan',
       upcoming: 'Agendadas',
@@ -192,8 +192,6 @@ export default function ProgresoClient({
   const planInfo = currentPlan ? PRICING_MAP[currentPlan as PricingPlanKey] : null
   const planTotal = planInfo?.classes ?? 0
   const planProgress = planTotal > 0 ? Math.min(100, (completedThisMonth / planTotal) * 100) : 0
-  // Rough estimate: ~10 classes between adjacent CEFR levels
-  const classesToNextLevel = level && activeIndex < CEFR_LEVELS.length - 1 ? Math.max(0, 40 - (completedTotal % 40)) : 0
 
   const [now, setNow] = useState<number | null>(null)
   useEffect(() => {
@@ -408,7 +406,7 @@ export default function ProgresoClient({
               }}
             >
               {level
-                ? tx.currentLevelDesc(level, classesToNextLevel)
+                ? tx.currentLevelDesc
                 : (lang === 'es'
                     ? 'Completa tu llamada diagnóstica para conocer tu nivel exacto.'
                     : 'Complete your diagnostic call to learn your exact level.')}
