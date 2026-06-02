@@ -27,7 +27,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'EnglishKolab — Aprende inglés. Cuando quieras. Donde quieras. A tu ritmo.',
   description:
-    'Aprende inglés con maestros latinoamericanos near-native, en vivo y 1 a 1. Cuando quieras. Donde quieras. A tu ritmo.',
+    'Aprende inglés en vivo y 1 a 1 con maestros certificados. Cuando quieras. Donde quieras. A tu ritmo.',
   keywords: 'clases de inglés, inglés online, aprender inglés, EnglishKolab, Latinoamérica',
 }
 

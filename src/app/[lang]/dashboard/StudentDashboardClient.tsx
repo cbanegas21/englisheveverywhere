@@ -52,7 +52,7 @@ const t = {
     teacherCardKicker: 'Your assigned teacher',
     quickActionsKicker: 'Quick actions',
     actions: {
-      book: { title: 'Schedule another class', sub: 'Pick when, where, with whom' },
+      book: { title: 'Schedule another class', sub: 'Pick any time that works for you' },
       test: { title: 'Placement call', sub: 'Find your exact level' },
       testScheduled: { title: 'View diagnostic call', sub: 'See your scheduled session' },
       progress: { title: 'My progress', sub: 'Track your improvement' },
@@ -121,7 +121,7 @@ const t = {
     teacherCardKicker: 'Tu maestro asignado',
     quickActionsKicker: 'Accesos rápidos',
     actions: {
-      book: { title: 'Agendar otra clase', sub: 'Elige cuándo, dónde y con quién' },
+      book: { title: 'Agendar otra clase', sub: 'Elige la hora que te funcione' },
       test: { title: 'Llamada de nivel', sub: 'Encuentra tu nivel exacto' },
       testScheduled: { title: 'Ver llamada diagnóstica', sub: 'Ver tu sesión agendada' },
       progress: { title: 'Mi progreso', sub: 'Sigue tu mejora' },

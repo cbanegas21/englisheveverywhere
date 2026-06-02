@@ -9,70 +9,48 @@ const t = {
     titleLead: 'One teacher.',
     titleAccent: 'Yours.',
     body:
-      "We're not a marketplace. You don't browse a hundred profiles. We hand-match you with a near-native Latin American teacher based on your level, your goals, and your schedule. You get to know them. They get to know you.",
+      "We're not a marketplace. You don't browse a hundred profiles. We match you with a teacher based on your level, your goals, and your schedule. You get to know them. They get to know you.",
     bodyContd:
-      "If your teacher isn't free when you want to learn, another teacher who matches your hours covers that class — so 24/7 really means 24/7.",
+      "If your teacher isn't free at a time you pick, another available teacher covers that class — so you're never stuck waiting.",
     facts: [
-      { k: 'Origin', v: 'Latin America' },
-      { k: 'Level', v: 'Near-native' },
+      { k: 'Format', v: '1-to-1, live' },
+      { k: 'Sessions', v: '60 minutes' },
       { k: 'Framework', v: 'CEFR A0 → C2' },
       { k: 'Match', v: 'Hand-picked' },
     ],
     cardKicker: '↳ Your teacher card · preview',
-    cardName: 'Your teacher · matched after signup',
-    cardCityLabel: 'Lives in',
-    cardCity: 'Latin America',
+    cardName: 'Your teacher · matched to you',
+    cardCityLabel: 'Format',
+    cardCity: '1-to-1, on video',
     cardHoursLabel: 'Available',
     cardHours: 'Across your time zone',
     cardFocusLabel: 'Specialty',
     cardFocus: 'Matched to your goals',
     cardYears: 'matched · personal · yours',
-    networkLabel: '↳ Teachers across Latin America',
-    cities: [
-      'San José',
-      'CDMX',
-      'Bogotá',
-      'Buenos Aires',
-      'Lima',
-      'Tegucigalpa',
-      'Quito',
-      'Santiago',
-    ],
   },
   es: {
     eyebrow: '● Maestros',
     titleLead: 'Un maestro.',
     titleAccent: 'El tuyo.',
     body:
-      'No somos un marketplace. No eliges entre cien perfiles. Te emparejamos a mano con un maestro latinoamericano según tu nivel, tus metas y tu horario. Lo conoces. Te conoce.',
+      'No somos un marketplace. No eliges entre cien perfiles. Te emparejamos con un maestro según tu nivel, tus metas y tu horario. Lo conoces. Te conoce.',
     bodyContd:
-      'Si tu maestro no está libre cuando quieres aprender, otro maestro con tu horario cubre esa clase — para que 24/7 siga siendo 24/7.',
+      'Si tu maestro no está libre a una hora que elegiste, otro maestro disponible cubre esa clase — para que nunca te quedes esperando.',
     facts: [
-      { k: 'Origen', v: 'Latinoamérica' },
-      { k: 'Nivel', v: 'Casi nativo' },
+      { k: 'Formato', v: '1 a 1, en vivo' },
+      { k: 'Sesiones', v: '60 minutos' },
       { k: 'Marco', v: 'CEFR A0 → C2' },
       { k: 'Asignación', v: 'A mano' },
     ],
     cardKicker: '↳ Tu maestro · vista previa',
-    cardName: 'Tu maestro · asignado al registrarte',
-    cardCityLabel: 'En',
-    cardCity: 'Latinoamérica',
+    cardName: 'Tu maestro · asignado a ti',
+    cardCityLabel: 'Formato',
+    cardCity: '1 a 1, en video',
     cardHoursLabel: 'Disponible',
     cardHours: 'En tu zona horaria',
     cardFocusLabel: 'Especialidad',
     cardFocus: 'Según tus metas',
     cardYears: 'asignado · personal · tuyo',
-    networkLabel: '↳ Maestros en Latinoamérica',
-    cities: [
-      'San José',
-      'CDMX',
-      'Bogotá',
-      'Buenos Aires',
-      'Lima',
-      'Tegucigalpa',
-      'Quito',
-      'Santiago',
-    ],
   },
 }
 
@@ -361,59 +339,6 @@ export default function Teachers({ lang }: { lang: Locale }) {
               </span>
             </div>
           </motion.div>
-        </div>
-
-        {/* Network strip — full width */}
-        <div
-          style={{
-            marginTop: 'clamp(48px, 6vw, 80px)',
-            paddingTop: 32,
-            borderTop: '1px solid var(--ek-border)',
-          }}
-        >
-          <div
-            style={{
-              fontFamily: 'var(--ek-font-mono)',
-              fontSize: 11,
-              color: 'var(--ek-text-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              marginBottom: 16,
-            }}
-          >
-            {tx.networkLabel}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            {tx.cities.map((c) => (
-              <span
-                key={c}
-                style={{
-                  fontFamily: 'var(--ek-font-mono)',
-                  fontSize: 13,
-                  letterSpacing: '0.04em',
-                  padding: '8px 14px',
-                  border: '1px solid var(--ek-border)',
-                  borderRadius: 999,
-                  color: 'var(--ek-text-soft)',
-                  background: 'var(--ek-paper-warm)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <span
-                  style={{
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: 'var(--ek-red)',
-                    display: 'inline-block',
-                  }}
-                />
-                {c}
-              </span>
-            ))}
-          </div>
         </div>
       </div>
     </section>

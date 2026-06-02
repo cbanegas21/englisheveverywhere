@@ -63,7 +63,7 @@ const T = {
     includedTitle: 'What you get, regardless of pack:',
     includedFeatures: [
       { label: '60-minute classes', sub: '1 to 1, live on video' },
-      { label: 'Near-native teacher', sub: 'Latin American, hand-matched to you' },
+      { label: 'Certified teacher', sub: 'Hand-matched to your level and goals' },
       { label: 'Classes never expire', sub: 'Use them at your pace, no deadlines' },
       { label: 'No auto-renewal', sub: 'Pay once, then pay again only if you want' },
     ] as Array<{ label: string; sub: string }>,
@@ -129,7 +129,7 @@ const T = {
     includedTitle: 'Lo que recibes, sin importar el paquete:',
     includedFeatures: [
       { label: 'Clases de 60 minutos', sub: '1 a 1, en vivo por video' },
-      { label: 'Maestro casi nativo', sub: 'Latinoamericano, asignado a mano' },
+      { label: 'Maestro certificado', sub: 'Asignado a tu nivel y metas' },
       { label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo, sin fechas límite' },
       { label: 'Sin renovación automática', sub: 'Pagas una vez y vuelves a pagar solo si quieres' },
     ] as Array<{ label: string; sub: string }>,

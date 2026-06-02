@@ -11,7 +11,7 @@ const t = {
     titleAccent: 'be wondering.',
     items: [
       { q: 'Do classes expire?', a: "No. Once you've bought them, they're yours. No deadlines, ever." },
-      { q: 'Can I choose my teacher?', a: "We assign you a Latin American teacher based on your level, goals, and schedule — someone you get to know. If they're not free when you want to book, another teacher whose hours match yours covers that class." },
+      { q: 'Can I choose my teacher?', a: "We match you with a teacher based on your level and goals — usually the same one each class, so you build a rhythm. If your teacher isn't free at the time you picked, another available teacher covers that class." },
       { q: 'Do I need Zoom or Google Meet?', a: 'No. Live classes happen right inside the platform, on 1-to-1 video.' },
       { q: 'How long is each class?', a: 'Sixty minutes. 1 to 1, live, with your assigned teacher.' },
       { q: 'Can I book at any hour?', a: 'Yes — any time of day, any day of the week. You just need 24 hours of advance notice.' },
@@ -24,7 +24,7 @@ const t = {
     titleAccent: 'quizás te preguntas.',
     items: [
       { q: '¿Las clases caducan?', a: 'No. Una vez compradas, son tuyas para siempre. Sin fechas límite.' },
-      { q: '¿Puedo elegir a mi maestro?', a: 'Te asignamos un maestro latinoamericano según tu nivel, metas y horario. Una persona que llegas a conocer. Si tu maestro no está libre cuando quieres reservar, otro maestro con tu horario cubre esa clase.' },
+      { q: '¿Puedo elegir a mi maestro?', a: 'Te asignamos un maestro según tu nivel y metas — normalmente el mismo en cada clase, para que tomes ritmo. Si tu maestro no está libre a la hora que elegiste, otro maestro disponible cubre esa clase.' },
       { q: '¿Necesito Zoom o Meet?', a: 'No. Las clases en vivo ocurren dentro de la plataforma, en video 1 a 1.' },
       { q: '¿Cuánto duran las clases?', a: 'Sesenta minutos cada una. 1 a 1, en vivo, con tu maestro asignado.' },
       { q: '¿Puedo reservar a cualquier hora?', a: 'Sí. Cualquier hora del día, cualquier día de la semana. Solo 24 horas de anticipación.' },

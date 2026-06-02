@@ -39,16 +39,16 @@ const t = {
     levelKicker: 'Your level',
     backupKicker: '↳ Backup coverage',
     backupBody:
-      'When your teacher is off at the time you want to learn, another teacher with your schedule covers that class. 24/7 still means 24/7.',
+      "When your teacher isn't free at a time you picked, another available teacher covers that class — so you're never stuck waiting.",
     pendingTitle: 'Your teacher is being assigned',
     pendingBody: 'Our team is matching you with the best teacher for your level and goals.',
     pendingNote: 'Questions? Write us at hola@englishkolab.com',
-    assignedSoonTitle: 'Your teacher will be assigned soon',
+    assignedSoonTitle: 'A teacher is matched after you book',
     assignedSoonBody:
-      "Once you complete your diagnostic call and purchase classes, we'll assign the perfect teacher for you based on your level and goals.",
+      "Once you book a class, we'll match you with an available teacher for that time based on your level and goals.",
     placementTitle: 'Schedule your free placement call',
     placementBody:
-      "Before we assign your teacher, complete your placement call so we can match you with the right level.",
+      'Take your free placement call so we can set your level and match you with the right teacher.',
     placementCta: 'Schedule placement call',
     placementScheduledTitle: 'Your placement call is scheduled',
     placementScheduledBody:
@@ -67,17 +67,17 @@ const t = {
     levelKicker: 'Tu nivel',
     backupKicker: '↳ Cobertura de respaldo',
     backupBody:
-      'Si tu maestro no está libre cuando quieres aprender, otro maestro con tu horario cubre esa clase. 24/7 sigue siendo 24/7.',
+      'Si tu maestro no está libre a una hora que elegiste, otro maestro disponible cubre esa clase — para que nunca te quedes esperando.',
     pendingTitle: 'Tu maestro está siendo asignado',
     pendingBody:
       'Nuestro equipo te está emparejando con el mejor maestro para tu nivel y objetivos.',
     pendingNote: '¿Preguntas? Escríbenos a hola@englishkolab.com',
-    assignedSoonTitle: 'Tu maestro será asignado pronto',
+    assignedSoonTitle: 'Asignamos un maestro después de que reservas',
     assignedSoonBody:
-      'Una vez que completes tu llamada diagnóstica y pagues por clases, asignaremos al mejor maestro para ti según tu nivel y objetivos.',
+      'Una vez que reserves una clase, te asignaremos un maestro disponible para esa hora según tu nivel y metas.',
     placementTitle: 'Agenda tu llamada de diagnóstico gratuita',
     placementBody:
-      'Antes de asignarte un maestro, completa tu llamada de diagnóstico para emparejarte con el nivel correcto.',
+      'Toma tu llamada de diagnóstico gratuita para definir tu nivel y emparejarte con el maestro adecuado.',
     placementCta: 'Agendar llamada de diagnóstico',
     placementScheduledTitle: 'Tu llamada de diagnóstico está agendada',
     placementScheduledBody:

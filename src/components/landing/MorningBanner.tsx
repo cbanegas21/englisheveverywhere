@@ -5,13 +5,13 @@ const t = {
     eyebrow: '● 06:14 · Tuesday',
     title: 'A class',
     accent: 'before coffee.',
-    body: "By the time the sun's up, you've added 30 new words. Your teacher is already awake — San José, Bogotá, CDMX.",
+    body: "By the time the sun's up, you've added 30 new words — a live class before the day even starts.",
   },
   es: {
     eyebrow: '● 06:14 · martes',
     title: 'Antes del café,',
     accent: 'una clase.',
-    body: 'Mientras el sol sale, tú ya tienes 30 palabras nuevas. Tu maestro está despierto en San José, en Bogotá, en CDMX.',
+    body: 'Mientras el sol sale, tú ya tienes 30 palabras nuevas — una clase en vivo antes de que arranque el día.',
   },
 }
 
