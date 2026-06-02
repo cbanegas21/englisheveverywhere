@@ -68,9 +68,8 @@ export default function Teachers({ lang }: { lang: Locale }) {
     >
       <div className="max-w-7xl mx-auto">
         <div
-          className="grid items-start"
+          className="grid items-start grid-cols-1 lg:grid-cols-2"
           style={{
-            gridTemplateColumns: '1fr 1fr',
             gap: 'clamp(40px, 6vw, 80px)',
           }}
         >

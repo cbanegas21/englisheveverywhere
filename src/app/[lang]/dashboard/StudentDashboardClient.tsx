@@ -681,9 +681,8 @@ export default function StudentDashboardClient({
 
         {/* Upcoming + Quick Actions */}
         <div
+          className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]"
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1.7fr) minmax(0, 1fr)',
             gap: 20,
           }}
         >

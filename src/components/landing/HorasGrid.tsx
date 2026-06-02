@@ -102,9 +102,8 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
         </div>
 
         <div
-          className="grid"
+          className="grid grid-cols-1 lg:grid-cols-[1fr_280px]"
           style={{
-            gridTemplateColumns: '1fr 280px',
             gap: 16,
             alignItems: 'stretch',
           }}
@@ -116,6 +115,7 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
               border: '1px solid var(--ek-border)',
               padding: 32,
               borderRadius: 4,
+              overflowX: 'auto',
             }}
           >
             <div
@@ -123,6 +123,7 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
                 display: 'grid',
                 gridTemplateColumns: '36px repeat(24, 1fr)',
                 gap: 3,
+                minWidth: 560,
                 fontFamily: 'var(--ek-font-mono)',
                 fontSize: 9,
                 color: 'var(--ek-text-muted)',
@@ -173,6 +174,7 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
                 justifyContent: 'space-between',
                 marginTop: 12,
                 paddingLeft: 39,
+                minWidth: 560,
                 fontFamily: 'var(--ek-font-mono)',
                 fontSize: 10,
                 color: 'var(--ek-text-muted)',

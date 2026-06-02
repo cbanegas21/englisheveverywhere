@@ -82,9 +82,8 @@ export default function Footer({ lang }: { lang: Locale }) {
     >
       <div className="max-w-7xl mx-auto">
         <div
-          className="grid"
+          className="grid grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]"
           style={{
-            gridTemplateColumns: '1.5fr 1fr 1fr 1fr',
             gap: 48,
           }}
         >

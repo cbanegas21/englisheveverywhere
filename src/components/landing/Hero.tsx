@@ -75,9 +75,8 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
     >
       <div className="max-w-7xl mx-auto">
         <div
-          className="grid items-end"
+          className="grid items-end grid-cols-1 lg:grid-cols-[1.25fr_1fr]"
           style={{
-            gridTemplateColumns: '1.25fr 1fr',
             gap: 56,
           }}
         >

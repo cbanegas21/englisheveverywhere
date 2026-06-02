@@ -366,12 +366,11 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
       />
 
       <div
+        className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]"
         style={{
           padding: '28px 36px',
           maxWidth: 1280,
           margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 300px) minmax(0, 1fr)',
           gap: 24,
         }}
       >
