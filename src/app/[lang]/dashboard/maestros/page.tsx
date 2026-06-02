@@ -219,7 +219,7 @@ export default async function MiMaestroPage({ params }: Props) {
   try {
     const { data: student } = await supabase
       .from('students')
-      .select('id, placement_test_done, level')
+      .select('id, placement_test_done, level, primary_teacher_id')
       .eq('profile_id', user.id)
       .maybeSingle()
 
@@ -243,23 +243,32 @@ export default async function MiMaestroPage({ params }: Props) {
 
     let teacher: TeacherRow | null = null
     if (level && studentId) {
-      const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
-        .select('teacher_id')
-        .eq('student_id', studentId)
-        .eq('type', 'class')
-        .in('status', ['confirmed', 'completed'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      // Prefer the student's designated primary teacher; fall back to the most
+      // recent confirmed/completed booking's teacher only if none is set yet
+      // (a one-off substitute should not show as "your teacher"). Audit EK-012.
+      let teacherId: string | null = student.primary_teacher_id || null
+      if (!teacherId) {
+        const { data: booking, error: bookingError } = await supabase
+          .from('bookings')
+          .select('teacher_id')
+          .eq('student_id', studentId)
+          .eq('type', 'class')
+          .in('status', ['confirmed', 'completed'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (bookingError) {
+          console.error('[maestros] Booking lookup error:', bookingError.code, bookingError.message)
+        } else {
+          teacherId = booking?.teacher_id || null
+        }
+      }
 
-      if (bookingError) {
-        console.error('[maestros] Booking lookup error:', bookingError.code, bookingError.message)
-      } else if (booking?.teacher_id) {
+      if (teacherId) {
         const { data: teacherRow, error: teacherError } = await supabase
           .from('teachers')
           .select('id, bio, specializations, profile:profiles(full_name, avatar_url)')
-          .eq('id', booking.teacher_id)
+          .eq('id', teacherId)
           .maybeSingle()
         if (teacherError) {
           console.error('[maestros] Teacher fetch error:', teacherError.message)

@@ -33,7 +33,7 @@ export default async function AdminStudentsPage({ params }: Props) {
   const { data: rawStudents } = await admin
     .from('students')
     .select(`
-      id, level, classes_remaining, current_plan,
+      id, level, classes_remaining, current_plan, primary_teacher_id,
       placement_test_done, placement_scheduled, admin_notes, created_at,
       profile:profiles(id, full_name, email, timezone)
     `)
@@ -78,11 +78,12 @@ export default async function AdminStudentsPage({ params }: Props) {
       (b) => (b.status === 'confirmed' || b.status === 'pending') && b.type === 'class'
     ).length
 
-    // Find most recent confirmed class booking teacher
+    // Canonical teacher is the student's primary_teacher_id; fall back to the
+    // most recent confirmed class booking only if none is set (audit EK-050).
     const confirmedClassBookings = sBookings.filter(
       (b) => b.status === 'confirmed' && b.type === 'class' && b.teacher_id
     )
-    const teacherId = confirmedClassBookings[0]?.teacher_id || null
+    const teacherId = s.primary_teacher_id || confirmedClassBookings[0]?.teacher_id || null
     const teacherName = teacherId ? (teacherMap.get(teacherId) || null) : null
 
     type ProfileShape = { id: string; full_name: string | null; email: string | null; timezone: string | null }

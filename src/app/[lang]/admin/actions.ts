@@ -550,6 +550,24 @@ export async function updateStudentRole(profileId: string, role: string) {
   revalidatePath('/', 'layout')
 }
 
+// Deactivate (or reactivate) an account by banning it at the auth layer, so a
+// deactivated user genuinely cannot log in. profiles.id === auth.users.id.
+// ban_duration 'none' lifts the ban. (Previously this set an invalid
+// role='deactivated' that was silently ignored — audit EK-017.)
+export async function setStudentDeactivated(profileId: string, deactivated: boolean) {
+  await assertAdmin()
+  const { createClient: createSupabaseAdmin } = await import('@supabase/supabase-js')
+  const supabaseAdmin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(profileId, {
+    ban_duration: deactivated ? '876000h' : 'none',
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath('/', 'layout')
+}
+
 // ── Teacher profile CRM actions ───────────────────────────────────────────────
 
 export async function adminUpdateTeacherProfile(

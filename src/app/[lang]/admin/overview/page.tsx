@@ -198,13 +198,17 @@ export default async function AdminOverviewPage({ params }: Props) {
               </tr>
             ) : (recentBookings || []).map((b: any) => {
               const sc = statusColors[b.status] || statusColors.pending
+              // Supabase can return a nested to-one join as an array — guard both
+              // shapes so names don't silently render as "—" (audit EK-050).
+              const sp = Array.isArray(b.student?.profile) ? b.student.profile[0] : b.student?.profile
+              const tp = Array.isArray(b.teacher?.profile) ? b.teacher.profile[0] : b.teacher?.profile
               return (
                 <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                   <td className="px-6 py-3.5 text-[13px] font-medium" style={{ color: '#111111' }}>
-                    {b.student?.profile?.full_name || '—'}
+                    {sp?.full_name || '—'}
                   </td>
                   <td className="px-6 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
-                    {b.teacher?.profile?.full_name || '—'}
+                    {tp?.full_name || '—'}
                   </td>
                   <td className="px-6 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
                     {new Date(b.scheduled_at).toLocaleString('en-US', {

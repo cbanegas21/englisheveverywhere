@@ -13,6 +13,7 @@ import {
   adminUpdateStudentProfile,
   resetStudentPassword,
   updateStudentRole,
+  setStudentDeactivated,
 } from '../../actions'
 import MeetingScheduler from '@/components/admin/MeetingScheduler'
 
@@ -736,7 +737,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
                 style={btnPrimary}
                 onClick={() => {
                   setShowCancelConfirm(false)
-                  run(() => updateStudentRole(student.profile?.id || '', 'deactivated'), 'Account deactivated')
+                  run(() => setStudentDeactivated(student.profile?.id || '', true), 'Account deactivated')
                 }}
               >
                 Yes, deactivate
