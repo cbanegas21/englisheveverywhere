@@ -75,7 +75,7 @@ const T = {
       },
     ],
     joinNote: "Join 15 minutes before your scheduled time — we're ready early.",
-    honduras: 'Honduras time (CST)',
+    honduras: 'Your local time',
     daysLeft: (d: number) => `${d} day${d !== 1 ? 's' : ''}`,
     hoursLeft: (h: number) => `${h} hour${h !== 1 ? 's' : ''}`,
     minsLeft: (m: number) => `${m} minute${m !== 1 ? 's' : ''}`,
@@ -135,7 +135,7 @@ const T = {
       },
     ],
     joinNote: 'Únete 15 minutos antes de tu hora — estamos listos antes.',
-    honduras: 'Hora de Honduras (CST)',
+    honduras: 'Tu hora local',
     daysLeft: (d: number) => `${d} día${d !== 1 ? 's' : ''}`,
     hoursLeft: (h: number) => `${h} hora${h !== 1 ? 's' : ''}`,
     minsLeft: (m: number) => `${m} minuto${m !== 1 ? 's' : ''}`,
@@ -152,7 +152,7 @@ function formatDate(iso: string, lang: Locale, timezone: string) {
 function formatTime(iso: string, timezone: string) {
   return new Date(iso).toLocaleTimeString('en-US', {
     timeZone: timezone || 'America/Tegucigalpa',
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
   })
 }
 
