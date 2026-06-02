@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare, Captions } from 'lucide-react'
-import { useLocalParticipant, useTrackToggle } from '@livekit/components-react'
+import { useTrackToggle } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
@@ -51,26 +51,31 @@ export function ControlBar({
   onToggleTranscript,
 }: Props) {
   const tx = videoStrings(lang)
-  const { localParticipant } = useLocalParticipant()
-  const [isMuted, setIsMuted] = useState(false)
-  const [isCameraOff, setIsCameraOff] = useState(false)
+  // Derive mic/camera state from LiveKit (not local useState) so an external
+  // mute — network blip, permission change, future admin mute — stays in sync
+  // with the button labels. Audit EK-020.
+  const mic = useTrackToggle({ source: Track.Source.Microphone })
+  const cam = useTrackToggle({ source: Track.Source.Camera })
   const screenShare = useTrackToggle({ source: Track.Source.ScreenShare })
+  const isMuted = !mic.enabled
+  const isCameraOff = !cam.enabled
+
+  // Mirror camera state up to the parent (avatar placeholder) when it changes.
+  useEffect(() => {
+    onCameraOffChange?.(isCameraOff)
+  }, [isCameraOff, onCameraOffChange])
 
   function toggleMute() {
-    localParticipant.setMicrophoneEnabled(isMuted)
-    setIsMuted(p => !p)
+    mic.toggle()
   }
 
   function toggleCamera() {
-    const next = !isCameraOff
-    localParticipant.setCameraEnabled(!next)
-    setIsCameraOff(next)
-    onCameraOffChange?.(next)
+    cam.toggle()
   }
 
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-4 py-5 backdrop-blur-sm z-20"
+      className="absolute bottom-0 left-0 right-0 flex flex-wrap items-center justify-center gap-2 sm:gap-4 px-2 py-5 backdrop-blur-sm z-20"
       style={{ background: 'rgba(0,0,0,0.60)', borderTop: `1px solid ${VIDEO_THEME.border}` }}
     >
       <CircleButton
