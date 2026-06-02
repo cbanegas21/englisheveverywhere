@@ -184,9 +184,11 @@ function CircleButton({
         }
       : variant === 'alert'
         ? {
-            background: VIDEO_THEME.brandTint20,
-            color: VIDEO_THEME.brand,
-            border: `1px solid ${VIDEO_THEME.brandTint30}`,
+            // Solid red so a muted mic / off camera is unmistakable vs the
+            // brand-tint (active) and neutral states (audit EK-071).
+            background: VIDEO_THEME.brand,
+            color: '#fff',
+            border: `1px solid ${VIDEO_THEME.brand}`,
           }
         : {
             background: VIDEO_THEME.surface,

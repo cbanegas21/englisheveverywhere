@@ -139,6 +139,29 @@ body {
   50%      { opacity: 0.4; }
 }
 
+/* ── Accessibility ───────────────────────────────────────────────── */
+
+/* App-wide keyboard-focus indicator. Classroom controls (and others) had no
+   visible focus ring (audit EK-038). focus-visible only fires on keyboard
+   navigation, so mouse clicks are unaffected; the offset keeps it visible even
+   on same-colored (e.g. red) buttons since it sits on the surrounding area. */
+:focus-visible {
+  outline: 2px solid var(--ek-red);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect prefers-reduced-motion: neutralize looping/long animations (e.g. the
+   trust-strip marquee) for users who opt out (audit EK-079). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Typography helpers (used directly via className) ────────────── */
 
 .ek-kicker {

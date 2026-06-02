@@ -190,11 +190,13 @@ function LoginForm({ lang }: { lang: Locale }) {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword
+                    ? (lang === 'es' ? 'Ocultar contraseña' : 'Hide password')
+                    : (lang === 'es' ? 'Mostrar contraseña' : 'Show password')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
                   style={{ color: '#9CA3AF' }}
                   onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
                   onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
-                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

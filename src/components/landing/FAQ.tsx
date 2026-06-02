@@ -99,6 +99,9 @@ export default function FAQ({ lang }: { lang: Locale }) {
               >
                 <button
                   onClick={() => setOpen(open === i ? null : i)}
+                  aria-expanded={open === i}
+                  aria-controls={`faq-panel-${i}`}
+                  id={`faq-trigger-${i}`}
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -134,6 +137,9 @@ export default function FAQ({ lang }: { lang: Locale }) {
                   {open === i && (
                     <motion.div
                       key="content"
+                      id={`faq-panel-${i}`}
+                      role="region"
+                      aria-labelledby={`faq-trigger-${i}`}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
