@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 
 const slots = {
@@ -49,6 +50,11 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
   const reserve = lang === 'es' ? 'RESERVAR →' : 'BOOK →'
 
   return (
+    <Link
+      href={`/${lang}/registro`}
+      aria-label={arrow}
+      style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+    >
     <div
       style={{
         background: '#fff',
@@ -212,5 +218,6 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
         </span>
       </div>
     </div>
+    </Link>
   )
 }

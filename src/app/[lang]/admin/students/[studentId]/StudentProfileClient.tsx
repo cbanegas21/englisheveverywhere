@@ -338,10 +338,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <select
                 value={selectedLevel}
-                onChange={(e) => {
-                  setSelectedLevel(e.target.value)
-                  run(() => updateStudentLevel(student.id, e.target.value), 'Level updated')
-                }}
+                onChange={(e) => setSelectedLevel(e.target.value)}
                 style={{ ...inputStyle, flex: 1 }}
               >
                 <option value="">Not set</option>
@@ -349,6 +346,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   <option key={l} value={l}>{l}</option>
                 ))}
               </select>
+              <button
+                style={btnSecondary}
+                disabled={isPending}
+                onClick={() => run(() => updateStudentLevel(student.id, selectedLevel), 'Level updated')}
+              >
+                Save
+              </button>
               {selectedLevel && (
                 <span
                   style={{ background: lc.bg, color: lc.color, padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}

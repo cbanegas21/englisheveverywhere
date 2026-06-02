@@ -627,7 +627,7 @@ export default function StudentDashboardClient({
                     scheduledAt={nextHero.date}
                   />
                   <Link
-                    href={`/${lang}/dashboard/agendar`}
+                    href={`/${lang}/dashboard/clases`}
                     style={{
                       background: 'transparent',
                       color: 'var(--ek-on-dark-soft)',
