@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { CheckCircle, XCircle } from 'lucide-react'
-import { assignAndConfirmBooking, cancelBooking } from '../actions'
+import { assignAndConfirmBooking, cancelBookingWithRefund } from '../actions'
 import { isTeacherAvailableClient, type AvailabilitySlot } from './availability'
 
 interface Teacher {
@@ -70,7 +70,7 @@ export default function BookingAssign({
     setError('')
     startTransition(async () => {
       try {
-        await cancelBooking(bookingId)
+        await cancelBookingWithRefund(bookingId)
         setDone('cancelled')
       } catch (e: any) {
         setError(e.message)

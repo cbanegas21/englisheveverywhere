@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { assignAndConfirmBooking, cancelBooking, completeBooking } from '../actions'
+import { assignAndConfirmBooking, cancelBookingWithRefund, completeBooking } from '../actions'
 import BookingAssign from './BookingAssign'
 import { isTeacherAvailableClient } from './availability'
 import JoinSessionButton from '@/components/JoinSessionButton'
@@ -245,8 +245,8 @@ export default function BookingCalendarClient({
     if (!selectedBooking) return
     startTransition(async () => {
       try {
-        await cancelBooking(selectedBooking.id)
-        showToast('Booking cancelled')
+        await cancelBookingWithRefund(selectedBooking.id)
+        showToast('Booking cancelled — class credit refunded')
         setSelectedBooking(null)
         setConfirmCancel(false)
         router.refresh()

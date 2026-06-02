@@ -33,12 +33,13 @@ const t = {
   en: {
     title: 'My schedule',
     subtitle: 'Manage your incoming and upcoming sessions.',
-    pending: 'Pending requests',
-    noPending: 'No pending booking requests.',
+    pending: 'Classes to confirm',
+    noPending: 'No classes awaiting your confirmation.',
+    pendingHint: 'These classes were assigned to you by the admin. Confirm the ones you can teach.',
     upcoming: 'Upcoming confirmed sessions',
     noUpcoming: 'No upcoming sessions.',
-    confirm: 'Confirm',
-    decline: 'Decline',
+    confirm: "I can teach this",
+    decline: "Can't make it",
     join: 'Join room',
     mins: 'min',
     with: 'Student:',
@@ -64,13 +65,14 @@ const t = {
   },
   es: {
     title: 'Mi agenda',
-    subtitle: 'Gestiona tus solicitudes y sesiones próximas.',
-    pending: 'Solicitudes pendientes',
-    noPending: 'Sin solicitudes de reserva pendientes.',
+    subtitle: 'Gestiona tus clases asignadas y sesiones próximas.',
+    pending: 'Clases por confirmar',
+    noPending: 'No hay clases por confirmar.',
+    pendingHint: 'El admin te asignó estas clases. Confirma las que puedas impartir.',
     upcoming: 'Sesiones confirmadas próximas',
     noUpcoming: 'Sin sesiones próximas.',
-    confirm: 'Confirmar',
-    decline: 'Rechazar',
+    confirm: 'Puedo impartirla',
+    decline: 'No puedo',
     join: 'Entrar a sala',
     mins: 'min',
     with: 'Estudiante:',
@@ -316,6 +318,10 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                 </span>
               )}
             </div>
+
+            {pending.length > 0 && (
+              <p className="px-5 pt-3 text-[12px]" style={{ color: '#6B7280' }}>{tx.pendingHint}</p>
+            )}
 
             <AnimatePresence mode="popLayout">
               {pending.length === 0 ? (

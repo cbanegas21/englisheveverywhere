@@ -377,21 +377,9 @@ export async function setTeacherRate(teacherId: string, rate: number) {
   revalidatePath('/', 'layout')
 }
 
-export async function cancelBooking(bookingId: string) {
-  await assertAdmin()
-  const admin = createAdminClient()
-
-  const { error } = await admin
-    .from('bookings')
-    .update({ status: 'cancelled' })
-    .eq('id', bookingId)
-
-  if (error) throw new Error(error.message)
-
-  cancelBookingReminders(bookingId).catch(() => {})
-
-  revalidatePath('/', 'layout')
-}
+// Note: admin booking cancellation always goes through cancelBookingWithRefund
+// (below) so the student's class credit — decremented at booking time — is
+// returned. There is no no-refund admin cancel path (see audit EK-013).
 
 // ── Student CRM actions ───────────────────────────────────────────────────────
 
@@ -400,26 +388,6 @@ export async function updateStudentLevel(studentId: string, level: string) {
   const admin = createAdminClient()
   const { error } = await admin.from('students').update({ level }).eq('id', studentId)
   if (error) throw new Error(error.message)
-  revalidatePath('/', 'layout')
-}
-
-export async function updateStudentTeacher(studentId: string, teacherId: string) {
-  await assertAdmin()
-  const admin = createAdminClient()
-  // Update teacher on the most recent confirmed class booking
-  const { data: booking } = await admin
-    .from('bookings')
-    .select('id')
-    .eq('student_id', studentId)
-    .eq('type', 'class')
-    .eq('status', 'confirmed')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (booking) {
-    const { error } = await admin.from('bookings').update({ teacher_id: teacherId }).eq('id', booking.id)
-    if (error) throw new Error(error.message)
-  }
   revalidatePath('/', 'layout')
 }
 

@@ -171,7 +171,6 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
     return 'America/Bogota'
   })
   const [preferredLang, setPreferredLang] = useState<'es' | 'en'>(lang)
-  const [level, setLevel] = useState<Level | null>(null)
   const [specs, setSpecs] = useState<string[]>([])
   const [bio, setBio] = useState('')
   const [certifications, setCertifications] = useState('')
@@ -390,88 +389,6 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
                     </>
                   )}
                 </button>
-              </motion.div>
-            )}
-
-            {/* Step 2 — Student: Level */}
-            {!done && step === 2 && !isTeacher && (
-              <motion.div
-                key="step2student"
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 16 }}
-              >
-                <h1 className="font-black mb-1.5" style={{ fontSize: '1.6rem', color: '#111111' }}>{tx.step2Student.headline}</h1>
-                <p className="text-[14px] mb-8" style={{ color: '#4B5563' }}>{tx.step2Student.sub}</p>
-
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  {LEVELS.map((l) => (
-                    <button
-                      key={l}
-                      type="button"
-                      onClick={() => setLevel(l)}
-                      className="rounded py-4 text-center transition-all"
-                      style={
-                        level === l
-                          ? { border: '2px solid #111111', background: '#111111' }
-                          : { border: '2px solid #E5E7EB', background: '#fff' }
-                      }
-                    >
-                      <div className="text-[17px] font-bold" style={{ color: level === l ? '#F9F9F9' : '#111111' }}>{l}</div>
-                      <div className="text-[11px] mt-0.5" style={{ color: level === l ? 'rgba(249,249,249,0.7)' : '#9CA3AF' }}>
-                        {LEVEL_LABELS[l][lang]}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setLevel(null)}
-                  className="w-full rounded py-3 text-[13px] font-medium transition-all"
-                  style={
-                    level === null
-                      ? { border: '2px solid #111111', background: '#111111', color: '#F9F9F9' }
-                      : { border: '2px solid #E5E7EB', background: '#fff', color: '#4B5563' }
-                  }
-                >
-                  {tx.step2Student.noTest}
-                </button>
-
-                {finishError && (
-                  <p className="mt-4 text-[13px] text-center" style={{ color: '#DC2626' }}>{finishError}</p>
-                )}
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="px-5 py-3.5 rounded text-[14px] transition-all"
-                    style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#fff' }}
-                    onMouseEnter={e => (e.currentTarget.style.borderColor = '#111111')}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                  >
-                    ←
-                  </button>
-                  <button
-                    onClick={handleFinish}
-                    disabled={isPending}
-                    className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded font-semibold text-[14px] transition-all disabled:opacity-60"
-                    style={{ background: '#C41E3A', color: '#fff' }}
-                    onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = '#9E1830' }}
-                    onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = '#C41E3A' }}
-                  >
-                    {isPending ? (
-                      <span className="flex items-center gap-2">
-                        <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        {tx.finishing}
-                      </span>
-                    ) : (
-                      <>
-                        {tx.step2Student.next}
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </button>
-                </div>
               </motion.div>
             )}
 
