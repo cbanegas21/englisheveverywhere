@@ -10,7 +10,6 @@
 -- Extensions
 -- ============================================================
 
-create extension if not exists "pg_graphql";
 create extension if not exists "pg_stat_statements";
 create extension if not exists "pgcrypto";
 create extension if not exists "supabase_vault";
@@ -304,6 +303,7 @@ CREATE INDEX idx_assignments_teacher ON public.assignments USING btree (teacher_
 CREATE INDEX auth_attempts_ip_action_time_idx ON public.auth_attempts USING btree (ip, action, attempted_at DESC);
 CREATE INDEX idx_availability_teacher ON public.availability_slots USING btree (teacher_id);
 CREATE UNIQUE INDEX bookings_student_time_unique ON public.bookings USING btree (student_id, scheduled_at) WHERE (status <> 'cancelled'::text);
+CREATE UNIQUE INDEX bookings_teacher_time_unique ON public.bookings USING btree (teacher_id, scheduled_at) WHERE ((status = 'confirmed'::text) AND (teacher_id IS NOT NULL));
 CREATE INDEX idx_bookings_pending_class_assignment ON public.bookings USING btree (scheduled_at) WHERE ((type = 'class'::text) AND (teacher_id IS NULL) AND (status <> 'cancelled'::text));
 CREATE INDEX idx_bookings_pending_placement_assignment ON public.bookings USING btree (scheduled_at) WHERE ((type = 'placement_test'::text) AND (conductor_profile_id IS NULL) AND (status <> 'cancelled'::text));
 CREATE INDEX idx_bookings_scheduled_at ON public.bookings USING btree (scheduled_at);

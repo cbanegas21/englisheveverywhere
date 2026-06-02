@@ -1,0 +1,56 @@
+name: Purge old transcripts
+
+# Data-retention job: nulls out session transcripts older than the retention
+# window (default 90 days). Runs on GitHub Actions rather than a Vercel cron
+# because the Vercel Hobby plan caps cron at 1/day and the project deliberately
+# removed Vercel cron. See scripts/purge-transcripts.mjs.
+
+on:
+  schedule:
+    # Daily at 07:00 UTC (~01:00 America/Tegucigalpa).
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report only, make no changes'
+        type: boolean
+        default: false
+
+concurrency:
+  group: purge-transcripts
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    name: Purge transcripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Check required secrets
+        id: check
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_ACCESS_TOKEN secret not set — skipping transcript purge. Add it at Settings → Secrets → Actions."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run purge
+        if: steps.check.outputs.skip != 'true'
+        run: node scripts/purge-transcripts.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

@@ -12,7 +12,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
     "gen-types": "node scripts/gen-types.mjs",
-    "dump-schema": "node scripts/dump-schema.mjs"
+    "dump-schema": "node scripts/dump-schema.mjs",
+    "purge-transcripts": "node scripts/purge-transcripts.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

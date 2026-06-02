@@ -22,7 +22,7 @@ const t = {
         links: [
           { label: 'Privacy', href: '/en/privacy' },
           { label: 'Terms', href: '/en/terms' },
-          { label: 'Contact', href: 'mailto:hola@englishkolab.com' },
+          { label: 'Contact', href: '/en/contact' },
         ],
       },
       {
@@ -53,7 +53,7 @@ const t = {
         links: [
           { label: 'Privacidad', href: '/es/privacy' },
           { label: 'Términos', href: '/es/terms' },
-          { label: 'Contacto', href: 'mailto:hola@englishkolab.com' },
+          { label: 'Contacto', href: '/es/contact' },
         ],
       },
       {

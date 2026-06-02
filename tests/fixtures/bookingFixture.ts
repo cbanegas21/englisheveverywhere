@@ -83,7 +83,7 @@ async function ensureTeacher(admin: SupabaseClient) {
   return { userId: user.id, teacherId: ins.id, fullName }
 }
 
-async function createStudent(admin: SupabaseClient, classesRemaining = 10) {
+async function createStudent(admin: SupabaseClient, classesRemaining = 10, primaryTeacherId: string | null = null) {
   const stamp = Date.now() + Math.floor(Math.random() * 1000)
   const email = `e2e-booking-${stamp}@englishkolab.test`
   const password = 'E2eTest1234!'
@@ -110,6 +110,11 @@ async function createStudent(admin: SupabaseClient, classesRemaining = 10) {
       placement_test_done: true,
       intake_done: true,
       level: 'B1',
+      // Booking is gated on an assigned teacher (createBooking + /agendar guard),
+      // so the default fixture student is pre-assigned to the fixture teacher to
+      // exercise the normal booking flow. The gate itself is tested separately
+      // (booking-requires-teacher.spec.ts) by toggling this via setPrimaryTeacher.
+      primary_teacher_id: primaryTeacherId,
     })
     .select('id')
     .single()
@@ -125,7 +130,9 @@ export async function setupBookingFixture(classesRemaining = 10): Promise<Bookin
   const teacher = await ensureTeacher(admin)
   if (!teacher) return null
 
-  const student = await createStudent(admin, classesRemaining)
+  // Pre-assign the fixture teacher so the default student can book (booking is
+  // gated on primary_teacher_id). Gate-specific tests clear it via setPrimaryTeacher.
+  const student = await createStudent(admin, classesRemaining, teacher.teacherId)
   if (!student) return null
 
   const bookingIds: string[] = []
@@ -189,6 +196,12 @@ export async function getClassesRemaining(fx: BookingFixture): Promise<number | 
 
 export async function setClassesRemaining(fx: BookingFixture, n: number): Promise<void> {
   await fx.admin.from('students').update({ classes_remaining: n }).eq('id', fx.student.studentId)
+}
+
+/** Assign (or clear, with null) the fixture student's primary teacher. Booking
+ *  is gated on this being set — see createBooking + /agendar route guard. */
+export async function setPrimaryTeacher(fx: BookingFixture, teacherId: string | null): Promise<void> {
+  await fx.admin.from('students').update({ primary_teacher_id: teacherId }).eq('id', fx.student.studentId)
 }
 
 export async function getBookingStatus(fx: BookingFixture, bookingId: string): Promise<string | null> {

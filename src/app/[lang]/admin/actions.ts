@@ -155,7 +155,17 @@ export async function assignAndConfirmBooking(
     .update({ teacher_id: teacherId, status: 'confirmed' })
     .eq('id', bookingId)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    // 23505 = unique_violation on bookings_teacher_time_unique (migration 027):
+    // a concurrent assign confirmed this teacher onto the same slot first.
+    // Surface the same human-readable message as the pre-check guard above.
+    if (error.code === '23505') {
+      throw new Error(
+        'Teacher already has a confirmed class at this time. Pick a different time or retry with force=true.',
+      )
+    }
+    throw new Error(error.message)
+  }
 
   // First-class continuity lock: if the student has no primary teacher yet,
   // set it to the teacher we just assigned.

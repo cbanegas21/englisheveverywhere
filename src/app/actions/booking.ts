@@ -74,7 +74,7 @@ export async function createBooking(formData: FormData) {
 
   const { data: student } = await admin
     .from('students')
-    .select('id, classes_remaining')
+    .select('id, classes_remaining, primary_teacher_id')
     .eq('profile_id', user.id)
     .single()
 
@@ -84,6 +84,17 @@ export async function createBooking(formData: FormData) {
       error: lang === 'es'
         ? 'No tienes clases disponibles. Adquiere un plan.'
         : 'No classes remaining. Get a plan.',
+    }
+  }
+
+  // ── Teacher must be assigned before booking ──────────────────
+  // An admin pairs each student with a teacher first; booking is
+  // blocked until that assignment exists.
+  if (!student.primary_teacher_id) {
+    return {
+      error: lang === 'es'
+        ? 'Tu maestro aún no ha sido asignado. Te asignaremos uno antes de que puedas reservar.'
+        : 'Your teacher has not been assigned yet. We will assign one before you can book.',
     }
   }
 

@@ -1,0 +1,36 @@
+# Dependabot — automated dependency update PRs + security alerts.
+# Catches CVEs in dependencies with zero ongoing effort. Carlos reviews/merges
+# the PRs it opens.
+
+version: 2
+updates:
+  # npm/pnpm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    # Only direct dependencies — transitive ones come along when needed and
+    # would otherwise create noise.
+    allow:
+      - dependency-type: "direct"
+    # Group minor/patch bumps into a single PR to keep review light; majors
+    # stay separate so breaking changes get individual attention.
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+
+  # GitHub Actions used by the workflows in .github/workflows/
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"

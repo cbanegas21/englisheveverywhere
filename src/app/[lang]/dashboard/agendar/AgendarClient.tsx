@@ -14,6 +14,7 @@ interface Props {
   studentId: string
   classesRemaining: number
   existingBookings: string[]
+  teacherAssigned: boolean
 }
 
 const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -30,14 +31,16 @@ const t = {
     repeatEmpty: 'Classes you take this week will appear here next time.',
     howKicker: 'How it works',
     how: [
-      'Pick a 60-minute slot.',
-      'We assign a teacher within 24h.',
+      'Pick a 60-minute slot with your teacher.',
+      'We confirm your class within 24h.',
       "You'll get a confirmation email.",
     ],
     prevWeek: '‹ Previous week',
     nextWeek: 'Next week ›',
     weekHint: 'Min. 24h advance notice',
-    infoBanner: 'Each class is 60 minutes. We assign your teacher within 24 hours of booking.',
+    infoBanner: 'Each class is 60 minutes. Your class is confirmed within 24 hours of booking.',
+    noTeacherTitle: 'Your teacher is on the way',
+    noTeacherBody: "We pair you with your teacher before your first booking. As soon as you're matched, you'll be able to schedule your classes right here — and we'll email you the moment it happens.",
     days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     booked: '—',
     libre: 'free',
@@ -55,7 +58,7 @@ const t = {
     cancel: 'Cancel',
     booking: 'Booking…',
     successTitle: 'Booked!',
-    successSub: 'Your teacher will be assigned within 24 hours.',
+    successSub: 'Your class will be confirmed within 24 hours.',
     viewClasses: 'View my classes',
     bookAnother: 'Book another',
     prepNext: 'Want to prep? We email reminders 24h and 1h before class.',
@@ -70,14 +73,16 @@ const t = {
     repeatEmpty: 'Las clases que tomes esta semana aparecerán aquí la próxima vez.',
     howKicker: 'Cómo funciona',
     how: [
-      'Elige un horario de 60 minutos.',
-      'Asignamos maestro en menos de 24h.',
+      'Elige un horario de 60 minutos con tu maestro.',
+      'Confirmamos tu clase en menos de 24h.',
       'Recibes confirmación por correo.',
     ],
     prevWeek: '‹ Semana anterior',
     nextWeek: 'Semana siguiente ›',
     weekHint: 'Mín. 24h de anticipación',
-    infoBanner: 'Cada clase dura 60 minutos. Te asignamos maestro dentro de las 24h posteriores a tu reserva.',
+    infoBanner: 'Cada clase dura 60 minutos. Tu clase se confirma dentro de las 24h posteriores a tu reserva.',
+    noTeacherTitle: 'Tu maestro está en camino',
+    noTeacherBody: 'Te emparejamos con tu maestro antes de tu primera reserva. En cuanto estés emparejado, podrás agendar tus clases aquí mismo — y te avisaremos por correo apenas suceda.',
     days: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
     booked: '—',
     libre: 'libre',
@@ -95,7 +100,7 @@ const t = {
     cancel: 'Cancelar',
     booking: 'Reservando…',
     successTitle: '¡Reservada!',
-    successSub: 'Te asignaremos un maestro en las próximas 24 horas.',
+    successSub: 'Confirmaremos tu clase en las próximas 24 horas.',
     viewClasses: 'Ver mis clases',
     bookAnother: 'Agendar otra',
     prepNext: '¿Quieres prepararte? Enviamos recordatorios 24h y 1h antes.',
@@ -134,7 +139,7 @@ interface LastWeekSuggestion {
   displayDate: string
 }
 
-export default function AgendarClient({ lang, classesRemaining, existingBookings }: Props) {
+export default function AgendarClient({ lang, classesRemaining, existingBookings, teacherAssigned }: Props) {
   const tx = t[lang]
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -214,6 +219,54 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
   function selectSlot(cell: SelectedCell) {
     setSelected(cell)
     setError('')
+  }
+
+  // ── No teacher assigned yet — booking is gated ─────────────────
+  if (!teacherAssigned) {
+    return (
+      <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+        <DashTopBar
+          title={
+            <span>
+              {tx.title} <TitleFlourish>{tx.flourish}</TitleFlourish>
+            </span>
+          }
+          sub={tx.sub}
+        />
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            minHeight: '60vh',
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            style={{
+              width: '100%',
+              maxWidth: 480,
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border)',
+              borderRadius: 20,
+              padding: 36,
+              textAlign: 'center',
+            }}
+          >
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ek-text)', margin: '0 0 12px' }}>
+              {tx.noTeacherTitle}
+            </h2>
+            <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--ek-text-muted)', margin: 0 }}>
+              {tx.noTeacherBody}
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    )
   }
 
   // ── Success screen ─────────────────────────────────────────────

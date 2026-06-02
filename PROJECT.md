@@ -83,12 +83,13 @@ reference in the codebase.
 
 ## Payments
 
-- **Status: TBD.** Payments are simulated in code today (`simulatePurchase`
-  sets `classes_remaining` + `current_plan`).
-- Blocker: Carlos has a Stripe account for Remote ACKtive and does not want
-  to commingle that with EnglishKolab. Needs a separate Stripe entity
-  / account decision before live payments can ship.
-- Until that's resolved, treat Stripe integration as **not started**.
+- **Status: LIVE** (verified 2026-06-01). Stripe is connected with real
+  `sk_live_`/`pk_live_` keys, a real webhook secret, and all four live price
+  IDs (Spark/Drive/Ascent/Peak). Checkout runs in `payment` mode (one-time,
+  no auto-renewal). `simulatePurchase` has been removed from the code.
+- The earlier blocker (not wanting to commingle with the Remote ACKtive Stripe
+  account) was resolved: EnglishKolab uses its own Stripe account under the
+  Remote ACKtive LLC organization. See `CLAUDE.md` → "Resolved on 2026-04-21".
 
 ## Placement test — always a free human call
 

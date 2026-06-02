@@ -14,7 +14,7 @@ export default async function AgendarPage({ params }: Props) {
 
   const { data: student } = await supabase
     .from('students')
-    .select('id, classes_remaining, intake_done, placement_test_done')
+    .select('id, classes_remaining, intake_done, placement_test_done, primary_teacher_id')
     .eq('profile_id', user.id)
     .single()
 
@@ -44,6 +44,7 @@ export default async function AgendarPage({ params }: Props) {
       studentId={student.id}
       classesRemaining={student.classes_remaining || 0}
       existingBookings={existingBookings}
+      teacherAssigned={!!student.primary_teacher_id}
     />
   )
 }

@@ -56,7 +56,6 @@ export const translations = {
       features: [
         'Live video inside the platform',
         'Personalized curriculum',
-        'Session recordings',
         'Progress tracking dashboard',
         'Teacher change anytime',
         'WhatsApp support',
@@ -129,7 +128,6 @@ export const translations = {
       features: [
         'Video en vivo dentro de la plataforma',
         'Currículo personalizado',
-        'Grabaciones de sesiones',
         'Dashboard de progreso',
         'Cambio de maestro en cualquier momento',
         'Soporte por WhatsApp',
