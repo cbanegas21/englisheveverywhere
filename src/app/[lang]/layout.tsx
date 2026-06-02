@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { locales, type Locale } from '@/lib/i18n/translations'
+import HtmlLangSync from './HtmlLangSync'
 
 type Props = {
   children: React.ReactNode
@@ -22,5 +23,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LangLayout({ children, params }: Props) {
   const { lang } = await params
-  return <div lang={lang as Locale}>{children}</div>
+  return (
+    <div lang={lang as Locale}>
+      <HtmlLangSync lang={lang as Locale} />
+      {children}
+    </div>
+  )
 }
