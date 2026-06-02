@@ -36,7 +36,8 @@ export default async function GananciasPage({ params }: Props) {
     .eq('teacher_id', teacher.id)
     .eq('status', 'completed')
     .order('scheduled_at', { ascending: false })
-    .limit(50)
+    // No limit: earnings totals below are summed from the full set. Only the
+    // displayed list is capped (see displaySessions). Audit EK-029.
 
   // Coalesce the payments relation (supabase returns an array for 1:N joins
   // even though the unique-booking-id constraint makes it effectively 1:1).
@@ -61,7 +62,7 @@ export default async function GananciasPage({ params }: Props) {
     // being inserted) still show something.
     payoutUsd:
       s.payments?.[0]?.teacher_payout_usd ??
-      Math.round((teacher.hourly_rate || 0) * ((s.duration_minutes || 50) / 60)),
+      Math.round((teacher.hourly_rate || 0) * ((s.duration_minutes || 60) / 60)),
   }))
 
   const thisMonth = sessions.filter(
@@ -71,6 +72,9 @@ export default async function GananciasPage({ params }: Props) {
   const thisMonthEarningsUsd = thisMonth.reduce((sum, s) => sum + (s.payoutUsd || 0), 0)
   const totalEarningsUsd = sessions.reduce((sum, s) => sum + (s.payoutUsd || 0), 0)
 
+  // Totals above are computed from the full history; cap only the rendered list.
+  const displaySessions = sessions.slice(0, 50)
+
   return (
     <GananciasClient
       lang={lang as Locale}
@@ -78,7 +82,7 @@ export default async function GananciasPage({ params }: Props) {
       thisMonthSessions={thisMonth.length}
       thisMonthEarningsUsd={thisMonthEarningsUsd}
       totalEarningsUsd={totalEarningsUsd}
-      sessions={sessions}
+      sessions={displaySessions}
     />
   )
 }
