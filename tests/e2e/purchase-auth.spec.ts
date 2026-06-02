@@ -51,12 +51,19 @@ test.describe('LAUNCH BLOCKER — Pay button must go through Stripe', () => {
   })
 
   test('simulatePurchase is either removed or gated to dev-mode only', async () => {
-    const src = readFileSync(
-      resolve(process.cwd(), 'src/app/actions/purchase.ts'),
-      'utf8',
-    )
+    let src = ''
+    try {
+      src = readFileSync(
+        resolve(process.cwd(), 'src/app/actions/purchase.ts'),
+        'utf8',
+      )
+    } catch {
+      // File deleted entirely — simulatePurchase is gone. We're good.
+      expect(true).toBe(true)
+      return
+    }
 
-    // If the file is deleted or empty, we're good.
+    // If the file is empty, we're good.
     if (!src.trim()) {
       expect(true).toBe(true)
       return

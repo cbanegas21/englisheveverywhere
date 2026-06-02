@@ -104,7 +104,7 @@ test.describe('Tier 1.1 — Booking lifecycle (display + decline)', () => {
     await expect(studentPage!.getByText(/Asignando maestro/i).first()).toBeVisible({ timeout: 10_000 })
   })
 
-  test('teacher sees pending booking on /agenda with Confirmar + Rechazar buttons', async () => {
+  test('teacher sees pending booking on /agenda with confirm + decline buttons', async () => {
     test.skip(!fx || !teacherPage, 'Fixture unavailable')
 
     // Insert a pending booking for THIS teacher specifically. Unique minute-offset keeps
@@ -121,9 +121,9 @@ test.describe('Tier 1.1 — Booking lifecycle (display + decline)', () => {
 
     // Pending queue card + action buttons (student name falls through to "Student"
     // fallback under user-scoped RLS — verified separately via DB).
-    await expect(teacherPage!.getByText(/Solicitudes pendientes/i)).toBeVisible()
-    await expect(teacherPage!.getByRole('button', { name: /Confirmar/i }).first()).toBeVisible({ timeout: 10_000 })
-    await expect(teacherPage!.getByRole('button', { name: /Rechazar/i }).first()).toBeVisible()
+    await expect(teacherPage!.getByText(/Clases por confirmar/i)).toBeVisible()
+    await expect(teacherPage!.getByRole('button', { name: /Puedo impartirla/i }).first()).toBeVisible({ timeout: 10_000 })
+    await expect(teacherPage!.getByRole('button', { name: /No puedo/i }).first()).toBeVisible()
   })
 
   test('teacher decline → status=cancelled AND student classes_remaining incremented', async () => {
@@ -146,7 +146,7 @@ test.describe('Tier 1.1 — Booking lifecycle (display + decline)', () => {
     const time = new Date(scheduled).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })
     const row = teacherPage!.locator('li').filter({ hasText: time }).first()
     await expect(row).toBeVisible({ timeout: 10_000 })
-    await row.getByRole('button', { name: /Rechazar/i }).click()
+    await row.getByRole('button', { name: /No puedo/i }).click()
 
     // Wait for the server action to commit — poll DB rather than UI, which
     // is ambiguous if other pending rows coexist.
@@ -174,7 +174,7 @@ test.describe('Tier 1.1 — Booking lifecycle (display + decline)', () => {
     const time = new Date(scheduled).toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' })
     const row = teacherPage!.locator('li').filter({ hasText: time }).first()
     await expect(row).toBeVisible({ timeout: 10_000 })
-    await row.getByRole('button', { name: /Confirmar/i }).click()
+    await row.getByRole('button', { name: /Puedo impartirla/i }).click()
 
     await expect.poll(
       async () => await getBookingStatus(fx!, bookingId!),
