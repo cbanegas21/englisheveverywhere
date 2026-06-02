@@ -44,8 +44,6 @@ export default async function ProgresoPage({ params }: Props) {
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
-  console.log('[progreso] student:', student.id, 'level:', student.level, 'classes_remaining:', student.classes_remaining, 'placement_test_done:', student.placement_test_done, 'placement_scheduled:', student.placement_scheduled)
-
   const { data: placementBooking } = await supabase
     .from('bookings')
     .select('id, scheduled_at, status')
@@ -92,8 +90,6 @@ export default async function ProgresoPage({ params }: Props) {
       .order('scheduled_at', { ascending: false })
       .limit(8),
   ])
-
-  console.log('[progreso] completedTotal:', completedTotal, 'completedThisMonth:', completedThisMonth, 'upcomingClasses:', upcomingClasses, 'recentBookings:', recentBookings?.length ?? 0)
 
   return (
     <ProgresoClient

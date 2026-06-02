@@ -13,18 +13,6 @@ const BIO_MIN_CHARS = 20
 const CV_MAX_BYTES = 10 * 1024 * 1024
 const CV_ALLOWED_EXT = ['.pdf', '.doc', '.docx'] as const
 
-const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
-type Level = (typeof LEVELS)[number]
-
-const LEVEL_LABELS: Record<Level, Record<Locale, string>> = {
-  A1: { en: 'Beginner', es: 'Principiante' },
-  A2: { en: 'Elementary', es: 'Elemental' },
-  B1: { en: 'Intermediate', es: 'Intermedio' },
-  B2: { en: 'Upper Intermediate', es: 'Intermedio Alto' },
-  C1: { en: 'Advanced', es: 'Avanzado' },
-  C2: { en: 'Proficient', es: 'Competente' },
-}
-
 const TEACHER_SPECS = {
   en: ['General English', 'Business English', 'IELTS / TOEFL', 'Pronunciation', 'Conversation', 'Kids & Teens', 'Grammar'],
   es: ['Inglés General', 'Inglés de Negocios', 'IELTS / TOEFL', 'Pronunciación', 'Conversación', 'Niños y Adolescentes', 'Gramática'],
@@ -40,12 +28,6 @@ const t = {
       language: 'Preferred language',
       langEn: 'English',
       langEs: 'Español',
-      next: 'Continue',
-    },
-    step2Student: {
-      headline: "What's your English level?",
-      sub: "We'll match you with the right teacher. Be honest — they'll adapt to you.",
-      noTest: "I don't know — I'll take the placement test",
       next: 'Continue',
     },
     step2Teacher: {
@@ -97,12 +79,6 @@ const t = {
       language: 'Idioma preferido',
       langEn: 'English',
       langEs: 'Español',
-      next: 'Continuar',
-    },
-    step2Student: {
-      headline: '¿Cuál es tu nivel de inglés?',
-      sub: 'Te conectaremos con el maestro adecuado. Sé honesto — se adaptarán a ti.',
-      noTest: 'No sé — haré el placement test',
       next: 'Continuar',
     },
     step2Teacher: {
