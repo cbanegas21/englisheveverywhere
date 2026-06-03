@@ -2,21 +2,33 @@
 
 import type { Locale } from '@/lib/i18n/translations'
 
-const COUNTRIES = [
-  'México',
-  'Honduras',
-  'Guatemala',
-  'El Salvador',
-  'Costa Rica',
-  'Colombia',
-  'Argentina',
-  'Chile',
-  'Brasil',
-  'Perú',
-  'Ecuador',
-  'Panamá',
+// Latin-American countries we serve, with ISO codes for real SVG flags
+// (flag-icons; CSS loaded globally in app/layout.tsx). Emoji flags don't render
+// on Windows, so we never use them.
+const COUNTRIES: { name: string; cc: string }[] = [
+  { name: 'México', cc: 'mx' },
+  { name: 'Guatemala', cc: 'gt' },
+  { name: 'Honduras', cc: 'hn' },
+  { name: 'El Salvador', cc: 'sv' },
+  { name: 'Nicaragua', cc: 'ni' },
+  { name: 'Costa Rica', cc: 'cr' },
+  { name: 'Panamá', cc: 'pa' },
+  { name: 'Colombia', cc: 'co' },
+  { name: 'Venezuela', cc: 've' },
+  { name: 'Ecuador', cc: 'ec' },
+  { name: 'Perú', cc: 'pe' },
+  { name: 'Bolivia', cc: 'bo' },
+  { name: 'Chile', cc: 'cl' },
+  { name: 'Argentina', cc: 'ar' },
+  { name: 'Paraguay', cc: 'py' },
+  { name: 'Uruguay', cc: 'uy' },
+  { name: 'Brasil', cc: 'br' },
+  { name: 'República Dominicana', cc: 'do' },
+  { name: 'Cuba', cc: 'cu' },
+  { name: 'Puerto Rico', cc: 'pr' },
 ]
 
+// Doubled so the -50% marquee loops seamlessly.
 const items = [...COUNTRIES, ...COUNTRIES]
 
 export default function TrustStrip({ lang: _lang }: { lang: Locale }) {
@@ -24,7 +36,7 @@ export default function TrustStrip({ lang: _lang }: { lang: Locale }) {
     <section
       style={{
         background: 'var(--ek-ink)',
-        padding: '20px 0',
+        padding: '18px 0',
         overflow: 'hidden',
         borderTop: '1px solid var(--ek-ink)',
       }}
@@ -32,10 +44,10 @@ export default function TrustStrip({ lang: _lang }: { lang: Locale }) {
       <div
         style={{
           display: 'flex',
-          gap: 48,
-          animation: 'marquee 40s linear infinite',
+          gap: 40,
+          animation: 'marquee 60s linear infinite',
           whiteSpace: 'nowrap',
-          paddingLeft: 48,
+          paddingLeft: 40,
           willChange: 'transform',
         }}
       >
@@ -49,20 +61,17 @@ export default function TrustStrip({ lang: _lang }: { lang: Locale }) {
               textTransform: 'uppercase',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 12,
+              gap: 10,
               color: '#fff',
+              flexShrink: 0,
             }}
           >
             <span
-              style={{
-                width: 4,
-                height: 4,
-                background: 'var(--ek-red)',
-                borderRadius: '50%',
-                display: 'inline-block',
-              }}
+              className={`fi fi-${c.cc}`}
+              aria-hidden
+              style={{ fontSize: 18, lineHeight: 1, borderRadius: 2, boxShadow: '0 0 0 1px rgba(255,255,255,0.14)' }}
             />
-            {c}
+            {c.name}
           </span>
         ))}
       </div>

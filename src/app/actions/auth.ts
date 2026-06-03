@@ -7,6 +7,7 @@ import { Resend } from 'resend'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
+import { brandedEmail } from '@/lib/email'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
 // Layout guards remain the source of truth — cookie staleness never grants access.
@@ -39,14 +40,19 @@ async function sendWelcomeEmail(email: string, fullName: string, lang: string) {
   const resend = new Resend(key)
   const from = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   const firstName = (fullName || '').trim().split(' ')[0]
-  const greeting = firstName
-    ? `${lang === 'es' ? 'Hola' : 'Hi'} ${firstName}`
-    : lang === 'es' ? 'Hola' : 'Hi'
-  const subject = lang === 'es' ? '¡Bienvenido a EnglishKolab!' : 'Welcome to EnglishKolab!'
-  const body = lang === 'es'
-    ? `<h2>${greeting} 👋</h2><p>Tu cuenta de EnglishKolab está lista. Ya puedes iniciar sesión y empezar a aprender inglés a tu ritmo.</p><p><a href="${APP_URL}/${lang}/dashboard">Ir a mi panel</a></p>`
-    : `<h2>${greeting} 👋</h2><p>Your EnglishKolab account is ready. Log in any time and start learning English at your own pace.</p><p><a href="${APP_URL}/${lang}/dashboard">Go to my dashboard</a></p>`
-  await resend.emails.send({ from, to: email, subject, html: body })
+  const suffix = firstName ? `, ${firstName}` : ''
+  const isEs = lang === 'es'
+  const html = brandedEmail({
+    heading: isEs ? `¡Bienvenido a EnglishKolab${suffix}!` : `Welcome to EnglishKolab${suffix}!`,
+    bodyHtml: isEs
+      ? '<p>Tu cuenta ya está lista. 🎉</p><p>Aprende inglés en vivo, 1 a 1, con un maestro asignado a tu nivel — cuando quieras y a tu ritmo. Reserva tu primera clase cuando estés listo.</p>'
+      : "<p>Your account is ready. 🎉</p><p>Learn English live, 1-on-1, with a teacher matched to your level — whenever you want, at your own pace. Book your first class when you're ready.</p>",
+    ctaLabel: isEs ? 'Ir a mi panel' : 'Go to my dashboard',
+    ctaUrl: `${APP_URL}/${lang}/dashboard`,
+    footnote: isEs ? '¿Dudas? Escríbenos a hola@englishkolab.com' : 'Questions? Email us at hola@englishkolab.com',
+  })
+  const subject = isEs ? '¡Bienvenido a EnglishKolab!' : 'Welcome to EnglishKolab!'
+  await resend.emails.send({ from, to: email, subject, html })
 }
 
 export async function signUp(formData: FormData) {
