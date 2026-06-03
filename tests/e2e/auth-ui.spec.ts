@@ -55,6 +55,14 @@ async function findUser(database: SupabaseClient, email: string) {
 const hasAuthCookie = (cookies: { name: string }[]) =>
   cookies.some(c => /^sb-.*-auth-token/.test(c.name))
 
+// react-international-phone reformats on every keystroke, so focus first and type
+// with a delay — fast keystrokes otherwise get dropped and the number ends short.
+async function typePhone(page: import('@playwright/test').Page, national: string) {
+  const input = page.locator('.react-international-phone-input')
+  await input.click()
+  await input.pressSequentially(national, { delay: 80 })
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('auth lifecycle (real UI)', () => {
@@ -79,7 +87,7 @@ test.describe('auth lifecycle (real UI)', () => {
     await page.fill('input[name="first_name"]', 'E2E')
     await page.fill('input[name="last_name"]', 'Tester')
     await page.fill('input[name="email"]', EMAIL)
-    await page.fill('input[name="phone"]', '50488000000')
+    await typePhone(page, '88892191')
     await page.fill('input[name="password"]', PASSWORD)
     await page.fill('input[name="confirm_password"]', PASSWORD)
     await page.getByRole('button', { name: 'Crear cuenta' }).click()
@@ -106,12 +114,26 @@ test.describe('auth lifecycle (real UI)', () => {
     await page.fill('input[name="first_name"]', 'Mis')
     await page.fill('input[name="last_name"]', 'Match')
     await page.fill('input[name="email"]', `e2e-mismatch-${Date.now()}@englishkolab.test`)
-    await page.fill('input[name="phone"]', '50488000001')
+    await typePhone(page, '88892191')
     await page.fill('input[name="password"]', PASSWORD)
     await page.fill('input[name="confirm_password"]', 'Different9!')
     await page.getByRole('button', { name: 'Crear cuenta' }).click()
     await expect(page.getByText(/no coinciden/i)).toBeVisible()
     await expect(page).toHaveURL(/\/es\/registro/) // never navigated into the app
+  })
+
+  test('an invalid (too-short) phone number is rejected', async ({ page }) => {
+    await page.goto('/es/registro')
+    await page.getByRole('button', { name: /Estudiante/ }).click()
+    await page.fill('input[name="first_name"]', 'Bad')
+    await page.fill('input[name="last_name"]', 'Phone')
+    await page.fill('input[name="email"]', `e2e-badphone-${Date.now()}@englishkolab.test`)
+    await typePhone(page, '889') // too short for +504
+    await page.fill('input[name="password"]', PASSWORD)
+    await page.fill('input[name="confirm_password"]', PASSWORD)
+    await page.getByRole('button', { name: 'Crear cuenta' }).click()
+    await expect(page.getByText(/teléfono válido|valid phone/i)).toBeVisible()
+    await expect(page).toHaveURL(/\/es\/registro/)
   })
 
   test('re-registering an existing email shows the error ON THE FORM', async ({ page }) => {
@@ -120,7 +142,7 @@ test.describe('auth lifecycle (real UI)', () => {
     await page.fill('input[name="first_name"]', 'Dup')
     await page.fill('input[name="last_name"]', 'Licate')
     await page.fill('input[name="email"]', EMAIL) // created in test 1
-    await page.fill('input[name="phone"]', '50488000002')
+    await typePhone(page, '88892191')
     await page.fill('input[name="password"]', PASSWORD)
     await page.fill('input[name="confirm_password"]', PASSWORD)
     await page.getByRole('button', { name: 'Crear cuenta' }).click()

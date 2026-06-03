@@ -9,6 +9,9 @@ import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 import { Logo } from '@/components/ui/Logo'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
+import { PhoneInput } from 'react-international-phone'
+import { isValidPhoneNumber } from 'libphonenumber-js'
+import 'react-international-phone/style.css'
 
 const t = {
   en: {
@@ -38,6 +41,7 @@ const t = {
     confirmPassword: 'Confirm password',
     confirmPlaceholder: 'Repeat your password',
     passwordMismatch: 'Passwords do not match.',
+    phoneInvalid: 'Please enter a valid phone number.',
     remember: 'Remember me',
     submit: 'Create account',
     loading: 'Creating account…',
@@ -81,6 +85,7 @@ const t = {
     confirmPassword: 'Confirmar contraseña',
     confirmPlaceholder: 'Repite tu contraseña',
     passwordMismatch: 'Las contraseñas no coinciden.',
+    phoneInvalid: 'Ingresa un número de teléfono válido.',
     remember: 'Recuérdame',
     submit: 'Crear cuenta',
     loading: 'Creando cuenta…',
@@ -150,6 +155,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
   const [step, setStep] = useState<Step>('role')
   const [role, setRole] = useState<Role>('student')
   const [showPassword, setShowPassword] = useState(false)
+  const [phone, setPhone] = useState('')
   const [isPending, startTransition] = useTransition()
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [oauthError, setOauthError] = useState('')
@@ -179,7 +185,12 @@ function RegistroContent({ lang }: { lang: Locale }) {
       setClientError(tx.passwordMismatch)
       return
     }
+    if (!phone || !isValidPhoneNumber(phone)) {
+      setClientError(tx.phoneInvalid)
+      return
+    }
     setClientError('')
+    fd.set('phone', phone)
     fd.set('lang', lang)
     fd.set('role', role)
     fd.set('timezone', timezone)
@@ -323,7 +334,25 @@ function RegistroContent({ lang }: { lang: Locale }) {
           </div>
           <div>
             <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.phone}</label>
-            <input type="tel" name="phone" required placeholder={tx.phonePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+            <div
+              style={{
+                '--react-international-phone-height': '46px',
+                '--react-international-phone-border-radius': '9px',
+                '--react-international-phone-border-color': 'var(--ek-border)',
+                '--react-international-phone-font-size': '14px',
+                '--react-international-phone-background-color': '#fff',
+                '--react-international-phone-text-color': 'var(--ek-text)',
+              } as React.CSSProperties}
+            >
+              <PhoneInput
+                defaultCountry="hn"
+                value={phone}
+                onChange={p => setPhone(p)}
+                placeholder={tx.phonePlaceholder}
+                style={{ width: '100%' }}
+                inputStyle={{ width: '100%' }}
+              />
+            </div>
           </div>
           <div>
             <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.password}</label>

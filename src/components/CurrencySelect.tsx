@@ -156,7 +156,7 @@ export default function CurrencySelect({
           fontSize: compact ? '12px' : '13px',
           fontWeight: 600,
           cursor: 'pointer',
-          minWidth: compact ? '56px' : '64px',
+          minWidth: compact ? '74px' : '96px',
           ...(isDark ? darkBtn : lightBtn),
           ...buttonStyle,
         }}
@@ -172,6 +172,7 @@ export default function CurrencySelect({
         }}
       >
         <Flag country={selected.country} size={compact ? 16 : 18} />
+        <span>{selected.code}</span>
         <ChevronDown
           className="ml-auto transition-transform"
           style={{

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
+import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 
@@ -85,6 +86,11 @@ export async function signUp(formData: FormData) {
   // Defense-in-depth: the client checks too, but never trust it.
   if (confirmPassword && password !== confirmPassword) {
     const msg = lang === 'es' ? 'Las contraseñas no coinciden.' : 'Passwords do not match.'
+    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}&role=${role}`)
+  }
+
+  if (!phone || !isValidPhoneNumber(phone)) {
+    const msg = lang === 'es' ? 'Ingresa un número de teléfono válido.' : 'Please enter a valid phone number.'
     redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}&role=${role}`)
   }
 
