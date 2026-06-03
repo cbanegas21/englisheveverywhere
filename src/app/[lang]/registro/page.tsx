@@ -25,12 +25,19 @@ const t = {
     alreadyAccount: 'Already have an account?',
     login: 'Log in',
     changeRole: 'Change',
-    name: 'Full name',
-    namePlaceholder: 'Your name',
+    firstName: 'First name',
+    firstNamePlaceholder: 'Your first name',
+    lastName: 'Last name',
+    lastNamePlaceholder: 'Your last name',
     email: 'Email',
     emailPlaceholder: 'Your email',
+    phone: 'Phone number',
+    phonePlaceholder: 'Your phone number',
     password: 'Password',
     passwordPlaceholder: 'At least 8 characters',
+    confirmPassword: 'Confirm password',
+    confirmPlaceholder: 'Repeat your password',
+    passwordMismatch: 'Passwords do not match.',
     remember: 'Remember me',
     submit: 'Create account',
     loading: 'Creating account…',
@@ -61,12 +68,19 @@ const t = {
     alreadyAccount: '¿Ya tienes cuenta?',
     login: 'Ingresar',
     changeRole: 'Cambiar',
-    name: 'Nombre completo',
-    namePlaceholder: 'Tu nombre',
+    firstName: 'Nombre',
+    firstNamePlaceholder: 'Tu nombre',
+    lastName: 'Apellido',
+    lastNamePlaceholder: 'Tu apellido',
     email: 'Correo electrónico',
     emailPlaceholder: 'Tu correo',
+    phone: 'Teléfono',
+    phonePlaceholder: 'Tu número de teléfono',
     password: 'Contraseña',
     passwordPlaceholder: 'Mínimo 8 caracteres',
+    confirmPassword: 'Confirmar contraseña',
+    confirmPlaceholder: 'Repite tu contraseña',
+    passwordMismatch: 'Las contraseñas no coinciden.',
     remember: 'Recuérdame',
     submit: 'Crear cuenta',
     loading: 'Creando cuenta…',
@@ -115,10 +129,9 @@ function Shell({ lang, tx, children }: { lang: Locale; tx: Tx; children: React.R
       <AuthBrandPanel lang={lang} />
       <div className="relative flex flex-col min-h-screen">
         <header className="flex items-center justify-between" style={{ padding: '20px 26px' }}>
-          <Link href={`/${lang}`} className="lg:hidden" aria-label="EnglishKolab">
+          <Link href={`/${lang}`} aria-label="EnglishKolab">
             <Logo size={26} />
           </Link>
-          <span className="hidden lg:block" aria-hidden />
           <p className="text-[13px]" style={{ color: 'var(--ek-text-muted)' }}>
             {tx.alreadyAccount}{' '}
             <Link href={`/${lang}/login`} className="font-semibold underline underline-offset-2" style={{ color: 'var(--ek-text)' }}>
@@ -140,16 +153,33 @@ function RegistroContent({ lang }: { lang: Locale }) {
   const [isPending, startTransition] = useTransition()
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [oauthError, setOauthError] = useState('')
+  const [clientError, setClientError] = useState('')
   const [timezone] = useState(detectTimezone)
   const searchParams = useSearchParams()
   const errorMsg = searchParams.get('error')
   const successParam = searchParams.get('success')
 
-  useEffect(() => { if (successParam === 'confirm') setStep('success') }, [successParam])
+  // Land on the right step after a redirect: success → confirm screen; a signup
+  // error (e.g. "email already exists") → keep the user on the FORM with the
+  // error visible instead of silently bouncing back to the role step.
+  useEffect(() => {
+    if (successParam === 'confirm') { setStep('success'); return }
+    if (errorMsg) {
+      const r = searchParams.get('role')
+      if (r === 'student' || r === 'teacher') setRole(r)
+      setStep('form')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [successParam, errorMsg])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    if ((fd.get('password') as string) !== (fd.get('confirm_password') as string)) {
+      setClientError(tx.passwordMismatch)
+      return
+    }
+    setClientError('')
     fd.set('lang', lang)
     fd.set('role', role)
     fd.set('timezone', timezone)
@@ -270,20 +300,30 @@ function RegistroContent({ lang }: { lang: Locale }) {
           </button>
         </div>
 
-        {errorMsg && (
+        {(clientError || errorMsg) && (
           <div className="mb-4 rounded-lg px-4 py-3 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}>
-            {errorMsg || tx.errorDefault}
+            {clientError || errorMsg}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.name}</label>
-            <input type="text" name="full_name" required placeholder={tx.namePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.firstName}</label>
+              <input type="text" name="first_name" required placeholder={tx.firstNamePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+            </div>
+            <div>
+              <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.lastName}</label>
+              <input type="text" name="last_name" required placeholder={tx.lastNamePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+            </div>
           </div>
           <div>
             <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.email}</label>
             <input type="email" name="email" required placeholder={tx.emailPlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.phone}</label>
+            <input type="tel" name="phone" required placeholder={tx.phonePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
           </div>
           <div>
             <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.password}</label>
@@ -310,6 +350,10 @@ function RegistroContent({ lang }: { lang: Locale }) {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+          </div>
+          <div>
+            <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.confirmPassword}</label>
+            <input type={showPassword ? 'text' : 'password'} name="confirm_password" required minLength={8} placeholder={tx.confirmPlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">

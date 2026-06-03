@@ -75,10 +75,13 @@ test.describe('auth lifecycle (real UI)', () => {
     // Step 1 — role: pick the Estudiante card (advances to the form step).
     await page.getByRole('button', { name: /Estudiante/ }).click()
 
-    // Step 2 — form.
-    await page.fill('input[name="full_name"]', 'E2E UI Tester')
+    // Step 2 — form (now: first/last name, email, phone, password, confirm).
+    await page.fill('input[name="first_name"]', 'E2E')
+    await page.fill('input[name="last_name"]', 'Tester')
     await page.fill('input[name="email"]', EMAIL)
+    await page.fill('input[name="phone"]', '50488000000')
     await page.fill('input[name="password"]', PASSWORD)
+    await page.fill('input[name="confirm_password"]', PASSWORD)
     await page.getByRole('button', { name: 'Crear cuenta' }).click()
 
     // Must land INSIDE the app — not bounced to /login or back to the role step.
@@ -95,6 +98,35 @@ test.describe('auth lifecycle (real UI)', () => {
     await page.waitForURL(/\/es\/(dashboard|onboarding)/, { timeout: 30_000 })
     await expect(page.getByText(/Correo o contraseña inválidos/i)).toHaveCount(0)
     expect(hasAuthCookie(await context.cookies())).toBeTruthy()
+  })
+
+  test('password mismatch is caught on the form, no submit', async ({ page }) => {
+    await page.goto('/es/registro')
+    await page.getByRole('button', { name: /Estudiante/ }).click()
+    await page.fill('input[name="first_name"]', 'Mis')
+    await page.fill('input[name="last_name"]', 'Match')
+    await page.fill('input[name="email"]', `e2e-mismatch-${Date.now()}@englishkolab.test`)
+    await page.fill('input[name="phone"]', '50488000001')
+    await page.fill('input[name="password"]', PASSWORD)
+    await page.fill('input[name="confirm_password"]', 'Different9!')
+    await page.getByRole('button', { name: 'Crear cuenta' }).click()
+    await expect(page.getByText(/no coinciden/i)).toBeVisible()
+    await expect(page).toHaveURL(/\/es\/registro/) // never navigated into the app
+  })
+
+  test('re-registering an existing email shows the error ON THE FORM', async ({ page }) => {
+    await page.goto('/es/registro')
+    await page.getByRole('button', { name: /Estudiante/ }).click()
+    await page.fill('input[name="first_name"]', 'Dup')
+    await page.fill('input[name="last_name"]', 'Licate')
+    await page.fill('input[name="email"]', EMAIL) // created in test 1
+    await page.fill('input[name="phone"]', '50488000002')
+    await page.fill('input[name="password"]', PASSWORD)
+    await page.fill('input[name="confirm_password"]', PASSWORD)
+    await page.getByRole('button', { name: 'Crear cuenta' }).click()
+    // Stays on the form with a clear message — does NOT silently trap on the role step.
+    await expect(page.getByText(/ya tiene una cuenta|already has an account/i)).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('input[name="email"]')).toBeVisible()
   })
 
   test('recovery link targets englishkolab.com and reset works (RC2/RC3)', async ({ page }) => {

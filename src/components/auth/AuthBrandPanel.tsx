@@ -33,7 +33,7 @@ export function AuthBrandPanel({ lang }: { lang: Locale }) {
   const c = copy[lang]
   return (
     <aside
-      className="hidden lg:flex relative overflow-hidden flex-col justify-between"
+      className="hidden lg:flex relative overflow-hidden flex-col justify-center"
       style={{ background: 'var(--ek-ink)', color: 'var(--ek-on-dark)', padding: '48px 52px' }}
     >
       {/* photo — warm autumn desk; bright and clearly visible, especially the subject (woman + MacBook) on the RIGHT */}
@@ -55,17 +55,17 @@ export function AuthBrandPanel({ lang }: { lang: Locale }) {
           position: 'absolute',
           inset: 0,
           background:
-            'linear-gradient(100deg, rgba(17,17,17,0.94) 0%, rgba(17,17,17,0.80) 28%, rgba(17,17,17,0.44) 52%, rgba(17,17,17,0.14) 78%, rgba(17,17,17,0) 100%)',
+            'linear-gradient(100deg, rgba(17,17,17,0.92) 0%, rgba(17,17,17,0.82) 30%, rgba(17,17,17,0.52) 55%, rgba(17,17,17,0.18) 80%, rgba(17,17,17,0) 100%)',
         }}
       />
-      {/* scrim B — vertical: a touch of ink under the logo (top) and a stronger settle under the headline + benefits (bottom) */}
+      {/* scrim B — vertical: gentle ink at the top (logo) and bottom edges; light through the middle so the photo reads behind the centered text */}
       <div
         aria-hidden
         style={{
           position: 'absolute',
           inset: 0,
           background:
-            'linear-gradient(180deg, rgba(17,17,17,0.50) 0%, rgba(17,17,17,0) 18%, rgba(17,17,17,0) 50%, rgba(17,17,17,0.30) 72%, rgba(17,17,17,0.82) 100%)',
+            'linear-gradient(180deg, rgba(17,17,17,0.42) 0%, rgba(17,17,17,0.06) 30%, rgba(17,17,17,0.06) 70%, rgba(17,17,17,0.45) 100%)',
         }}
       />
       {/* brand glows — crimson top-right + faint cream bottom-left, riding over the photo */}
@@ -73,12 +73,12 @@ export function AuthBrandPanel({ lang }: { lang: Locale }) {
       <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'radial-gradient(680px 480px at -5% 105%, rgba(244,239,230,0.05), transparent 55%)' }} />
       <div aria-hidden style={{ position: 'absolute', inset: 0, backgroundImage: `url("${NOISE}")`, opacity: 0.05, mixBlendMode: 'overlay' }} />
 
-      {/* top — logo */}
-      <div style={{ position: 'relative', zIndex: 1, animation: 'fade-up 0.6s ease both' }}>
+      {/* logo — pinned top-left */}
+      <div style={{ position: 'absolute', top: 48, left: 52, zIndex: 1, animation: 'fade-up 0.6s ease both' }}>
         <Logo onDark href={`/${lang}`} size={30} />
       </div>
 
-      {/* middle — pitch */}
+      {/* pitch — vertically centered */}
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 440 }}>
         <span className="ek-kicker ek-kicker--on-dark" style={{ animation: 'fade-up 0.6s ease both', animationDelay: '0.05s' }}>
           {c.kicker}

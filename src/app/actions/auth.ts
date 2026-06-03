@@ -53,7 +53,12 @@ export async function signUp(formData: FormData) {
 
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const fullName = formData.get('full_name') as string
+  const confirmPassword = (formData.get('confirm_password') as string) || ''
+  const firstName = ((formData.get('first_name') as string) || '').trim()
+  const lastName = ((formData.get('last_name') as string) || '').trim()
+  const phone = ((formData.get('phone') as string) || '').trim()
+  // Compose the stored display name; fall back to a legacy full_name field.
+  const fullName = [firstName, lastName].filter(Boolean).join(' ') || ((formData.get('full_name') as string) || '')
   const role = formData.get('role') as 'student' | 'teacher'
   const lang = (formData.get('lang') as string) || 'es'
   const timezone = (formData.get('timezone') as string) || 'America/Bogota'
@@ -65,7 +70,7 @@ export async function signUp(formData: FormData) {
     const msg = lang === 'es'
       ? 'Demasiados intentos. Intenta de nuevo en unos minutos.'
       : 'Too many attempts. Try again in a few minutes.'
-    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}`)
+    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}&role=${role}`)
   }
 
   // Minimum password policy. Supabase enforces nothing by default — this
@@ -74,7 +79,13 @@ export async function signUp(formData: FormData) {
     const msg = lang === 'es'
       ? 'La contraseña debe tener al menos 8 caracteres.'
       : 'Password must be at least 8 characters.'
-    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}`)
+    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}&role=${role}`)
+  }
+
+  // Defense-in-depth: the client checks too, but never trust it.
+  if (confirmPassword && password !== confirmPassword) {
+    const msg = lang === 'es' ? 'Las contraseñas no coinciden.' : 'Passwords do not match.'
+    redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}&role=${role}`)
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -83,6 +94,9 @@ export async function signUp(formData: FormData) {
     options: {
       data: {
         full_name: fullName,
+        first_name: firstName,
+        last_name: lastName,
+        phone,
         role,
         preferred_language: lang,
         timezone,
@@ -93,7 +107,7 @@ export async function signUp(formData: FormData) {
 
   if (error) {
     console.log('[signUp] error:', error.message)
-    redirect(`/${lang}/registro?error=${encodeURIComponent(friendlySignupError(error.message, lang))}`)
+    redirect(`/${lang}/registro?error=${encodeURIComponent(friendlySignupError(error.message, lang))}&role=${role}`)
   }
 
   // Instant-login: email confirmation is OFF (mailer_autoconfirm), so signUp
@@ -104,6 +118,11 @@ export async function signUp(formData: FormData) {
     if (role === 'student' || role === 'teacher') {
       const cookieStore = await cookies()
       cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
+    }
+    // Best-effort: persist phone onto the profile row the DB trigger just created.
+    if (phone && data.user?.id) {
+      const { error: phoneErr } = await supabase.from('profiles').update({ phone }).eq('id', data.user.id)
+      if (phoneErr) console.error('[signUp] could not save phone (non-blocking):', phoneErr.message)
     }
     await sendWelcomeEmail(email, fullName, lang).catch((err) =>
       console.error('[signUp] welcome email failed (non-blocking):', err)
