@@ -2,7 +2,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import Navbar from '@/components/landing/Navbar'
 import Footer from '@/components/landing/Footer'
 
-const CONTACT_EMAIL = 'c.banegaspaz2020@gmail.com'
+const CONTACT_EMAIL = 'hola@englishkolab.com'
 const EFFECTIVE_DATE = 'April 21, 2026'
 
 const t = {
