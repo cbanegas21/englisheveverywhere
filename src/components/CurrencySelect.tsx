@@ -21,6 +21,18 @@ const translations = {
   es: { search: 'Buscar moneda…',   noResults: 'Sin resultados' },
 }
 
+// Real SVG flag (flag-icons) keyed by ISO 3166-1 alpha-2. Emoji flags render as
+// plain letter pairs on Windows, so we never use them in the UI.
+function Flag({ country, size = 16 }: { country: string; size?: number }) {
+  return (
+    <span
+      className={`fi fi-${country}`}
+      aria-hidden
+      style={{ fontSize: size, lineHeight: 1, borderRadius: 2, flexShrink: 0, boxShadow: '0 0 0 1px rgba(0,0,0,0.08)' }}
+    />
+  )
+}
+
 export default function CurrencySelect({
   value,
   onChange,
@@ -144,7 +156,7 @@ export default function CurrencySelect({
           fontSize: compact ? '12px' : '13px',
           fontWeight: 600,
           cursor: 'pointer',
-          minWidth: compact ? '88px' : '120px',
+          minWidth: compact ? '56px' : '64px',
           ...(isDark ? darkBtn : lightBtn),
           ...buttonStyle,
         }}
@@ -159,8 +171,7 @@ export default function CurrencySelect({
           }
         }}
       >
-        <span style={{ fontSize: compact ? '14px' : '16px', lineHeight: 1 }}>{selected.flag}</span>
-        <span>{selected.code}</span>
+        <Flag country={selected.country} size={compact ? 16 : 18} />
         <ChevronDown
           className="ml-auto transition-transform"
           style={{
@@ -254,7 +265,7 @@ export default function CurrencySelect({
                       border: 'none',
                     }}
                   >
-                    <span style={{ fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>{c.flag}</span>
+                    <Flag country={c.country} size={18} />
                     <span style={{
                       fontWeight: 700,
                       letterSpacing: '0.02em',

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+import 'flag-icons/css/flag-icons.min.css'
 
 const geist = Geist({
   subsets: ['latin'],

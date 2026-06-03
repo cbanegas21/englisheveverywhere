@@ -25,6 +25,7 @@
     "@supabase/supabase-js": "^2.101.1",
     "@tabler/icons-react": "^3.41.1",
     "clsx": "^2.1.1",
+    "flag-icons": "^7.5.0",
     "framer-motion": "^12.38.0",
     "livekit-client": "^2.18.1",
     "livekit-server-sdk": "^2.15.0",

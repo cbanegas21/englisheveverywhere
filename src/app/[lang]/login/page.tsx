@@ -45,7 +45,7 @@ const t = {
     noAccount: '¿No tienes cuenta?',
     register: 'Regístrate',
     errorDefault: 'Correo o contraseña inválidos.',
-    successReset: 'Revisa tu bandeja de entrada.',
+    successReset: 'Revisa tu bandeja de entrada para recuperar tu contraseña.',
     keepLogged: 'Mantenerme conectado',
     or: 'o continúa con',
     continueGoogle: 'Continuar con Google',

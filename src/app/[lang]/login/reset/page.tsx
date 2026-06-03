@@ -22,8 +22,8 @@ const t = {
     backToLoginBtn: 'Back to login',
   },
   es: {
-    backToLogin: '← Volver al login',
-    headline: 'Restablecer contraseña',
+    backToLogin: '← Volver a iniciar sesión',
+    headline: 'Restablece tu contraseña',
     sub: 'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.',
     email: 'Correo electrónico',
     emailPlaceholder: 'tu@correo.com',
@@ -31,7 +31,7 @@ const t = {
     loading: 'Enviando…',
     successHeadline: 'Revisa tu correo',
     successSub: 'Te enviamos un enlace para restablecer tu contraseña. Revisa tu bandeja (y spam).',
-    backToLoginBtn: 'Volver al login',
+    backToLoginBtn: 'Volver a iniciar sesión',
   },
 }
 
