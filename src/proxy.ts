@@ -1,3 +1,4 @@
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { locales, defaultLocale } from '@/lib/i18n/translations'
 import { ROLE_COOKIE } from '@/lib/authCookie'
@@ -20,10 +21,11 @@ const ROLE_HOME: Record<string, string> = {
   student: 'dashboard',
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Skip Next.js internals and static files
+  // Skip Next.js internals and static files (also excluded by `matcher` below —
+  // cheap guard so we never run the auth refresh for assets).
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -32,7 +34,44 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check if pathname already has a locale
+  // ── Supabase session refresh — REQUIRED by @supabase/ssr ──────────────────
+  // Re-emits refreshed auth cookies on every request so that sessions written by
+  // the signUp / signIn server actions (server.ts setAll) actually persist to the
+  // browser. Without this step a freshly-authenticated user looks logged-out on
+  // the very next navigation and gets bounced back to /login (the signup loop).
+  // The refreshed Set-Cookie headers live on `response`; every early redirect
+  // below copies them via withAuth() so the session is never dropped.
+  let response = NextResponse.next({ request })
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+  // Do NOT run code between createServerClient and getUser() — @supabase/ssr
+  // relies on this call to rotate the refresh token and emit fresh cookies.
+  await supabase.auth.getUser()
+
+  // Copy the refreshed auth cookies onto any response we return early so a
+  // short-circuit redirect can't strip a just-refreshed session.
+  const withAuth = (target: NextResponse) => {
+    response.cookies.getAll().forEach((cookie) => target.cookies.set(cookie))
+    return target
+  }
+
+  // ── Locale prefix ─────────────────────────────────────────────────────────
   const hasLocale = locales.some(
     (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
   )
@@ -40,14 +79,15 @@ export function proxy(request: NextRequest) {
   if (!hasLocale) {
     const locale = getLocale(request)
     request.nextUrl.pathname = `/${locale}${pathname}`
-    return NextResponse.redirect(request.nextUrl)
+    return withAuth(NextResponse.redirect(request.nextUrl))
   }
 
-  // Role-guard fast path. Cookie-absent = let layout guards handle auth/role
-  // (they read profiles.role as the canonical source). Cookie-present mismatch
-  // = short-circuit redirect so the wrong-role UI never flashes.
+  // ── Role-guard fast path ──────────────────────────────────────────────────
+  // Cookie-absent = let layout guards handle auth/role (they read profiles.role
+  // as the canonical source). Cookie-present mismatch = short-circuit redirect so
+  // the wrong-role UI never flashes.
   const role = request.cookies.get(ROLE_COOKIE)?.value
-  if (!role) return NextResponse.next()
+  if (!role) return response
 
   const segments = pathname.split('/').filter(Boolean)
   const lang = segments[0]
@@ -68,12 +108,12 @@ export function proxy(request: NextRequest) {
       const target = `/${lang}/${home}`
       if (target !== pathname) {
         request.nextUrl.pathname = target
-        return NextResponse.redirect(request.nextUrl)
+        return withAuth(NextResponse.redirect(request.nextUrl))
       }
     }
   }
 
-  return NextResponse.next()
+  return response
 }
 
 export const config = {

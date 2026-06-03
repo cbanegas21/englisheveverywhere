@@ -12,6 +12,7 @@ const t = {
     placeholder: 'At least 8 characters',
     cta: 'Update password',
     success: 'Password updated! Redirecting…',
+    verifying: 'Verifying your reset link…',
     errorSession: 'Invalid or expired reset link. Please request a new one.',
     errorShort: 'Password must be at least 8 characters.',
   },
@@ -21,6 +22,7 @@ const t = {
     placeholder: 'Mínimo 8 caracteres',
     cta: 'Actualizar contraseña',
     success: '¡Contraseña actualizada! Redirigiendo…',
+    verifying: 'Verificando tu enlace…',
     errorSession: 'Enlace inválido o expirado. Solicita uno nuevo.',
     errorShort: 'La contraseña debe tener al menos 8 caracteres.',
   },
@@ -37,22 +39,53 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
   const [message, setMessage] = useState('')
   const [sessionReady, setSessionReady] = useState(false)
 
-  // Exchange the code from the URL for a session
+  // Establish the recovery session from whatever shape the reset link arrives in:
+  //  • PKCE flow:      ?code=...                      → exchangeCodeForSession
+  //  • OTP/token_hash: ?token_hash=...&type=recovery  → verifyOtp
+  //  • Implicit/hash:  #access_token=...              → detectSessionInUrl (auto)
   useEffect(() => {
-    const code = searchParams.get('code')
-    if (!code) {
-      setStatus('error')
-      setMessage(tx.errorSession)
-      return
+    let active = true
+
+    async function establish(): Promise<boolean> {
+      const code = searchParams.get('code')
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        return !error
+      }
+      const tokenHash = searchParams.get('token_hash')
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash })
+        return !error
+      }
+      // Hash-fragment flow: createBrowserClient auto-parses #access_token — just check.
+      const { data } = await supabase.auth.getSession()
+      return !!data.session
     }
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) {
+
+    establish().then(ok => {
+      if (!active) return
+      if (ok) {
+        setSessionReady(true)
+        setStatus('idle')
+      } else {
+        setSessionReady(false)
         setStatus('error')
         setMessage(tx.errorSession)
-      } else {
-        setSessionReady(true)
       }
     })
+
+    // Supabase emits PASSWORD_RECOVERY once it parses a recovery URL (hash flow).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
+      if (active && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN')) {
+        setSessionReady(true)
+        setStatus(prev => (prev === 'error' ? 'idle' : prev))
+      }
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -88,11 +121,15 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
           {tx.title}
         </h1>
 
-        {status === 'error' && !sessionReady && (
+        {!sessionReady && status === 'error' && (
           <p className="text-[13px] mb-4 text-red-600">{message}</p>
         )}
 
-        {(sessionReady || status !== 'error') && status !== 'success' && (
+        {!sessionReady && status !== 'error' && (
+          <p className="text-[13px] mb-1" style={{ color: 'var(--ek-text-muted)' }}>{tx.verifying}</p>
+        )}
+
+        {sessionReady && status !== 'success' && (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-[13px] font-semibold" style={{ color: '#111111' }}>

@@ -8,9 +8,11 @@ import { signIn } from '@/app/actions/auth'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 import { Logo } from '@/components/ui/Logo'
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 
 const t = {
   en: {
+    kicker: 'Welcome back',
     headline: 'Log in to your account',
     email: 'Email address',
     emailPlaceholder: 'Enter your email address',
@@ -24,12 +26,14 @@ const t = {
     errorDefault: 'Invalid email or password.',
     successReset: 'Check your inbox for a recovery email.',
     keepLogged: 'Keep me logged in',
-    backToHome: '← Home',
     or: 'or continue with',
     continueGoogle: 'Continue with Google',
     continueMicrosoft: 'Continue with Microsoft',
+    adminPrompt: 'Are you an admin? ',
+    adminLink: 'Login here',
   },
   es: {
+    kicker: 'Bienvenido de vuelta',
     headline: 'Ingresar a tu cuenta',
     email: 'Correo electrónico',
     emailPlaceholder: 'Ingresa tu correo electrónico',
@@ -43,14 +47,30 @@ const t = {
     errorDefault: 'Correo o contraseña inválidos.',
     successReset: 'Revisa tu bandeja de entrada.',
     keepLogged: 'Mantenerme conectado',
-    backToHome: '← Inicio',
     or: 'o continúa con',
     continueGoogle: 'Continuar con Google',
     continueMicrosoft: 'Continuar con Microsoft',
+    adminPrompt: '¿Eres administrador? ',
+    adminLink: 'Accede aquí',
   },
 }
 
+type Tx = typeof t['en']
 interface Props { params: Promise<{ lang: string }> }
+
+const inputBase: React.CSSProperties = {
+  width: '100%', borderRadius: 9, border: '1px solid var(--ek-border)', background: '#fff',
+  color: 'var(--ek-text)', padding: '12px 14px', fontSize: 14, outline: 'none',
+  transition: 'border-color .15s ease, box-shadow .15s ease',
+}
+const onFocusRing = (e: React.FocusEvent<HTMLInputElement>) => {
+  e.currentTarget.style.borderColor = 'var(--ek-red)'
+  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(196,30,58,0.12)'
+}
+const onBlurRing = (e: React.FocusEvent<HTMLInputElement>) => {
+  e.currentTarget.style.borderColor = 'var(--ek-border)'
+  e.currentTarget.style.boxShadow = 'none'
+}
 
 function LoginForm({ lang }: { lang: Locale }) {
   const [showPassword, setShowPassword] = useState(false)
@@ -58,7 +78,7 @@ function LoginForm({ lang }: { lang: Locale }) {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [oauthError, setOauthError] = useState('')
   const searchParams = useSearchParams()
-  const tx = t[lang]
+  const tx: Tx = t[lang]
   const errorMsg = searchParams.get('error')
   const successMsg = searchParams.get('success')
 
@@ -88,195 +108,123 @@ function LoginForm({ lang }: { lang: Locale }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--ek-paper)' }}>
-      {/* Top bar */}
-      <div className="px-8 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #E5E7EB' }}>
-        <Logo href={`/${lang}`} size={28} />
-        <p className="text-[13px]" style={{ color: '#9CA3AF' }}>
-          {tx.noAccount}{' '}
-          <Link
-            href={`/${lang}/registro`}
-            className="font-semibold underline underline-offset-2 transition-colors"
-            style={{ color: '#111111' }}
-          >
-            {tx.register}
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[1.05fr_1fr]" style={{ background: 'var(--ek-paper)' }}>
+      <AuthBrandPanel lang={lang} />
+
+      <div className="relative flex flex-col min-h-screen">
+        <header className="flex items-center justify-between" style={{ padding: '20px 26px' }}>
+          <Link href={`/${lang}`} aria-label="EnglishKolab">
+            <Logo size={26} />
           </Link>
-        </p>
-      </div>
-
-      {/* Main */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div
-          className="w-full max-w-[400px] rounded-xl px-8 py-10"
-          style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', boxShadow: '0 4px 24px rgba(28,19,8,0.06)' }}
-        >
-          {/* Logo */}
-          <div className="mb-7">
-            <h1 className="text-[18px] font-black" style={{ color: '#111111' }}>
-              {tx.headline}
-            </h1>
-          </div>
-
-          {/* Error / success messages */}
-          {errorMsg && (
-            <div
-              className="mb-4 rounded px-4 py-3 text-[13px]"
-              style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}
-            >
-              {errorMsg === 'Invalid login credentials' ? tx.errorDefault : errorMsg}
-            </div>
-          )}
-          {successMsg === 'reset' && (
-            <div
-              className="mb-4 rounded px-4 py-3 text-[13px]"
-              style={{ background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A' }}
-            >
-              {tx.successReset}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {/* Email */}
-            <div>
-              <label className="block text-[13px] font-medium mb-1.5" style={{ color: '#111111' }}>
-                {tx.email}
-              </label>
-              <input
-                type="email"
-                name="email"
-                required
-                placeholder={tx.emailPlaceholder}
-                className="w-full rounded px-3.5 py-3 text-[14px] transition-all outline-none"
-                style={{
-                  border: '1px solid #E5E7EB',
-                  color: '#111111',
-                  background: 'var(--ek-paper)',
-                }}
-                onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[13px] font-medium" style={{ color: '#111111' }}>{tx.password}</label>
-                <Link
-                  href={`/${lang}/login/reset`}
-                  className="text-[12px] transition-colors"
-                  style={{ color: '#9CA3AF' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#111111')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#9CA3AF')}
-                >
-                  {tx.forgot}
-                </Link>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  required
-                  minLength={8}
-                  placeholder={tx.passwordPlaceholder}
-                  className="w-full rounded px-3.5 py-3 pr-10 text-[14px] transition-all outline-none"
-                  style={{
-                    border: '1px solid #E5E7EB',
-                    color: '#111111',
-                    background: 'var(--ek-paper)',
-                  }}
-                  onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                  onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword
-                    ? (lang === 'es' ? 'Ocultar contraseña' : 'Hide password')
-                    : (lang === 'es' ? 'Mostrar contraseña' : 'Show password')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: '#9CA3AF' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Keep me logged in */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded"
-                style={{ accentColor: '#C41E3A' }}
-              />
-              <span className="text-[13px]" style={{ color: '#4B5563' }}>{tx.keepLogged}</span>
-            </label>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full font-bold text-[14px] py-3.5 rounded transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ background: '#C41E3A', color: '#fff' }}
-              onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = '#9E1830' }}
-              onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = '#C41E3A' }}
-            >
-              {isPending ? tx.loading : tx.submit}
-            </button>
-          </form>
-
-          {/* TODO: Enable OAuth once Google/Microsoft providers are configured in Supabase
-          {oauthError && (
-            <div
-              className="mt-4 rounded px-4 py-3 text-[13px]"
-              style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}
-            >
-              {oauthError}
-            </div>
-          )}
-
-          <div className="flex items-center gap-3 mt-5">
-            <div className="flex-1 h-px" style={{ background: '#E5E7EB' }} />
-            <span className="text-[12px] whitespace-nowrap" style={{ color: '#9CA3AF' }}>{tx.or}</span>
-            <div className="flex-1 h-px" style={{ background: '#E5E7EB' }} />
-          </div>
-
-          <div className="space-y-2.5 mt-4">
-            <button type="button" onClick={() => handleOAuth('google')} ...>
-              {tx.continueGoogle}
-            </button>
-            <button type="button" onClick={() => handleOAuth('azure')} ...>
-              {tx.continueMicrosoft}
-            </button>
-          </div>
-          */}
-
-          {/* Sign up link */}
-          <p className="mt-6 text-center text-[13px]" style={{ color: '#9CA3AF' }}>
+          <p className="text-[13px]" style={{ color: 'var(--ek-text-muted)' }}>
             {tx.noAccount}{' '}
-            <Link
-              href={`/${lang}/registro`}
-              className="font-semibold underline underline-offset-2 transition-colors"
-              style={{ color: '#111111' }}
-            >
+            <Link href={`/${lang}/registro`} className="font-semibold underline underline-offset-2" style={{ color: 'var(--ek-text)' }}>
               {tx.register}
             </Link>
           </p>
+        </header>
 
-          {/* Admin access — subtle, for internal use */}
-          <p className="mt-4 text-center text-[11px]" style={{ color: '#D1D5DB' }}>
-            {lang === 'es' ? '¿Eres administrador? ' : 'Are you an admin? '}
-            <Link
-              href={`/${lang}/admin`}
-              className="underline underline-offset-2 transition-colors"
-              style={{ color: '#9CA3AF' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#4B5563')}
-              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#9CA3AF')}
-            >
-              {lang === 'es' ? 'Accede aquí' : 'Login here'}
-            </Link>
-          </p>
+        <div className="flex-1 flex items-center justify-center px-6 pb-16 pt-2">
+          <div className="w-full max-w-[400px]" style={{ animation: 'fade-up 0.5s ease both' }}>
+            <div className="mb-6">
+              <span className="ek-kicker" style={{ color: 'var(--ek-red)' }}>{tx.kicker}</span>
+              <h1 className="mt-3 font-black" style={{ fontSize: '1.6rem', letterSpacing: '-0.025em', lineHeight: 1.1, color: 'var(--ek-text)' }}>
+                {tx.headline}
+              </h1>
+            </div>
+
+            {errorMsg && (
+              <div className="mb-4 rounded-lg px-4 py-3 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}>
+                {/(invalid login credentials|invalid email or password|email not confirmed)/i.test(errorMsg) ? tx.errorDefault : errorMsg}
+              </div>
+            )}
+            {successMsg === 'reset' && (
+              <div className="mb-4 rounded-lg px-4 py-3 text-[13px]" style={{ background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A' }}>
+                {tx.successReset}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              <div>
+                <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.email}</label>
+                <input type="email" name="email" required placeholder={tx.emailPlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: 'var(--ek-text)' }}>{tx.password}</label>
+                  <Link
+                    href={`/${lang}/login/reset`}
+                    className="text-[12px] transition-colors"
+                    style={{ color: 'var(--ek-text-muted)' }}
+                    onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--ek-text)')}
+                    onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--ek-text-muted)')}
+                  >
+                    {tx.forgot}
+                  </Link>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    required
+                    minLength={8}
+                    placeholder={tx.passwordPlaceholder}
+                    style={{ ...inputBase, paddingRight: 40 }}
+                    onFocus={onFocusRing}
+                    onBlur={onBlurRing}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? (lang === 'es' ? 'Ocultar contraseña' : 'Hide password') : (lang === 'es' ? 'Mostrar contraseña' : 'Show password')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                    style={{ color: 'var(--ek-text-muted)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--ek-text)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--ek-text-muted)')}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 rounded" style={{ accentColor: 'var(--ek-red)' }} />
+                <span className="text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{tx.keepLogged}</span>
+              </label>
+
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full font-bold text-[14px] py-3.5 rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ background: 'var(--ek-red)', color: '#fff' }}
+                onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = 'var(--ek-red-hover)' }}
+                onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = 'var(--ek-red)' }}
+              >
+                {isPending ? tx.loading : tx.submit}
+              </button>
+            </form>
+
+            <p className="mt-6 text-center text-[13px]" style={{ color: 'var(--ek-text-muted)' }}>
+              {tx.noAccount}{' '}
+              <Link href={`/${lang}/registro`} className="font-semibold underline underline-offset-2" style={{ color: 'var(--ek-text)' }}>
+                {tx.register}
+              </Link>
+            </p>
+
+            <p className="mt-4 text-center text-[11px]" style={{ color: 'var(--ek-text-faint)' }}>
+              {tx.adminPrompt}
+              <Link
+                href={`/${lang}/admin`}
+                className="underline underline-offset-2 transition-colors"
+                style={{ color: 'var(--ek-text-muted)' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--ek-text-soft)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--ek-text-muted)')}
+              >
+                {tx.adminLink}
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
