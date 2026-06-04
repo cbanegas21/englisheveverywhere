@@ -67,13 +67,48 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
   return (
     <section
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         background: 'var(--ek-paper-warm)',
-        padding: '80px 24px 64px',
         fontFamily: 'var(--ek-font-sans)',
         color: 'var(--ek-text)',
       }}
     >
-      <div className="max-w-7xl mx-auto">
+      {/* full-bleed hero photo — merged into the page by the cream scrim */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url(/landing/hero-student.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center right',
+          filter: 'saturate(0.95)',
+        }}
+      />
+      {/* cream scrim — holds the headline on the left, opens to the photo on the right */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(90deg, var(--ek-paper-warm) 0%, rgba(251,248,243,0.97) 34%, rgba(251,248,243,0.64) 56%, rgba(251,248,243,0.18) 80%, rgba(251,248,243,0) 100%)',
+        }}
+      />
+      {/* bottom fade so the photo dissolves into the next section */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 140,
+          background: 'linear-gradient(0deg, var(--ek-paper-warm) 0%, rgba(251,248,243,0) 100%)',
+        }}
+      />
+      <div className="max-w-7xl mx-auto" style={{ position: 'relative', zIndex: 2, padding: '80px 24px 64px' }}>
         <div
           className="grid items-end grid-cols-1 lg:grid-cols-[1.25fr_1fr]"
           style={{
