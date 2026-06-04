@@ -17,7 +17,7 @@ const slots = {
     { day: 'Mañana', time: '06:00', note: 'Antes del trabajo' },
     { day: 'Mañana', time: '22:00', note: 'Después de cenar' },
     { day: 'Sábado', time: '08:00', note: 'Fin de semana' },
-    { day: 'Domingo', time: '23:00', note: 'Tarde noche' },
+    { day: 'Domingo', time: '23:00', note: 'Ya de noche' },
   ],
 }
 

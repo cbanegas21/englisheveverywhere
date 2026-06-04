@@ -11,7 +11,7 @@ const t = {
     eyebrow: '● Clase tras clase',
     title: 'Tu cuaderno se llena.',
     accent: 'Tu inglés también.',
-    body: 'Cada clase deja huella. Vocabulario nuevo, una expresión que se queda, un acento que se afina. Tu maestro recuerda dónde quedaron.',
+    body: 'Cada clase deja huella. Vocabulario nuevo, una expresión que se queda, un acento que se afina. Tu maestro recuerda dónde te quedaste.',
   },
 }
 

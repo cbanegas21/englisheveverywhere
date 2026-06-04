@@ -48,7 +48,7 @@ const t = {
     includedTitle: 'Lo que recibes, sin importar el paquete:',
     features: [
       { label: 'Clases de 60 minutos', sub: '1 a 1, en vivo por video' },
-      { label: 'Maestro certificado', sub: 'Asignado a tu nivel y metas' },
+      { label: 'Maestro certificado', sub: 'Asignado según tu nivel y metas' },
       { label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo, sin fechas límite' },
       { label: 'Sin renovación automática', sub: 'Pagas una vez y vuelves a pagar solo si quieres' },
     ],
