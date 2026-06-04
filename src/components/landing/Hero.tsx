@@ -71,9 +71,24 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
         padding: '80px 24px 64px',
         fontFamily: 'var(--ek-font-sans)',
         color: 'var(--ek-text)',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      <div className="max-w-7xl mx-auto">
+      {/* barely-there warm grain texture for depth */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url(/landing/hero-grain.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.1,
+          pointerEvents: 'none',
+        }}
+      />
+      <div className="max-w-7xl mx-auto" style={{ position: 'relative' }}>
         <div
           className="grid items-end grid-cols-1 lg:grid-cols-[1.25fr_1fr]"
           style={{
@@ -293,14 +308,29 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
             </motion.div>
           </div>
 
-          {/* Right: live booking card */}
+          {/* Right: warm faceless photo (always) + live booking card (desktop) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.55, ease: 'easeOut' }}
-            className="hidden lg:block min-w-0"
+            className="min-w-0"
           >
-            <HeroBookingCard lang={lang} />
+            <div
+              aria-hidden
+              style={{
+                aspectRatio: '16 / 10',
+                borderRadius: 8,
+                overflow: 'hidden',
+                border: '1px solid var(--ek-border)',
+                backgroundImage: 'url(/landing/hero-student.jpg)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                boxShadow: '0 24px 48px -32px rgba(0,0,0,0.18)',
+              }}
+            />
+            <div className="hidden lg:block" style={{ marginTop: 20 }}>
+              <HeroBookingCard lang={lang} />
+            </div>
           </motion.div>
         </div>
       </div>

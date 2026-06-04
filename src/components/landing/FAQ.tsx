@@ -81,6 +81,20 @@ export default function FAQ({ lang }: { lang: Locale }) {
                 {tx.titleAccent}
               </span>
             </motion.h2>
+            <div
+              aria-hidden
+              className="hidden lg:block"
+              style={{
+                marginTop: 40,
+                maxWidth: 360,
+                aspectRatio: '4 / 3',
+                borderRadius: 12,
+                overflow: 'hidden',
+                backgroundImage: 'url(/landing/faq-calm.jpg)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            />
           </div>
 
           <div>
