@@ -318,30 +318,14 @@ export default function Pricing({ lang }: { lang: Locale }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
-          className="grid grid-cols-1 lg:grid-cols-[240px_1fr]"
           style={{
             marginTop: 32,
-            gap: 28,
-            alignItems: 'center',
             padding: '28px 32px',
             background: 'var(--ek-card)',
             border: '1px solid var(--ek-border)',
             borderRadius: 14,
           }}
         >
-          <div
-            aria-hidden
-            className="hidden lg:block"
-            style={{
-              aspectRatio: '4 / 3',
-              borderRadius: 10,
-              overflow: 'hidden',
-              backgroundImage: 'url(/landing/pricing-life.jpg)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          />
-          <div>
           <div
             style={{
               fontFamily: 'var(--ek-font-mono)',
@@ -420,7 +404,6 @@ export default function Pricing({ lang }: { lang: Locale }) {
                 </div>
               </div>
             ))}
-          </div>
           </div>
         </motion.div>
 

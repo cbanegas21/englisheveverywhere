@@ -41,18 +41,16 @@ const iconProps = {
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
 }
-function StepIcon({ i }: { i: number }) {
-  switch (i) {
-    case 0: // choose a pack (stacked cards)
-      return <svg {...iconProps}><rect x="3" y="8" width="12.5" height="11" rx="2" /><path d="M7 8V6.4a2 2 0 0 1 2-2h8.6a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2h-1.6" /></svg>
-    case 1: // free human call (speech bubble + waveform)
-      return <svg {...iconProps}><path d="M5 4.5h14a1.2 1.2 0 0 1 1.2 1.2v7.6a1.2 1.2 0 0 1-1.2 1.2h-7.4L7 18.5V14.5H5a1.2 1.2 0 0 1-1.2-1.2V5.7A1.2 1.2 0 0 1 5 4.5Z" /><path d="M9 8.7v2.6M12 7.3v5.4M15 8.7v2.6" /></svg>
-    case 2: // pick your hour (calendar with one cell)
-      return <svg {...iconProps}><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M8 3v4M16 3v4" /><rect x="13" y="12.5" width="4" height="4" rx="0.8" fill="currentColor" stroke="none" /></svg>
-    default: // go live (video window + play)
-      return <svg {...iconProps}><rect x="3" y="5" width="18" height="13.5" rx="2" /><path d="M3 8.7h18" /><path d="M10.5 11l4.2 2.4-4.2 2.4z" fill="currentColor" stroke="none" /></svg>
-  }
-}
+const STEP_ICONS = [
+  // 01 — choose a pack (stacked cards)
+  <svg {...iconProps} key="i1"><rect x="3" y="8" width="12.5" height="11" rx="2" /><path d="M7 8V6.4a2 2 0 0 1 2-2h8.6a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2h-1.6" /></svg>,
+  // 02 — free human call (speech bubble + waveform)
+  <svg {...iconProps} key="i2"><path d="M5 4.5h14a1.2 1.2 0 0 1 1.2 1.2v7.6a1.2 1.2 0 0 1-1.2 1.2h-7.4L7 18.5V14.5H5a1.2 1.2 0 0 1-1.2-1.2V5.7A1.2 1.2 0 0 1 5 4.5Z" /><path d="M9 8.7v2.6M12 7.3v5.4M15 8.7v2.6" /></svg>,
+  // 03 — pick your hour (calendar with one cell)
+  <svg {...iconProps} key="i3"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M8 3v4M16 3v4" /><rect x="13" y="12.5" width="4" height="4" rx="0.8" fill="currentColor" stroke="none" /></svg>,
+  // 04 — go live (video window + play)
+  <svg {...iconProps} key="i4"><rect x="3" y="5" width="18" height="13.5" rx="2" /><path d="M3 8.7h18" /><path d="M10.5 11l4.2 2.4-4.2 2.4z" fill="currentColor" stroke="none" /></svg>,
+]
 
 export default function HowItWorks({ lang }: { lang: Locale }) {
   const tx = t[lang]
@@ -132,7 +130,7 @@ export default function HowItWorks({ lang }: { lang: Locale }) {
                 paddingTop: 20,
               }}
             >
-              <div style={{ color: 'var(--ek-red)', marginBottom: 18 }}><StepIcon i={i} /></div>
+              <div style={{ color: 'var(--ek-red)', marginBottom: 18 }}>{STEP_ICONS[i]}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <span
                   style={{
