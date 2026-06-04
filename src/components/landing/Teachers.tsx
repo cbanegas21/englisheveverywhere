@@ -192,34 +192,23 @@ export default function Teachers({ lang }: { lang: Locale }) {
               {tx.cardKicker}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  background: 'var(--ek-ink)',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'var(--ek-font-mono)',
-                  fontSize: 16,
-                  fontWeight: 600,
-                }}
-              >
-                ?
-              </div>
-              <span
-                style={{
-                  fontFamily: 'var(--ek-font-mono)',
-                  fontSize: 10,
-                  color: 'var(--ek-text-muted)',
-                  letterSpacing: '0.08em',
-                }}
-              >
-                #—
-              </span>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 12,
+                background: 'var(--ek-red-tint-2)',
+                border: '1px solid rgba(196,30,58,0.22)',
+                color: 'var(--ek-red)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="3.2" />
+                <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
+              </svg>
             </div>
 
             <div>

@@ -293,12 +293,12 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
             </motion.div>
           </div>
 
-          {/* Right: live booking card */}
+          {/* Right: live booking card (now visible on mobile too) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.55, ease: 'easeOut' }}
-            className="hidden lg:block min-w-0"
+            className="min-w-0"
           >
             <HeroBookingCard lang={lang} />
           </motion.div>
