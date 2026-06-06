@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
@@ -34,6 +35,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
   const tx = t[lang]
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const other = lang === 'en' ? 'es' : 'en'
   const { currency, changeCurrency } = useCurrency()
   const pathname = usePathname()
@@ -47,6 +49,20 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
       requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10)))
     }
   }, [pathname])
+
+  // Lock body scroll while the mobile menu overlay is open so the page
+  // underneath doesn't move (LK2-10). Restore on close/unmount.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
+  // Portal target (document.body) is only available after mount — guards SSR.
+  useEffect(() => setMounted(true), [])
 
   function handleLocaleSwitch() {
     if (switching) return
@@ -72,11 +88,11 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
         borderBottom: '1px solid var(--ek-border)',
       }}
     >
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
+      <div className="lk-shell h-16 flex items-center justify-between">
         <Logo href={`/${lang}`} size={32} />
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-7">
+        <nav className="hidden lg:flex items-center gap-7">
           {[
             // Absolute (/${lang}#...) so they also work from subpages like
             // /contact, /privacy, /terms — not just the home page. Audit EK-036.
@@ -104,7 +120,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
         </nav>
 
         {/* Right actions */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           <CurrencySelect
             value={currency}
             onChange={changeCurrency}
@@ -178,7 +194,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden p-2"
+          className="lg:hidden p-2"
           style={{ color: 'var(--ek-text)', background: 'transparent', border: 0 }}
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
@@ -187,12 +203,42 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
         </button>
       </div>
 
-      {/* Mobile menu */}
-      {open && (
-        <div
-          className="md:hidden px-6 py-5 flex flex-col gap-1"
-          style={{ background: 'var(--ek-paper-warm)', borderTop: '1px solid var(--ek-border)' }}
-        >
+      {/* Mobile menu — fixed overlay portaled to <body> so it escapes the
+          header's backdrop-filter containing block and covers the whole
+          viewport (not just the header). Does not reflow the page (LK2-10). */}
+      {open && mounted &&
+        createPortal(
+          <>
+            {/* Scrim — starts below the 64px header so the X stays clickable */}
+            <div
+              className="lg:hidden"
+              onClick={() => setOpen(false)}
+              aria-hidden="true"
+              style={{
+                position: 'fixed',
+                top: 64,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.4)',
+                zIndex: 60,
+              }}
+            />
+          {/* Sheet */}
+          <div
+            className="lg:hidden px-6 py-5 flex flex-col gap-1"
+            style={{
+              position: 'fixed',
+              top: 64,
+              left: 0,
+              right: 0,
+              maxHeight: 'calc(100dvh - 64px)',
+              overflowY: 'auto',
+              zIndex: 70,
+              background: 'var(--ek-paper-warm)',
+              borderTop: '1px solid var(--ek-border)',
+            }}
+          >
           <div
             className="flex items-center justify-between pb-3 mb-1"
             style={{ borderBottom: '1px solid var(--ek-border)' }}
@@ -302,8 +348,10 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
           >
             {isLoggedIn ? tx.dashboard : tx.cta}
           </Link>
-        </div>
-      )}
+          </div>
+          </>,
+          document.body,
+        )}
     </header>
   )
 }

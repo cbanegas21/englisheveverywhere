@@ -62,6 +62,7 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
       style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
     >
       <style>{`
+        /* printed-schedule-card: one hairline border, a quiet shadow, no accent bar */
         .lk-bcard {
           background: #fff;
           border: 1px solid var(--ek-border);
@@ -70,21 +71,13 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
           position: relative;
           overflow: hidden;
           font-family: var(--ek-font-sans);
-          box-shadow: 0 24px 48px -32px rgba(0,0,0,0.18);
+          box-shadow: 0 10px 30px -26px rgba(0,0,0,0.14);
           transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
         }
         .lk-bcard-link:hover .lk-bcard {
-          box-shadow: 0 36px 70px -34px rgba(0,0,0,0.30);
+          box-shadow: 0 18px 40px -30px rgba(0,0,0,0.18);
           border-color: var(--ek-border-mid);
-          transform: translateY(-3px);
-        }
-        /* red accent hairline along the top — reads as an intentional surface */
-        .lk-bcard::before {
-          content: "";
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, var(--ek-red) 0%, var(--ek-red-light) 100%);
+          transform: translateY(-2px);
         }
         .lk-bcard-cta {
           display: inline-flex;
@@ -180,29 +173,32 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
             >
               {next}
             </div>
-            <div style={{ display: 'flex', gap: 4, marginTop: 10, alignItems: 'end', justifyContent: 'flex-end' }}>
-              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <span
-                  key={i}
-                  style={{
-                    width: 6,
-                    height: 8 + ((i * 3) % 18),
-                    background: i === 1 ? 'var(--ek-red)' : 'var(--ek-border-mid)',
-                    borderRadius: 1,
-                  }}
-                />
-              ))}
+            {/* Quiet typographic cue replacing the ornamental equalizer bars */}
+            <div
+              style={{
+                fontFamily: 'var(--ek-font-mono)',
+                fontSize: 13,
+                marginTop: 9,
+                fontWeight: 500,
+                letterSpacing: '-0.01em',
+                color: 'var(--ek-text)',
+              }}
+            >
+              <span style={{ color: 'var(--ek-red)' }}>5</span>
+              <span style={{ color: 'var(--ek-text-muted)', marginLeft: 5 }}>
+                {lang === 'es' ? 'libres' : 'free'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Section label */}
+        {/* Section label — hairline red lead-in instead of an ↳ glyph */}
         <div
           style={{
             marginTop: 18,
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 10,
             fontFamily: 'var(--ek-font-mono)',
             fontSize: 10,
             color: 'var(--ek-text-muted)',
@@ -210,7 +206,10 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
             letterSpacing: '0.12em',
           }}
         >
-          <span style={{ color: 'var(--ek-red)' }}>↳</span>
+          <span
+            aria-hidden
+            style={{ flex: '0 0 auto', width: 18, height: 1, background: 'var(--ek-red)' }}
+          />
           {arrow}
         </div>
 

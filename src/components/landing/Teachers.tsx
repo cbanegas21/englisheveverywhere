@@ -5,20 +5,25 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    eyebrow: '● Teachers',
+    eyebrow: 'Teachers',
     titleLead: 'One teacher.',
     titleAccent: 'Yours.',
-    body:
-      "We're not a marketplace. You don't browse a hundred profiles. We match you with a teacher based on your level, your goals, and your schedule. You get to know them. They get to know you.",
-    bodyContd:
-      "If your teacher isn't free at a time you pick, another available teacher covers that class — so you're never stuck waiting.",
+    body: [
+      "We're not a ", { b: 'marketplace' }, ". You don't browse a hundred profiles. We ",
+      { b: 'match you' }, ' with a teacher based on ', { b: 'your level, your goals, and your schedule' },
+      '. You get to know them. They get to know you.',
+    ],
+    bodyContd: [
+      "If your teacher isn't free at a time you pick, ", { b: 'another available teacher covers that class' },
+      " — so you're never stuck waiting.",
+    ],
     facts: [
       { k: 'Format', v: '1-to-1, live' },
       { k: 'Sessions', v: '60 minutes' },
       { k: 'Framework', v: 'CEFR A0 → C2' },
       { k: 'Match', v: 'Hand-picked' },
     ],
-    cardKicker: '↳ Your match',
+    cardKicker: 'Your match',
     cardBadge: 'Reserved for you',
     cardName: 'Your teacher',
     cardNameAccent: 'one, not a hundred.',
@@ -32,20 +37,25 @@ const t = {
     cardSeal: 'EK · MAESTRO',
   },
   es: {
-    eyebrow: '● Maestros',
+    eyebrow: 'Maestros',
     titleLead: 'Un maestro.',
     titleAccent: 'El tuyo.',
-    body:
-      'No somos un marketplace. No eliges entre cien perfiles. Te emparejamos con un maestro según tu nivel, tus metas y tu horario. Lo conoces. Te conoce.',
-    bodyContd:
-      'Si tu maestro no está libre a una hora que elegiste, otro maestro disponible cubre esa clase — para que nunca te quedes esperando.',
+    body: [
+      'No somos un ', { b: 'marketplace' }, '. No eliges entre cien perfiles. Te ',
+      { b: 'emparejamos' }, ' con un maestro según ', { b: 'tu nivel, tus metas y tu horario' },
+      '. Lo conoces. Te conoce.',
+    ],
+    bodyContd: [
+      'Si tu maestro no está libre a una hora que elegiste, ', { b: 'otro maestro disponible cubre esa clase' },
+      ' — para que nunca te quedes esperando.',
+    ],
     facts: [
       { k: 'Formato', v: '1 a 1, en vivo' },
       { k: 'Sesiones', v: '60 minutos' },
       { k: 'Marco', v: 'CEFR A0 → C2' },
       { k: 'Asignación', v: 'A mano' },
     ],
-    cardKicker: '↳ Tu match',
+    cardKicker: 'Tu match',
     cardBadge: 'Reservado para ti',
     cardName: 'Tu maestro',
     cardNameAccent: 'uno, no cien.',
@@ -60,15 +70,28 @@ const t = {
   },
 }
 
+type RichPart = string | { b: string }
+function renderRich(parts: RichPart[]) {
+  return parts.map((p, i) =>
+    typeof p === 'string' ? (
+      <span key={i}>{p}</span>
+    ) : (
+      <strong key={i} style={{ color: 'var(--ek-text)', fontWeight: 700 }}>
+        {p.b}
+      </strong>
+    ),
+  )
+}
+
 export default function Teachers({ lang }: { lang: Locale }) {
   const tx = t[lang]
 
   return (
     <section
       id="teachers"
+      className="lk-section-y"
       style={{
         background: 'var(--ek-paper)',
-        padding: '96px clamp(24px, 6vw, 80px)',
         fontFamily: 'var(--ek-font-sans)',
       }}
     >
@@ -78,7 +101,7 @@ export default function Teachers({ lang }: { lang: Locale }) {
           .lk-teach-row > span:first-child { width: auto !important; }
         }
       `}</style>
-      <div className="max-w-7xl mx-auto">
+      <div className="lk-shell">
         <div
           className="grid items-start grid-cols-1 lg:grid-cols-2"
           style={{
@@ -115,25 +138,11 @@ export default function Teachers({ lang }: { lang: Locale }) {
                 {tx.titleAccent}
               </span>
             </motion.h2>
-            <p
-              style={{
-                marginTop: 28,
-                fontSize: 17,
-                lineHeight: 1.55,
-                color: 'var(--ek-text-soft)',
-              }}
-            >
-              {tx.body}
+            <p className="ek-body-large" style={{ marginTop: 28 }}>
+              {renderRich(tx.body)}
             </p>
-            <p
-              style={{
-                marginTop: 16,
-                fontSize: 15,
-                lineHeight: 1.55,
-                color: 'var(--ek-text-soft)',
-              }}
-            >
-              {tx.bodyContd}
+            <p className="ek-body" style={{ marginTop: 16 }}>
+              {renderRich(tx.bodyContd)}
             </p>
 
             <div
@@ -188,24 +197,26 @@ export default function Teachers({ lang }: { lang: Locale }) {
               border: '1px solid var(--ek-on-dark-faint)',
               borderRadius: 'var(--ek-radius-lg)',
               boxShadow: '0 32px 64px -36px rgba(0,0,0,0.45)',
-              alignSelf: 'center',
+              alignSelf: 'start',
               color: 'var(--ek-on-dark)',
             }}
           >
-            {/* Ghost serif numeral — the single, one-of-one teacher */}
+            {/* Ghost serif numeral — the single, one-of-one teacher.
+                Committed as a deliberate mark: fully on-canvas, upright,
+                anchored top-right so the whole glyph reads clearly as a "1". */}
             <span
               aria-hidden
               className="lk-teach-ghost"
               style={{
                 position: 'absolute',
-                right: 'clamp(-8px, -1vw, 4px)',
-                bottom: 'clamp(-40px, -5vw, -28px)',
+                top: 'clamp(8px, 1.5vw, 20px)',
+                right: 'clamp(20px, 3vw, 40px)',
                 fontFamily: 'var(--ek-font-serif)',
-                fontStyle: 'italic',
-                lineHeight: 0.8,
-                fontSize: 'clamp(180px, 22vw, 280px)',
+                fontStyle: 'normal',
+                lineHeight: 0.74,
+                fontSize: 'clamp(150px, 18vw, 230px)',
                 color: 'var(--ek-on-dark)',
-                opacity: 0.06,
+                opacity: 0.09,
                 pointerEvents: 'none',
                 userSelect: 'none',
               }}
@@ -275,73 +286,38 @@ export default function Teachers({ lang }: { lang: Locale }) {
                 </span>
               </div>
 
-              {/* Abstract avatar — anonymous, monogram-free, "matched" silhouette */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {/* Focal lockup — typographic, replaces the abstract avatar.
+                  Serif "Tu maestro / uno, no cien." reads as the card's mark,
+                  anchored above by a hairline rule. */}
+              <div
+                style={{
+                  paddingTop: 'clamp(4px, 1.5vw, 12px)',
+                  borderTop: '1px solid var(--ek-on-dark-faint)',
+                }}
+              >
                 <div
                   style={{
-                    position: 'relative',
-                    flexShrink: 0,
-                    width: 68,
-                    height: 68,
-                    borderRadius: '50%',
-                    background:
-                      'radial-gradient(120% 120% at 30% 25%, rgba(232,82,106,0.30), rgba(196,30,58,0.10) 55%, rgba(255,255,255,0.02) 100%)',
-                    border: '1px solid var(--ek-on-dark-faint)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    fontFamily: 'var(--ek-font-sans)',
+                    fontSize: 'clamp(1.6rem, 4.2vw, 2.1rem)',
+                    fontWeight: 800,
+                    letterSpacing: '-0.025em',
+                    lineHeight: 1.04,
+                    color: 'var(--ek-on-dark)',
                   }}
                 >
-                  {/* dashed match-ring */}
+                  {tx.cardName}
+                  <br />
                   <span
-                    aria-hidden
                     style={{
-                      position: 'absolute',
-                      inset: -5,
-                      borderRadius: '50%',
-                      border: '1px dashed rgba(232,82,106,0.5)',
-                    }}
-                  />
-                  <svg
-                    width="30"
-                    height="30"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--ek-on-dark)"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <circle cx="12" cy="8" r="3.4" />
-                    <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
-                  </svg>
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: 'var(--ek-font-sans)',
-                      fontSize: 'clamp(1.4rem, 3.2vw, 1.6rem)',
-                      fontWeight: 800,
-                      letterSpacing: '-0.02em',
-                      lineHeight: 1.05,
-                      color: 'var(--ek-on-dark)',
-                    }}
-                  >
-                    {tx.cardName}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 2,
                       fontFamily: 'var(--ek-font-serif)',
                       fontStyle: 'italic',
-                      fontSize: 'clamp(1.15rem, 2.6vw, 1.35rem)',
-                      lineHeight: 1.1,
+                      fontWeight: 400,
+                      letterSpacing: '-0.01em',
                       color: 'var(--ek-red-light)',
                     }}
                   >
                     {tx.cardNameAccent}
-                  </div>
+                  </span>
                 </div>
               </div>
 
@@ -356,8 +332,8 @@ export default function Teachers({ lang }: { lang: Locale }) {
                 {tx.cardLead}
               </p>
 
-              {/* Reassurance rows */}
-              <div style={{ display: 'grid', gap: 1, background: 'var(--ek-on-dark-faint)', borderRadius: 8, overflow: 'hidden' }}>
+              {/* Reassurance rows — plain hairline-ruled, no faux-table fill */}
+              <div>
                 {tx.cardRows.map((row) => (
                   <div
                     key={row.k}
@@ -366,8 +342,8 @@ export default function Teachers({ lang }: { lang: Locale }) {
                       display: 'flex',
                       alignItems: 'baseline',
                       gap: 14,
-                      padding: '13px 14px',
-                      background: 'rgba(255,255,255,0.015)',
+                      padding: '14px 0',
+                      borderTop: '1px solid var(--ek-on-dark-faint)',
                     }}
                   >
                     <span

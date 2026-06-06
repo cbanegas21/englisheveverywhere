@@ -2,13 +2,13 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    eyebrow: '● 06:14 · Tuesday',
+    eyebrow: '06:14 · Tuesday',
     title: 'A class',
     accent: 'before coffee.',
     body: "By the time the sun's up, you've added 30 new words — a live class before the day even starts.",
   },
   es: {
-    eyebrow: '● 06:14 · martes',
+    eyebrow: '06:14 · martes',
     title: 'Antes del café,',
     accent: 'una clase.',
     body: 'Mientras el sol sale, tú ya tienes 30 palabras nuevas — una clase en vivo antes de que arranque el día.',
@@ -22,7 +22,7 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
       className="lk-morning"
       style={{
         position: 'relative',
-        height: 360,
+        height: 340,
         overflow: 'hidden',
         borderTop: '1px solid var(--ek-border)',
         borderBottom: '1px solid var(--ek-border)',
@@ -31,7 +31,7 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
     >
       <style>{`
         @media (max-width: 600px) {
-          .lk-morning { height: 380px; }
+          .lk-morning { height: 360px; }
           .lk-morning .lk-morning-photo { background-position: center 42% !important; }
           .lk-morning .lk-morning-scrim {
             background: linear-gradient(
@@ -67,18 +67,18 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
         }}
       />
       <div
+        className="lk-shell"
         style={{
           position: 'relative',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
-          padding: '0 clamp(24px, 6vw, 80px)',
           zIndex: 2,
         }}
       >
         <div className="lk-morning-text" style={{ maxWidth: 520 }}>
           <span
-            className="ek-kicker ek-kicker--red ek-kicker--no-dot"
+            className="ek-kicker ek-kicker--red"
             style={{ color: 'var(--ek-red)' }}
           >
             {tx.eyebrow}

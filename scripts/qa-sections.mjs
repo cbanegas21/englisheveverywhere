@@ -7,10 +7,16 @@ import path from 'node:path'
 const BASE = process.env.QA_BASE || 'http://localhost:3000'
 const OUT = process.argv[2] || 'baseline'
 const LANG = process.env.QA_LANG || 'es'
-const VIEWPORTS = [
-  { name: 'desktop', width: 1440, height: 900, isMobile: false },
-  { name: 'mobile', width: 390, height: 844, isMobile: true },
-]
+// Override with QA_VIEWPORTS="name:w:h:m,name:w:h:d" (m=mobile, d=desktop).
+const VIEWPORTS = process.env.QA_VIEWPORTS
+  ? process.env.QA_VIEWPORTS.split(',').map((s) => {
+      const [name, w, h, m] = s.split(':')
+      return { name, width: +w, height: +h, isMobile: m === 'm' }
+    })
+  : [
+      { name: 'desktop', width: 1440, height: 900, isMobile: false },
+      { name: 'mobile', width: 390, height: 844, isMobile: true },
+    ]
 
 const outDir = path.resolve('docs/qa-screenshots', OUT, 'sections')
 await mkdir(outDir, { recursive: true })

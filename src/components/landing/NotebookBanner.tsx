@@ -2,13 +2,13 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    eyebrow: '● Class after class',
+    eyebrow: 'Class after class',
     title: 'Your notebook fills up.',
     accent: 'So does your English.',
     body: 'Every class leaves a mark — new vocabulary, a phrase that sticks, an accent that sharpens. Your teacher remembers where you left off.',
   },
   es: {
-    eyebrow: '● Clase tras clase',
+    eyebrow: 'Clase tras clase',
     title: 'Tu cuaderno se llena.',
     accent: 'Tu inglés también.',
     body: 'Cada clase deja huella. Vocabulario nuevo, una expresión que se queda, un acento que se afina. Tu maestro recuerda dónde te quedaste.',
@@ -22,7 +22,7 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
       className="lk-notebook"
       style={{
         position: 'relative',
-        height: 320,
+        height: 340,
         overflow: 'hidden',
         borderTop: '1px solid var(--ek-border)',
         borderBottom: '1px solid var(--ek-border)',
@@ -68,20 +68,19 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
         }}
       />
       <div
-        className="lk-notebook-flex"
+        className="lk-notebook-flex lk-shell"
         style={{
           position: 'relative',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
-          padding: '0 clamp(24px, 6vw, 80px)',
           zIndex: 2,
         }}
       >
         <div className="lk-notebook-text" style={{ maxWidth: 460, textAlign: 'right' }}>
           <span
-            className="ek-kicker ek-kicker--red ek-kicker--no-dot"
+            className="ek-kicker ek-kicker--red"
             style={{ color: 'var(--ek-red)' }}
           >
             {tx.eyebrow}

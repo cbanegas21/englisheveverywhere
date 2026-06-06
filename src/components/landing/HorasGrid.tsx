@@ -1,31 +1,51 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    eyebrow: '● Schedule',
+    eyebrow: 'Schedule',
     titleLead: '168 hours in a week.',
     titleAccent: "All of them are yours.",
     sideLine: 'Book 24 hours ahead. Any time of day. Any day of the week.',
-    clockLabel: '↳ Local time',
-    clockTime: '03:24',
+    clockLabel: 'Local time',
     clockCaption: 'Someone, somewhere in Latin America, is learning English.',
-    sample: '↳ sample · 10 classes booked at different hours throughout the month',
+    sample: 'sample · 10 classes booked at different hours throughout the month',
+    legend: 'booked',
     days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
   },
   es: {
-    eyebrow: '● Horario',
+    eyebrow: 'Horario',
     titleLead: '168 horas a la semana.',
     titleAccent: 'Todas son tuyas.',
     sideLine: 'Reserva con 24 horas de anticipación. Cualquier hora del día. Cualquier día de la semana.',
-    clockLabel: '↳ Hora local',
-    clockTime: '03:24',
+    clockLabel: 'Hora local',
     clockCaption: 'Alguien, en algún lugar de Latinoamérica, está aprendiendo inglés.',
-    sample: '↳ ejemplo · 10 clases reservadas en distintas horas a lo largo del mes',
+    sample: 'ejemplo · 10 clases reservadas en distintas horas a lo largo del mes',
+    legend: 'reservado',
     days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
   },
+}
+
+function LiveClock() {
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => {
+    setNow(new Date())
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  if (!now) return <span style={{ visibility: 'hidden' }}>00:00</span>
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const ss = String(now.getSeconds()).padStart(2, '0')
+  return (
+    <span>
+      {hh}:{mm}
+      <span style={{ opacity: 0.55 }}>:{ss}</span>
+    </span>
+  )
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -47,29 +67,38 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
 
   return (
     <section
+      className="lk-section-y lk-horas"
       style={{
-        background: 'var(--ek-paper-warm)',
-        padding: '120px clamp(24px, 6vw, 80px) 64px',
+        background: 'var(--ek-paper)',
         fontFamily: 'var(--ek-font-sans)',
         borderTop: '1px solid var(--ek-border)',
       }}
     >
       <style>{`
+        /* ── Column geometry (shared between heatmap + axis) ──────────
+           Day-label gutter + 24 equal hour columns + the same inner gap,
+           so the bottom axis ticks land on TRUE column edges instead of
+           justify-between + magic padding. */
+        .lk-horas {
+          --lk-gutter: 36px;
+          --lk-gap: 3px;
+          --lk-cols: repeat(24, minmax(0, 1fr));
+        }
         .lk-horas-card {
           background: #fff;
           border: 1px solid var(--ek-border);
           padding: 32px;
-          border-radius: 4px;
+          border-radius: var(--ek-radius-lg);
+          max-width: 760px;
         }
         .lk-horas-grid {
           display: grid;
-          grid-template-columns: 36px repeat(24, minmax(0, 1fr));
-          gap: 3px;
+          grid-template-columns: var(--lk-gutter) var(--lk-cols);
+          gap: var(--lk-gap);
           font-family: var(--ek-font-mono);
           font-size: 9px;
           color: var(--ek-text-muted);
         }
-        .lk-horas-hourlabel { line-height: 1; }
         .lk-horas-day {
           display: flex;
           align-items: center;
@@ -80,34 +109,73 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
           aspect-ratio: 1 / 1;
           border-radius: 2px;
         }
+        /* Axis: same gutter + 24 columns so ticks land on TRUE column edges.
+           Gutter spacer + four labelled ticks (span 6 each) fill all 24
+           columns; the "24h" marker is pinned to the right content edge so
+           it never dangles past the grid. */
         .lk-horas-axis {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 12px;
-          padding-left: 39px;
+          position: relative;
+          display: grid;
+          grid-template-columns: var(--lk-gutter) var(--lk-cols);
+          gap: var(--lk-gap);
+          margin-top: 14px;
           font-family: var(--ek-font-mono);
           font-size: 10px;
           color: var(--ek-text-muted);
         }
-        /* Mobile: fit the FULL week + every hour label inside 390px.
-           Shrink the day-label column, tighten gaps, and let cells
-           collapse via minmax(0,1fr) so nothing is clipped. */
+        .lk-horas-tick {
+          grid-column: span 6;
+          position: relative;
+        }
+        .lk-horas-tick::before {
+          content: '';
+          position: absolute;
+          top: -7px;
+          left: 0;
+          width: 1px;
+          height: 4px;
+          background: var(--ek-border-mid);
+        }
+        .lk-horas-tick--end {
+          position: absolute;
+          top: 0;
+          right: 0;
+          text-align: right;
+        }
+        .lk-horas-tick--end::before {
+          content: '';
+          position: absolute;
+          top: -7px;
+          right: 0;
+          width: 1px;
+          height: 4px;
+          background: var(--ek-border-mid);
+        }
+        /* Mobile: 24 cells at 390px would be ~7.5px wide — far too small to
+           label. Keep the dense grid purely as TEXTURE (drop the in-cell
+           hour numbers) and let the bottom axis carry the scale. */
         @media (max-width: 640px) {
-          .lk-horas-card { padding: 18px 14px; }
-          .lk-horas-grid {
-            grid-template-columns: 26px repeat(24, minmax(0, 1fr));
-            gap: 2px;
-            font-size: 7.5px;
-          }
+          .lk-horas-card { padding: 18px 16px; max-width: none; }
+          .lk-horas { --lk-gutter: 28px; --lk-gap: 2px; }
+          .lk-horas-grid { font-size: 8px; }
           .lk-horas-day { font-size: 8.5px; }
           .lk-horas-cell { border-radius: 1.5px; }
-          .lk-horas-axis {
-            padding-left: 28px;
-            font-size: 8.5px;
+          .lk-horas-axis { font-size: 9px; margin-top: 12px; }
+        }
+        /* Tablet (≈768): two-column row — schedule keeps its width, the
+           clock becomes a narrow side column instead of a full-bleed banner. */
+        @media (min-width: 641px) and (max-width: 1023px) {
+          .lk-horas-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 220px;
+            gap: 16px;
+            align-items: stretch;
           }
+          .lk-horas-card { max-width: none; }
+          .lk-horas-clock { min-height: 100%; }
         }
       `}</style>
-      <div className="max-w-7xl mx-auto">
+      <div className="lk-shell">
         <div
           className="flex flex-col lg:flex-row lg:items-end lg:justify-between"
           style={{ marginBottom: 56, gap: 24 }}
@@ -142,38 +210,22 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
               </span>
             </motion.h2>
           </div>
-          <p
-            style={{
-              maxWidth: 360,
-              fontSize: 16,
-              lineHeight: 1.55,
-              color: 'var(--ek-text-soft)',
-            }}
-          >
+          <p className="ek-body" style={{ maxWidth: 360 }}>
             {tx.sideLine}
           </p>
         </div>
 
         <div
-          className="grid grid-cols-1 lg:grid-cols-[1fr_280px]"
+          className="lk-horas-row grid grid-cols-1 lg:grid-cols-[1fr_280px]"
           style={{
             gap: 16,
             alignItems: 'stretch',
           }}
         >
-          {/* Grid card */}
+          {/* Grid card — single hour scale: heatmap rows above, one aligned
+              axis below. No in-grid top number row. */}
           <div className="lk-horas-card">
             <div className="lk-horas-grid">
-              <div />
-              {HOURS.map((h) => (
-                <div
-                  key={`hh-${h}`}
-                  className="lk-horas-hourlabel"
-                  style={{ textAlign: 'center', paddingBottom: 6, color: '#A89682' }}
-                >
-                  {h % 6 === 0 ? String(h).padStart(2, '0') : ''}
-                </div>
-              ))}
               {tx.days.map((d, di) => (
                 <div key={`row-${di}`} style={{ display: 'contents' }}>
                   <div className="lk-horas-day">{d}</div>
@@ -194,21 +246,25 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
                 </div>
               ))}
             </div>
-            <div className="lk-horas-axis">
-              <span>00h</span>
-              <span>06h</span>
-              <span>12h</span>
-              <span>18h</span>
-              <span>24h</span>
+            <div className="lk-horas-axis" aria-hidden="true">
+              {/* gutter spacer aligns first tick with the heatmap columns */}
+              <span />
+              <span className="lk-horas-tick">00h</span>
+              <span className="lk-horas-tick">06h</span>
+              <span className="lk-horas-tick">12h</span>
+              <span className="lk-horas-tick">18h</span>
+              {/* right-edge marker: zero-flow, pinned to the grid's end */}
+              <span className="lk-horas-tick--end">24h</span>
             </div>
           </div>
 
           {/* Clock photo */}
           <div
+            className="lk-horas-clock"
             style={{
               position: 'relative',
               overflow: 'hidden',
-              borderRadius: 4,
+              borderRadius: 'var(--ek-radius-lg)',
               backgroundImage: 'url(/landing/clock.jpg)',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
@@ -249,14 +305,16 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
               <div
                 style={{
                   fontFamily: 'var(--ek-font-mono)',
-                  fontSize: 22,
+                  fontSize: 26,
                   color: '#fff',
                   marginTop: 6,
                   fontWeight: 500,
+                  letterSpacing: '-0.01em',
+                  fontVariantNumeric: 'tabular-nums',
                   fontFeatureSettings: '"tnum"',
                 }}
               >
-                {tx.clockTime}
+                <LiveClock />
               </div>
               <div
                 style={{
@@ -274,17 +332,36 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
           </div>
         </div>
 
-        <p
+        <div
           style={{
             marginTop: 20,
-            fontSize: 13,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px 18px',
+            fontSize: 12,
             color: 'var(--ek-text-muted)',
             fontFamily: 'var(--ek-font-mono)',
             letterSpacing: '0.04em',
           }}
         >
-          {tx.sample}
-        </p>
+          {/* editorial legend — keys the heatmap as real data */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: 2,
+                background: 'var(--ek-red)',
+                display: 'inline-block',
+              }}
+            />
+            {tx.legend}
+          </span>
+          <span aria-hidden="true" style={{ color: 'var(--ek-border-mid)' }}>—</span>
+          <span>{tx.sample}</span>
+        </div>
       </div>
     </section>
   )

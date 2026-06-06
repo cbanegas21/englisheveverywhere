@@ -8,27 +8,27 @@ import { PRICING_PLANS } from '@/lib/pricing'
 
 const t = {
   en: {
-    eyebrow: '● Plans',
+    eyebrow: 'Plans',
     titleLead: 'Pick your pack.',
     titleAccent: 'Classes never expire.',
     sub: 'Pay once per pack — buy as many as you like. Your classes stack and never expire. No subscription, no auto-renewal.',
-    popular: '★ most chosen',
+    popular: 'most chosen',
     perClass: 'per class',
     classes: 'classes',
     perPack: 'one-time',
     priceCaption: 'one payment',
-    includedKicker: '↳ In every pack',
+    includedKicker: 'In every pack',
     includedTitle: 'Every pack includes',
     includedLead: 'The class count is the only difference. Everything that makes the learning work is the same in all four.',
     reassure: {
-      lead: 'If the price feels like a lot, remember what it buys:',
-      body: 'your own teacher who actually knows you and answers your questions — not a crowded group class, and not a marketplace where you are one of ten students.',
+      lead: "You're not paying for a class.",
+      body: "You're paying for a teacher who's only yours — who knows you, remembers your progress and answers every question. A ten-student group can't do that.",
     },
     features: [
-      { icon: '◷', label: '60-minute classes', sub: 'One to one, live on video — the full hour is yours.' },
-      { icon: '✶', label: 'Your own certified teacher', sub: 'Hand-matched to your level and goals, so every minute is about you.' },
-      { icon: '∞', label: 'Classes never expire', sub: 'Use them at your pace — no deadlines, no pressure.' },
-      { icon: '⟳', label: 'Packs stack, never renew', sub: 'Pay once. Buy another pack only when you want more.' },
+      { label: '60-minute classes', sub: 'One to one, live on video — the full hour is yours.' },
+      { label: 'Your own certified teacher', sub: 'Hand-matched to your level and goals, so every minute is about you.' },
+      { label: 'Classes never expire', sub: 'Use them at your pace — no deadlines, no pressure.' },
+      { label: 'Packs stack, never renew', sub: 'Pay once. Buy another pack only when you want more.' },
     ],
     cta: 'Choose',
     note: '* Classes cancelled with less than 24 hours notice are forfeited.',
@@ -42,27 +42,27 @@ const t = {
     } as Record<string, string>,
   },
   es: {
-    eyebrow: '● Paquetes',
+    eyebrow: 'Paquetes',
     titleLead: 'Elige tu paquete.',
     titleAccent: 'Las clases nunca caducan.',
     sub: 'Paga una vez por paquete — compra los que quieras. Tus clases se acumulan y nunca caducan. Sin suscripción, sin renovación automática.',
-    popular: '★ más elegido',
+    popular: 'más elegido',
     perClass: 'por clase',
     classes: 'clases',
     perPack: 'pago único',
     priceCaption: 'un solo pago',
-    includedKicker: '↳ En cada paquete',
+    includedKicker: 'En cada paquete',
     includedTitle: 'Todo paquete incluye',
     includedLead: 'Lo único que cambia es el número de clases. Todo lo que hace que aprendas es igual en los cuatro.',
     reassure: {
-      lead: 'Si el precio te parece alto, recuerda lo que incluye:',
-      body: 'tu propio maestro que de verdad te conoce y responde tus preguntas — no una clase grupal llena, ni un marketplace donde eres uno de diez estudiantes.',
+      lead: 'No pagas por una clase.',
+      body: 'Pagas por un maestro que es solo tuyo — te conoce, recuerda tu progreso y responde cada pregunta. Eso una clase de diez no lo da.',
     },
     features: [
-      { icon: '◷', label: 'Clases de 60 minutos', sub: '1 a 1, en vivo por video — la hora completa es tuya.' },
-      { icon: '✶', label: 'Tu propio maestro certificado', sub: 'Asignado según tu nivel y metas, para que cada minuto sea sobre ti.' },
-      { icon: '∞', label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo — sin fechas límite, sin presión.' },
-      { icon: '⟳', label: 'Los paquetes se acumulan, no se renuevan', sub: 'Pagas una vez. Compras otro paquete solo cuando quieras más.' },
+      { label: 'Clases de 60 minutos', sub: '1 a 1, en vivo por video — la hora completa es tuya.' },
+      { label: 'Tu propio maestro certificado', sub: 'Asignado según tu nivel y metas, para que cada minuto sea sobre ti.' },
+      { label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo — sin fechas límite, sin presión.' },
+      { label: 'Los paquetes se acumulan, no se renuevan', sub: 'Pagas una vez. Compras otro paquete solo cuando quieras más.' },
     ],
     cta: 'Elegir',
     note: '* Las clases canceladas con menos de 24h de aviso se pierden.',
@@ -85,13 +85,13 @@ export default function Pricing({ lang }: { lang: Locale }) {
   return (
     <section
       id="pricing"
+      className="lk-section-y"
       style={{
         background: 'var(--ek-paper-warm)',
-        padding: '96px clamp(24px, 6vw, 80px)',
         fontFamily: 'var(--ek-font-sans)',
       }}
     >
-      <div className="max-w-7xl mx-auto">
+      <div className="lk-shell">
         <div style={{ textAlign: 'center', marginBottom: 64 }}>
           <span className="ek-kicker ek-kicker--red" style={{ justifyContent: 'center' }}>
             {tx.eyebrow}
@@ -123,11 +123,9 @@ export default function Pricing({ lang }: { lang: Locale }) {
             </span>
           </motion.h2>
           <p
+            className="ek-body"
             style={{
               marginTop: 16,
-              fontSize: 16,
-              lineHeight: 1.55,
-              color: 'var(--ek-text-soft)',
               maxWidth: 560,
               marginLeft: 'auto',
               marginRight: 'auto',
@@ -150,13 +148,20 @@ export default function Pricing({ lang }: { lang: Locale }) {
           </p>
         )}
 
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 16,
-          }}
-        >
+        <style>{`
+          .lk-plangrid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+          @media (min-width: 600px) {
+            .lk-plangrid { grid-template-columns: repeat(2, 1fr); }
+          }
+          @media (min-width: 1040px) {
+            .lk-plangrid { grid-template-columns: repeat(4, 1fr); }
+          }
+        `}</style>
+        <div className="lk-plangrid">
           {PRICING_PLANS.map((pack, i) => {
             const hl = pack.highlight
             const name = lang === 'es' ? pack.nameEs : pack.nameEn
@@ -175,7 +180,7 @@ export default function Pricing({ lang }: { lang: Locale }) {
                   background: hl ? 'var(--ek-ink)' : '#fff',
                   color: hl ? '#fff' : 'var(--ek-text)',
                   border: hl ? 'none' : '1px solid var(--ek-border)',
-                  borderRadius: 4,
+                  borderRadius: 'var(--ek-radius-lg)',
                   position: 'relative',
                   display: 'flex',
                   flexDirection: 'column',
@@ -261,19 +266,30 @@ export default function Pricing({ lang }: { lang: Locale }) {
 
                 <div
                   style={{
-                    fontFamily: 'var(--ek-font-mono)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: hl ? '#fff' : 'var(--ek-text)',
-                    fontFeatureSettings: '"tnum"',
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    flexWrap: 'wrap',
+                    columnGap: 8,
+                    rowGap: 2,
                   }}
                 >
-                  {convert(pack.priceUsd)}
+                  <span
+                    style={{
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 22,
+                      fontWeight: 700,
+                      letterSpacing: '-0.01em',
+                      lineHeight: 1.1,
+                      color: hl ? '#fff' : 'var(--ek-text)',
+                      fontFeatureSettings: '"tnum"',
+                    }}
+                  >
+                    {convert(pack.priceUsd)}
+                  </span>
                   <span
                     style={{
                       fontSize: 12,
                       color: hl ? 'rgba(255,255,255,0.55)' : 'var(--ek-text-muted)',
-                      marginLeft: 6,
                       fontFamily: 'var(--ek-font-sans)',
                     }}
                   >
@@ -284,8 +300,9 @@ export default function Pricing({ lang }: { lang: Locale }) {
                   style={{
                     fontFamily: 'var(--ek-font-mono)',
                     fontSize: 11,
-                    color: hl ? 'rgba(255,255,255,0.55)' : 'var(--ek-text-muted)',
-                    marginTop: 4,
+                    letterSpacing: '0.02em',
+                    color: hl ? 'rgba(255,255,255,0.5)' : 'var(--ek-text-muted)',
+                    marginTop: 6,
                   }}
                 >
                   ≈ {perClassDisplay} {tx.perClass}
@@ -326,75 +343,62 @@ export default function Pricing({ lang }: { lang: Locale }) {
         {/* Shared "Every pack includes" panel — replaces the per-card
             feature lists that were identical across all 4 cards (just
             noisy repetition with no differentiation). The four bullets
-            are real, the plans are otherwise identical except for the
-            class count + price. Elevated (LK-11): stronger header
-            hierarchy, real iconography, and a 1-to-1 value reassurance
-            line that justifies the price without bashing competitors. */}
+            are real; the plans are otherwise identical except for the
+            class count + price. De-AI pass (LK2-07): glyph tiles and the
+            boxed/bordered card dropped for a hairline-ruled typographic
+            list — mono index numerals + bold label + serif-italic sub —
+            and the price-justification line set as a serif-italic footnote
+            under a single rule, no colored quote bar. */}
         <style>{`
           .lk-pricing-panel {
-            margin-top: 32px;
-            padding: clamp(28px, 4vw, 44px);
-            background:
-              radial-gradient(120% 140% at 0% 0%, var(--ek-red-tint) 0%, transparent 46%),
-              var(--ek-card);
-            border: 1px solid var(--ek-border);
-            border-radius: var(--ek-radius-lg);
-            box-shadow: 0 1px 2px rgba(17,17,17,0.03), 0 18px 48px -36px rgba(17,17,17,0.28);
+            margin-top: clamp(28px, 4vw, 44px);
+            padding-top: clamp(28px, 4vw, 44px);
+            border-top: 1px solid var(--ek-border-mid);
           }
           .lk-pricing-head {
             display: grid;
             grid-template-columns: 1.05fr 1fr;
             gap: clamp(16px, 4vw, 56px);
             align-items: end;
-            padding-bottom: clamp(22px, 3vw, 30px);
-            margin-bottom: clamp(22px, 3vw, 30px);
-            border-bottom: 1px solid var(--ek-border);
+            margin-bottom: clamp(28px, 4vw, 40px);
           }
           .lk-pricing-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: clamp(16px, 2.4vw, 26px) clamp(20px, 3vw, 40px);
+            gap: 0 clamp(24px, 4vw, 56px);
+            border-top: 1px solid var(--ek-border-mid);
           }
-          .lk-pricing-feature { display: flex; gap: 14px; align-items: flex-start; }
-          .lk-pricing-icon {
-            flex-shrink: 0;
-            width: 40px;
-            height: 40px;
-            border-radius: var(--ek-radius-md);
-            background: var(--ek-red-tint-2);
-            color: var(--ek-red);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 19px;
-            line-height: 1;
-            border: 1px solid var(--ek-red-tint-3);
-            transition: background 0.2s ease, transform 0.2s ease;
-          }
-          .lk-pricing-feature:hover .lk-pricing-icon {
-            background: var(--ek-red);
-            color: #fff;
-            transform: translateY(-1px);
-          }
-          .lk-pricing-reassure {
-            display: flex;
-            gap: 14px;
-            align-items: flex-start;
-            margin-top: clamp(24px, 3vw, 32px);
-            padding-top: clamp(22px, 3vw, 28px);
+          .lk-pricing-feature {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 16px;
+            align-items: baseline;
+            padding: clamp(18px, 2.4vw, 24px) 0;
             border-top: 1px solid var(--ek-border);
           }
-          .lk-pricing-reassure-rule {
-            flex-shrink: 0;
-            width: 3px;
-            align-self: stretch;
-            min-height: 38px;
-            border-radius: 999px;
-            background: var(--ek-red);
+          /* Top row of each column sits directly under the grid's own
+             hairline — drop the per-row rule there to avoid doubling. */
+          .lk-pricing-feature:nth-child(1),
+          .lk-pricing-feature:nth-child(2) { border-top: none; }
+          .lk-pricing-index {
+            font-family: var(--ek-font-mono);
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            color: var(--ek-red);
+            font-feature-settings: "tnum";
+            line-height: 1;
+          }
+          .lk-pricing-reassure {
+            margin-top: clamp(28px, 4vw, 40px);
+            padding-top: clamp(22px, 3vw, 28px);
+            border-top: 1px solid var(--ek-border);
           }
           @media (max-width: 760px) {
             .lk-pricing-head { grid-template-columns: 1fr; align-items: start; gap: 12px; }
             .lk-pricing-grid { grid-template-columns: 1fr; }
+            /* single column — only the very first row hugs the head rule */
+            .lk-pricing-feature:nth-child(2) { border-top: 1px solid var(--ek-border); }
           }
         `}</style>
         <motion.div
@@ -407,14 +411,8 @@ export default function Pricing({ lang }: { lang: Locale }) {
           <div className="lk-pricing-head">
             <div>
               <div
-                style={{
-                  fontFamily: 'var(--ek-font-mono)',
-                  fontSize: 11,
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--ek-red)',
-                  marginBottom: 10,
-                }}
+                className="ek-microlabel"
+                style={{ color: 'var(--ek-red)', marginBottom: 10 }}
               >
                 {tx.includedKicker}
               </div>
@@ -448,8 +446,8 @@ export default function Pricing({ lang }: { lang: Locale }) {
           <div className="lk-pricing-grid">
             {tx.features.map((f, i) => (
               <div key={i} className="lk-pricing-feature">
-                <span aria-hidden="true" className="lk-pricing-icon">
-                  {f.icon}
+                <span aria-hidden="true" className="lk-pricing-index">
+                  {String(i + 1).padStart(2, '0')}
                 </span>
                 <div>
                   <div
@@ -465,9 +463,11 @@ export default function Pricing({ lang }: { lang: Locale }) {
                   </div>
                   <div
                     style={{
-                      fontSize: 13,
+                      fontFamily: 'var(--ek-font-serif)',
+                      fontStyle: 'italic',
+                      fontSize: 15,
                       color: 'var(--ek-text-soft)',
-                      marginTop: 4,
+                      marginTop: 5,
                       lineHeight: 1.5,
                     }}
                   >
@@ -478,17 +478,29 @@ export default function Pricing({ lang }: { lang: Locale }) {
             ))}
           </div>
 
-          <div className="lk-pricing-reassure">
-            <span aria-hidden="true" className="lk-pricing-reassure-rule" />
+          <div className="lk-pricing-reassure" style={{ textAlign: 'center' }}>
             <p
               style={{
-                margin: 0,
-                fontSize: 'clamp(0.95rem, 1.4vw, 1.05rem)',
-                lineHeight: 1.55,
+                margin: '0 auto',
+                maxWidth: '52ch',
+                fontFamily: 'var(--ek-font-serif)',
+                fontStyle: 'italic',
+                fontSize: 'clamp(1.05rem, 1.6vw, 1.3rem)',
+                lineHeight: 1.5,
+                letterSpacing: '-0.01em',
                 color: 'var(--ek-text-soft)',
               }}
             >
-              <span style={{ fontWeight: 700, color: 'var(--ek-text)' }}>{tx.reassure.lead}</span>{' '}
+              <span
+                style={{
+                  color: 'var(--ek-text)',
+                  fontWeight: 600,
+                  fontStyle: 'normal',
+                  fontFamily: 'var(--ek-font-sans)',
+                }}
+              >
+                {tx.reassure.lead}
+              </span>{' '}
               {tx.reassure.body}
             </p>
           </div>

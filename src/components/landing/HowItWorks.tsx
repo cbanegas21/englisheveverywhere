@@ -5,7 +5,7 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    eyebrow: '● How it works',
+    eyebrow: 'How it works',
     titleLead: 'Four steps.',
     titleAccent: 'No surprises.',
     side: 'No auto placement test. No marketplace. No group classes. Just your own teacher and your own schedule.',
@@ -38,7 +38,7 @@ const t = {
     ],
   },
   es: {
-    eyebrow: '● Cómo funciona',
+    eyebrow: 'Cómo funciona',
     titleLead: 'Cuatro pasos.',
     titleAccent: 'Sin sorpresas.',
     side: 'Sin pruebas automáticas. Sin marketplace. Sin clases grupales. Solo tu propio maestro y tu propio horario.',
@@ -72,39 +72,15 @@ const t = {
   },
 }
 
-// Hand-drawn-feel crimson line icons, one per step (notebook-margin doodle vibe).
-const iconProps = {
-  width: 24,
-  height: 24,
-  viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.6,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-}
-function StepIcon({ i }: { i: number }) {
-  switch (i) {
-    case 0: // choose a pack (stacked cards)
-      return <svg {...iconProps}><rect x="3" y="8" width="12.5" height="11" rx="2" /><path d="M7 8V6.4a2 2 0 0 1 2-2h8.6a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2h-1.6" /></svg>
-    case 1: // free human call (speech bubble + waveform)
-      return <svg {...iconProps}><path d="M5 4.5h14a1.2 1.2 0 0 1 1.2 1.2v7.6a1.2 1.2 0 0 1-1.2 1.2h-7.4L7 18.5V14.5H5a1.2 1.2 0 0 1-1.2-1.2V5.7A1.2 1.2 0 0 1 5 4.5Z" /><path d="M9 8.7v2.6M12 7.3v5.4M15 8.7v2.6" /></svg>
-    case 2: // pick your hour (calendar with one cell)
-      return <svg {...iconProps}><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M8 3v4M16 3v4" /><rect x="13" y="12.5" width="4" height="4" rx="0.8" fill="currentColor" stroke="none" /></svg>
-    default: // go live (video window + play)
-      return <svg {...iconProps}><rect x="3" y="5" width="18" height="13.5" rx="2" /><path d="M3 8.7h18" /><path d="M10.5 11l4.2 2.4-4.2 2.4z" fill="currentColor" stroke="none" /></svg>
-  }
-}
-
 export default function HowItWorks({ lang }: { lang: Locale }) {
   const tx = t[lang]
 
   return (
     <section
       id="how-it-works"
+      className="lk-section-y"
       style={{
         background: 'var(--ek-paper-warm)',
-        padding: '96px clamp(24px, 6vw, 80px)',
         fontFamily: 'var(--ek-font-sans)',
       }}
     >
@@ -112,55 +88,56 @@ export default function HowItWorks({ lang }: { lang: Locale }) {
         .lk-how-grid {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 20px;
-        }
-        /* The crimson connector line threading the four steps. */
-        .lk-how-connector {
-          position: absolute;
-          background: var(--ek-red-tint-3);
-          z-index: 0;
-        }
-        /* Mobile: vertical spine down the left, threading the number discs
-           (disc centre sits at 22px card padding + 20px half-disc = ~42px). */
-        .lk-how-connector {
-          left: 41px;
-          top: 44px;
-          bottom: 44px;
-          width: 2px;
-          height: auto;
-        }
-        @media (min-width: 880px) {
-          .lk-how-grid {
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-          }
-          /* Desktop: horizontal rail spanning the disc centres (first card
-             centre ≈ 12.5% to last ≈ 87.5%), threading through each disc. */
-          .lk-how-connector {
-            left: 12.5%;
-            right: 12.5%;
-            top: 43px;
-            bottom: auto;
-            width: auto;
-            height: 2px;
-          }
+          gap: 0;
+          border-top: 1px solid var(--ek-border-mid);
         }
         .lk-how-card {
-          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+          position: relative;
+          padding: 30px 0 30px;
+          border-bottom: 1px solid var(--ek-border);
         }
-        @media (hover: hover) {
-          .lk-how-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 22px 44px -34px rgba(0,0,0,0.28);
-            border-color: var(--ek-border-mid);
+        /* Tablet: tidy 2×2 — each row's lower border, each right column inset. */
+        @media (min-width: 600px) {
+          .lk-how-grid {
+            grid-template-columns: repeat(2, 1fr);
+            column-gap: 40px;
           }
+          .lk-how-card {
+            padding: 30px 0 30px;
+          }
+          /* Drop the doubled bottom rule on the final pair so the grid reads
+             as a clean ledger, not a stack of boxes. */
+          .lk-how-card:nth-last-child(-n+2) {
+            border-bottom: 1px solid var(--ek-border);
+          }
+        }
+        /* Desktop: the four steps read left-to-right as one ledger row. */
+        @media (min-width: 1040px) {
+          .lk-how-grid {
+            grid-template-columns: repeat(4, 1fr);
+            column-gap: 44px;
+            border-bottom: 1px solid var(--ek-border-mid);
+          }
+          .lk-how-card {
+            padding: 36px 0 38px;
+            border-bottom: none;
+          }
+        }
+        .lk-how-numeral {
+          font-family: var(--ek-font-serif);
+          font-style: italic;
+          font-weight: 400;
+          font-size: clamp(3rem, 6vw, 4rem);
+          line-height: 0.9;
+          letter-spacing: -0.02em;
+          color: var(--ek-red);
         }
       `}</style>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="lk-shell">
         <div
           className="flex flex-col lg:flex-row lg:justify-between lg:items-end"
-          style={{ marginBottom: 56, gap: 24 }}
+          style={{ marginBottom: 48, gap: 24 }}
         >
           <div>
             <span className="ek-kicker ek-kicker--red">{tx.eyebrow}</span>
@@ -192,30 +169,18 @@ export default function HowItWorks({ lang }: { lang: Locale }) {
               </span>
             </motion.h2>
           </div>
-          <p
-            style={{
-              maxWidth: 360,
-              fontSize: 16,
-              lineHeight: 1.55,
-              color: 'var(--ek-text-soft)',
-            }}
-          >
+          <p className="ek-body" style={{ maxWidth: 360 }}>
             {tx.side}
           </p>
         </div>
 
-        {/* Path label — frames the four steps as a single journey. */}
+        {/* Journey label — one quiet line, no dashed gimmick rail. */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 28,
-          }}
+          style={{ marginBottom: 4 }}
         >
           <span
             style={{
@@ -224,157 +189,59 @@ export default function HowItWorks({ lang }: { lang: Locale }) {
               letterSpacing: '0.18em',
               textTransform: 'uppercase',
               color: 'var(--ek-text-muted)',
-              whiteSpace: 'nowrap',
             }}
           >
             {tx.pathLabel}
           </span>
-          <span
-            aria-hidden="true"
-            style={{
-              flex: 1,
-              height: 1,
-              background:
-                'repeating-linear-gradient(90deg, var(--ek-border-mid) 0 6px, transparent 6px 12px)',
-            }}
-          />
         </motion.div>
 
-        <div style={{ position: 'relative' }}>
-          <span aria-hidden="true" className="lk-how-connector" />
+        <div className="lk-how-grid">
+          {tx.steps.map((s, i) => (
+            <motion.div
+              key={s.n}
+              className="lk-how-card"
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.09, duration: 0.45 }}
+            >
+              {/* Large serif-italic numeral — the card's focal mark. */}
+              <div className="lk-how-numeral">{s.n}</div>
 
-          <div className="lk-how-grid">
-            {tx.steps.map((s, i) => (
-              <motion.div
-                key={s.n}
-                className="lk-how-card"
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.09, duration: 0.45 }}
+              <div
                 style={{
-                  position: 'relative',
-                  zIndex: 1,
-                  background: 'var(--ek-card)',
-                  border: '1px solid var(--ek-border)',
-                  borderRadius: 'var(--ek-radius-lg)',
-                  padding: '24px 22px 22px',
-                  display: 'flex',
-                  flexDirection: 'column',
+                  fontSize: 20,
+                  fontWeight: 700,
+                  marginTop: 18,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.18,
+                  color: 'var(--ek-text)',
+                  minHeight: '2.36em',
                 }}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                  }}
-                >
-                  {/* Numbered crimson disc — the node the connector passes through. */}
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      background: 'var(--ek-red)',
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontFamily: 'var(--ek-font-mono)',
-                      fontSize: 14,
-                      fontWeight: 700,
-                      letterSpacing: '0.02em',
-                      boxShadow: '0 0 0 5px var(--ek-card), 0 0 0 6px var(--ek-red-tint-3)',
-                    }}
-                  >
-                    {s.n}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: 'var(--ek-font-mono)',
-                      fontSize: 11,
-                      color: 'var(--ek-text-muted)',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    0{i + 1}/04
-                  </span>
-                </div>
+                {s.title}
+              </div>
+              <p className="ek-body" style={{ marginTop: 10 }}>
+                {s.body}
+              </p>
 
-                {/* Crimson line icon in its own tinted plate. */}
-                <span
-                  aria-hidden="true"
-                  style={{
-                    marginTop: 22,
-                    width: 44,
-                    height: 44,
-                    borderRadius: 'var(--ek-radius-sm)',
-                    background: 'var(--ek-red-tint-2)',
-                    color: 'var(--ek-red)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <StepIcon i={i} />
-                </span>
-
-                <div
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 700,
-                    marginTop: 18,
-                    letterSpacing: '-0.02em',
-                    lineHeight: 1.18,
-                    color: 'var(--ek-text)',
-                  }}
-                >
-                  {s.title}
-                </div>
-                <p
-                  style={{
-                    marginTop: 10,
-                    fontSize: 14.5,
-                    lineHeight: 1.55,
-                    color: 'var(--ek-text-soft)',
-                  }}
-                >
-                  {s.body}
-                </p>
-
-                {/* Supporting chip — distilled takeaway for the step. */}
-                <span
-                  style={{
-                    marginTop: 'auto',
-                    paddingTop: 18,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 7,
-                    fontFamily: 'var(--ek-font-mono)',
-                    fontSize: 10.5,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: 'var(--ek-red)',
-                    fontWeight: 600,
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: '50%',
-                      background: 'var(--ek-red)',
-                    }}
-                  />
-                  {s.tag}
-                </span>
-              </motion.div>
-            ))}
-          </div>
+              {/* Distilled takeaway — quiet mono label, no dot, no pin. */}
+              <span
+                style={{
+                  display: 'block',
+                  marginTop: 16,
+                  fontFamily: 'var(--ek-font-mono)',
+                  fontSize: 10.5,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-red)',
+                  fontWeight: 600,
+                }}
+              >
+                {s.tag}
+              </span>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>

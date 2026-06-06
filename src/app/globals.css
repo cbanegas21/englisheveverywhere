@@ -317,6 +317,35 @@ body {
   border-radius: var(--ek-radius-md);
 }
 
+/* Large CTA size — replaces per-button inline padding so every primary
+   action is identical (LK2-27). */
+.ek-btn--lg { padding: 18px 28px; font-size: 16px; }
+
+/* ── Layout shell + vertical rhythm ──────────────────────────────── */
+/* One horizontal inset for EVERY section (navbar, hero, all sections) so
+   their left edges line up on one column (LK2-18). One vertical-rhythm
+   token so section-to-section spacing is even (LK2-19). */
+:root { --ek-section-y: clamp(72px, 9vw, 104px); }
+
+.lk-shell {
+  width: 100%;
+  max-width: 80rem;              /* == max-w-7xl */
+  margin-inline: auto;
+  padding-inline: clamp(24px, 6vw, 80px);
+}
+.lk-section-y { padding-block: var(--ek-section-y); }
+
+/* Canonical mono micro-label — one letter-spacing/size/color for the small
+   uppercase labels that were drifting per-section (LK2-26). */
+.ek-microlabel {
+  font-family: var(--ek-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ek-text-muted);
+}
+
 /* ── Cards & surfaces ────────────────────────────────────────────── */
 
 .ek-card {

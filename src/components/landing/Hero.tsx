@@ -28,6 +28,7 @@ const t = {
     statTeacherUnit: 'to 1',
     statHours: 'Booking',
     statHoursValue: '24/7',
+    freeNote: 'First class free · no card',
   },
   es: {
     eyebrow: 'Inglés en vivo · 1 a 1',
@@ -51,6 +52,7 @@ const t = {
     statTeacherUnit: 'a 1',
     statHours: 'Reserva',
     statHoursValue: '24/7',
+    freeNote: 'Primera clase gratis · sin tarjeta',
   },
 }
 
@@ -114,15 +116,24 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
         .lk-hero-stat-div { width: 1px; height: 36px; background: var(--ek-border); }
 
         @media (max-width: 1023px) {
-          /* MOBILE: drop the full-bleed crop entirely (no hair-only blur). A soft
-             warm wash keeps the section editorial without fighting the copy. */
+          /* MOBILE: keep the photo as warm texture (not a hair-only crop) under a
+             vertical cream wash — near-solid behind the headline up top, opening to
+             a soft ~35% photo through the lower half so it never looks "plain". */
           .lk-hero-photo {
-            background-image: none;
-            background: radial-gradient(120% 80% at 100% 0%, var(--ek-red-tint) 0%, rgba(251,248,243,0) 60%);
-            filter: none;
+            background-position: center 30%;
+            filter: saturate(1.02);
           }
-          .lk-hero-scrim { background: none; }
-          .lk-hero-inner { padding: 56px 22px 56px !important; }
+          .lk-hero-scrim {
+            background: linear-gradient(
+              180deg,
+              var(--ek-paper-warm) 0%,
+              var(--ek-paper-warm) 14%,
+              rgba(251,248,243,0.88) 34%,
+              rgba(251,248,243,0.62) 64%,
+              rgba(251,248,243,0.72) 100%
+            );
+          }
+          .lk-hero-inner { padding-top: 30px !important; padding-bottom: 56px !important; }
           .lk-hero-grid { gap: 36px !important; }
           .lk-hero-stats { gap: 0 24px !important; margin-top: 36px !important; }
           .lk-hero-stat-div { display: none; }
@@ -130,7 +141,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
           .lk-hero-card-col { margin-top: 8px; }
         }
         @media (max-width: 420px) {
-          .lk-hero-inner { padding: 48px 18px 48px !important; }
+          .lk-hero-inner { padding-top: 28px !important; padding-bottom: 48px !important; }
           .lk-hero-stats { gap: 18px 22px !important; }
         }
       `}</style>
@@ -143,8 +154,8 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
       <div aria-hidden className="lk-hero-bottomfade" />
 
       <div
-        className="lk-hero-inner max-w-7xl mx-auto"
-        style={{ position: 'relative', zIndex: 2, padding: '80px 24px 64px' }}
+        className="lk-hero-inner lk-shell"
+        style={{ position: 'relative', zIndex: 2, paddingTop: 40, paddingBottom: 64 }}
       >
         <div
           className="lk-hero-grid grid items-end grid-cols-1 lg:grid-cols-[1.25fr_1fr]"
@@ -171,6 +182,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
               variants={FADE}
               style={{
                 margin: '28px 0 0',
+                maxWidth: 620,
                 fontFamily: 'var(--ek-font-sans)',
                 fontWeight: 800,
                 fontSize: 'clamp(3rem, 7vw, 5.5rem)',
@@ -200,7 +212,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
               <span
                 style={{
                   fontWeight: 700,
-                  fontSize: 'clamp(2rem, 4.5vw, 3.5rem)',
+                  fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
                   letterSpacing: '-0.03em',
                   display: 'inline-block',
                   color: 'var(--ek-text)',
@@ -211,15 +223,13 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
             </motion.h1>
 
             <motion.p
+              className="ek-body-large"
               initial="hidden"
               animate="show"
               custom={0.2}
               variants={FADE}
               style={{
                 marginTop: 32,
-                fontSize: 18,
-                lineHeight: 1.55,
-                color: 'var(--ek-text-soft)',
                 maxWidth: 520,
               }}
             >
@@ -244,31 +254,36 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
               {tx.body3}
             </motion.p>
 
-            {/* Value angle — your own teacher, not a crowded class */}
+            {/* Value angle — your own teacher, not a crowded class.
+                Set apart with a thin red hairline lead-in instead of a ✓ glyph. */}
             <motion.p
               initial="hidden"
               animate="show"
               custom={0.26}
               variants={FADE}
               style={{
-                marginTop: 16,
-                display: 'inline-flex',
+                marginTop: 18,
+                display: 'flex',
                 alignItems: 'baseline',
-                gap: 10,
-                fontSize: 15,
+                gap: 14,
+                fontSize: 16,
                 lineHeight: 1.5,
                 fontWeight: 600,
                 color: 'var(--ek-text)',
-                maxWidth: 520,
+                maxWidth: 540,
               }}
             >
               <span
                 aria-hidden
-                style={{ color: 'var(--ek-red)', fontWeight: 800, transform: 'translateY(1px)' }}
-              >
-                ✓
-              </span>
-              {tx.valueLine}
+                style={{
+                  flex: '0 0 auto',
+                  width: 28,
+                  height: 2,
+                  background: 'var(--ek-red)',
+                  transform: 'translateY(-5px)',
+                }}
+              />
+              <span>{tx.valueLine}</span>
             </motion.p>
 
             <motion.div
@@ -281,8 +296,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
               {isLoggedIn ? (
                 <Link
                   href={`/${lang}/dashboard`}
-                  className="ek-btn ek-btn-primary"
-                  style={{ padding: '18px 28px', fontSize: 16 }}
+                  className="ek-btn ek-btn-primary ek-btn--lg"
                 >
                   {tx.ctaDashboard}
                   <span style={{ fontSize: 18 }}>→</span>
@@ -291,22 +305,46 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
                 <>
                   <Link
                     href={`/${lang}/registro`}
-                    className="ek-btn ek-btn-primary"
-                    style={{ padding: '18px 28px', fontSize: 16 }}
+                    className="ek-btn ek-btn-primary ek-btn--lg"
                   >
                     {tx.ctaPrimary}
                     <span style={{ fontSize: 18 }}>→</span>
                   </Link>
                   <Link
                     href="#how-it-works"
-                    className="ek-btn ek-btn-ghost"
-                    style={{ padding: '18px 28px', fontSize: 16 }}
+                    className="ek-btn ek-btn-ghost ek-btn--lg"
                   >
                     {tx.ctaSecondary}
                   </Link>
                 </>
               )}
             </motion.div>
+
+            {!isLoggedIn && (
+              <motion.div
+                initial="hidden"
+                animate="show"
+                custom={0.34}
+                variants={FADE}
+                style={{
+                  marginTop: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  fontFamily: 'var(--ek-font-mono)',
+                  fontSize: 12,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-text-muted)',
+                }}
+              >
+                <span
+                  aria-hidden
+                  style={{ width: 7, height: 7, background: 'var(--ek-red)', display: 'inline-block', flex: '0 0 auto' }}
+                />
+                {tx.freeNote}
+              </motion.div>
+            )}
 
             {/* Inline stats row */}
             <motion.div
