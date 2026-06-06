@@ -47,3 +47,6 @@ next-env.d.ts
 scripts/seed-lesly.js
 scripts/seed-admin.js
 supabase/seeds/
+
+# QA screenshots — regenerable via scripts/qa-shots.mjs + qa-sections.mjs
+docs/qa-screenshots/

@@ -16,6 +16,7 @@ const t = {
     body2: 'before work, or',
     bodyTime2: '11 p.m.',
     body3: 'once the day winds down — you choose. Book 24 hours ahead, any hour, any day.',
+    valueLine: 'Your own teacher who knows you — not a crowded class.',
     ctaPrimary: 'Get started',
     ctaSecondary: 'See how it works',
     ctaDashboard: 'Go to my Dashboard',
@@ -38,6 +39,7 @@ const t = {
     body2: 'antes del trabajo, o a las',
     bodyTime2: '11 p.m.',
     body3: 'cuando el día termina — tú decides. Reserva con 24 horas de anticipación, cualquier hora, cualquier día.',
+    valueLine: 'Tu propio maestro que te conoce — no una clase llena de gente.',
     ctaPrimary: 'Empezar ahora',
     ctaSecondary: 'Ver cómo funciona',
     ctaDashboard: 'Ir a mi Dashboard',
@@ -66,6 +68,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
 
   return (
     <section
+      className="lk-hero"
       style={{
         position: 'relative',
         overflow: 'hidden',
@@ -74,43 +77,77 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
         color: 'var(--ek-text)',
       }}
     >
-      {/* full-bleed hero photo — merged into the page by the cream scrim */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: 'url(/landing/hero-student.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center right',
-          filter: 'saturate(0.95)',
-        }}
-      />
+      {/* Scoped responsive rules — unique .lk-hero-* prefix, owned by this component */}
+      <style>{`
+        /* The full-bleed photo: clearly present & intentional on desktop. */
+        .lk-hero-photo {
+          position: absolute;
+          inset: 0;
+          background-image: url(/landing/hero-student.jpg);
+          background-size: cover;
+          background-position: 72% center;
+          filter: saturate(1.02) contrast(1.02);
+        }
+        /* Desktop scrim: cream holds the left headline, opens cleanly to the photo. */
+        .lk-hero-scrim {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            90deg,
+            var(--ek-paper-warm) 0%,
+            rgba(251,248,243,0.94) 24%,
+            rgba(251,248,243,0.72) 44%,
+            rgba(251,248,243,0.30) 66%,
+            rgba(251,248,243,0.04) 86%,
+            rgba(251,248,243,0) 100%
+          );
+        }
+        .lk-hero-bottomfade {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 140px;
+          background: linear-gradient(0deg, var(--ek-paper-warm) 0%, rgba(251,248,243,0) 100%);
+        }
+        /* Stats divider — hidden on mobile where stats wrap to their own rhythm. */
+        .lk-hero-stat-div { width: 1px; height: 36px; background: var(--ek-border); }
+
+        @media (max-width: 1023px) {
+          /* MOBILE: drop the full-bleed crop entirely (no hair-only blur). A soft
+             warm wash keeps the section editorial without fighting the copy. */
+          .lk-hero-photo {
+            background-image: none;
+            background: radial-gradient(120% 80% at 100% 0%, var(--ek-red-tint) 0%, rgba(251,248,243,0) 60%);
+            filter: none;
+          }
+          .lk-hero-scrim { background: none; }
+          .lk-hero-inner { padding: 56px 22px 56px !important; }
+          .lk-hero-grid { gap: 36px !important; }
+          .lk-hero-stats { gap: 0 24px !important; margin-top: 36px !important; }
+          .lk-hero-stat-div { display: none; }
+          /* Real separation so the stats row and the booking card never collide. */
+          .lk-hero-card-col { margin-top: 8px; }
+        }
+        @media (max-width: 420px) {
+          .lk-hero-inner { padding: 48px 18px 48px !important; }
+          .lk-hero-stats { gap: 18px 22px !important; }
+        }
+      `}</style>
+
+      {/* full-bleed hero photo — merged into the page by the cream scrim (desktop) */}
+      <div aria-hidden className="lk-hero-photo" />
       {/* cream scrim — holds the headline on the left, opens to the photo on the right */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'linear-gradient(90deg, var(--ek-paper-warm) 0%, rgba(251,248,243,0.97) 34%, rgba(251,248,243,0.64) 56%, rgba(251,248,243,0.18) 80%, rgba(251,248,243,0) 100%)',
-        }}
-      />
+      <div aria-hidden className="lk-hero-scrim" />
       {/* bottom fade so the photo dissolves into the next section */}
+      <div aria-hidden className="lk-hero-bottomfade" />
+
       <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 140,
-          background: 'linear-gradient(0deg, var(--ek-paper-warm) 0%, rgba(251,248,243,0) 100%)',
-        }}
-      />
-      <div className="max-w-7xl mx-auto" style={{ position: 'relative', zIndex: 2, padding: '80px 24px 64px' }}>
+        className="lk-hero-inner max-w-7xl mx-auto"
+        style={{ position: 'relative', zIndex: 2, padding: '80px 24px 64px' }}
+      >
         <div
-          className="grid items-end grid-cols-1 lg:grid-cols-[1.25fr_1fr]"
+          className="lk-hero-grid grid items-end grid-cols-1 lg:grid-cols-[1.25fr_1fr]"
           style={{
             gap: 56,
           }}
@@ -140,6 +177,8 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
                 letterSpacing: '-0.04em',
                 lineHeight: 0.98,
                 color: 'var(--ek-text)',
+                /* LK-06: keep every glyph crisp where the headline meets the photo */
+                textShadow: '0 1px 0 var(--ek-paper-warm), 0 0 24px var(--ek-paper-warm)',
               }}
             >
               {tx.titleLine1}
@@ -205,12 +244,39 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
               {tx.body3}
             </motion.p>
 
+            {/* Value angle — your own teacher, not a crowded class */}
+            <motion.p
+              initial="hidden"
+              animate="show"
+              custom={0.26}
+              variants={FADE}
+              style={{
+                marginTop: 16,
+                display: 'inline-flex',
+                alignItems: 'baseline',
+                gap: 10,
+                fontSize: 15,
+                lineHeight: 1.5,
+                fontWeight: 600,
+                color: 'var(--ek-text)',
+                maxWidth: 520,
+              }}
+            >
+              <span
+                aria-hidden
+                style={{ color: 'var(--ek-red)', fontWeight: 800, transform: 'translateY(1px)' }}
+              >
+                ✓
+              </span>
+              {tx.valueLine}
+            </motion.p>
+
             <motion.div
               initial="hidden"
               animate="show"
               custom={0.3}
               variants={FADE}
-              style={{ display: 'flex', gap: 12, marginTop: 40, flexWrap: 'wrap' }}
+              style={{ display: 'flex', gap: 12, marginTop: 36, flexWrap: 'wrap' }}
             >
               {isLoggedIn ? (
                 <Link
@@ -244,6 +310,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
 
             {/* Inline stats row */}
             <motion.div
+              className="lk-hero-stats"
               initial="hidden"
               animate="show"
               custom={0.4}
@@ -278,7 +345,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
                   {tx.statClass}
                 </div>
               </div>
-              <div style={{ width: 1, height: 36, background: 'var(--ek-border)' }} />
+              <div className="lk-hero-stat-div" />
               <div>
                 <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>
                   {tx.statTeacherValue}
@@ -307,7 +374,7 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
                   {tx.statTeacher}
                 </div>
               </div>
-              <div style={{ width: 1, height: 36, background: 'var(--ek-border)' }} />
+              <div className="lk-hero-stat-div" />
               <div>
                 <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>
                   {tx.statHoursValue}
@@ -328,12 +395,12 @@ export default function Hero({ lang, isLoggedIn = false }: { lang: Locale; isLog
             </motion.div>
           </div>
 
-          {/* Right: live booking card (now visible on mobile too) */}
+          {/* Right: live booking card (visible on mobile too, clearly separated) */}
           <motion.div
+            className="lk-hero-card-col min-w-0"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.55, ease: 'easeOut' }}
-            className="min-w-0"
           >
             <HeroBookingCard lang={lang} />
           </motion.div>

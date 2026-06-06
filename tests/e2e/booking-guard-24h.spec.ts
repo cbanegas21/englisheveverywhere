@@ -32,8 +32,8 @@ async function loginAs(page: Page, email: string, password: string, expectRedire
  * `scheduled_at` — simulates a client tampering with the form before sending.
  * The server action's defense-in-depth guard must reject it.
  */
-function installBodyTamper(page: Page, maliciousIso: string): Promise<void> {
-  return page.route('**/*', async route => {
+async function installBodyTamper(page: Page, maliciousIso: string): Promise<void> {
+  await page.route('**/*', async route => {
     const req = route.request()
     if (req.method() !== 'POST' || !(req.headers()['next-action'] ?? '')) {
       return route.continue()

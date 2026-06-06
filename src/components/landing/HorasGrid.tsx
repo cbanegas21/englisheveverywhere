@@ -54,6 +54,59 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
         borderTop: '1px solid var(--ek-border)',
       }}
     >
+      <style>{`
+        .lk-horas-card {
+          background: #fff;
+          border: 1px solid var(--ek-border);
+          padding: 32px;
+          border-radius: 4px;
+        }
+        .lk-horas-grid {
+          display: grid;
+          grid-template-columns: 36px repeat(24, minmax(0, 1fr));
+          gap: 3px;
+          font-family: var(--ek-font-mono);
+          font-size: 9px;
+          color: var(--ek-text-muted);
+        }
+        .lk-horas-hourlabel { line-height: 1; }
+        .lk-horas-day {
+          display: flex;
+          align-items: center;
+          color: #7A6A55;
+          font-size: 10px;
+        }
+        .lk-horas-cell {
+          aspect-ratio: 1 / 1;
+          border-radius: 2px;
+        }
+        .lk-horas-axis {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 12px;
+          padding-left: 39px;
+          font-family: var(--ek-font-mono);
+          font-size: 10px;
+          color: var(--ek-text-muted);
+        }
+        /* Mobile: fit the FULL week + every hour label inside 390px.
+           Shrink the day-label column, tighten gaps, and let cells
+           collapse via minmax(0,1fr) so nothing is clipped. */
+        @media (max-width: 640px) {
+          .lk-horas-card { padding: 18px 14px; }
+          .lk-horas-grid {
+            grid-template-columns: 26px repeat(24, minmax(0, 1fr));
+            gap: 2px;
+            font-size: 7.5px;
+          }
+          .lk-horas-day { font-size: 8.5px; }
+          .lk-horas-cell { border-radius: 1.5px; }
+          .lk-horas-axis {
+            padding-left: 28px;
+            font-size: 8.5px;
+          }
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto">
         <div
           className="flex flex-col lg:flex-row lg:items-end lg:justify-between"
@@ -109,30 +162,13 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
           }}
         >
           {/* Grid card */}
-          <div
-            style={{
-              background: '#fff',
-              border: '1px solid var(--ek-border)',
-              padding: 32,
-              borderRadius: 4,
-              overflowX: 'auto',
-            }}
-          >
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '36px repeat(24, 1fr)',
-                gap: 3,
-                minWidth: 560,
-                fontFamily: 'var(--ek-font-mono)',
-                fontSize: 9,
-                color: 'var(--ek-text-muted)',
-              }}
-            >
+          <div className="lk-horas-card">
+            <div className="lk-horas-grid">
               <div />
               {HOURS.map((h) => (
                 <div
                   key={`hh-${h}`}
+                  className="lk-horas-hourlabel"
                   style={{ textAlign: 'center', paddingBottom: 6, color: '#A89682' }}
                 >
                   {h % 6 === 0 ? String(h).padStart(2, '0') : ''}
@@ -140,26 +176,16 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
               ))}
               {tx.days.map((d, di) => (
                 <div key={`row-${di}`} style={{ display: 'contents' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      color: '#7A6A55',
-                      fontSize: 10,
-                    }}
-                  >
-                    {d}
-                  </div>
+                  <div className="lk-horas-day">{d}</div>
                   {HOURS.map((h) => {
                     const key = `${di}-${h}`
                     const isBooked = BOOKED.has(key)
                     return (
                       <div
                         key={key}
+                        className="lk-horas-cell"
                         style={{
-                          aspectRatio: '1/1',
                           background: isBooked ? 'var(--ek-red)' : '#EFE6D7',
-                          borderRadius: 2,
                           boxShadow: isBooked ? 'none' : 'inset 0 0 0 1px #E5D9C5',
                         }}
                       />
@@ -168,18 +194,7 @@ export default function HorasGrid({ lang }: { lang: Locale }) {
                 </div>
               ))}
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginTop: 12,
-                paddingLeft: 39,
-                minWidth: 560,
-                fontFamily: 'var(--ek-font-mono)',
-                fontSize: 10,
-                color: 'var(--ek-text-muted)',
-              }}
-            >
+            <div className="lk-horas-axis">
               <span>00h</span>
               <span>06h</span>
               <span>12h</span>

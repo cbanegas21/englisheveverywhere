@@ -13,7 +13,8 @@ const t = {
     body: "Or tomorrow at 5 a.m. Or Saturday at midnight.",
     bodyEnd: 'You decide.',
     cta: 'Get started',
-    ctaGhost: 'Free diagnostic',
+    ctaGhost: 'Free diagnostic call',
+    ctaNote: 'Not sure of your level? Book a free call with a real teacher first — no card needed.',
     ctaDashboard: 'Go to my Dashboard',
   },
   es: {
@@ -24,7 +25,8 @@ const t = {
     body: 'O mañana a las 5 a.m. O el sábado a la medianoche.',
     bodyEnd: 'Tú decides.',
     cta: 'Empezar ahora',
-    ctaGhost: 'Diagnóstico gratis',
+    ctaGhost: 'Llamada de diagnóstico gratis',
+    ctaNote: '¿No sabes tu nivel? Agenda primero una llamada gratis con un profesor de verdad — sin tarjeta.',
     ctaDashboard: 'Ir a mi Dashboard',
   },
 }
@@ -112,11 +114,14 @@ export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; i
             <br />
             {tx.bodyEnd}
           </p>
-          <div style={{ display: 'flex', gap: 12, marginTop: 40, flexWrap: 'wrap' }}>
+          <div
+            className="lk-finalcta-actions"
+            style={{ display: 'flex', gap: 12, marginTop: 40, flexWrap: 'wrap', alignItems: 'center' }}
+          >
             {isLoggedIn ? (
               <Link
                 href={`/${lang}/dashboard`}
-                className="ek-btn"
+                className="ek-btn lk-finalcta-btn"
                 style={{
                   background: 'var(--ek-red)',
                   color: '#fff',
@@ -130,7 +135,7 @@ export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; i
               <>
                 <Link
                   href={`/${lang}/registro`}
-                  className="ek-btn"
+                  className="ek-btn lk-finalcta-btn"
                   style={{
                     background: 'var(--ek-red)',
                     color: '#fff',
@@ -141,8 +146,8 @@ export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; i
                   {tx.cta} →
                 </Link>
                 <Link
-                  href={`/${lang}/registro`}
-                  className="ek-btn ek-btn-ghost--on-dark"
+                  href={`/${lang}/registro?intent=diagnostic`}
+                  className="ek-btn ek-btn-ghost--on-dark lk-finalcta-btn"
                   style={{ fontSize: 18, padding: '20px 32px' }}
                 >
                   {tx.ctaGhost}
@@ -150,8 +155,36 @@ export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; i
               </>
             )}
           </div>
+          {!isLoggedIn && (
+            <p
+              className="lk-finalcta-note"
+              style={{
+                marginTop: 18,
+                fontSize: 14,
+                lineHeight: 1.5,
+                color: 'rgba(255,255,255,0.6)',
+                maxWidth: 440,
+                fontFamily: 'var(--ek-font-sans)',
+              }}
+            >
+              {tx.ctaNote}
+            </p>
+          )}
         </motion.div>
       </div>
+      <style>{`
+        @media (max-width: 520px) {
+          .lk-finalcta-actions {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .lk-finalcta-btn {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+          }
+        }
+      `}</style>
     </section>
   )
 }

@@ -19,6 +19,7 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
   const tx = t[lang]
   return (
     <section
+      className="lk-notebook"
       style={{
         position: 'relative',
         height: 320,
@@ -28,7 +29,26 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
         fontFamily: 'var(--ek-font-sans)',
       }}
     >
+      <style>{`
+        @media (max-width: 600px) {
+          .lk-notebook { height: 360px; }
+          .lk-notebook .lk-notebook-photo { background-position: center 50% !important; }
+          .lk-notebook .lk-notebook-scrim {
+            background: linear-gradient(
+              180deg,
+              rgba(251,248,243,0.5) 0%,
+              rgba(251,248,243,0.74) 28%,
+              rgba(251,248,243,0.9) 54%,
+              rgba(251,248,243,0.97) 100%
+            ) !important;
+          }
+          .lk-notebook .lk-notebook-flex { align-items: flex-end !important; padding-bottom: 28px; }
+          .lk-notebook .lk-notebook-text { max-width: 100% !important; }
+          .lk-notebook .lk-notebook-body { max-width: 100% !important; }
+        }
+      `}</style>
       <div
+        className="lk-notebook-photo"
         style={{
           position: 'absolute',
           inset: 0,
@@ -39,6 +59,7 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
         }}
       />
       <div
+        className="lk-notebook-scrim"
         style={{
           position: 'absolute',
           inset: 0,
@@ -47,6 +68,7 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
         }}
       />
       <div
+        className="lk-notebook-flex"
         style={{
           position: 'relative',
           height: '100%',
@@ -57,7 +79,7 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
           zIndex: 2,
         }}
       >
-        <div style={{ maxWidth: 460, textAlign: 'right' }}>
+        <div className="lk-notebook-text" style={{ maxWidth: 460, textAlign: 'right' }}>
           <span
             className="ek-kicker ek-kicker--red ek-kicker--no-dot"
             style={{ color: 'var(--ek-red)' }}
@@ -88,6 +110,7 @@ export default function NotebookBanner({ lang }: { lang: Locale }) {
             </span>
           </h3>
           <p
+            className="lk-notebook-body"
             style={{
               marginTop: 16,
               fontSize: 16,

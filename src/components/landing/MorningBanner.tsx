@@ -19,6 +19,7 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
   const tx = t[lang]
   return (
     <section
+      className="lk-morning"
       style={{
         position: 'relative',
         height: 360,
@@ -28,7 +29,25 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
         fontFamily: 'var(--ek-font-sans)',
       }}
     >
+      <style>{`
+        @media (max-width: 600px) {
+          .lk-morning { height: 380px; }
+          .lk-morning .lk-morning-photo { background-position: center 42% !important; }
+          .lk-morning .lk-morning-scrim {
+            background: linear-gradient(
+              180deg,
+              rgba(251,248,243,0.97) 0%,
+              rgba(251,248,243,0.9) 46%,
+              rgba(251,248,243,0.74) 72%,
+              rgba(251,248,243,0.5) 100%
+            ) !important;
+          }
+          .lk-morning .lk-morning-text { max-width: 100% !important; }
+          .lk-morning .lk-morning-body { max-width: 100% !important; }
+        }
+      `}</style>
       <div
+        className="lk-morning-photo"
         style={{
           position: 'absolute',
           inset: 0,
@@ -39,6 +58,7 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
         }}
       />
       <div
+        className="lk-morning-scrim"
         style={{
           position: 'absolute',
           inset: 0,
@@ -56,7 +76,7 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
           zIndex: 2,
         }}
       >
-        <div style={{ maxWidth: 520 }}>
+        <div className="lk-morning-text" style={{ maxWidth: 520 }}>
           <span
             className="ek-kicker ek-kicker--red ek-kicker--no-dot"
             style={{ color: 'var(--ek-red)' }}
@@ -87,6 +107,7 @@ export default function MorningBanner({ lang }: { lang: Locale }) {
             </span>
           </h3>
           <p
+            className="lk-morning-body"
             style={{
               marginTop: 16,
               fontSize: 16,

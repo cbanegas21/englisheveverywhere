@@ -8,32 +8,74 @@ const t = {
     eyebrow: '● How it works',
     titleLead: 'Four steps.',
     titleAccent: 'No surprises.',
-    side: 'No auto placement test. No marketplace. No group classes. Just your teacher and your schedule.',
+    side: 'No auto placement test. No marketplace. No group classes. Just your own teacher and your own schedule.',
+    pathLabel: 'Sign up → first class',
     steps: [
-      { n: '01', title: 'Choose your pack', body: '8, 12, 16 or 20 classes a month. One payment. No auto-renewal.' },
-      { n: '02', title: 'Take your free call', body: 'A quick human call sets your level and goals. Always free.' },
-      { n: '03', title: 'Book your times', body: 'Whenever you want — any hour, any day. You pick, 24h ahead.' },
-      { n: '04', title: 'We match a teacher — you go live', body: 'We assign an available teacher to each class. 60 min, 1 to 1, on video.' },
+      {
+        n: '01',
+        title: 'Choose your pack',
+        body: '8, 12, 16 or 20 classes a month. One payment — no auto-renewal, and the classes never expire.',
+        tag: 'One-time payment',
+      },
+      {
+        n: '02',
+        title: 'Take your free call',
+        body: 'A real person, not a quiz. A short human call sets your level and goals before you spend a thing.',
+        tag: 'Always free',
+      },
+      {
+        n: '03',
+        title: 'Book your times',
+        body: 'Any hour, any day, on your terms. You pick each slot at least 24h ahead — around work, school or family.',
+        tag: 'You decide',
+      },
+      {
+        n: '04',
+        title: 'We assign your teacher — you go live',
+        body: 'After you book, we assign an available teacher to your class. 60 minutes, just the two of you, live on video.',
+        tag: '1-to-1, 60 min',
+      },
     ],
   },
   es: {
     eyebrow: '● Cómo funciona',
     titleLead: 'Cuatro pasos.',
     titleAccent: 'Sin sorpresas.',
-    side: 'Sin pruebas automáticas. Sin marketplace. Sin clases grupales. Solo tu maestro y tu horario.',
+    side: 'Sin pruebas automáticas. Sin marketplace. Sin clases grupales. Solo tu propio maestro y tu propio horario.',
+    pathLabel: 'Te registras → primera clase',
     steps: [
-      { n: '01', title: 'Elige tu paquete', body: '8, 12, 16 o 20 clases al mes. Un solo pago. Sin renovación automática.' },
-      { n: '02', title: 'Toma tu llamada gratis', body: 'Una breve llamada humana define tu nivel y tus metas. Siempre gratis.' },
-      { n: '03', title: 'Reserva tus horarios', body: 'Cuando quieras — cualquier hora, cualquier día. Tú eliges, con 24h de anticipación.' },
-      { n: '04', title: 'Te asignamos maestro y entras en vivo', body: 'Asignamos un maestro disponible a cada clase. 60 min, 1 a 1, en video.' },
+      {
+        n: '01',
+        title: 'Elige tu paquete',
+        body: '8, 12, 16 o 20 clases al mes. Un solo pago — sin renovación automática, y las clases nunca caducan.',
+        tag: 'Pago único',
+      },
+      {
+        n: '02',
+        title: 'Toma tu llamada gratis',
+        body: 'Una persona real, no un test. Una breve llamada humana define tu nivel y tus metas antes de gastar nada.',
+        tag: 'Siempre gratis',
+      },
+      {
+        n: '03',
+        title: 'Reserva tus horarios',
+        body: 'Cualquier hora, cualquier día, a tu manera. Eliges cada horario con 24h de anticipación — alrededor del trabajo, los estudios o la familia.',
+        tag: 'Tú decides',
+      },
+      {
+        n: '04',
+        title: 'Te asignamos maestro y entras en vivo',
+        body: 'Después de reservar, asignamos un maestro disponible a tu clase. 60 minutos, solo ustedes dos, en vivo por video.',
+        tag: '1 a 1, 60 min',
+      },
     ],
   },
 }
 
 // Hand-drawn-feel crimson line icons, one per step (notebook-margin doodle vibe).
 const iconProps = {
-  width: 26,
-  height: 26,
+  width: 24,
+  height: 24,
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
@@ -66,10 +108,59 @@ export default function HowItWorks({ lang }: { lang: Locale }) {
         fontFamily: 'var(--ek-font-sans)',
       }}
     >
+      <style>{`
+        .lk-how-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        /* The crimson connector line threading the four steps. */
+        .lk-how-connector {
+          position: absolute;
+          background: var(--ek-red-tint-3);
+          z-index: 0;
+        }
+        /* Mobile: vertical spine down the left, threading the number discs
+           (disc centre sits at 22px card padding + 20px half-disc = ~42px). */
+        .lk-how-connector {
+          left: 41px;
+          top: 44px;
+          bottom: 44px;
+          width: 2px;
+          height: auto;
+        }
+        @media (min-width: 880px) {
+          .lk-how-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+          }
+          /* Desktop: horizontal rail spanning the disc centres (first card
+             centre ≈ 12.5% to last ≈ 87.5%), threading through each disc. */
+          .lk-how-connector {
+            left: 12.5%;
+            right: 12.5%;
+            top: 43px;
+            bottom: auto;
+            width: auto;
+            height: 2px;
+          }
+        }
+        .lk-how-card {
+          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        @media (hover: hover) {
+          .lk-how-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 22px 44px -34px rgba(0,0,0,0.28);
+            border-color: var(--ek-border-mid);
+          }
+        }
+      `}</style>
+
       <div className="max-w-7xl mx-auto">
         <div
           className="flex flex-col lg:flex-row lg:justify-between lg:items-end"
-          style={{ marginBottom: 64, gap: 24 }}
+          style={{ marginBottom: 56, gap: 24 }}
         >
           <div>
             <span className="ek-kicker ek-kicker--red">{tx.eyebrow}</span>
@@ -113,70 +204,177 @@ export default function HowItWorks({ lang }: { lang: Locale }) {
           </p>
         </div>
 
-        <div
-          className="grid"
+        {/* Path label — frames the four steps as a single journey. */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
           style={{
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 24,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 28,
           }}
         >
-          {tx.steps.map((s, i) => (
-            <motion.div
-              key={s.n}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08, duration: 0.4 }}
-              style={{
-                borderTop: '1px solid var(--ek-ink)',
-                paddingTop: 20,
-              }}
-            >
-              <div style={{ color: 'var(--ek-red)', marginBottom: 18 }}><StepIcon i={i} /></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span
+          <span
+            style={{
+              fontFamily: 'var(--ek-font-mono)',
+              fontSize: 11,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--ek-text-muted)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {tx.pathLabel}
+          </span>
+          <span
+            aria-hidden="true"
+            style={{
+              flex: 1,
+              height: 1,
+              background:
+                'repeating-linear-gradient(90deg, var(--ek-border-mid) 0 6px, transparent 6px 12px)',
+            }}
+          />
+        </motion.div>
+
+        <div style={{ position: 'relative' }}>
+          <span aria-hidden="true" className="lk-how-connector" />
+
+          <div className="lk-how-grid">
+            {tx.steps.map((s, i) => (
+              <motion.div
+                key={s.n}
+                className="lk-how-card"
+                initial={{ opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.09, duration: 0.45 }}
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  background: 'var(--ek-card)',
+                  border: '1px solid var(--ek-border)',
+                  borderRadius: 'var(--ek-radius-lg)',
+                  padding: '24px 22px 22px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <div
                   style={{
-                    fontFamily: 'var(--ek-font-mono)',
-                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  {/* Numbered crimson disc — the node the connector passes through. */}
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      background: 'var(--ek-red)',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      letterSpacing: '0.02em',
+                      boxShadow: '0 0 0 5px var(--ek-card), 0 0 0 6px var(--ek-red-tint-3)',
+                    }}
+                  >
+                    {s.n}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 11,
+                      color: 'var(--ek-text-muted)',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    0{i + 1}/04
+                  </span>
+                </div>
+
+                {/* Crimson line icon in its own tinted plate. */}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    marginTop: 22,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 'var(--ek-radius-sm)',
+                    background: 'var(--ek-red-tint-2)',
                     color: 'var(--ek-red)',
-                    letterSpacing: '0.08em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {s.n}
+                  <StepIcon i={i} />
                 </span>
+
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 700,
+                    marginTop: 18,
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.18,
+                    color: 'var(--ek-text)',
+                  }}
+                >
+                  {s.title}
+                </div>
+                <p
+                  style={{
+                    marginTop: 10,
+                    fontSize: 14.5,
+                    lineHeight: 1.55,
+                    color: 'var(--ek-text-soft)',
+                  }}
+                >
+                  {s.body}
+                </p>
+
+                {/* Supporting chip — distilled takeaway for the step. */}
                 <span
                   style={{
+                    marginTop: 'auto',
+                    paddingTop: 18,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
                     fontFamily: 'var(--ek-font-mono)',
-                    fontSize: 11,
-                    color: 'var(--ek-text-muted)',
+                    fontSize: 10.5,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ek-red)',
+                    fontWeight: 600,
                   }}
                 >
-                  0{i + 1}/04
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: '50%',
+                      background: 'var(--ek-red)',
+                    }}
+                  />
+                  {s.tag}
                 </span>
-              </div>
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  marginTop: 32,
-                  letterSpacing: '-0.02em',
-                  color: 'var(--ek-text)',
-                }}
-              >
-                {s.title}
-              </div>
-              <p
-                style={{
-                  marginTop: 12,
-                  fontSize: 15,
-                  lineHeight: 1.5,
-                  color: 'var(--ek-text-soft)',
-                }}
-              >
-                {s.body}
-              </p>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

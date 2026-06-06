@@ -98,6 +98,9 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
+/* Anchored landing sections clear the sticky ~64px header on jump-nav (LK-01). */
+:where(#how-it-works, #teachers, #pricing, #faq) { scroll-margin-top: 80px; }
+
 body {
   font-family: var(--ek-font-sans);
   background-color: var(--ek-paper);

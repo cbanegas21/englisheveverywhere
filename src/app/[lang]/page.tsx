@@ -27,8 +27,10 @@ export default async function LandingPage({ params }: Props) {
   const cookieStore = await cookies()
   const isLoggedIn = !!cookieStore.get('ee-role')?.value
 
+  // overflow-x: clip (not hidden) contains horizontal overflow WITHOUT creating
+  // a scroll container — so the sticky Navbar keeps working (LK-01).
   return (
-    <main style={{ background: 'var(--ek-paper-warm)', overflowX: 'hidden' }}>
+    <main style={{ background: 'var(--ek-paper-warm)', overflowX: 'clip' }}>
       <Navbar lang={lang as Locale} isLoggedIn={isLoggedIn} />
       <Hero lang={lang as Locale} isLoggedIn={isLoggedIn} />
       <MorningBanner lang={lang as Locale} />
