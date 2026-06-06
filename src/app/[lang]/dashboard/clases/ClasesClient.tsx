@@ -3,8 +3,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  Calendar, Video, Clock, CheckCircle2, ChevronRight, FileText, Sparkles, X,
-  ChevronLeft, Stethoscope, Search,
+  FileText, Stethoscope, Search,
   MoreVertical, CalendarClock, AlertOctagon, XCircle,
 } from 'lucide-react'
 import { getSessionByBookingId } from '@/app/actions/video'
@@ -18,6 +17,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import Modal from '@/components/dashboard/Modal'
 
 const t = {
   en: {
@@ -53,6 +53,7 @@ const t = {
     nextClass: 'Next class',
     noSummaryYet: 'No summary saved for this class yet.',
     summaryTitle: 'Class summary',
+    summaryKicker: 'Class notebook',
     covered: 'Topics covered',
     nextTopics: 'Next session suggestions',
     progressNote: 'Progress note',
@@ -78,6 +79,9 @@ const t = {
     cancelBodyLate: 'This class starts in less than 24 hours. Per our policy, the credit is forfeited and will not be refunded.',
     cancelConfirm: 'Yes, cancel',
     cancelGoBack: 'Keep the class',
+    kickerCancel: 'Manage class',
+    kickerReschedule: 'Manage class',
+    kickerNoShow: 'Report an issue',
     rescheduleTitle: 'Reschedule this class',
     rescheduleHint: 'Pick a new date and time at least 24 hours from now. Your teacher will reconfirm the new slot.',
     rescheduleNewLabel: 'New date & time',
@@ -122,6 +126,7 @@ const t = {
     nextClass: 'Próxima clase',
     noSummaryYet: 'Sin resumen guardado para esta clase aún.',
     summaryTitle: 'Resumen de clase',
+    summaryKicker: 'Cuaderno de clase',
     covered: 'Temas cubiertos',
     nextTopics: 'Sugerencias para la próxima sesión',
     progressNote: 'Nota de progreso',
@@ -147,6 +152,9 @@ const t = {
     cancelBodyLate: 'Esta clase empieza en menos de 24 horas. Según nuestra política, el crédito se pierde y no se reembolsará.',
     cancelConfirm: 'Sí, cancelar',
     cancelGoBack: 'Mantener la clase',
+    kickerCancel: 'Gestionar clase',
+    kickerReschedule: 'Gestionar clase',
+    kickerNoShow: 'Reportar un problema',
     rescheduleTitle: 'Reagendar esta clase',
     rescheduleHint: 'Elige una nueva fecha y hora con al menos 24 horas de anticipación. Tu maestro reconfirmará el nuevo horario.',
     rescheduleNewLabel: 'Nueva fecha y hora',
@@ -940,384 +948,306 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
       </div>
 
       {/* Summary modal (full detail) */}
-      {viewingBookingId && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 50,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(17,17,17,0.5)',
-              backdropFilter: 'blur(4px)',
-            }}
-            onClick={closeSummary}
-          />
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: 460,
-              maxHeight: '80vh',
-              overflowY: 'auto',
-              background: 'var(--ek-card)',
-              borderRadius: 16,
-              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-              fontFamily: 'var(--ek-font-sans)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '20px 24px',
-                position: 'sticky',
-                top: 0,
-                background: 'var(--ek-card)',
-                borderBottom: '1px solid var(--ek-border)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Sparkles className="h-4 w-4" style={{ color: accent }} />
-                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--ek-text)' }}>
-                  {tx.summaryTitle}
-                </span>
-              </div>
-              <button
-                onClick={closeSummary}
-                style={{ background: 'transparent', border: 0, color: 'var(--ek-text-muted)', cursor: 'pointer' }}
-              >
-                <X className="h-4 w-4" />
-              </button>
+      <Modal
+        open={!!viewingBookingId}
+        onClose={closeSummary}
+        kicker={tx.summaryKicker}
+        title={tx.summaryTitle}
+        maxWidth={460}
+      >
+        <style>{`
+          .lk-clases-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+          .lk-clases-list li {
+            padding-left: 14px;
+            border-left: 3px solid var(--ek-red);
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--ek-ink-soft);
+          }
+          .lk-clases-list--muted li { border-left-color: var(--ek-border-mid); }
+          .lk-clases-list--next li { font-style: italic; font-family: var(--ek-font-serif); }
+        `}</style>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {loadingSession ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0', gap: 12 }}>
+              <span
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  border: '2px solid var(--ek-red-tint-3)',
+                  borderTopColor: accent,
+                  animation: 'spin 1s linear infinite',
+                }}
+              />
+              <p style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.loadingSession}</p>
             </div>
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {loadingSession ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0', gap: 12 }}>
-                  <span
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: '50%',
-                      border: '2px solid var(--ek-red-tint-3)',
-                      borderTopColor: accent,
-                      animation: 'spin 1s linear infinite',
-                    }}
-                  />
-                  <p style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.loadingSession}</p>
-                </div>
-              ) : (
-                <>
-                  {parsedSummary ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                      {parsedSummary.covered.length > 0 && (
-                        <div>
-                          <p
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.18em',
-                              marginBottom: 8,
-                              color: 'var(--ek-text-muted)',
-                            }}
-                          >
-                            {tx.covered}
-                          </p>
-                          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
-                            {parsedSummary.covered.map((item, i) => (
-                              <li key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: 'var(--ek-ink-soft)' }}>
-                                <span style={{ marginTop: 7, width: 6, height: 6, borderRadius: '50%', background: accent, flexShrink: 0 }} />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {parsedSummary.nextTopics.length > 0 && (
-                        <div>
-                          <p
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.18em',
-                              marginBottom: 8,
-                              color: 'var(--ek-text-muted)',
-                            }}
-                          >
-                            {tx.nextTopics}
-                          </p>
-                          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 6 }}>
-                            {parsedSummary.nextTopics.map((item, i) => (
-                              <li key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: 'var(--ek-ink-soft)' }}>
-                                <ChevronRight className="h-3.5 w-3.5" style={{ marginTop: 2, color: 'var(--ek-text-muted)', flexShrink: 0 }} />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {parsedSummary.progressNote && (
-                        <div
-                          style={{
-                            borderRadius: 12,
-                            padding: 14,
-                            background: 'var(--ek-red-tint)',
-                            border: '1px solid var(--ek-red-tint-3)',
-                          }}
-                        >
-                          <p
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.18em',
-                              marginBottom: 6,
-                              color: accent,
-                            }}
-                          >
-                            {tx.progressNote}
-                          </p>
-                          <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
-                            {parsedSummary.progressNote}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        borderRadius: 12,
-                        padding: 20,
-                        textAlign: 'center',
-                        background: 'var(--ek-paper)',
-                        border: '1px solid var(--ek-border)',
-                      }}
-                    >
-                      <p style={{ fontSize: 12, color: 'var(--ek-text-muted)' }}>{tx.noSummary}</p>
-                    </div>
-                  )}
-                  {sessionData?.notes && (
-                    <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                        <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
-                        <p
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.18em',
-                            color: 'var(--ek-text-muted)',
-                          }}
-                        >
-                          {tx.teacherNotes}
-                        </p>
-                      </div>
-                      <p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', color: 'var(--ek-ink-soft)' }}>
-                        {sessionData.notes}
-                      </p>
-                    </div>
-                  )}
-                  <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+          ) : (
+            <>
+              {parsedSummary ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  {parsedSummary.covered.length > 0 && (
+                    <div>
                       <p
                         style={{
                           fontSize: 10,
                           fontWeight: 700,
                           textTransform: 'uppercase',
                           letterSpacing: '0.18em',
+                          marginBottom: 10,
                           color: 'var(--ek-text-muted)',
+                          fontFamily: 'var(--ek-font-mono)',
                         }}
                       >
-                        {tx.transcript}
+                        {tx.covered}
                       </p>
+                      <ul className="lk-clases-list">
+                        {parsedSummary.covered.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
                     </div>
-                    {sessionData?.transcript ? (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          lineHeight: 1.55,
-                          whiteSpace: 'pre-wrap',
-                          borderRadius: 8,
-                          padding: 12,
-                          maxHeight: 256,
-                          overflowY: 'auto',
-                          color: 'var(--ek-ink-soft)',
-                          background: 'var(--ek-paper)',
-                          border: '1px solid var(--ek-border)',
-                        }}
-                      >
-                        {sessionData.transcript}
-                      </div>
-                    ) : (
+                  )}
+                  {parsedSummary.nextTopics.length > 0 && (
+                    <div>
                       <p
                         style={{
-                          fontSize: 12,
-                          fontStyle: 'italic',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.18em',
+                          marginBottom: 10,
                           color: 'var(--ek-text-muted)',
-                          fontFamily: 'var(--ek-font-serif)',
+                          fontFamily: 'var(--ek-font-mono)',
                         }}
                       >
-                        {tx.transcriptEmpty}
+                        {tx.nextTopics}
                       </p>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Action modal */}
-      {actionTarget && (() => {
-        const startMs = new Date(actionTarget.booking.scheduled_at).getTime()
-        const isLateCancel = startMs - (nowTick ?? nowSnapshotMs) < 24 * 60 * 60 * 1000
-        const title =
-          actionTarget.kind === 'reschedule' ? tx.rescheduleTitle
-            : actionTarget.kind === 'no_show' ? tx.noShowTitle
-              : (isLateCancel ? tx.cancelTitleLate : tx.cancelTitleEarly)
-        return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'rgba(17,17,17,0.5)',
-                backdropFilter: 'blur(4px)',
-              }}
-              onClick={closeAction}
-            />
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                maxWidth: 440,
-                background: 'var(--ek-card)',
-                borderRadius: 16,
-                boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-                fontFamily: 'var(--ek-font-sans)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '20px 24px',
-                  borderBottom: '1px solid var(--ek-border)',
-                }}
-              >
-                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--ek-text)' }}>{title}</span>
-                <button
-                  onClick={closeAction}
-                  style={{ background: 'transparent', border: 0, color: 'var(--ek-text-muted)', cursor: 'pointer' }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {actionTarget.kind === 'cancel' && (
-                  <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
-                    {isLateCancel ? tx.cancelBodyLate : tx.cancelBodyEarly}
-                  </p>
-                )}
-                {actionTarget.kind === 'no_show' && (
-                  <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
-                    {tx.noShowBody}
-                  </p>
-                )}
-                {actionTarget.kind === 'reschedule' && (
-                  <>
-                    <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
-                      {tx.rescheduleHint}
-                    </p>
-                    <label style={{ display: 'block' }}>
-                      <span
+                      <ul className="lk-clases-list lk-clases-list--next">
+                        {parsedSummary.nextTopics.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {parsedSummary.progressNote && (
+                    <div
+                      style={{
+                        paddingLeft: 16,
+                        borderLeft: '3px solid var(--ek-red)',
+                      }}
+                    >
+                      <p
                         style={{
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: 700,
                           textTransform: 'uppercase',
                           letterSpacing: '0.18em',
                           marginBottom: 6,
-                          display: 'block',
-                          color: 'var(--ek-text-muted)',
+                          color: accent,
+                          fontFamily: 'var(--ek-font-mono)',
                         }}
                       >
-                        {tx.rescheduleNewLabel}
-                      </span>
-                      <input
-                        type="datetime-local"
-                        value={rescheduleNewIso}
-                        onChange={(e) => setRescheduleNewIso(e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: 8,
-                          fontSize: 13,
-                          outline: 'none',
-                          background: 'var(--ek-card)',
-                          border: '1px solid var(--ek-border)',
-                          color: 'var(--ek-text)',
-                          fontFamily: 'var(--ek-font-sans)',
-                        }}
-                      />
-                    </label>
-                  </>
-                )}
-                {actionStatus === 'error' && actionError && (
+                        {tx.progressNote}
+                      </p>
+                      <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
+                        {parsedSummary.progressNote}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: 'var(--ek-text-muted)', fontStyle: 'italic', fontFamily: 'var(--ek-font-serif)' }}>
+                  {tx.noSummary}
+                </p>
+              )}
+              {sessionData?.notes && (
+                <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+                    <p
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.18em',
+                        color: 'var(--ek-text-muted)',
+                        fontFamily: 'var(--ek-font-mono)',
+                      }}
+                    >
+                      {tx.teacherNotes}
+                    </p>
+                  </div>
+                  <p style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', color: 'var(--ek-ink-soft)' }}>
+                    {sessionData.notes}
+                  </p>
+                </div>
+              )}
+              <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+                  <p
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.18em',
+                      color: 'var(--ek-text-muted)',
+                      fontFamily: 'var(--ek-font-mono)',
+                    }}
+                  >
+                    {tx.transcript}
+                  </p>
+                </div>
+                {sessionData?.transcript ? (
                   <div
                     style={{
+                      fontSize: 12,
+                      lineHeight: 1.55,
+                      whiteSpace: 'pre-wrap',
                       borderRadius: 8,
-                      padding: '8px 12px',
-                      fontSize: 12,
-                      background: 'var(--ek-red-tint)',
-                      color: accent,
-                      border: '1px solid var(--ek-red-tint-3)',
+                      padding: 12,
+                      maxHeight: 256,
+                      overflowY: 'auto',
+                      color: 'var(--ek-ink-soft)',
+                      background: 'var(--ek-paper)',
+                      border: '1px solid var(--ek-border)',
                     }}
                   >
-                    {actionError}
+                    {sessionData.transcript}
                   </div>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
-                  <button
-                    onClick={closeAction}
-                    disabled={actionStatus === 'working'}
-                    className="ek-btn ek-btn-ghost ek-btn-square"
-                    style={{ padding: '10px 16px', fontSize: 12 }}
-                  >
-                    {actionTarget.kind === 'cancel' ? tx.cancelGoBack : tx.close}
-                  </button>
-                  <button
-                    onClick={runAction}
-                    disabled={actionStatus === 'working' || (actionTarget.kind === 'reschedule' && !rescheduleNewIso)}
-                    className="ek-btn ek-btn-red ek-btn-square"
+                ) : (
+                  <p
                     style={{
-                      padding: '10px 16px',
                       fontSize: 12,
-                      opacity: actionStatus === 'working' ? 0.7 : 1,
+                      fontStyle: 'italic',
+                      color: 'var(--ek-text-muted)',
+                      fontFamily: 'var(--ek-font-serif)',
                     }}
                   >
-                    {actionStatus === 'working'
-                      ? tx.actionWorking
-                      : actionTarget.kind === 'cancel' ? tx.cancelConfirm
-                        : actionTarget.kind === 'reschedule' ? tx.rescheduleConfirm
-                          : tx.noShowConfirm}
-                  </button>
-                </div>
+                    {tx.transcriptEmpty}
+                  </p>
+                )}
               </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Action modal */}
+      {(() => {
+        const startMs = actionTarget ? new Date(actionTarget.booking.scheduled_at).getTime() : 0
+        const isLateCancel = startMs - (nowTick ?? nowSnapshotMs) < 24 * 60 * 60 * 1000
+        const kind = actionTarget?.kind
+        const title =
+          kind === 'reschedule' ? tx.rescheduleTitle
+            : kind === 'no_show' ? tx.noShowTitle
+              : (isLateCancel ? tx.cancelTitleLate : tx.cancelTitleEarly)
+        const kicker =
+          kind === 'reschedule' ? tx.kickerReschedule
+            : kind === 'no_show' ? tx.kickerNoShow
+              : tx.kickerCancel
+        return (
+          <Modal
+            open={!!actionTarget}
+            onClose={() => { if (actionStatus !== 'working') closeAction() }}
+            kicker={kicker}
+            title={title}
+            maxWidth={440}
+            footer={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={closeAction}
+                  disabled={actionStatus === 'working'}
+                  className="ek-btn ek-btn-ghost ek-btn-square"
+                  style={{ padding: '10px 16px', fontSize: 12 }}
+                >
+                  {kind === 'cancel' ? tx.cancelGoBack : tx.close}
+                </button>
+                <button
+                  onClick={runAction}
+                  disabled={actionStatus === 'working' || (kind === 'reschedule' && !rescheduleNewIso)}
+                  className="ek-btn ek-btn-red ek-btn-square"
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: 12,
+                    opacity: actionStatus === 'working' ? 0.7 : 1,
+                  }}
+                >
+                  {actionStatus === 'working'
+                    ? tx.actionWorking
+                    : kind === 'cancel' ? tx.cancelConfirm
+                      : kind === 'reschedule' ? tx.rescheduleConfirm
+                        : tx.noShowConfirm}
+                </button>
+              </div>
+            }
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {kind === 'cancel' && (
+                <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
+                  {isLateCancel ? tx.cancelBodyLate : tx.cancelBodyEarly}
+                </p>
+              )}
+              {kind === 'no_show' && (
+                <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
+                  {tx.noShowBody}
+                </p>
+              )}
+              {kind === 'reschedule' && (
+                <>
+                  <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--ek-ink-soft)' }}>
+                    {tx.rescheduleHint}
+                  </p>
+                  <label style={{ display: 'block' }}>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.18em',
+                        marginBottom: 6,
+                        display: 'block',
+                        color: 'var(--ek-text-muted)',
+                        fontFamily: 'var(--ek-font-mono)',
+                      }}
+                    >
+                      {tx.rescheduleNewLabel}
+                    </span>
+                    <input
+                      type="datetime-local"
+                      value={rescheduleNewIso}
+                      onChange={(e) => setRescheduleNewIso(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        fontSize: 13,
+                        outline: 'none',
+                        background: 'var(--ek-card)',
+                        border: '1px solid var(--ek-border)',
+                        color: 'var(--ek-text)',
+                        fontFamily: 'var(--ek-font-sans)',
+                      }}
+                    />
+                  </label>
+                </>
+              )}
+              {actionStatus === 'error' && actionError && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    paddingLeft: 14,
+                    borderLeft: '3px solid var(--ek-red)',
+                    color: accent,
+                  }}
+                >
+                  {actionError}
+                </div>
+              )}
             </div>
-          </div>
+          </Modal>
         )
       })()}
 

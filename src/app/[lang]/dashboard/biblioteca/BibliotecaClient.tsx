@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { getBookSignedUrl } from '@/app/actions/library'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
-import { KickerStat } from '@/components/ui/KickerStat'
+import { StatLedger } from '@/components/ui/StatLedger'
 
 interface Book {
   id: string
@@ -43,7 +43,6 @@ const t = {
       latestSub: 'added',
     },
     filterAll: 'All',
-    open: 'Open',
   },
   es: {
     title: 'Biblioteca',
@@ -65,7 +64,6 @@ const t = {
       latestSub: 'añadido',
     },
     filterAll: 'Todos',
-    open: 'Abrir',
   },
 }
 
@@ -125,24 +123,37 @@ export default function BibliotecaClient({ lang, books }: Props) {
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <style>{`
+        .lk-bib-rule {
+          align-self: stretch;
+          width: 3px;
+          border-radius: 2px;
+          background: transparent;
+          transition: background 0.16s ease;
+        }
+        .lk-bib-row { transition: background 0.16s ease; }
+        .lk-bib-row:hover { background: var(--ek-paper-warm); }
+        .lk-bib-row:hover .lk-bib-rule { background: var(--ek-red); }
+        .lk-bib-open { transition: color 0.16s ease; }
+        .lk-bib-row:hover .lk-bib-open { color: var(--ek-red); }
+        .lk-bib-tab { transition: color 0.16s ease; }
+        .lk-bib-tab:not(.lk-bib-tab--active):hover { color: var(--ek-text-soft); }
+      `}</style>
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
         {books.length > 0 && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: 16,
-              marginBottom: 24,
-            }}
-          >
-            <KickerStat kicker={tx.stats.total} value={books.length} sub={tx.stats.totalSub} />
-            <KickerStat kicker={tx.stats.levels} value={levels.length || '—'} sub={tx.stats.levelsSub} />
-            <KickerStat
-              kicker={tx.stats.latest}
-              value={latest ? fmtDate(latest.created_at, lang) : '—'}
-              sub={tx.stats.latestSub}
+          <div style={{ marginBottom: 28 }}>
+            <StatLedger
+              items={[
+                { kicker: tx.stats.total, value: books.length, sub: tx.stats.totalSub, accent: true },
+                { kicker: tx.stats.levels, value: levels.length || '—', sub: tx.stats.levelsSub },
+                {
+                  kicker: tx.stats.latest,
+                  value: latest ? fmtDate(latest.created_at, lang) : '—',
+                  sub: tx.stats.latestSub,
+                },
+              ]}
             />
           </div>
         )}
@@ -165,6 +176,7 @@ export default function BibliotecaClient({ lang, books }: Props) {
                   <button
                     key={tab.key}
                     onClick={() => setFilter(tab.key)}
+                    className={`lk-bib-tab${active ? ' lk-bib-tab--active' : ''}`}
                     style={{
                       padding: '10px 16px',
                       fontSize: 13,
@@ -212,13 +224,14 @@ export default function BibliotecaClient({ lang, books }: Props) {
               <button
                 key={book.id}
                 onClick={() => handleOpen(book)}
+                className="lk-bib-row"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '40px 1fr auto auto',
-                  gap: 16,
+                  gridTemplateColumns: '3px 1fr auto auto',
+                  gap: 18,
                   alignItems: 'center',
                   width: '100%',
-                  padding: '16px 22px',
+                  padding: '18px 22px',
                   borderBottom: i < filtered.length - 1 ? '1px solid var(--ek-border-soft)' : 'none',
                   background: 'transparent',
                   border: 0,
@@ -227,23 +240,7 @@ export default function BibliotecaClient({ lang, books }: Props) {
                   fontFamily: 'var(--ek-font-sans)',
                 }}
               >
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 8,
-                    background: 'var(--ek-red-tint-2)',
-                    color: accent,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontFamily: 'var(--ek-font-mono)',
-                    fontSize: 18,
-                    fontWeight: 700,
-                  }}
-                >
-                  ▭
-                </div>
+                <span aria-hidden className="lk-bib-rule" />
                 <div style={{ minWidth: 0 }}>
                   <div
                     style={{
@@ -273,19 +270,15 @@ export default function BibliotecaClient({ lang, books }: Props) {
                     </div>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   {book.level && (
                     <span
                       style={{
                         fontSize: 10,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         letterSpacing: '0.12em',
                         textTransform: 'uppercase',
-                        padding: '4px 8px',
-                        borderRadius: 4,
-                        background: 'var(--ek-paper)',
                         color: 'var(--ek-text-soft)',
-                        border: '1px solid var(--ek-border)',
                         fontFamily: 'var(--ek-font-mono)',
                       }}
                     >
@@ -296,6 +289,7 @@ export default function BibliotecaClient({ lang, books }: Props) {
                     style={{
                       fontSize: 11,
                       color: 'var(--ek-text-muted)',
+                      fontFamily: 'var(--ek-font-mono)',
                       fontFeatureSettings: '"tnum"',
                     }}
                   >
@@ -303,17 +297,15 @@ export default function BibliotecaClient({ lang, books }: Props) {
                   </span>
                 </div>
                 <span
+                  className="lk-bib-open"
                   style={{
                     fontSize: 12,
                     fontWeight: 700,
-                    padding: '8px 14px',
-                    borderRadius: 6,
-                    background: 'var(--ek-paper)',
+                    letterSpacing: '0.02em',
                     color: 'var(--ek-text)',
-                    border: '1px solid var(--ek-border-mid)',
                   }}
                 >
-                  {tx.open}
+                  {tx.read}
                 </span>
               </button>
             ))}
@@ -442,7 +434,7 @@ function BookViewer({
             position: 'relative',
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            background: '#2A2A2A',
+            background: 'var(--ek-ink-soft)',
           }}
         >
           {loading && !signedUrl && !error && (
@@ -473,13 +465,13 @@ function BookViewer({
                 textAlign: 'center',
               }}
             >
-              <p style={{ fontSize: 13, color: '#FCA5A5' }}>{error || tx.viewerError}</p>
+              <p style={{ fontSize: 13, color: 'var(--ek-red-light)' }}>{error || tx.viewerError}</p>
             </div>
           )}
           {signedUrl && (
             <iframe
               src={`${signedUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-              style={{ width: '100%', height: '100%', border: 'none', background: '#2A2A2A' }}
+              style={{ width: '100%', height: '100%', border: 'none', background: 'var(--ek-ink-soft)' }}
               title={book.title}
             />
           )}

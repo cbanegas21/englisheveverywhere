@@ -2,12 +2,13 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, ChevronRight, ChevronLeft, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { saveSurveyAnswers, bookPlacementCall, reschedulePlacementCall } from '@/app/actions/placement'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
+import Modal from '@/components/dashboard/Modal'
 
 interface Option { id: string; en: string; es: string }
 interface Question {
@@ -139,7 +140,7 @@ const slideVariants = {
 const ui = {
   en: {
     title: 'Placement',
-    flourish: 'first contact',
+    flourish: 'discovery class',
     subtitle: 'Step 1 of 3 · 30-60 min · Free · No pressure',
     step: (n: number, t: number) => `Question ${n} of ${t}`,
     multi: 'Select all that apply',
@@ -148,35 +149,35 @@ const ui = {
     finish: 'Done',
     skip: 'Skip',
     transTitle: 'Perfect!',
-    transSub: "Now let's schedule your free 60-minute evaluation call.",
-    transBody: "Not sure what your level is? We'll figure it out together — no pressure, no judgment.",
-    scheduleBtn: 'Schedule my call',
+    transSub: "Now let's schedule your free discovery class.",
+    transBody: "Not sure what your level is? In your discovery class we'll figure it out together — no pressure, no judgment.",
+    scheduleBtn: 'Schedule my discovery class',
     scheduleKicker: '↳ Pick a day & time',
     pickDay: 'Select a day',
     pickTime: 'Pick a time',
     noSlots: 'No available slots for this day.',
     timezone: 'All times in Honduras time (CST, UTC-6)',
-    confirmTitle: 'Confirm your call',
+    confirmTitle: 'Confirm your discovery class',
     confirmDate: 'Date & time',
     confirmDuration: 'Duration',
     confirmDurationVal: '60 minutes · Free',
-    confirmNote: "We'll reach out through the platform when it's call time.",
+    confirmNote: "We'll reach out through the platform when it's class time.",
     confirmBtn: 'Confirm',
     confirming: 'Scheduling…',
     cancelBtn: 'Cancel',
-    confirmedKicker: '↳ Diagnostic call',
+    confirmedKicker: '↳ Discovery class',
     confirmedTitle: "You're all set",
-    confirmedSub: 'Your evaluation call is scheduled for:',
-    confirmedNote: "You'll receive a confirmation email shortly. We'll reach out through the platform at call time.",
+    confirmedSub: 'Your free discovery class is scheduled for:',
+    confirmedNote: "You'll receive a confirmation email shortly. We'll reach out through the platform at class time.",
     backDash: 'Back to dashboard',
     editAnswers: '‹ Edit my answers',
-    alreadyTitle: 'Call already scheduled',
-    alreadySub: 'Your evaluation call is scheduled for:',
+    alreadyTitle: 'Discovery class already scheduled',
+    alreadySub: 'Your free discovery class is scheduled for:',
     placeholder: 'Optional — max 200 characters',
   },
   es: {
     title: 'Placement',
-    flourish: 'primer contacto',
+    flourish: 'clase de descubrimiento',
     subtitle: 'Paso 1 de 3 · 30-60 min · Gratis · Sin presión',
     step: (n: number, t: number) => `Pregunta ${n} de ${t}`,
     multi: 'Selecciona todas las que apliquen',
@@ -185,30 +186,30 @@ const ui = {
     finish: 'Listo',
     skip: 'Omitir',
     transTitle: '¡Perfecto!',
-    transSub: 'Ahora agenda tu llamada de diagnóstico gratuita de 60 minutos.',
-    transBody: '¿No sabes cuál es tu nivel? Lo descubrimos juntos — sin presión, sin juicios.',
-    scheduleBtn: 'Agendar mi llamada',
+    transSub: 'Ahora agenda tu clase de descubrimiento gratuita.',
+    transBody: '¿No sabes cuál es tu nivel? En tu clase de descubrimiento lo averiguamos juntos — sin presión, sin juicios.',
+    scheduleBtn: 'Agendar mi clase de descubrimiento',
     scheduleKicker: '↳ Elige día y hora',
     pickDay: 'Selecciona el día',
     pickTime: 'Elige un horario',
     noSlots: 'Sin horarios disponibles para este día.',
     timezone: 'Horarios en hora de Honduras (CST, UTC-6)',
-    confirmTitle: 'Confirmar tu llamada',
+    confirmTitle: 'Confirmar tu clase de descubrimiento',
     confirmDate: 'Fecha y hora',
     confirmDuration: 'Duración',
     confirmDurationVal: '60 minutos · Gratis',
-    confirmNote: 'Te contactaremos por la plataforma a la hora de la llamada.',
+    confirmNote: 'Te contactaremos por la plataforma a la hora de la clase.',
     confirmBtn: 'Confirmar',
     confirming: 'Agendando…',
     cancelBtn: 'Cancelar',
-    confirmedKicker: '↳ Llamada diagnóstica',
+    confirmedKicker: '↳ Clase de descubrimiento',
     confirmedTitle: 'Todo listo',
-    confirmedSub: 'Tu llamada de diagnóstico está agendada para:',
+    confirmedSub: 'Tu clase de descubrimiento gratuita está agendada para:',
     confirmedNote: 'Recibirás un correo de confirmación en breve. Nos comunicaremos contigo en el horario acordado.',
     backDash: 'Volver al dashboard',
     editAnswers: '‹ Editar mis respuestas',
-    alreadyTitle: 'Llamada ya agendada',
-    alreadySub: 'Tu llamada de diagnóstico está programada para:',
+    alreadyTitle: 'Clase de descubrimiento ya agendada',
+    alreadySub: 'Tu clase de descubrimiento gratuita está programada para:',
     placeholder: 'Opcional — máx. 200 caracteres',
   },
 }
@@ -696,119 +697,71 @@ export default function PlacementClient({
           </div>
         </div>
 
-        {/* Confirm modal */}
-        <AnimatePresence>
-          {showModal && selectedSlot && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+        {/* Confirm modal — shared centered Modal (portaled to body) */}
+        <Modal
+          open={showModal && !!selectedSlot}
+          onClose={() => !isPending && setShowModal(false)}
+          kicker={tx.confirmedKicker}
+          title={tx.confirmTitle}
+          maxWidth={400}
+          footer={
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
                 onClick={() => !isPending && setShowModal(false)}
-                style={{
-                  position: 'fixed',
-                  inset: 0,
-                  background: 'rgba(17,17,17,0.5)',
-                  backdropFilter: 'blur(3px)',
-                  zIndex: 40,
-                }}
-              />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.96, y: 16 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 8 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                style={{
-                  position: 'fixed',
-                  left: '50%',
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  width: '100%',
-                  maxWidth: 400,
-                  background: 'var(--ek-card)',
-                  borderRadius: 16,
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-                  zIndex: 50,
-                  overflow: 'hidden',
-                  fontFamily: 'var(--ek-font-sans)',
-                }}
+                disabled={isPending}
+                className="ek-btn ek-btn-ghost ek-btn-square"
+                style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center' }}
               >
+                {tx.cancelBtn}
+              </button>
+              <button
+                onClick={handleConfirmBooking}
+                disabled={isPending}
+                className="ek-btn ek-btn-red ek-btn-square"
+                style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center', opacity: isPending ? 0.6 : 1 }}
+              >
+                {isPending ? tx.confirming : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {tx.confirmBtn}
+                  </>
+                )}
+              </button>
+            </div>
+          }
+        >
+          {selectedSlot && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                [tx.confirmDate, fmtBookingDate(selectedSlot, lang)],
+                [tx.confirmDuration, tx.confirmDurationVal],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, fontSize: 13 }}>
+                  <span style={{ color: 'var(--ek-text-muted)' }}>{label}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--ek-text)', textAlign: 'right' }}>{value}</span>
+                </div>
+              ))}
+              <p style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                {tx.confirmNote}
+              </p>
+              {error && (
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '18px 24px',
-                    borderBottom: '1px solid var(--ek-border)',
+                    marginTop: 4,
+                    padding: 12,
+                    fontSize: 12,
+                    borderRadius: 'var(--ek-radius-md)',
+                    background: 'var(--ek-red-tint)',
+                    border: '1px solid var(--ek-red-tint-3)',
+                    color: 'var(--ek-red)',
                   }}
                 >
-                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--ek-text)' }}>
-                    {tx.confirmTitle}
-                  </h3>
-                  <button
-                    onClick={() => !isPending && setShowModal(false)}
-                    disabled={isPending}
-                    style={{ background: 'transparent', border: 0, color: 'var(--ek-text-muted)', cursor: 'pointer' }}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  {error}
                 </div>
-                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {[
-                    [tx.confirmDate, fmtBookingDate(selectedSlot, lang)],
-                    [tx.confirmDuration, tx.confirmDurationVal],
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, fontSize: 13 }}>
-                      <span style={{ color: 'var(--ek-text-muted)' }}>{label}</span>
-                      <span style={{ fontWeight: 600, color: 'var(--ek-text)', textAlign: 'right' }}>{value}</span>
-                    </div>
-                  ))}
-                  <p style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 4, lineHeight: 1.5 }}>
-                    {tx.confirmNote}
-                  </p>
-                </div>
-                {error && (
-                  <div
-                    style={{
-                      margin: '0 24px 12px',
-                      padding: 12,
-                      fontSize: 12,
-                      borderRadius: 8,
-                      background: '#FEF2F2',
-                      border: '1px solid #FCA5A5',
-                      color: '#DC2626',
-                    }}
-                  >
-                    {error}
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 12, padding: '0 24px 24px' }}>
-                  <button
-                    onClick={() => !isPending && setShowModal(false)}
-                    disabled={isPending}
-                    className="ek-btn ek-btn-ghost ek-btn-square"
-                    style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center' }}
-                  >
-                    {tx.cancelBtn}
-                  </button>
-                  <button
-                    onClick={handleConfirmBooking}
-                    disabled={isPending}
-                    className="ek-btn ek-btn-red ek-btn-square"
-                    style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center', opacity: isPending ? 0.6 : 1 }}
-                  >
-                    {isPending ? tx.confirming : (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {tx.confirmBtn}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            </>
+              )}
+            </div>
           )}
-        </AnimatePresence>
+        </Modal>
       </div>
     )
   }
@@ -964,7 +917,7 @@ export default function PlacementClient({
               )}
             </motion.div>
           </AnimatePresence>
-          {error && <p style={{ fontSize: 13, color: '#DC2626', marginTop: 14 }}>{error}</p>}
+          {error && <p style={{ fontSize: 13, color: 'var(--ek-red)', marginTop: 14 }}>{error}</p>}
         </div>
       </div>
 

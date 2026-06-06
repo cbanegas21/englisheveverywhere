@@ -2,12 +2,13 @@
 
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createBooking } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
+import Modal from '@/components/dashboard/Modal'
 
 interface Props {
   lang: Locale
@@ -44,7 +45,8 @@ const t = {
     selected: 'Chosen',
     showBusinessHours: 'Show 6 AM – 9 PM',
     showAllHours: 'Show all 24 hours',
-    classesPill: (n: number) => `${n} ${n === 1 ? 'class' : 'classes'} in your balance`,
+    classesPillLabel: (n: number) => `${n === 1 ? 'class' : 'classes'} in balance`,
+    confirmKicker: 'Review',
     confirmTitle: 'Confirm booking',
     confirmSub: 'Review and confirm your class.',
     confirmDate: 'Date',
@@ -54,6 +56,7 @@ const t = {
     confirm: 'Confirm booking',
     cancel: 'Cancel',
     booking: 'Booking…',
+    successKicker: 'Confirmed',
     successTitle: 'Booked!',
     successSub: "We'll assign an available teacher to your class shortly — you'll get a confirmation email.",
     viewClasses: 'View my classes',
@@ -84,7 +87,8 @@ const t = {
     selected: 'Elegida',
     showBusinessHours: 'Mostrar 6 AM – 9 PM',
     showAllHours: 'Mostrar 24 horas',
-    classesPill: (n: number) => `${n} clase${n === 1 ? '' : 's'} en tu saldo`,
+    classesPillLabel: (n: number) => `clase${n === 1 ? '' : 's'} en saldo`,
+    confirmKicker: 'Revisa',
     confirmTitle: 'Confirmar reserva',
     confirmSub: 'Revisa y confirma tu clase.',
     confirmDate: 'Fecha',
@@ -94,6 +98,7 @@ const t = {
     confirm: 'Confirmar reserva',
     cancel: 'Cancelar',
     booking: 'Reservando…',
+    successKicker: 'Confirmada',
     successTitle: '¡Reservada!',
     successSub: 'Asignaremos un maestro disponible a tu clase muy pronto — recibirás un correo de confirmación.',
     viewClasses: 'Ver mis clases',
@@ -250,44 +255,49 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
               borderRadius: 16,
               boxShadow: '0 20px 60px rgba(0,0,0,0.06)',
               overflow: 'hidden',
-              textAlign: 'center',
               fontFamily: 'var(--ek-font-sans)',
             }}
           >
             <div
               style={{
-                padding: '40px 24px',
+                padding: '38px 30px 34px',
                 background: 'var(--ek-ink)',
                 color: 'var(--ek-on-dark)',
               }}
             >
               <div
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: '50%',
-                  margin: '0 auto 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'rgba(255,255,255,0.1)',
+                  gap: 9,
+                  fontFamily: 'var(--ek-font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  fontWeight: 700,
+                  color: 'var(--ek-on-dark-muted)',
+                  marginBottom: 14,
                 }}
               >
-                <CheckCircle2 className="h-8 w-8" />
+                <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--ek-red-light)' }} />
+                {tx.successKicker}
               </div>
               <h2
                 style={{
                   margin: 0,
-                  fontSize: 28,
+                  fontSize: 30,
                   fontWeight: 800,
-                  letterSpacing: '-0.025em',
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1.05,
                 }}
               >
                 {tx.successTitle}
               </h2>
-              <p style={{ marginTop: 6, fontSize: 14, color: 'var(--ek-on-dark-soft)' }}>{tx.successSub}</p>
+              <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.55, color: 'var(--ek-on-dark-soft)' }}>
+                {tx.successSub}
+              </p>
             </div>
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ padding: '24px 30px 26px', display: 'flex', flexDirection: 'column', gap: 0 }}>
               {[
                 [
                   tx.confirmDate,
@@ -299,7 +309,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                 ],
                 [tx.confirmTime, hourLabel(booked.hour)],
                 [tx.confirmDuration, tx.confirmDurationVal],
-              ].map(([label, value]) => (
+              ].map(([label, value], i) => (
                 <div
                   key={label}
                   style={{
@@ -307,14 +317,30 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     fontSize: 13,
+                    padding: '11px 0',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--ek-border-soft)',
                   }}
                 >
-                  <span style={{ color: 'var(--ek-text-muted)' }}>{label}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--ek-text)' }}>{value}</span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      color: 'var(--ek-text-muted)',
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span style={{ fontWeight: 700, color: 'var(--ek-text)', textTransform: 'capitalize' }}>
+                    {value}
+                  </span>
                 </div>
               ))}
-              <p style={{ fontSize: 12, paddingTop: 6, color: 'var(--ek-text-soft)' }}>{tx.prepNext}</p>
-              <div style={{ display: 'flex', gap: 10, paddingTop: 10 }}>
+              <p style={{ fontSize: 12, paddingTop: 14, lineHeight: 1.5, color: 'var(--ek-text-soft)' }}>
+                {tx.prepNext}
+              </p>
+              <div style={{ display: 'flex', gap: 10, paddingTop: 16 }}>
                 <button
                   onClick={() => setBooked(null)}
                   className="ek-btn ek-btn-ghost ek-btn-square"
@@ -339,6 +365,46 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <style>{`
+        .lk-agendar-repeat {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          padding: 10px 12px;
+          border-radius: 6px;
+          border: 1px solid var(--ek-border-soft);
+          background: var(--ek-card);
+          margin-bottom: 8px;
+          cursor: pointer;
+          text-align: left;
+          font-family: var(--ek-font-sans);
+          transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .lk-agendar-repeat:hover {
+          border-color: var(--ek-red);
+          background: var(--ek-red-tint);
+        }
+        .lk-agendar-slot {
+          width: 100%;
+          height: 38px;
+          background: var(--ek-red-tint);
+          color: var(--ek-red);
+          border-radius: 4px;
+          border: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s ease;
+          font-family: var(--ek-font-sans);
+        }
+        .lk-agendar-slot:hover {
+          background: var(--ek-red-tint-2);
+        }
+      `}</style>
       <DashTopBar
         title={
           <span>
@@ -350,17 +416,18 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
           <span
             style={{
               display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 14px',
-              borderRadius: 999,
-              background: 'var(--ek-red-tint)',
-              border: '1px solid var(--ek-red-tint-3)',
+              alignItems: 'baseline',
+              gap: 7,
+              fontFamily: 'var(--ek-font-mono)',
+              fontSize: 12,
+              letterSpacing: '0.03em',
+              color: 'var(--ek-text-muted)',
             }}
           >
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ek-red)' }}>
-              {tx.classesPill(classesRemaining)}
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-red)', fontFeatureSettings: '"tnum"' }}>
+              {classesRemaining}
             </span>
+            {tx.classesPillLabel(classesRemaining)}
           </span>
         }
       />
@@ -438,31 +505,10 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
               lastWeekSuggestions.map((s, i) => (
                 <button
                   key={i}
+                  className="lk-agendar-repeat"
                   onClick={() =>
                     selectSlot({ date: s.nextDate, hour: s.hour, scheduledAt: s.scheduledAt })
                   }
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 6,
-                    border: '1px solid var(--ek-border-soft)',
-                    background: 'var(--ek-card)',
-                    marginBottom: 8,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontFamily: 'var(--ek-font-sans)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--ek-red)'
-                    e.currentTarget.style.background = 'var(--ek-red-tint)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--ek-border-soft)'
-                    e.currentTarget.style.background = 'var(--ek-card)'
-                  }}
                 >
                   <div>
                     <div
@@ -522,29 +568,35 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                 key={i}
                 style={{
                   display: 'flex',
-                  gap: 10,
-                  alignItems: 'flex-start',
-                  marginBottom: 10,
+                  gap: 12,
+                  alignItems: 'stretch',
+                  marginBottom: i === tx.how.length - 1 ? 0 : 14,
                 }}
               >
                 <span
+                  aria-hidden
                   style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    background: 'var(--ek-red-tint-2)',
-                    color: 'var(--ek-red)',
-                    fontSize: 10,
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    width: 3,
+                    alignSelf: 'stretch',
+                    background: 'var(--ek-red)',
                     flexShrink: 0,
                   }}
-                >
-                  {i + 1}
-                </span>
-                <span style={{ fontSize: 12.5, color: 'var(--ek-text-soft)', lineHeight: 1.45 }}>{s}</span>
+                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: 'var(--ek-red)',
+                      fontFeatureSettings: '"tnum"',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span style={{ fontSize: 12.5, color: 'var(--ek-text-soft)', lineHeight: 1.45 }}>{s}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -628,20 +680,19 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
           {/* Hint banner */}
           <div
             style={{
-              background: 'var(--ek-card)',
-              border: '1px solid var(--ek-success-border)',
-              borderRadius: 10,
-              padding: '12px 16px',
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
+              gap: 12,
               marginBottom: 16,
+              paddingLeft: 14,
+              borderLeft: '3px solid var(--ek-red)',
               fontSize: 12.5,
-              color: 'var(--ek-success-text)',
+              lineHeight: 1.5,
+              color: 'var(--ek-text-soft)',
               fontFamily: 'var(--ek-font-sans)',
             }}
           >
-            <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontSize: 18 }}>
+            <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontSize: 20, color: 'var(--ek-red)' }}>
               i
             </span>
             {tx.infoBanner}
@@ -692,7 +743,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                         fontSize: 15,
                         fontWeight: 800,
                         background: isToday ? 'var(--ek-red)' : 'transparent',
-                        color: isToday ? '#fff' : 'var(--ek-text)',
+                        color: isToday ? 'var(--ek-on-dark)' : 'var(--ek-text)',
                         fontFeatureSettings: '"tnum"',
                       }}
                     >
@@ -795,29 +846,8 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                           </button>
                         ) : (
                           <button
+                            className="lk-agendar-slot"
                             onClick={() => selectSlot({ date: cellDate, hour, scheduledAt })}
-                            style={{
-                              width: '100%',
-                              height: 38,
-                              background: 'var(--ek-red-tint)',
-                              color: 'var(--ek-red)',
-                              borderRadius: 4,
-                              border: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 10,
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              transition: 'background 0.15s',
-                              fontFamily: 'var(--ek-font-sans)',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'var(--ek-red-tint-2)'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'var(--ek-red-tint)'
-                            }}
                           >
                             {tx.libre}
                           </button>
@@ -861,185 +891,112 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
       </div>
 
       {/* Confirm booking modal */}
-      <AnimatePresence>
-        {selected && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => !isPending && setSelected(null)}
+      <Modal
+        open={!!selected}
+        onClose={() => { if (!isPending) setSelected(null) }}
+        kicker={tx.confirmKicker}
+        title={tx.confirmTitle}
+        maxWidth={440}
+        footer={
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => { if (!isPending) setSelected(null) }}
+              disabled={isPending}
+              className="ek-btn ek-btn-ghost ek-btn-square"
+              style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center' }}
+            >
+              {tx.cancel}
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={isPending}
+              className="ek-btn ek-btn-red ek-btn-square"
               style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(17,17,17,0.5)',
-                backdropFilter: 'blur(4px)',
-                zIndex: 40,
-              }}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 8 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              style={{
-                position: 'fixed',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 'calc(100% - 2rem)',
-                maxWidth: 440,
-                background: 'var(--ek-card)',
-                borderRadius: 16,
-                boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-                zIndex: 50,
-                overflow: 'hidden',
-                fontFamily: 'var(--ek-font-sans)',
+                flex: 1,
+                padding: '12px 0',
+                fontSize: 13,
+                justifyContent: 'center',
+                opacity: isPending ? 0.6 : 1,
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '20px 24px',
-                  borderBottom: '1px solid var(--ek-border)',
-                }}
-              >
-                <div>
-                  <h3
+              {isPending ? tx.booking : tx.confirm}
+            </button>
+          </div>
+        }
+      >
+        {selected && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: 'var(--ek-text-soft)' }}>
+              {tx.confirmSub}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {[
+                [
+                  tx.confirmDate,
+                  selected.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                  }),
+                ],
+                [tx.confirmTime, hourLabel(selected.hour)],
+                [tx.confirmDuration, tx.confirmDurationVal],
+              ].map(([label, value], i) => (
+                <div
+                  key={label}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: 13,
+                    padding: '11px 0',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--ek-border-soft)',
+                  }}
+                >
+                  <span
                     style={{
-                      margin: 0,
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: 'var(--ek-text)',
-                      letterSpacing: '-0.015em',
-                    }}
-                  >
-                    {tx.confirmTitle}
-                  </h3>
-                  <p
-                    style={{
-                      margin: '4px 0 0',
-                      fontSize: 12,
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
                       color: 'var(--ek-text-muted)',
                     }}
                   >
-                    {tx.confirmSub}
-                  </p>
+                    {label}
+                  </span>
+                  <span style={{ fontWeight: 700, color: 'var(--ek-text)', textTransform: 'capitalize' }}>
+                    {value}
+                  </span>
                 </div>
-                <button
-                  onClick={() => !isPending && setSelected(null)}
-                  disabled={isPending}
-                  style={{
-                    background: 'transparent',
-                    border: 0,
-                    color: 'var(--ek-text-muted)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
+              ))}
+            </div>
+            <div
+              style={{
+                paddingLeft: 14,
+                borderLeft: '3px solid var(--ek-success-border)',
+                fontSize: 12,
+                lineHeight: 1.55,
+                color: 'var(--ek-success-text)',
+              }}
+            >
+              {tx.infoBanner}
+            </div>
+            {error && (
+              <div
+                style={{
+                  paddingLeft: 14,
+                  borderLeft: '3px solid var(--ek-red)',
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  color: 'var(--ek-red)',
+                }}
+              >
+                {error}
               </div>
-
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[
-                  [
-                    tx.confirmDate,
-                    selected.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric',
-                    }),
-                  ],
-                  [tx.confirmTime, hourLabel(selected.hour)],
-                  [tx.confirmDuration, tx.confirmDurationVal],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: 13,
-                    }}
-                  >
-                    <span style={{ color: 'var(--ek-text-muted)' }}>{label}</span>
-                    <span
-                      style={{
-                        fontWeight: 600,
-                        color: 'var(--ek-text)',
-                        textTransform: 'capitalize',
-                      }}
-                    >
-                      {value}
-                    </span>
-                  </div>
-                ))}
-                <div
-                  style={{
-                    background: 'var(--ek-success-bg)',
-                    border: '1px solid var(--ek-success-border)',
-                    color: 'var(--ek-success-text)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {tx.infoBanner}
-                </div>
-              </div>
-
-              {error && (
-                <div
-                  style={{
-                    margin: '0 24px 12px',
-                    padding: 12,
-                    fontSize: 12,
-                    borderRadius: 8,
-                    background: '#FEF2F2',
-                    border: '1px solid #FCA5A5',
-                    color: '#DC2626',
-                  }}
-                >
-                  {error}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 10, padding: '0 24px 24px' }}>
-                <button
-                  onClick={() => !isPending && setSelected(null)}
-                  disabled={isPending}
-                  className="ek-btn ek-btn-ghost ek-btn-square"
-                  style={{
-                    flex: 1,
-                    padding: '12px 0',
-                    fontSize: 13,
-                    justifyContent: 'center',
-                  }}
-                >
-                  {tx.cancel}
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={isPending}
-                  className="ek-btn ek-btn-red ek-btn-square"
-                  style={{
-                    flex: 1,
-                    padding: '12px 0',
-                    fontSize: 13,
-                    justifyContent: 'center',
-                    opacity: isPending ? 0.6 : 1,
-                  }}
-                >
-                  {isPending ? tx.booking : tx.confirm}
-                </button>
-              </div>
-            </motion.div>
-          </>
+            )}
+          </div>
         )}
-      </AnimatePresence>
+      </Modal>
     </div>
   )
 }

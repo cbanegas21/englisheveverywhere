@@ -6,8 +6,8 @@ import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
-import { KickerStat } from '@/components/ui/KickerStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { StatLedger } from '@/components/ui/StatLedger'
 
 const t = {
   en: {
@@ -322,18 +322,18 @@ export default function StudentDashboardClient({
             <span
               style={{
                 display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
-                borderRadius: 999,
-                background: 'var(--ek-red-tint)',
-                border: '1px solid var(--ek-red-tint-3)',
+                alignItems: 'baseline',
+                gap: 7,
+                fontFamily: 'var(--ek-font-mono)',
+                fontSize: 12,
+                letterSpacing: '0.03em',
+                color: 'var(--ek-text-muted)',
               }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>
-                {tx.classesAvailable(classesRemaining)}
+              <span style={{ fontSize: 15, fontWeight: 700, color: accent, fontFeatureSettings: '"tnum"' }}>
+                {classesRemaining}
               </span>
+              {lang === 'es' ? 'clases disponibles' : 'classes available'}
             </span>
             <Link
               href={`/${lang}/dashboard/agendar`}
@@ -346,7 +346,7 @@ export default function StudentDashboardClient({
         }
       />
 
-      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ padding: '24px clamp(16px, 4vw, 36px)', maxWidth: 1280, margin: '0 auto' }}>
         {/* Banners — all conditional, preserve every existing state */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
           {!placementTestDone && !placementScheduled && (
@@ -648,34 +648,20 @@ export default function StudentDashboardClient({
           </div>
         )}
 
-        {/* Stats */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 16,
-            marginBottom: 28,
-          }}
-        >
-          <KickerStat
-            kicker={tx.stats.available}
-            value={classesRemaining}
-            sub={tx.stats.availableSub}
-          />
-          <KickerStat
-            kicker={tx.stats.scheduled}
-            value={scheduledClasses}
-            sub={tx.stats.scheduledSub}
-          />
-          <KickerStat
-            kicker={tx.stats.completed}
-            value={completedSessions}
-            sub={tx.stats.completedSub}
-          />
-          <KickerStat
-            kicker={tx.stats.totalTime}
-            value={`${completedSessions}h`}
-            sub={tx.stats.totalTimeSub}
+        {/* Stats — editorial ledger: big numbers + hairline rules, no boxes.
+            Each stat is a doorway to its section (the one useful idea from the
+            21st inspiration; the rest discarded as generic 'AI card' styling). */}
+        <div style={{ marginBottom: 28 }}>
+          <div className="ek-microlabel" style={{ color: 'var(--ek-red)', marginBottom: 12 }}>
+            {lang === 'es' ? 'De un vistazo' : 'At a glance'}
+          </div>
+          <StatLedger
+            items={[
+              { kicker: tx.stats.available, value: classesRemaining, sub: tx.stats.availableSub, href: `/${lang}/dashboard/plan`, accent: true },
+              { kicker: tx.stats.scheduled, value: scheduledClasses, sub: tx.stats.scheduledSub, href: `/${lang}/dashboard/clases` },
+              { kicker: tx.stats.completed, value: completedSessions, sub: tx.stats.completedSub, href: `/${lang}/dashboard/progreso` },
+              { kicker: tx.stats.totalTime, value: `${completedSessions}h`, sub: tx.stats.totalTimeSub, href: `/${lang}/dashboard/progreso` },
+            ]}
           />
         </div>
 
@@ -914,7 +900,6 @@ export default function StudentDashboardClient({
             </div>
             <QuickAction
               href={`/${lang}/dashboard/agendar`}
-              glyph="+"
               title={tx.actions.book.title}
               sub={tx.actions.book.sub}
               accent={accent}
@@ -922,7 +907,6 @@ export default function StudentDashboardClient({
             {!placementTestDone && (
               <QuickAction
                 href={`/${lang}/dashboard/placement`}
-                glyph="○"
                 title={placementScheduled ? tx.actions.testScheduled.title : tx.actions.test.title}
                 sub={placementScheduled ? tx.actions.testScheduled.sub : tx.actions.test.sub}
                 accent={accent}
@@ -930,7 +914,6 @@ export default function StudentDashboardClient({
             )}
             <QuickAction
               href={`/${lang}/dashboard/progreso`}
-              glyph="↗"
               title={tx.actions.progress.title}
               sub={tx.actions.progress.sub}
               accent={accent}
@@ -1004,23 +987,16 @@ function BannerCard({
       }}
     >
       <div
+        aria-hidden
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 8,
-          background: palette.dotBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          width: 3,
+          alignSelf: 'stretch',
+          minHeight: 34,
+          borderRadius: 2,
+          background: palette.dotColor,
           flexShrink: 0,
-          fontFamily: 'var(--ek-font-mono)',
-          fontSize: 18,
-          fontWeight: 700,
-          color: palette.dotColor,
         }}
-      >
-        ●
-      </div>
+      />
       <div style={{ flex: 1, minWidth: 200 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>{title}</div>
         {sub && (
@@ -1054,13 +1030,11 @@ function BannerCard({
 
 function QuickAction({
   href,
-  glyph,
   title,
   sub,
   accent,
 }: {
   href: string
-  glyph: string
   title: string
   sub: string
   accent: string
@@ -1081,23 +1055,17 @@ function QuickAction({
       }}
     >
       <div
+        aria-hidden
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: 8,
-          background: 'var(--ek-red-tint-2)',
-          color: accent,
-          fontSize: 17,
-          fontWeight: 700,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: 'var(--ek-font-mono)',
+          width: 3,
+          alignSelf: 'stretch',
+          minHeight: 30,
+          borderRadius: 2,
+          background: accent,
+          opacity: 0.85,
           flexShrink: 0,
         }}
-      >
-        {glyph}
-      </div>
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>{title}</div>
         <div style={{ fontSize: 11.5, color: 'var(--ek-text-muted)', marginTop: 2 }}>{sub}</div>

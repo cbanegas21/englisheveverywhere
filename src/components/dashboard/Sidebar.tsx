@@ -153,12 +153,13 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
                     display: 'flex',
                     alignItems: 'center',
                     gap: 11,
-                    padding: '9px 12px',
+                    padding: '9px 13px',
                     borderRadius: 6,
                     fontSize: 13,
-                    fontWeight: 500,
+                    fontWeight: active ? 700 : 500,
                     color: active ? 'var(--ek-red)' : dim,
-                    background: active ? 'rgba(196,30,58,0.10)' : 'transparent',
+                    background: active ? 'rgba(196,30,58,0.12)' : 'transparent',
+                    boxShadow: active ? 'inset 3px 0 0 var(--ek-red)' : 'none',
                     textDecoration: 'none',
                   }}
                   onMouseEnter={(e) => {
@@ -168,18 +169,6 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
                     if (!active) (e.currentTarget as HTMLAnchorElement).style.color = dim
                   }}
                 >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: 16,
-                      textAlign: 'center',
-                      fontSize: 13,
-                      opacity: active ? 1 : 0.7,
-                      fontFamily: 'var(--ek-font-mono)',
-                    }}
-                  >
-                    {item.glyph}
-                  </span>
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {item.badge && (
                     <span
@@ -223,12 +212,6 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
               onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = text)}
               onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = dim)}
             >
-              <span
-                aria-hidden="true"
-                style={{ width: 16, textAlign: 'center', fontSize: 13, fontFamily: 'var(--ek-font-mono)' }}
-              >
-                ↗
-              </span>
               {lang === 'es' ? 'Enseñar en la plataforma' : 'Become a teacher'}
             </Link>
           </>
@@ -311,7 +294,11 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             e.currentTarget.style.color = dimSoft
           }}
         >
-          <span style={{ fontSize: 13 }}>{other === 'en' ? '🇺🇸' : '🇪🇸'}</span>
+          <span
+            className={`fi fi-${other === 'en' ? 'us' : 'es'}`}
+            aria-hidden
+            style={{ fontSize: 13, borderRadius: 2, lineHeight: 1, boxShadow: '0 0 0 1px rgba(255,255,255,0.12)' }}
+          />
           <span>{other === 'en' ? 'Switch to English' : 'Cambiar a Español'}</span>
         </button>
 

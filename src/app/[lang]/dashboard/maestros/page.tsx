@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
+import { StatLedger } from '@/components/ui/StatLedger'
 
 interface Props {
   params: Promise<{ lang: string }>
@@ -165,30 +166,26 @@ function EmptyStateCard({
         <div
           style={{
             display: 'inline-flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            marginTop: 20,
-            padding: '10px 18px',
-            background: 'var(--ek-red-tint)',
-            border: '1px solid var(--ek-red-tint-3)',
-            borderRadius: 8,
+            gap: 14,
+            marginTop: 22,
+            textAlign: 'left',
           }}
         >
+          {/* thin red hairline left-rule — quiet editorial accent, no tinted box */}
           <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: 'var(--ek-red)',
-              fontFamily: 'var(--ek-font-mono)',
-            }}
-          >
-            {detail.label}
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)' }}>
-            {detail.value}
+            aria-hidden="true"
+            style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', flexShrink: 0 }}
+          />
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span
+              className="ek-microlabel"
+              style={{ color: 'var(--ek-red)' }}
+            >
+              {detail.label}
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-text)' }}>
+              {detail.value}
+            </span>
           </span>
         </div>
       )}
@@ -454,11 +451,13 @@ export default async function MiMaestroPage({ params }: Props) {
                         <span
                           key={s}
                           style={{
+                            fontFamily: 'var(--ek-font-mono)',
                             fontSize: 11,
-                            fontWeight: 600,
-                            padding: '6px 12px',
-                            borderRadius: 999,
-                            background: 'rgba(244,239,230,0.12)',
+                            fontWeight: 500,
+                            letterSpacing: '0.04em',
+                            padding: '5px 10px',
+                            borderRadius: 'var(--ek-radius-xs)',
+                            background: 'var(--ek-on-dark-faint)',
                             color: 'var(--ek-on-dark)',
                             border: '1px solid rgba(244,239,230,0.18)',
                           }}
@@ -471,75 +470,42 @@ export default async function MiMaestroPage({ params }: Props) {
                 )}
               </DarkHeroCard>
 
-              {/* Right: level + backup coverage */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Right: level (editorial ledger) + backup coverage (hairline rule) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24, justifyContent: 'flex-start' }}>
                 {level && (
-                  <div
-                    style={{
-                      background: 'var(--ek-card)',
-                      border: '1px solid var(--ek-border)',
-                      borderRadius: 14,
-                      padding: '22px 24px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        letterSpacing: '0.18em',
-                        textTransform: 'uppercase',
-                        color: 'var(--ek-text-muted)',
-                        marginBottom: 10,
-                      }}
-                    >
-                      {tx.levelKicker}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 48,
-                        fontWeight: 800,
-                        color: 'var(--ek-text)',
-                        letterSpacing: '-0.03em',
-                        lineHeight: 1,
-                        fontFeatureSettings: '"tnum"',
-                      }}
-                    >
-                      {level}
-                    </div>
-                  </div>
+                  <StatLedger
+                    items={[
+                      {
+                        kicker: tx.levelKicker,
+                        value: level,
+                        href: `/${lang}/dashboard/progreso`,
+                        accent: true,
+                      },
+                    ]}
+                  />
                 )}
 
-                <div
-                  style={{
-                    background: 'var(--ek-card)',
-                    border: '1px solid var(--ek-border)',
-                    borderRadius: 14,
-                    padding: '22px 24px',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: '0.18em',
-                      textTransform: 'uppercase',
-                      color: 'var(--ek-red)',
-                      marginBottom: 10,
-                      fontFamily: 'var(--ek-font-mono)',
-                    }}
-                  >
-                    {tx.backupKicker}
+                {/* Backup coverage — quiet 3px red hairline left-rule, no box */}
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <span
+                    aria-hidden="true"
+                    style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', flexShrink: 0 }}
+                  />
+                  <div>
+                    <div className="ek-microlabel" style={{ color: 'var(--ek-red)', marginBottom: 10 }}>
+                      {tx.backupKicker}
+                    </div>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 13.5,
+                        color: 'var(--ek-text-soft)',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {tx.backupBody}
+                    </p>
                   </div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13.5,
-                      color: 'var(--ek-text-soft)',
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {tx.backupBody}
-                  </p>
                 </div>
               </div>
             </div>

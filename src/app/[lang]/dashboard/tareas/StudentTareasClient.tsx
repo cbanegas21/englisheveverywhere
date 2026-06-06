@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { submitAssignment } from '@/app/actions/assignments'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
-import { KickerStat } from '@/components/ui/KickerStat'
+import { StatLedger } from '@/components/ui/StatLedger'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
 const t = {
@@ -165,26 +165,22 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
           pending.length > 0 && (
             <span
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
-                borderRadius: 999,
-                background: 'var(--ek-red-tint)',
-                border: '1px solid var(--ek-red-tint-3)',
+                fontFamily: 'var(--ek-font-mono)',
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: accent,
               }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>
-                {tx.pendingBadge(pending.length)}
-              </span>
+              {tx.pendingBadge(pending.length)}
             </span>
           )
         }
       />
 
       <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
-        {/* Philosophy quote card */}
+        {/* Philosophy quote — editorial: quiet 3px red hairline left-rule, no icon chip */}
         <div
           style={{
             background: 'var(--ek-card)',
@@ -193,27 +189,34 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
             padding: '24px 28px',
             marginBottom: 24,
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'stretch',
             gap: 20,
             flexWrap: 'wrap',
           }}
         >
           <div
             style={{
-              fontFamily: 'var(--ek-font-mono)',
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: accent,
+              alignSelf: 'stretch',
+              width: 3,
               flexShrink: 0,
-              marginTop: 8,
-              minWidth: 180,
+              borderRadius: 2,
+              background: accent,
             }}
-          >
-            {tx.philosophyKicker}
-          </div>
+          />
           <div style={{ flex: 1, minWidth: 240 }}>
+            <div
+              style={{
+                fontFamily: 'var(--ek-font-mono)',
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: accent,
+                marginBottom: 12,
+              }}
+            >
+              {tx.philosophyKicker}
+            </div>
             <p
               style={{
                 margin: 0,
@@ -234,25 +237,27 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
           </div>
         </div>
 
-        {/* Stats */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 16,
-            marginBottom: 28,
-          }}
-        >
-          <KickerStat kicker={tx.stats.pending} value={pending.length} sub={tx.stats.pendingSub} />
-          <KickerStat
-            kicker={tx.stats.completed}
-            value={completed.filter((a) => a.submission).length}
-            sub={tx.stats.completedSub}
-          />
-          <KickerStat
-            kicker={tx.stats.avgResponse}
-            value={avgDays ? `${avgDays}d` : '—'}
-            sub={tx.stats.avgResponseSub}
+        {/* Stats — editorial ledger: big numbers + hairline rules, no boxes. */}
+        <div style={{ marginBottom: 28 }}>
+          <StatLedger
+            items={[
+              {
+                kicker: tx.stats.pending,
+                value: pending.length,
+                sub: tx.stats.pendingSub,
+                accent: true,
+              },
+              {
+                kicker: tx.stats.completed,
+                value: completed.filter((a) => a.submission).length,
+                sub: tx.stats.completedSub,
+              },
+              {
+                kicker: tx.stats.avgResponse,
+                value: avgDays ? `${avgDays}d` : '—',
+                sub: tx.stats.avgResponseSub,
+              },
+            ]}
           />
         </div>
 
@@ -637,7 +642,7 @@ function DetailPanel({
                       fontFamily: 'var(--ek-font-sans)',
                     }}
                   />
-                  {error && <p style={{ marginTop: 8, fontSize: 12, color: '#DC2626' }}>{error}</p>}
+                  {error && <p style={{ marginTop: 8, fontSize: 12, color: 'var(--ek-red)' }}>{error}</p>}
                   <button
                     onClick={handleSubmit}
                     disabled={isPending}

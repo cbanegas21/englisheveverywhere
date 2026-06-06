@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Phone, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { PRICING_MAP, type PricingPlanKey } from '@/lib/pricing'
 import { DashTopBar } from '@/components/ui/DashTopBar'
-import { KickerStat } from '@/components/ui/KickerStat'
+import { StatLedger } from '@/components/ui/StatLedger'
 
 const CEFR_LEVELS = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
 type CefrLevel = (typeof CEFR_LEVELS)[number]
@@ -79,9 +79,9 @@ const t = {
     placementNotScheduled: 'Schedule your free diagnostic call',
     placementNotScheduledSub: "We'll assess your level and build your personalized learning plan.",
     placementNotScheduledCta: 'Schedule call',
-    placementScheduledTitle: '✓ Your diagnostic call is scheduled',
+    placementScheduledTitle: 'Your diagnostic call is scheduled',
     placementScheduledSub: (date: string, time: string) => `Booked for ${date} at ${time}.`,
-    placementDoneTitle: '✓ Diagnostic completed',
+    placementDoneTitle: 'Diagnostic completed',
     placementDoneSub: (level: string) => `Your level was assessed as ${level}.`,
     planTitle: 'Current plan',
     planNone: 'No active plan',
@@ -124,9 +124,9 @@ const t = {
     placementNotScheduled: 'Agenda tu llamada diagnóstica gratuita',
     placementNotScheduledSub: 'Evaluaremos tu nivel y crearemos tu plan de aprendizaje personalizado.',
     placementNotScheduledCta: 'Agendar llamada',
-    placementScheduledTitle: '✓ Tu llamada diagnóstica está agendada',
+    placementScheduledTitle: 'Tu llamada diagnóstica está agendada',
     placementScheduledSub: (date: string, time: string) => `Agendada para el ${date} a las ${time}.`,
-    placementDoneTitle: '✓ Diagnóstico completado',
+    placementDoneTitle: 'Diagnóstico completado',
     placementDoneSub: (level: string) => `Tu nivel fue evaluado como ${level}.`,
     planTitle: 'Plan actual',
     planNone: 'Sin plan activo',
@@ -268,6 +268,17 @@ export default function ProgresoClient({
                   fontFamily: 'var(--ek-font-sans)',
                 }}
               >
+                <div
+                  aria-hidden
+                  style={{
+                    width: 3,
+                    alignSelf: 'stretch',
+                    minHeight: 34,
+                    borderRadius: 2,
+                    background: 'var(--ek-success-text)',
+                    flexShrink: 0,
+                  }}
+                />
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>
                     {tx.placementScheduledTitle}
@@ -295,19 +306,16 @@ export default function ProgresoClient({
               }}
             >
               <div
+                aria-hidden
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 8,
-                  background: 'var(--ek-red-tint)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  width: 3,
+                  alignSelf: 'stretch',
+                  minHeight: 34,
+                  borderRadius: 2,
+                  background: accent,
                   flexShrink: 0,
                 }}
-              >
-                <Phone className="h-5 w-5" style={{ color: accent }} />
-              </div>
+              />
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>
                   {tx.placementNotScheduled}
@@ -450,19 +458,18 @@ export default function ProgresoClient({
           </div>
         </div>
 
-        {/* Stats row */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          <KickerStat kicker={tx.stats.completed} value={completedTotal} sub={tx.stats.completedSub} />
-          <KickerStat kicker={tx.stats.hours} value={`${completedTotal}h`} sub={tx.stats.hoursSub} />
-          <KickerStat kicker={tx.stats.remaining} value={classesRemaining} sub={tx.stats.remainingSub} />
-          <KickerStat kicker={tx.stats.upcoming} value={upcomingClasses} sub={tx.stats.upcomingSub} />
+        {/* Stats — editorial ledger: box-less, big numbers + hairline rules.
+            The actionable "Available" stat gets the red accent + a doorway to
+            the plan; the others link to where the count lives. */}
+        <div style={{ marginBottom: 24 }}>
+          <StatLedger
+            items={[
+              { kicker: tx.stats.completed, value: completedTotal, sub: tx.stats.completedSub },
+              { kicker: tx.stats.hours, value: `${completedTotal}h`, sub: tx.stats.hoursSub },
+              { kicker: tx.stats.remaining, value: classesRemaining, sub: tx.stats.remainingSub, href: `/${lang}/dashboard/plan`, accent: true },
+              { kicker: tx.stats.upcoming, value: upcomingClasses, sub: tx.stats.upcomingSub, href: `/${lang}/dashboard/clases` },
+            ]}
+          />
         </div>
 
         {/* 2-column: timeline + plan/profile */}
@@ -793,10 +800,12 @@ export default function ProgresoClient({
                           <span
                             key={g}
                             style={{
+                              fontFamily: 'var(--ek-font-mono)',
                               fontSize: 11,
-                              fontWeight: 600,
-                              padding: '5px 10px',
-                              borderRadius: 999,
+                              fontWeight: 500,
+                              letterSpacing: '0.04em',
+                              padding: '5px 9px',
+                              borderRadius: 4,
                               background: 'var(--ek-red-tint-2)',
                               color: accent,
                               border: '1px solid var(--ek-red-tint-3)',

@@ -46,7 +46,7 @@ export default async function DashboardLayout({ children, params }: Props) {
   const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student'
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--ek-paper)' }}>
+    <div className="flex flex-col md:flex-row min-h-screen" style={{ background: 'var(--ek-paper)' }}>
       <Sidebar
         lang={lang as Locale}
         role="student"

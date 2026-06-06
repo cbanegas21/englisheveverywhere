@@ -40,25 +40,25 @@ export function DashTopBar({ title, sub, right }: DashTopBarProps) {
   return (
     <div
       style={{
-        padding: '22px 36px',
+        padding: '18px clamp(16px, 4vw, 36px)',
         background: 'var(--ek-card)',
         borderBottom: '1px solid var(--ek-border)',
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'space-between',
-        gap: 24,
+        gap: 16,
+        flexWrap: 'wrap',
       }}
     >
       <div style={{ minWidth: 0, flex: '0 1 auto' }}>
         <h1
           style={{
             margin: 0,
-            fontSize: 24,
+            fontSize: 'clamp(20px, 5vw, 24px)',
             fontWeight: 900,
             letterSpacing: '-0.025em',
             color: 'var(--ek-text)',
-            lineHeight: 1.1,
-            whiteSpace: 'nowrap',
+            lineHeight: 1.15,
             fontFamily: 'var(--ek-font-sans)',
           }}
         >

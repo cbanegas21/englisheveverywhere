@@ -3,10 +3,11 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import {
-  CheckCircle2, AlertCircle, Calendar, Clock, Download, Headphones, Mic,
-  Wifi, Lightbulb, ChevronDown, Sparkles,
+  Calendar, Clock, Download, ChevronDown,
 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
+import { DashTopBar } from '@/components/ui/DashTopBar'
+import { StatLedger } from '@/components/ui/StatLedger'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import NotificationPreferences from '@/components/NotificationPreferences'
 
@@ -212,10 +213,14 @@ function Countdown({ scheduledAt, lang }: { scheduledAt: string; lang: Locale })
   const endedMs = targetMs + 90 * 60 * 1000
 
   if (now >= endedMs) {
-    return <span className="text-white/90">{tx.ended}</span>
+    return <span style={{ color: 'rgba(255,255,255,0.9)' }}>{tx.ended}</span>
   }
   if (now >= targetMs) {
-    return <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white animate-pulse" />{tx.inProgress}</span>
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span className="lk-ps-livedot" />{tx.inProgress}
+      </span>
+    )
   }
 
   const mins = Math.floor(diff / 60000)
@@ -249,46 +254,99 @@ export default function PlacementScheduledScreen({
   const time = scheduledAt ? formatTime(scheduledAt, timezone) : null
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
+  // ── Scoped styles — replaces inline onMouseEnter/onMouseLeave handlers
+  //    (those mix shorthand/non-shorthand style props and trigger a React
+  //    console error). Unique .lk-ps-* prefix so nothing leaks. ──────────
+  const styles = `
+    .lk-ps-livedot {
+      height: 8px; width: 8px; border-radius: 999px;
+      background: #fff; display: inline-block;
+      animation: lk-ps-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes lk-ps-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+
+    .lk-ps-btn-red {
+      background: var(--ek-red); color: #fff;
+      transition: background 0.18s ease;
+    }
+    .lk-ps-btn-red:hover { background: var(--ek-red-hover); }
+
+    .lk-ps-btn-ghost {
+      background: var(--ek-paper-warm); color: var(--ek-text-soft);
+      border: 1px solid var(--ek-border);
+      transition: background 0.18s ease, border-color 0.18s ease;
+    }
+    .lk-ps-btn-ghost:hover { background: var(--ek-paper-deep); border-color: var(--ek-border-mid); }
+
+    .lk-ps-btn-ink {
+      background: var(--ek-ink); color: #fff;
+      transition: background 0.18s ease;
+    }
+    .lk-ps-btn-ink:hover { background: #000; }
+
+    .lk-ps-faq-trigger {
+      transition: background 0.18s ease;
+    }
+    .lk-ps-faq-trigger:hover { background: var(--ek-red-tint); }
+
+    .lk-ps-backlink {
+      color: var(--ek-text-muted);
+      transition: color 0.18s ease;
+    }
+    .lk-ps-backlink:hover { color: var(--ek-text); }
+
+    .lk-ps-prep { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+    .lk-ps-prep li {
+      padding-left: 14px;
+      border-left: 3px solid var(--ek-red);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--ek-text-soft);
+    }
+  `
+
   // ── Past state ─────────────────────────────────────────────────
   if (isPast) {
     return (
-      <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-        <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-          <div className="max-w-[1200px] mx-auto">
-            <h1 className="text-[22px] font-black tracking-tight" style={{ color: '#111111' }}>{tx.title}</h1>
-            <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-          </div>
-        </div>
+      <div className="min-h-full" style={{ background: 'var(--ek-paper)', fontFamily: 'var(--ek-font-sans)' }}>
+        <style>{styles}</style>
+        <DashTopBar title={tx.title} sub={tx.subtitle} />
 
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-10">
           <div className="max-w-[600px] mx-auto">
-            <div className="rounded-3xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB', boxShadow: '0 20px 60px rgba(0,0,0,0.06)' }}>
-              <div className="py-10 px-6 text-center" style={{ background: 'linear-gradient(135deg, #D97706, #B45309)' }}>
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(255,255,255,0.2)' }}>
-                  <AlertCircle className="h-8 w-8 text-white" />
+            <div
+              className="overflow-hidden"
+              style={{
+                background: 'var(--ek-card)',
+                border: '1px solid var(--ek-border)',
+                borderRadius: 'var(--ek-radius-lg)',
+              }}
+            >
+              {/* Ink header band — calm editorial, no glyph-in-circle chip */}
+              <div className="px-8 py-10" style={{ background: 'var(--ek-ink)' }}>
+                <div className="ek-microlabel" style={{ color: 'var(--ek-red-light)', marginBottom: 12 }}>
+                  {tx.ended}
                 </div>
-                <h2 className="text-[22px] font-black text-white">{tx.pastTitle}</h2>
+                <h2 className="text-[24px] font-black leading-tight" style={{ color: '#fff', letterSpacing: '-0.02em' }}>
+                  {tx.pastTitle}
+                </h2>
               </div>
               <div className="p-8 space-y-5">
-                <p className="text-[14px] leading-relaxed text-center" style={{ color: '#374151' }}>
+                <p className="text-[14px] leading-relaxed" style={{ color: 'var(--ek-text-soft)' }}>
                   {date && time && tx.pastBody(date, time)}
                 </p>
                 <div className="flex flex-col gap-2.5">
                   <Link
                     href={`/${lang}/dashboard/placement?reschedule=1`}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-bold text-[13px] transition-all"
-                    style={{ background: '#C41E3A', color: '#fff' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                    className="lk-ps-btn-red flex items-center justify-center gap-2 w-full py-3 font-bold text-[13px]"
+                    style={{ borderRadius: 'var(--ek-radius-md)' }}
                   >
                     {tx.rescheduleBtn}
                   </Link>
                   <Link
                     href={`/${lang}/dashboard`}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-lg font-medium text-[13px] transition-all"
-                    style={{ background: '#F3F4F6', color: '#374151' }}
-                    onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#E5E7EB')}
-                    onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#F3F4F6')}
+                    className="lk-ps-btn-ghost flex items-center justify-center gap-2 w-full py-3 font-medium text-[13px]"
+                    style={{ borderRadius: 'var(--ek-radius-md)' }}
                   >
                     {tx.backDashBtn}
                   </Link>
@@ -303,65 +361,64 @@ export default function PlacementScheduledScreen({
 
   // ── Scheduled state ─────────────────────────────────────────────
   return (
-    <div className="min-h-full" style={{ background: '#F9F9F9' }}>
-      <div className="px-8 py-6" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <div className="max-w-[1200px] mx-auto">
-          <h1 className="text-[22px] font-black tracking-tight" style={{ color: '#111111' }}>{tx.title}</h1>
-          <p className="text-[13px] mt-1" style={{ color: '#9CA3AF' }}>{tx.subtitle}</p>
-        </div>
-      </div>
+    <div className="min-h-full" style={{ background: 'var(--ek-paper)', fontFamily: 'var(--ek-font-sans)' }}>
+      <style>{styles}</style>
+      <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-6 lg:py-8 space-y-6">
 
-        {/* Hero card */}
-        <div className="rounded-3xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB', boxShadow: '0 20px 60px rgba(0,0,0,0.06)' }}>
-          <div className="relative overflow-hidden px-8 py-10 lg:px-10 lg:py-12" style={{ background: 'linear-gradient(135deg, #C41E3A, #8B1529)' }}>
+        {/* Hero card — ink surface, editorial typography */}
+        <div
+          className="overflow-hidden"
+          style={{
+            background: 'var(--ek-card)',
+            border: '1px solid var(--ek-border)',
+            borderRadius: 'var(--ek-radius-lg)',
+          }}
+        >
+          <div className="relative overflow-hidden px-8 py-10 lg:px-10 lg:py-12" style={{ background: 'var(--ek-ink)' }}>
             {/* Decoration */}
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
-            <div className="absolute -right-10 bottom-10 h-32 w-32 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full" style={{ background: 'rgba(196,30,58,0.10)' }} />
+            <div className="absolute -right-10 bottom-10 h-32 w-32 rounded-full" style={{ background: 'rgba(255,255,255,0.03)' }} />
 
             <div className="relative grid md:grid-cols-[1fr_auto] gap-6 items-end">
               <div>
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-                    <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-white">{tx.scheduledBadge}</span>
-                  </div>
-                  <div
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full"
-                    style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}
-                  >
-                    {conductorName ? (
-                      <>
-                        <span
-                          className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black"
-                          style={{ background: '#fff', color: '#8B1529' }}
-                        >
-                          {conductorName.trim().charAt(0).toUpperCase() || '?'}
-                        </span>
-                        <span className="text-[11px] font-bold text-white">
-                          <span className="opacity-70">{tx.withLabel}</span> {conductorName}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-[11px] font-bold uppercase tracking-widest text-white/80">
-                        {tx.conductorPending}
-                      </span>
-                    )}
-                  </div>
+                {/* Status + host — squared mono micro-tags, no pill/dot */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-5">
+                  <span className="ek-microlabel" style={{ color: 'var(--ek-red-light)' }}>
+                    {tx.scheduledBadge}
+                  </span>
+                  {conductorName ? (
+                    <span className="ek-microlabel" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      <span style={{ color: 'rgba(255,255,255,0.5)' }}>{tx.withLabel}</span>{' '}
+                      {conductorName}
+                    </span>
+                  ) : (
+                    <span className="ek-microlabel" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      {tx.conductorPending}
+                    </span>
+                  )}
                 </div>
 
-                <p className="text-[13px] font-bold uppercase tracking-widest text-white/70 mb-2">{tx.honduras}</p>
-                <h2 className="text-[28px] lg:text-[36px] font-black text-white leading-tight tracking-tight mb-2 capitalize">
+                <p className="ek-microlabel mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>{tx.honduras}</p>
+                <h2 className="text-[28px] lg:text-[36px] font-black leading-tight tracking-tight mb-2 capitalize" style={{ color: '#fff' }}>
                   {date}
                 </h2>
                 <div className="flex items-baseline gap-3">
-                  <p className="text-[22px] lg:text-[28px] font-black text-white tabular-nums">{time}</p>
-                  <p className="text-[14px] text-white/80">· {tx.durationValue}</p>
+                  <p className="text-[22px] lg:text-[28px] font-black tabular-nums" style={{ color: '#fff' }}>{time}</p>
+                  <p className="text-[14px]" style={{ color: 'rgba(255,255,255,0.7)' }}>· {tx.durationValue}</p>
                 </div>
 
                 {scheduledAt && (
-                  <div className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-lg text-[13px] font-semibold text-white" style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)' }}>
+                  <div
+                    className="inline-flex items-center gap-2 mt-5 px-4 py-2 text-[13px] font-semibold"
+                    style={{
+                      color: '#fff',
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.14)',
+                      borderRadius: 'var(--ek-radius-md)',
+                    }}
+                  >
                     <Clock className="h-3.5 w-3.5" />
                     <Countdown scheduledAt={scheduledAt} lang={lang} />
                   </div>
@@ -381,24 +438,44 @@ export default function PlacementScheduledScreen({
             </div>
           </div>
 
-          <div className="px-8 py-4 flex items-start gap-2.5" style={{ background: 'rgba(16,185,129,0.06)', borderTop: '1px solid rgba(16,185,129,0.2)' }}>
-            <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#047857' }} />
-            <p className="text-[13px]" style={{ color: '#047857' }}>{tx.joinNote}</p>
+          {/* Early-join note — genuine success tone */}
+          <div
+            className="px-8 py-4 flex items-start gap-2.5"
+            style={{ background: 'var(--ek-success-bg)', borderTop: '1px solid var(--ek-success-border)' }}
+          >
+            <span
+              className="mt-1 flex-shrink-0"
+              style={{ height: 8, width: 8, borderRadius: 999, background: 'var(--ek-success-dot)' }}
+            />
+            <p className="text-[13px]" style={{ color: 'var(--ek-success-text)' }}>{tx.joinNote}</p>
           </div>
         </div>
+
+        {/* Date · Time · Duration — editorial stat ledger, box-less */}
+        {date && time && (
+          <StatLedger
+            items={[
+              { kicker: tx.cardDate, value: <span className="capitalize">{date}</span> },
+              { kicker: tx.cardTime, value: time, accent: true },
+              { kicker: tx.cardDuration, value: tx.durationValue },
+            ]}
+          />
+        )}
 
         {/* 3 cards: Calendar, Reminders, Prep */}
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
 
           {/* Add to calendar */}
-          <div className="rounded-2xl p-5 flex flex-col" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.08)' }}>
-                <Calendar className="h-5 w-5" style={{ color: '#3B82F6' }} />
-              </div>
+          <div
+            className="p-5 flex flex-col"
+            style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)' }}
+          >
+            {/* 3px red hairline left-rule instead of icon-in-square chip */}
+            <div className="flex gap-3 mb-4" style={{ alignSelf: 'stretch' }}>
+              <span style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', flexShrink: 0 }} />
               <div>
-                <h3 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.calendarCardTitle}</h3>
-                <p className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.calendarCardSub}</p>
+                <h3 className="text-[14px] font-bold" style={{ color: 'var(--ek-text)' }}>{tx.calendarCardTitle}</h3>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ek-text-muted)' }}>{tx.calendarCardSub}</p>
               </div>
             </div>
             {scheduledAt ? (
@@ -407,10 +484,8 @@ export default function PlacementScheduledScreen({
                   href={buildGoogleCalendarUrl(scheduledAt, lang)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-[12px] font-semibold transition-all"
-                  style={{ background: '#3B82F6', color: '#fff' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#2563EB')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#3B82F6')}
+                  className="lk-ps-btn-red flex items-center justify-center gap-2 w-full py-2.5 text-[12px] font-semibold"
+                  style={{ borderRadius: 'var(--ek-radius-md)' }}
                 >
                   <Calendar className="h-3.5 w-3.5" />
                   {tx.googleCalendar}
@@ -418,10 +493,8 @@ export default function PlacementScheduledScreen({
                 <a
                   href={buildIcsDataUrl(scheduledAt, lang)}
                   download="diagnostic-call.ics"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-[12px] font-semibold transition-all"
-                  style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#E5E7EB')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#F3F4F6')}
+                  className="lk-ps-btn-ghost flex items-center justify-center gap-2 w-full py-2.5 text-[12px] font-semibold"
+                  style={{ borderRadius: 'var(--ek-radius-md)' }}
                 >
                   <Download className="h-3.5 w-3.5" />
                   {tx.downloadIcs}
@@ -433,59 +506,51 @@ export default function PlacementScheduledScreen({
           {/* Reminders stub — see components/NotificationPreferences.tsx for the panel variant used in Settings. */}
           <NotificationPreferences lang={lang} variant="card" />
 
-          {/* Prep checklist */}
-          <div className="rounded-2xl p-5 flex flex-col" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.1)' }}>
-                <Lightbulb className="h-5 w-5" style={{ color: '#F59E0B' }} />
-              </div>
+          {/* Prep checklist — 3px red hairline left-rule rows, no icon-in-square */}
+          <div
+            className="p-5 flex flex-col"
+            style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)' }}
+          >
+            <div className="flex gap-3 mb-4" style={{ alignSelf: 'stretch' }}>
+              <span style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', flexShrink: 0 }} />
               <div>
-                <h3 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.prepTitle}</h3>
+                <h3 className="text-[14px] font-bold" style={{ color: 'var(--ek-text)' }}>{tx.prepTitle}</h3>
               </div>
             </div>
-            <ul className="space-y-3 mt-1">
-              {[
-                { icon: Wifi, text: tx.prep1 },
-                { icon: Mic, text: tx.prep2 },
-                { icon: Sparkles, text: tx.prep3 },
-                { icon: Headphones, text: tx.prep4 },
-              ].map((item, i) => {
-                const Icon = item.icon
-                return (
-                  <li key={i} className="flex items-start gap-2.5">
-                    <Icon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
-                    <span className="text-[12px] leading-relaxed" style={{ color: '#4B5563' }}>{item.text}</span>
-                  </li>
-                )
-              })}
+            <ul className="lk-ps-prep mt-1">
+              <li>{tx.prep1}</li>
+              <li>{tx.prep2}</li>
+              <li>{tx.prep3}</li>
+              <li>{tx.prep4}</li>
             </ul>
           </div>
         </div>
 
         {/* FAQ */}
-        <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          <div className="px-6 py-5" style={{ borderBottom: '1px solid #E5E7EB' }}>
-            <h3 className="text-[15px] font-black" style={{ color: '#111111' }}>{tx.faqTitle}</h3>
+        <div
+          className="overflow-hidden"
+          style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)' }}
+        >
+          <div className="px-6 py-5" style={{ borderBottom: '1px solid var(--ek-border)' }}>
+            <h3 className="text-[15px] font-black" style={{ color: 'var(--ek-text)' }}>{tx.faqTitle}</h3>
           </div>
           <div>
             {tx.faqs.map((faq, i) => {
               const isOpen = openFaq === i
               return (
-                <div key={i} style={{ borderBottom: i < tx.faqs.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
+                <div key={i} style={{ borderBottom: i < tx.faqs.length - 1 ? '1px solid var(--ek-border-soft)' : 'none' }}>
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : i)}
-                    className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors"
-                    onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    className="lk-ps-faq-trigger w-full flex items-center justify-between gap-4 px-6 py-4 text-left"
                   >
-                    <span className="text-[14px] font-semibold" style={{ color: '#111111' }}>{faq.q}</span>
+                    <span className="text-[14px] font-semibold" style={{ color: 'var(--ek-text)' }}>{faq.q}</span>
                     <ChevronDown
                       className="h-4 w-4 flex-shrink-0 transition-transform"
-                      style={{ color: '#9CA3AF', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      style={{ color: 'var(--ek-text-muted)', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
                     />
                   </button>
                   {isOpen && (
-                    <div className="px-6 pb-5 text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
+                    <div className="px-6 pb-5 text-[13px] leading-relaxed" style={{ color: 'var(--ek-text-soft)' }}>
                       {faq.a}
                     </div>
                   )}
@@ -499,10 +564,8 @@ export default function PlacementScheduledScreen({
         <div className="text-center pb-4">
           <Link
             href={`/${lang}/dashboard`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-medium transition-all"
-            style={{ color: '#6B7280' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#111111')}
-            onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#6B7280')}
+            className="lk-ps-backlink inline-flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium"
+            style={{ borderRadius: 'var(--ek-radius-md)' }}
           >
             {isEs ? '← Volver al dashboard' : '← Back to dashboard'}
           </Link>
@@ -511,4 +574,3 @@ export default function PlacementScheduledScreen({
     </div>
   )
 }
-

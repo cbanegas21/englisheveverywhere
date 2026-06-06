@@ -4,20 +4,10 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  User,
   Mail,
-  Lock,
-  Bell,
-  CreditCard,
-  AlertTriangle,
   CheckCircle2,
-  Globe,
   Phone,
-  Upload,
-  Trash2,
   ArrowRight,
-  ChevronRight,
-  X,
 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import {
@@ -29,6 +19,7 @@ import {
 import TimezoneSelect from '@/components/TimezoneSelect'
 import NotificationPreferences from '@/components/NotificationPreferences'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import Modal from '@/components/dashboard/Modal'
 
 // TODO (Phase 4): wire avatar upload to Supabase Storage `avatars/{user.id}`
 // bucket (create bucket + policies if missing).
@@ -95,10 +86,12 @@ const t = {
     // Danger
     dangerHeader: 'Danger Zone',
     dangerSub: 'These actions are permanent. Proceed with care.',
+    dangerKicker: 'Irreversible',
     deleteTitle: 'Delete account',
     deleteDesc: 'Delete your profile, bookings and history. This cannot be undone.',
     deleteBtn: 'Delete my account',
     deleteModalTitle: 'Delete account?',
+    deleteModalKicker: 'Danger Zone',
     deleteModalBody: 'Type DELETE to confirm. We will cancel any upcoming classes, refund unused credits and anonymize your profile. This cannot be undone.',
     deleteTypePh: 'DELETE',
     deleteCancel: 'Cancel',
@@ -166,10 +159,12 @@ const t = {
 
     dangerHeader: 'Zona de peligro',
     dangerSub: 'Estas acciones son permanentes. Procede con cuidado.',
+    dangerKicker: 'Irreversible',
     deleteTitle: 'Eliminar cuenta',
     deleteDesc: 'Elimina tu perfil, reservas e historial. No se puede deshacer.',
     deleteBtn: 'Eliminar mi cuenta',
     deleteModalTitle: '¿Eliminar cuenta?',
+    deleteModalKicker: 'Zona de peligro',
     deleteModalBody: 'Escribe BORRAR para confirmar. Cancelaremos tus próximas clases, reembolsaremos tus créditos sin usar y anonimizaremos tu perfil. No se puede deshacer.',
     deleteTypePh: 'BORRAR',
     deleteCancel: 'Cancelar',
@@ -211,77 +206,224 @@ export default function ConfigStudentClient({
 
   const deleteTypeKeyword = lang === 'es' ? 'BORRAR' : 'DELETE'
 
-  const tabs: Array<{ key: TabKey; label: string; desc: string; Icon: typeof User }> = [
-    { key: 'profile',       label: tx.tabProfile,       desc: tx.tabDescProfile,       Icon: User },
-    { key: 'account',       label: tx.tabAccount,       desc: tx.tabDescAccount,       Icon: Lock },
-    { key: 'notifications', label: tx.tabNotifications, desc: tx.tabDescNotifications, Icon: Bell },
-    { key: 'billing',       label: tx.tabBilling,       desc: tx.tabDescBilling,       Icon: CreditCard },
-    { key: 'danger',        label: tx.tabDanger,        desc: tx.tabDescDanger,        Icon: AlertTriangle },
+  const tabs: Array<{ key: TabKey; label: string; desc: string }> = [
+    { key: 'profile',       label: tx.tabProfile,       desc: tx.tabDescProfile },
+    { key: 'account',       label: tx.tabAccount,       desc: tx.tabDescAccount },
+    { key: 'notifications', label: tx.tabNotifications, desc: tx.tabDescNotifications },
+    { key: 'billing',       label: tx.tabBilling,       desc: tx.tabDescBilling },
+    { key: 'danger',        label: tx.tabDanger,        desc: tx.tabDescDanger },
   ]
 
   return (
-    <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+    <div style={{ minHeight: '100%', background: 'var(--ek-paper)', fontFamily: 'var(--ek-font-sans)' }}>
       <DashTopBar title={tx.title} sub={tx.subtitle} />
+
+      <style>{`
+        /* Mobile horizontal tab pills (squared, no dots) */
+        .lk-cfg-tab {
+          font-family: var(--ek-font-mono);
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          flex-shrink: 0;
+          padding: 8px 14px;
+          border-radius: var(--ek-radius-sm);
+          border: 1px solid var(--ek-border);
+          background: var(--ek-card);
+          color: var(--ek-text-muted);
+          transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+          white-space: nowrap;
+        }
+        .lk-cfg-tab:hover { color: var(--ek-text); border-color: var(--ek-border-mid); }
+        .lk-cfg-tab[data-active="true"] {
+          background: var(--ek-ink);
+          color: #fff;
+          border-color: var(--ek-ink);
+        }
+
+        /* Desktop vertical nav rows — quiet left-rule accent, no icon chips */
+        .lk-cfg-nav-item {
+          width: 100%;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          text-align: left;
+          padding: 14px 16px 14px 13px;
+          border-left: 3px solid transparent;
+          border-top: 1px solid var(--ek-border-soft);
+          background: transparent;
+          transition: background 0.18s ease, border-color 0.18s ease;
+        }
+        .lk-cfg-nav-item:first-child { border-top: none; }
+        .lk-cfg-nav-item:hover { background: var(--ek-red-tint); }
+        .lk-cfg-nav-item[data-active="true"] {
+          background: var(--ek-paper-warm);
+          border-left-color: var(--ek-red);
+        }
+
+        /* Quiet text buttons (password / billing CTAs, danger trigger) */
+        .lk-cfg-btn-ghost {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: var(--ek-font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          padding: 9px 16px;
+          border-radius: var(--ek-radius-md);
+          background: transparent;
+          color: var(--ek-red);
+          border: 1px solid var(--ek-red-tint-3);
+          transition: background 0.18s ease, border-color 0.18s ease;
+          flex-shrink: 0;
+        }
+        .lk-cfg-btn-ghost:hover { background: var(--ek-red-tint); border-color: var(--ek-red); }
+
+        .lk-cfg-btn-red {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: var(--ek-font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          padding: 10px 20px;
+          border-radius: var(--ek-radius-md);
+          background: var(--ek-red);
+          color: #fff;
+          border: 1px solid var(--ek-red);
+          transition: background 0.18s ease, border-color 0.18s ease;
+        }
+        .lk-cfg-btn-red:hover { background: var(--ek-red-hover); border-color: var(--ek-red-hover); }
+
+        /* Primary save button + saved state */
+        .lk-cfg-save {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: var(--ek-font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          padding: 10px 20px;
+          border-radius: var(--ek-radius-md);
+          background: var(--ek-red);
+          color: #fff;
+          border: 1px solid var(--ek-red);
+          transition: background 0.18s ease, border-color 0.18s ease;
+        }
+        .lk-cfg-save:not([disabled]):hover { background: var(--ek-red-hover); border-color: var(--ek-red-hover); }
+        .lk-cfg-save[data-saving="true"] { cursor: wait; }
+        .lk-cfg-save[data-saved="true"] {
+          background: var(--ek-success-bg);
+          color: var(--ek-success-text);
+          border-color: var(--ek-success-border);
+          cursor: default;
+        }
+
+        /* Segmented language toggle */
+        .lk-cfg-seg {
+          font-family: var(--ek-font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          padding: 10px 16px;
+          border-radius: var(--ek-radius-md);
+          border: 1px solid var(--ek-border);
+          background: var(--ek-card);
+          color: var(--ek-text-muted);
+          transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+        }
+        .lk-cfg-seg:hover { color: var(--ek-text); border-color: var(--ek-border-mid); }
+        .lk-cfg-seg[data-active="true"] {
+          background: var(--ek-red-tint);
+          color: var(--ek-red);
+          border-color: var(--ek-red-tint-3);
+        }
+
+        /* Inline email submit button */
+        .lk-cfg-email-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: var(--ek-font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          padding: 0 18px;
+          border-radius: var(--ek-radius-md);
+          border: 1px solid var(--ek-red);
+          background: var(--ek-red);
+          color: #fff;
+          flex-shrink: 0;
+          transition: background 0.18s ease;
+        }
+        .lk-cfg-email-btn:not([disabled]):hover { background: var(--ek-red-hover); }
+        .lk-cfg-email-btn[disabled] {
+          background: var(--ek-paper-warm);
+          color: var(--ek-text-faint);
+          border-color: var(--ek-border);
+          cursor: not-allowed;
+        }
+
+        /* Form inputs — crimson focus ring via :focus, no inline handlers */
+        .lk-cfg-input {
+          width: 100%;
+          font-family: var(--ek-font-sans);
+          font-size: 13px;
+          color: var(--ek-text);
+          background: var(--ek-card);
+          border: 1px solid var(--ek-border);
+          border-radius: var(--ek-radius-md);
+          outline: none;
+          transition: border-color 0.18s ease;
+        }
+        .lk-cfg-input::placeholder { color: var(--ek-text-faint); }
+        .lk-cfg-input:focus { border-color: var(--ek-red); }
+      `}</style>
+
       <div className="px-6 md:px-10 py-6 max-w-[1280px] mx-auto">
 
-        {/* Mobile tabs (horizontal scroll) */}
+        {/* Mobile tabs (horizontal scroll) — squared mono pills, no dots/icons */}
         <nav
-          className="md:hidden flex gap-1 mb-5 overflow-x-auto pb-1"
+          className="md:hidden flex gap-1.5 mb-5 overflow-x-auto pb-1"
           style={{ scrollbarWidth: 'none' }}
         >
-          {tabs.map(({ key, label, Icon }) => {
-            const active = tab === key
-            return (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold flex-shrink-0 transition-all"
-                style={{
-                  background: active ? '#C41E3A' : '#fff',
-                  color: active ? '#fff' : '#6B7280',
-                  border: `1px solid ${active ? '#C41E3A' : '#E5E7EB'}`,
-                }}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {label}
-              </button>
-            )
-          })}
+          {tabs.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              data-active={tab === key}
+              className="lk-cfg-tab"
+            >
+              {label}
+            </button>
+          ))}
         </nav>
 
         <div className="grid gap-6 md:grid-cols-[240px_1fr]">
           {/* Desktop left nav */}
           <aside className="hidden md:block">
-            <nav className="rounded-2xl overflow-hidden sticky top-4" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-              {tabs.map(({ key, label, desc, Icon }, idx) => {
+            <nav
+              className="rounded-2xl overflow-hidden sticky top-4"
+              style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)' }}
+            >
+              {tabs.map(({ key, label, desc }) => {
                 const active = tab === key
-                const isDanger = key === 'danger'
                 return (
                   <button
                     key={key}
                     onClick={() => setTab(key)}
-                    className="w-full flex items-start gap-3 px-4 py-3 text-left transition-all"
-                    style={{
-                      background: active ? (isDanger ? 'rgba(196,30,58,0.04)' : '#F9F9F9') : '#fff',
-                      borderTop: idx === 0 ? 'none' : '1px solid #F3F4F6',
-                      borderLeft: active ? `3px solid ${isDanger ? '#C41E3A' : '#C41E3A'}` : '3px solid transparent',
-                      paddingLeft: active ? '13px' : '16px',
-                    }}
+                    data-active={active}
+                    className="lk-cfg-nav-item"
                   >
-                    <Icon
-                      className="h-4 w-4 mt-0.5 flex-shrink-0"
-                      style={{ color: active ? '#C41E3A' : isDanger ? '#DC2626' : '#9CA3AF' }}
-                    />
                     <div className="flex-1 min-w-0">
                       <div
                         className="text-[13px] font-bold"
-                        style={{ color: active ? '#C41E3A' : isDanger ? '#111111' : '#111111' }}
+                        style={{ color: active ? 'var(--ek-red)' : 'var(--ek-text)' }}
                       >
                         {label}
                       </div>
-                      <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{desc}</div>
+                      <div className="text-[11px] mt-0.5" style={{ color: 'var(--ek-text-muted)' }}>{desc}</div>
                     </div>
-                    {active && <ChevronRight className="h-4 w-4 flex-shrink-0" style={{ color: '#C41E3A' }} />}
+                    {active && <ArrowRight className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--ek-red)' }} />}
                   </button>
                 )
               })}
@@ -424,15 +566,15 @@ function ProfilePanel({
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-      <PanelHeader title={tx.profileHeader} subtitle={tx.profileSub} Icon={User} />
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)' }}>
+      <PanelHeader kicker={tx.tabProfile} title={tx.profileHeader} subtitle={tx.profileSub} />
 
       <div className="px-6 py-6 space-y-6">
         {/* Avatar */}
         <div className="flex items-start gap-5">
           <div
             className="h-20 w-20 rounded-2xl flex items-center justify-center text-[24px] font-black flex-shrink-0 overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #C41E3A 0%, #9E1830 100%)', color: '#fff' }}
+            style={{ background: 'var(--ek-ink)', color: '#fff', fontFamily: 'var(--ek-font-sans)' }}
           >
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -443,8 +585,8 @@ function ProfilePanel({
           </div>
           <div className="flex-1 min-w-0">
             <Label>{tx.avatar}</Label>
-            <p className="text-[12px] mb-3" style={{ color: '#9CA3AF' }}>{tx.avatarHint}</p>
-            <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-[12px] mb-3" style={{ color: 'var(--ek-text-muted)' }}>{tx.avatarHint}</p>
+            <div className="flex items-center gap-3 flex-wrap">
               <input
                 ref={fileRef}
                 type="file"
@@ -455,16 +597,15 @@ function ProfilePanel({
               />
               <button
                 disabled
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold cursor-not-allowed"
-                style={{ background: '#F3F4F6', color: '#9CA3AF', border: '1px solid #E5E7EB' }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-bold cursor-not-allowed"
+                style={{ background: 'var(--ek-paper-warm)', color: 'var(--ek-text-faint)', border: '1px solid var(--ek-border)' }}
                 title={tx.avatarSoon}
               >
-                <Upload className="h-3.5 w-3.5" />
                 {tx.avatarUpload}
               </button>
               <span
-                className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
-                style={{ background: 'rgba(245,158,11,0.1)', color: '#B45309', border: '1px solid rgba(245,158,11,0.3)' }}
+                className="ek-microlabel"
+                style={{ color: 'var(--ek-text-muted)' }}
               >
                 {tx.avatarSoon}
               </span>
@@ -498,23 +639,18 @@ function ProfilePanel({
             <button
               onClick={handleEmailChange}
               disabled={!emailDirty || emailSaving}
-              className="flex items-center gap-1.5 px-4 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
-              style={{
-                background: emailDirty && !emailSaving ? '#C41E3A' : '#F3F4F6',
-                color: emailDirty && !emailSaving ? '#fff' : '#9CA3AF',
-                cursor: emailDirty && !emailSaving ? 'pointer' : 'not-allowed',
-              }}
+              className="lk-cfg-email-btn"
             >
               {emailSaving ? tx.emailSaving : tx.emailChange}
             </button>
           </div>
           {emailErr && (
-            <p className="text-[12px] mt-2" style={{ color: '#C41E3A' }}>{emailErr}</p>
+            <p className="text-[12px] mt-2" style={{ color: 'var(--ek-red)' }}>{emailErr}</p>
           )}
           {emailMsg && (
             <div
-              className="mt-2 px-3 py-2 rounded-lg text-[12px] flex items-start gap-2"
-              style={{ background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0' }}
+              className="mt-2 px-3 py-2 rounded-md text-[12px] flex items-start gap-2"
+              style={{ background: 'var(--ek-success-bg)', color: 'var(--ek-success-text)', border: '1px solid var(--ek-success-border)' }}
             >
               <CheckCircle2 className="h-4 w-4 mt-[1px] flex-shrink-0" />
               <span>{emailMsg}</span>
@@ -590,28 +726,20 @@ function AccountPanel({
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-      <PanelHeader title={tx.accountHeader} subtitle={tx.accountSub} Icon={Lock} />
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)' }}>
+      <PanelHeader kicker={tx.tabAccount} title={tx.accountHeader} subtitle={tx.accountSub} />
 
       <div className="px-6 py-6 space-y-6">
-        {/* Password */}
-        <div className="flex items-start gap-4">
-          <div
-            className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(196,30,58,0.08)' }}
-          >
-            <Lock className="h-5 w-5" style={{ color: '#C41E3A' }} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.password}</div>
-            <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.passwordHint}</p>
+        {/* Password — thin red hairline left-rule instead of an icon chip */}
+        <div className="flex items-stretch gap-4">
+          <div style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', borderRadius: 2, flexShrink: 0 }} />
+          <div className="flex-1 min-w-0 py-0.5">
+            <div className="text-[14px] font-bold" style={{ color: 'var(--ek-text)' }}>{tx.password}</div>
+            <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-muted)' }}>{tx.passwordHint}</p>
           </div>
           <Link
             href={`/${lang}/login/reset`}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
-            style={{ background: '#fff', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.25)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(196,30,58,0.04)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#fff' }}
+            className="lk-cfg-btn-ghost self-center"
           >
             {tx.changePassword}
             <ArrowRight className="h-3.5 w-3.5" />
@@ -620,7 +748,7 @@ function AccountPanel({
 
         <Divider />
 
-        {/* Language */}
+        {/* Language — segmented toggle, no per-option globe chips */}
         <Field label={tx.language} hint={tx.languageHint}>
           <div className="grid grid-cols-2 gap-2">
             {(['es', 'en'] as const).map((l) => {
@@ -629,14 +757,9 @@ function AccountPanel({
                 <button
                   key={l}
                   onClick={() => setLanguage(l)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all"
-                  style={{
-                    background: active ? 'rgba(196,30,58,0.04)' : '#fff',
-                    color: active ? '#C41E3A' : '#6B7280',
-                    border: `1px solid ${active ? 'rgba(196,30,58,0.25)' : '#E5E7EB'}`,
-                  }}
+                  data-active={active}
+                  className="lk-cfg-seg"
                 >
-                  <Globe className="h-4 w-4" />
                   {l === 'es' ? tx.langEs : tx.langEn}
                 </button>
               )
@@ -669,17 +792,14 @@ function AccountPanel({
 
 function BillingPanel({ lang, tx }: { lang: Locale; tx: typeof t['en'] }) {
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-      <PanelHeader title={tx.billingHeader} subtitle={tx.billingSub} Icon={CreditCard} />
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)' }}>
+      <PanelHeader kicker={tx.tabBilling} title={tx.billingHeader} subtitle={tx.billingSub} />
 
       <div className="px-6 py-8 flex flex-col items-start gap-4">
-        <p className="text-[13px]" style={{ color: '#6B7280' }}>{tx.billingNote}</p>
+        <p className="text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{tx.billingNote}</p>
         <Link
           href={`/${lang}/dashboard/plan`}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all"
-          style={{ background: '#C41E3A', color: '#fff' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#9E1830' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A' }}
+          className="lk-cfg-btn-red"
         >
           {tx.goToPlan}
           <ArrowRight className="h-4 w-4" />
@@ -723,122 +843,87 @@ function DangerPanel({ lang, tx, keyword }: { lang: Locale; tx: typeof t['en']; 
     <>
       <div
         className="rounded-2xl overflow-hidden"
-        style={{ background: '#fff', border: '1px solid rgba(220,38,38,0.3)' }}
+        style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-red-tint-3)' }}
       >
+        {/* Header — kicker + serif-toned title, red hairline rule, no icon chip */}
         <div
-          className="px-6 py-5 flex items-start justify-between gap-3"
-          style={{ borderBottom: '1px solid #FEE2E2', background: 'rgba(220,38,38,0.03)' }}
+          className="px-6 py-5 flex items-stretch gap-4"
+          style={{ borderBottom: '1px solid var(--ek-red-tint-3)', background: 'var(--ek-red-tint)' }}
         >
-          <div className="flex items-start gap-3">
-            <div
-              className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(220,38,38,0.1)' }}
-            >
-              <AlertTriangle className="h-5 w-5" style={{ color: '#DC2626' }} />
-            </div>
-            <div>
-              <h3 className="text-[16px] font-black" style={{ color: '#DC2626' }}>{tx.dangerHeader}</h3>
-              <p className="text-[12px] mt-0.5" style={{ color: '#991B1B' }}>{tx.dangerSub}</p>
-            </div>
+          <div style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', borderRadius: 2, flexShrink: 0 }} />
+          <div>
+            <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{tx.dangerKicker}</div>
+            <h3 className="text-[16px] font-black mt-1" style={{ color: 'var(--ek-red)' }}>{tx.dangerHeader}</h3>
+            <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{tx.dangerSub}</p>
           </div>
         </div>
 
         <div className="px-6 py-5 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.deleteTitle}</div>
-            <p className="text-[12px] mt-0.5" style={{ color: '#6B7280' }}>{tx.deleteDesc}</p>
+            <div className="text-[14px] font-bold" style={{ color: 'var(--ek-text)' }}>{tx.deleteTitle}</div>
+            <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{tx.deleteDesc}</p>
           </div>
           <button
             onClick={() => setOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold transition-all flex-shrink-0"
-            style={{ background: '#fff', color: '#DC2626', border: '1px solid rgba(220,38,38,0.3)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(220,38,38,0.04)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#fff' }}
+            className="lk-cfg-btn-ghost"
           >
-            <Trash2 className="h-3.5 w-3.5" />
             {tx.deleteBtn}
           </button>
         </div>
       </div>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(17,17,17,0.55)' }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl overflow-hidden"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="px-5 py-4 flex items-start justify-between gap-3"
-              style={{ borderBottom: '1px solid #F3F4F6', background: 'rgba(220,38,38,0.03)' }}
+      <Modal
+        open={open}
+        onClose={() => { if (!working) { setOpen(false); setTyped(''); setErr('') } }}
+        kicker={tx.deleteModalKicker}
+        title={tx.deleteModalTitle}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { if (!working) { setOpen(false); setTyped(''); setErr('') } }}
+              disabled={working}
+              className="px-4 py-2 rounded-md text-[12px] font-bold transition-all"
+              style={{
+                background: 'transparent',
+                color: 'var(--ek-text-soft)',
+                border: '1px solid var(--ek-border)',
+                cursor: working ? 'not-allowed' : 'pointer',
+              }}
             >
-              <div className="flex items-center gap-2.5">
-                <AlertTriangle className="h-5 w-5" style={{ color: '#DC2626' }} />
-                <h3 className="text-[15px] font-black" style={{ color: '#DC2626' }}>{tx.deleteModalTitle}</h3>
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="p-1 rounded hover:bg-gray-100"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-              </button>
-            </div>
-
-            <div className="px-5 py-5 space-y-3">
-              <p className="text-[13px]" style={{ color: '#4B5563' }}>{tx.deleteModalBody}</p>
-              <input
-                type="text"
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                placeholder={keyword}
-                disabled={working}
-                className="w-full px-3 py-2.5 text-[13px] font-bold rounded-lg outline-none"
-                style={{
-                  background: '#fff',
-                  color: '#111111',
-                  border: '1px solid #E5E7EB',
-                  letterSpacing: '0.1em',
-                }}
-                onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#DC2626' }}
-                onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#E5E7EB' }}
-              />
-              {err && (
-                <p className="text-[12px]" style={{ color: '#DC2626' }}>{err}</p>
-              )}
-            </div>
-
-            <div className="px-5 py-4 flex items-center justify-end gap-2" style={{ background: '#FAFAFA', borderTop: '1px solid #F3F4F6' }}>
-              <button
-                onClick={() => { if (!working) { setOpen(false); setTyped(''); setErr('') } }}
-                disabled={working}
-                className="px-4 py-2 rounded-lg text-[12px] font-bold transition-all"
-                style={{ background: '#fff', color: '#6B7280', border: '1px solid #E5E7EB', cursor: working ? 'not-allowed' : 'pointer' }}
-              >
-                {tx.deleteCancel}
-              </button>
-              <button
-                disabled={!confirmed || working}
-                onClick={handleDelete}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold transition-all"
-                style={{
-                  background: confirmed && !working ? '#DC2626' : '#F3F4F6',
-                  color: confirmed && !working ? '#fff' : '#9CA3AF',
-                  cursor: confirmed && !working ? 'pointer' : 'not-allowed',
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {working ? tx.deleteWorking : tx.deleteConfirm}
-              </button>
-            </div>
+              {tx.deleteCancel}
+            </button>
+            <button
+              disabled={!confirmed || working}
+              onClick={handleDelete}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-md text-[12px] font-bold transition-all"
+              style={{
+                background: confirmed && !working ? 'var(--ek-red)' : 'var(--ek-paper-warm)',
+                color: confirmed && !working ? '#fff' : 'var(--ek-text-faint)',
+                border: `1px solid ${confirmed && !working ? 'var(--ek-red)' : 'var(--ek-border)'}`,
+                cursor: confirmed && !working ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {working ? tx.deleteWorking : tx.deleteConfirm}
+            </button>
           </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{tx.deleteModalBody}</p>
+          <input
+            type="text"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={keyword}
+            disabled={working}
+            className="lk-cfg-input px-3 py-2.5 text-[13px] font-bold"
+            style={{ letterSpacing: '0.1em' }}
+          />
+          {err && (
+            <p className="text-[12px]" style={{ color: 'var(--ek-red)' }}>{err}</p>
+          )}
         </div>
-      )}
-
+      </Modal>
     </>
   )
 }
@@ -847,18 +932,14 @@ function DangerPanel({ lang, tx, keyword }: { lang: Locale; tx: typeof t['en']; 
 // Shared primitives
 // ═══════════════════════════════════════════════════════════════════
 
-function PanelHeader({ title, subtitle, Icon }: { title: string; subtitle: string; Icon: typeof User }) {
+function PanelHeader({ kicker, title, subtitle }: { kicker: string; title: string; subtitle: string }) {
   return (
-    <div className="px-6 py-5 flex items-start gap-3" style={{ borderBottom: '1px solid #F3F4F6' }}>
-      <div
-        className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: 'rgba(196,30,58,0.08)' }}
-      >
-        <Icon className="h-5 w-5" style={{ color: '#C41E3A' }} />
-      </div>
+    <div className="px-6 py-5 flex items-stretch gap-4" style={{ borderBottom: '1px solid var(--ek-border)' }}>
+      <div style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', borderRadius: 2, flexShrink: 0 }} />
       <div>
-        <h2 className="text-[16px] font-black" style={{ color: '#111111' }}>{title}</h2>
-        <p className="text-[12px] mt-0.5" style={{ color: '#6B7280' }}>{subtitle}</p>
+        <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{kicker}</div>
+        <h2 className="text-[16px] font-black mt-1" style={{ color: 'var(--ek-text)' }}>{title}</h2>
+        <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{subtitle}</p>
       </div>
     </div>
   )
@@ -884,20 +965,15 @@ function PanelFooter({
   return (
     <div
       className="px-6 py-4 flex items-center justify-end gap-3"
-      style={{ background: '#FAFAFA', borderTop: '1px solid #F3F4F6' }}
+      style={{ background: 'var(--ek-paper-warm)', borderTop: '1px solid var(--ek-border)' }}
     >
-      {error && <span className="text-[12px]" style={{ color: '#C41E3A' }}>{error}</span>}
+      {error && <span className="text-[12px]" style={{ color: 'var(--ek-red)' }}>{error}</span>}
       <button
         onClick={onSave}
         disabled={saving || saved}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all"
-        style={
-          saved
-            ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC', cursor: 'default' }
-            : { background: '#C41E3A', color: '#fff', cursor: saving ? 'wait' : 'pointer' }
-        }
-        onMouseEnter={(e) => { if (!saved && !saving) (e.currentTarget as HTMLButtonElement).style.background = '#9E1830' }}
-        onMouseLeave={(e) => { if (!saved && !saving) (e.currentTarget as HTMLButtonElement).style.background = '#C41E3A' }}
+        data-saving={saving}
+        data-saved={saved}
+        className="lk-cfg-save"
       >
         {saved && <CheckCircle2 className="h-4 w-4" />}
         {saved ? savedLabel : saving ? savingLabel : label}
@@ -911,7 +987,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <div>
       <Label>{label}</Label>
       {children}
-      {hint && <p className="text-[11px] mt-1.5" style={{ color: '#9CA3AF' }}>{hint}</p>}
+      {hint && <p className="text-[11px] mt-1.5" style={{ color: 'var(--ek-text-muted)' }}>{hint}</p>}
     </div>
   )
 }
@@ -919,8 +995,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <label
-      className="block text-[11px] font-bold uppercase tracking-widest mb-2"
-      style={{ color: '#9CA3AF' }}
+      className="ek-microlabel block mb-2"
     >
       {children}
     </label>
@@ -938,14 +1013,14 @@ function Input({
   onChange: (v: string) => void
   placeholder?: string
   type?: string
-  Icon?: typeof User
+  Icon?: typeof Mail
 }) {
   return (
     <div style={{ position: 'relative' }}>
       {Icon && (
         <Icon
           className="h-4 w-4"
-          style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }}
+          style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ek-text-muted)' }}
         />
       )}
       <input
@@ -953,21 +1028,13 @@ function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full text-[13px] outline-none transition-all"
-        style={{
-          padding: Icon ? '10px 12px 10px 36px' : '10px 12px',
-          borderRadius: '10px',
-          border: '1px solid #E5E7EB',
-          color: '#111111',
-          background: '#fff',
-        }}
-        onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#C41E3A' }}
-        onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = '#E5E7EB' }}
+        className="lk-cfg-input"
+        style={{ padding: Icon ? '10px 12px 10px 36px' : '10px 12px' }}
       />
     </div>
   )
 }
 
 function Divider() {
-  return <div style={{ height: '1px', background: '#F3F4F6' }} />
+  return <div style={{ height: '1px', background: 'var(--ek-border)' }} />
 }
