@@ -200,6 +200,10 @@ create table public.students (
   placement_scheduled boolean default false,
   admin_notes text,
   primary_teacher_id uuid,
+  self_rated_level text,
+  motivation text,
+  availability text,
+  speaking_comfort text,
   primary key (id)
 );
 
@@ -280,8 +284,12 @@ alter table public.reschedule_requests add constraint reschedule_requests_reques
 alter table public.reschedule_requests add constraint reschedule_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'cancelled'::text])));
 alter table public.sessions add constraint sessions_student_rating_check CHECK (((student_rating >= 1) AND (student_rating <= 5)));
 alter table public.students add constraint students_age_range_check CHECK ((age_range = ANY (ARRAY['under_18'::text, '18_25'::text, '26_40'::text, '40_plus'::text])));
+alter table public.students add constraint students_availability_check CHECK (((availability IS NULL) OR (availability = ANY (ARRAY['mornings'::text, 'afternoons'::text, 'evenings'::text, 'late_night'::text, 'varies'::text]))));
 alter table public.students add constraint students_learning_style_check CHECK ((learning_style = ANY (ARRAY['visual'::text, 'auditory'::text, 'reading'::text, 'mixed'::text])));
 alter table public.students add constraint students_level_check CHECK ((level = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text])));
+alter table public.students add constraint students_motivation_check CHECK (((motivation IS NULL) OR (motivation = ANY (ARRAY['work'::text, 'travel'::text, 'study'::text, 'personal'::text, 'just_me'::text]))));
+alter table public.students add constraint students_self_rated_level_check CHECK (((self_rated_level IS NULL) OR (self_rated_level = ANY (ARRAY['just_starting'::text, 'getting_by'::text, 'conversational'::text, 'advanced'::text, 'not_sure'::text]))));
+alter table public.students add constraint students_speaking_comfort_check CHECK (((speaking_comfort IS NULL) OR (speaking_comfort = ANY (ARRAY['nervous'::text, 'depends'::text, 'comfortable'::text]))));
 alter table public.subscriptions add constraint subscriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'cancelled'::text, 'past_due'::text, 'trialing'::text])));
 
 -- ============================================================

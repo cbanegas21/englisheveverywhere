@@ -1,9 +1,16 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+
+const VALID: Record<string, string[]> = {
+  learning_style: ['visual', 'auditory', 'reading', 'mixed'],
+  self_rated_level: ['just_starting', 'getting_by', 'conversational', 'advanced', 'not_sure'],
+  motivation: ['work', 'travel', 'study', 'personal', 'just_me'],
+  availability: ['mornings', 'afternoons', 'evenings', 'late_night', 'varies'],
+  speaking_comfort: ['nervous', 'depends', 'comfortable'],
+}
 
 export async function saveIntake(formData: FormData) {
   const supabase = await createClient()
@@ -11,18 +18,22 @@ export async function saveIntake(formData: FormData) {
   if (!user) return { error: 'Not authenticated' }
 
   const lang = (formData.get('lang') as string) || 'es'
-  const learning_goal    = (formData.get('learning_goal') as string)?.trim() || null
-  const work_description = (formData.get('work_description') as string)?.trim() || null
-  const learning_style   = formData.get('learning_style') as string | null
-  const age_range        = formData.get('age_range') as string | null
+  const learning_goal = (formData.get('learning_goal') as string)?.trim() || null
+  const learning_style = (formData.get('learning_style') as string | null) || null
+  const self_rated_level = (formData.get('self_rated_level') as string | null) || null
+  const motivation = (formData.get('motivation') as string | null) || null
+  const availability = (formData.get('availability') as string | null) || null
+  const speaking_comfort = (formData.get('speaking_comfort') as string | null) || null
 
-  const validStyles = ['visual', 'auditory', 'reading', 'mixed']
-  const validAges   = ['under_18', '18_25', '26_40', '40_plus']
-
-  if (learning_style && !validStyles.includes(learning_style))
-    return { error: 'Invalid learning style' }
-  if (age_range && !validAges.includes(age_range))
-    return { error: 'Invalid age range' }
+  for (const [field, val] of Object.entries({
+    learning_style,
+    self_rated_level,
+    motivation,
+    availability,
+    speaking_comfort,
+  })) {
+    if (val && !VALID[field].includes(val)) return { error: `Invalid ${field}` }
+  }
 
   // Auth validated. Use admin client for writes (same RLS-edge fix as onboarding).
   const admin = createAdminClient()
@@ -39,9 +50,11 @@ export async function saveIntake(formData: FormData) {
     .from('students')
     .update({
       learning_goal,
-      work_description,
       learning_style,
-      age_range,
+      self_rated_level,
+      motivation,
+      availability,
+      speaking_comfort,
       intake_done: true,
     })
     .eq('id', student.id)

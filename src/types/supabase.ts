@@ -580,6 +580,7 @@ export type Database = {
         Row: {
           admin_notes: string | null
           age_range: string | null
+          availability: string | null
           classes_remaining: number | null
           created_at: string
           current_plan: string | null
@@ -588,10 +589,13 @@ export type Database = {
           learning_goal: string | null
           learning_style: string | null
           level: string | null
+          motivation: string | null
           placement_scheduled: boolean | null
           placement_test_done: boolean | null
           primary_teacher_id: string | null
           profile_id: string
+          self_rated_level: string | null
+          speaking_comfort: string | null
           stripe_customer_id: string | null
           survey_answers: Json | null
           work_description: string | null
@@ -599,6 +603,7 @@ export type Database = {
         Insert: {
           admin_notes?: string | null
           age_range?: string | null
+          availability?: string | null
           classes_remaining?: number | null
           created_at?: string
           current_plan?: string | null
@@ -607,10 +612,13 @@ export type Database = {
           learning_goal?: string | null
           learning_style?: string | null
           level?: string | null
+          motivation?: string | null
           placement_scheduled?: boolean | null
           placement_test_done?: boolean | null
           primary_teacher_id?: string | null
           profile_id: string
+          self_rated_level?: string | null
+          speaking_comfort?: string | null
           stripe_customer_id?: string | null
           survey_answers?: Json | null
           work_description?: string | null
@@ -618,6 +626,7 @@ export type Database = {
         Update: {
           admin_notes?: string | null
           age_range?: string | null
+          availability?: string | null
           classes_remaining?: number | null
           created_at?: string
           current_plan?: string | null
@@ -626,10 +635,13 @@ export type Database = {
           learning_goal?: string | null
           learning_style?: string | null
           level?: string | null
+          motivation?: string | null
           placement_scheduled?: boolean | null
           placement_test_done?: boolean | null
           primary_teacher_id?: string | null
           profile_id?: string
+          self_rated_level?: string | null
+          speaking_comfort?: string | null
           stripe_customer_id?: string | null
           survey_answers?: Json | null
           work_description?: string | null
