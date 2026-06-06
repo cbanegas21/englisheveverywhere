@@ -3,10 +3,13 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Calendar, CheckCircle2, X, Clock, Video, Users, AlertCircle, CalendarClock } from 'lucide-react'
+import { Video } from 'lucide-react'
 import { confirmBooking, declineBooking, requestReschedule, cancelRescheduleRequest } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { SectionHeader } from '@/components/dashboard/SectionHeader'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import Modal from '@/components/dashboard/Modal'
 
 interface Booking {
   id: string
@@ -49,10 +52,13 @@ const t = {
     typePlacement: 'Placement',
     typeCheckin: 'Check-in',
     typeClass: 'Class',
+    pendingKicker: 'To confirm',
+    confirmedKicker: 'Confirmed',
     reschedule: 'Request reschedule',
     reschedulePending: 'Reschedule pending',
     rescheduleCancel: 'Cancel request',
     rescheduleTitle: 'Request a reschedule',
+    rescheduleKicker: 'Reschedule',
     rescheduleSubtitle: 'Admin will review your proposed time before the class moves.',
     rescheduleNewDate: 'New date',
     rescheduleNewTime: 'New time',
@@ -82,10 +88,13 @@ const t = {
     typePlacement: 'Nivelación',
     typeCheckin: 'Check-in',
     typeClass: 'Clase',
+    pendingKicker: 'Por confirmar',
+    confirmedKicker: 'Confirmadas',
     reschedule: 'Solicitar reagendar',
     reschedulePending: 'Reagendamiento pendiente',
     rescheduleCancel: 'Cancelar solicitud',
     rescheduleTitle: 'Solicitar reagendar',
+    rescheduleKicker: 'Reagendar',
     rescheduleSubtitle: 'El admin revisará tu nueva hora antes de mover la clase.',
     rescheduleNewDate: 'Nueva fecha',
     rescheduleNewTime: 'Nueva hora',
@@ -125,6 +134,58 @@ function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
   })
 }
 
+// ── Timezone-aware wall-clock helpers ───────────────────────────────────
+// The reschedule form's date/time inputs are wall-clock in the TEACHER's
+// profile timezone (the same zone the session cards render in). These helpers
+// read/write that wall-clock without a date library so the prefill matches the
+// card and the submitted instant lands on the intended local time.
+
+/** Wall-clock parts of an instant, as seen in `timeZone`. */
+function wallClockInTz(d: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
+  let hour = get('hour')
+  if (hour === '24') hour = '00' // Intl can emit "24" for midnight
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour,
+    minute: get('minute'),
+    second: get('second'),
+  }
+}
+
+/** `timeZone`'s offset from UTC (ms) at the given instant. */
+function tzOffsetMs(d: Date, timeZone: string): number {
+  const w = wallClockInTz(d, timeZone)
+  // Treat the wall-clock parts as if they were UTC, then diff against the
+  // real instant — that difference IS the zone's offset at that moment.
+  const asUtc = Date.UTC(
+    Number(w.year), Number(w.month) - 1, Number(w.day),
+    Number(w.hour), Number(w.minute), Number(w.second),
+  )
+  return asUtc - d.getTime()
+}
+
+/** Build the UTC instant for a wall-clock `YYYY-MM-DD` + `HH:mm` in `timeZone`. */
+function wallClockToInstant(date: string, time: string, timeZone: string): Date {
+  const [y, mo, da] = date.split('-').map(Number)
+  const [hh, mm] = time.split(':').map(Number)
+  // First guess: interpret the wall-clock as UTC.
+  const utcGuess = Date.UTC(y, (mo || 1) - 1, da || 1, hh || 0, mm || 0, 0)
+  // Correct by the zone offset (sampled at the guess — good enough outside the
+  // rare DST-transition hour, which doesn't apply to the fixed-offset zones
+  // this app uses).
+  const offset = tzOffsetMs(new Date(utcGuess), timeZone)
+  return new Date(utcGuess - offset)
+}
+
 function getInitials(name?: string | null) {
   if (!name) return 'S'
   return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
@@ -146,6 +207,29 @@ function typeLabel(type: string | null | undefined, tx: { typePlacement: string;
   return null
 }
 
+/** Crimson/ink hairline chip for the session type (Placement / Check-in). */
+function TypeChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        padding: '2px 6px',
+        borderRadius: 4,
+        background: 'var(--ek-red-tint)',
+        color: 'var(--ek-red)',
+        border: '1px solid var(--ek-red-tint-3)',
+        fontFamily: 'var(--ek-font-mono)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </span>
+  )
+}
+
 export default function AgendaClient({ lang, timezone, pendingBookings, confirmedBookings }: Props) {
   const tx = t[lang]
   const [isPending, startTransition] = useTransition()
@@ -162,16 +246,13 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
   const [reschedSubmitting, setReschedSubmitting] = useState(false)
 
   function openReschedule(booking: Booking) {
-    // Prefill date/time with current scheduled value so the teacher only
-    // adjusts what needs to change.
-    const d = new Date(booking.scheduled_at)
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    const hh = String(d.getHours()).padStart(2, '0')
-    const mm = String(d.getMinutes()).padStart(2, '0')
-    setReschedDate(`${y}-${m}-${day}`)
-    setReschedTime(`${hh}:${mm}`)
+    // Prefill date/time with the current scheduled value so the teacher only
+    // adjusts what needs to change. Read the wall-clock in the teacher's
+    // profile timezone (the same zone the card shows) — NOT the browser's —
+    // so the prefilled value always matches the card's displayed time.
+    const w = wallClockInTz(new Date(booking.scheduled_at), timezone)
+    setReschedDate(`${w.year}-${w.month}-${w.day}`)
+    setReschedTime(`${w.hour}:${w.minute}`)
     setReschedReason('')
     setReschedError('')
     setRescheduleFor(booking)
@@ -188,7 +269,10 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
       setReschedError(lang === 'es' ? 'Selecciona fecha y hora' : 'Pick a date and time')
       return
     }
-    const proposed = new Date(`${reschedDate}T${reschedTime}`)
+    // Interpret the chosen wall-clock in the teacher's profile timezone (same
+    // zone the prefill came from), so the submitted instant equals what the
+    // teacher sees on screen.
+    const proposed = wallClockToInstant(reschedDate, reschedTime, timezone)
     if (isNaN(proposed.getTime())) {
       setReschedError(lang === 'es' ? 'Fecha/hora inválida' : 'Invalid date/time')
       return
@@ -273,19 +357,18 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
             <span
               style={{
                 display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
-                borderRadius: 999,
-                background: 'var(--ek-red-tint)',
-                border: '1px solid var(--ek-red-tint-3)',
+                alignItems: 'baseline',
+                gap: 7,
+                fontFamily: 'var(--ek-font-mono)',
                 fontSize: 12,
-                fontWeight: 700,
-                color: 'var(--ek-red)',
+                letterSpacing: '0.03em',
+                color: 'var(--ek-text-muted)',
               }}
             >
-              <AlertCircle className="h-3.5 w-3.5" />
-              {pending.length} {lang === 'es' ? 'pendientes' : 'pending'}
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-red)', fontFeatureSettings: '"tnum"' }}>
+                {pending.length}
+              </span>
+              {lang === 'es' ? 'pendientes' : 'pending'}
             </span>
           ) : null
         }
@@ -295,103 +378,88 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
           {/* Pending requests */}
-          <div
-            className="rounded-xl overflow-hidden"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #E5E7EB' }}>
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex h-7 w-7 items-center justify-center rounded"
-                  style={{ background: 'rgba(196,30,58,0.08)', border: '1px solid rgba(196,30,58,0.15)' }}
-                >
-                  <Clock className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
-                </div>
-                <h2 className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.pending}</h2>
-              </div>
-              {pending.length > 0 && (
-                <span
-                  className="text-[10px] font-bold rounded px-2 py-0.5"
-                  style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A' }}
-                >
-                  {pending.length}
-                </span>
-              )}
-            </div>
+          <section>
+            <SectionHeader
+              kicker={tx.pendingKicker}
+              title={tx.pending}
+              right={
+                pending.length > 0 ? (
+                  <span
+                    style={{
+                      fontFamily: 'var(--ek-font-mono)',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: 'var(--ek-red)',
+                      fontFeatureSettings: '"tnum"',
+                    }}
+                  >
+                    {pending.length}
+                  </span>
+                ) : null
+              }
+            />
 
             {pending.length > 0 && (
-              <p className="px-5 pt-3 text-[12px]" style={{ color: '#6B7280' }}>{tx.pendingHint}</p>
+              <p className="text-[12px] mb-3" style={{ color: 'var(--ek-text-muted)' }}>{tx.pendingHint}</p>
             )}
 
             <AnimatePresence mode="popLayout">
               {pending.length === 0 ? (
-                <motion.div
+                <motion.p
                   key="empty-pending"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex flex-col items-center justify-center py-12 text-center px-6"
+                  className="py-10 text-[14px]"
+                  style={{ color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic' }}
                 >
-                  <Calendar className="h-8 w-8 mb-3" style={{ color: '#E5E7EB' }} />
-                  <p className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.noPending}</p>
-                </motion.div>
+                  {tx.noPending}
+                </motion.p>
               ) : (
-                <ul>
+                <ul style={{ borderTop: '1px solid var(--ek-border-soft)' }}>
                   {pending.map((booking) => (
                     <motion.li
                       key={booking.id}
                       layout
                       exit={{ opacity: 0, height: 0 }}
-                      className="px-5 py-4"
-                      style={{ borderBottom: '1px solid #E5E7EB' }}
+                      className="py-4"
+                      style={{ borderBottom: '1px solid var(--ek-border-soft)' }}
                     >
                       <div className="flex items-start gap-3">
                         <div
                           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded font-bold text-[12px]"
-                          style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A' }}
+                          style={{ background: 'var(--ek-red-tint)', color: 'var(--ek-red)' }}
                         >
                           {getInitials(booking.student?.profile?.full_name)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>
+                            <div className="text-[13px] font-semibold" style={{ color: 'var(--ek-text)' }}>
                               {booking.student?.profile?.full_name || 'Student'}
                             </div>
                             {typeLabel(booking.type, tx) && (
-                              <span
-                                className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-                                style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
-                              >
-                                {typeLabel(booking.type, tx)}
-                              </span>
+                              <TypeChip>{typeLabel(booking.type, tx)}</TypeChip>
                             )}
                           </div>
-                          <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ek-text-muted)' }}>
                             {formatDate(booking.scheduled_at, lang, tx, timezone)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                           </div>
                           <div className="flex gap-2 mt-3">
                             <button
                               onClick={() => handleConfirm(booking.id)}
                               disabled={loadingId === booking.id || isPending}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[11px] transition-all disabled:opacity-50"
-                              style={{ background: '#C41E3A', color: '#fff' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = '#9E1830')}
-                              onMouseLeave={e => (e.currentTarget.style.background = '#C41E3A')}
+                              className="ek-red-btn flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[11px] disabled:opacity-50"
+                              style={{ background: 'var(--ek-red)', color: '#fff' }}
                             >
-                              {loadingId === booking.id ? (
+                              {loadingId === booking.id && (
                                 <span className="h-3 w-3 rounded-full border border-white/30 border-t-white animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="h-3 w-3" />
                               )}
                               {tx.confirm}
                             </button>
                             <button
                               onClick={() => handleDecline(booking.id)}
                               disabled={loadingId === booking.id || isPending}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[11px] transition-all disabled:opacity-50"
-                              style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: 'var(--ek-paper)' }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#FCA5A5'; e.currentTarget.style.color = '#DC2626' }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#4B5563' }}
+                              className="ek-outline-btn ek-link-danger flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[11px] disabled:opacity-50"
+                              style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-soft)', background: 'var(--ek-paper)' }}
                             >
-                              <X className="h-3 w-3" />
                               {tx.decline}
                             </button>
                           </div>
@@ -402,93 +470,64 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                 </ul>
               )}
             </AnimatePresence>
-          </div>
+          </section>
 
           {/* Confirmed upcoming */}
-          <div
-            className="rounded-xl overflow-hidden"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
-            <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #E5E7EB' }}>
-              <div
-                className="flex h-7 w-7 items-center justify-center rounded"
-                style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}
-              >
-                <Calendar className="h-3.5 w-3.5" style={{ color: '#16A34A' }} />
-              </div>
-              <h2 className="text-[13px] font-bold" style={{ color: '#111111' }}>{tx.upcoming}</h2>
-            </div>
+          <section>
+            <SectionHeader kicker={tx.confirmedKicker} title={tx.upcoming} />
 
             <AnimatePresence mode="popLayout">
               {confirmed.length === 0 ? (
-                <motion.div
+                <motion.p
                   key="empty-confirmed"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex flex-col items-center justify-center py-12 text-center px-6"
+                  className="py-10 text-[14px]"
+                  style={{ color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic' }}
                 >
-                  <Users className="h-8 w-8 mb-3" style={{ color: '#E5E7EB' }} />
-                  <p className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.noUpcoming}</p>
-                </motion.div>
+                  {tx.noUpcoming}
+                </motion.p>
               ) : (
-                <ul>
+                <ul style={{ borderTop: '1px solid var(--ek-border-soft)' }}>
                   {confirmed.map((booking) => {
                     const canJoin = canEnterRoom(booking.scheduled_at, booking.duration_minutes)
                     const badge = typeLabel(booking.type, tx)
+                    const isReschedPending = booking.reschedule_request?.status === 'pending'
                     return (
                       <motion.li
                         key={booking.id}
                         layout
-                        className="px-5 py-4"
-                        style={{ borderBottom: '1px solid #E5E7EB' }}
+                        className="py-4"
+                        style={{ borderBottom: '1px solid var(--ek-border-soft)' }}
                       >
                         <div className="flex items-center gap-3">
                           <div
                             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded font-bold text-[12px]"
-                            style={{ background: '#F3F4F6', color: '#4B5563' }}
+                            style={{ background: 'var(--ek-paper-deep)', color: 'var(--ek-text-soft)' }}
                           >
                             {getInitials(booking.student?.profile?.full_name)}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
+                              <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--ek-text)' }}>
                                 {booking.student?.profile?.full_name || 'Student'}
                               </div>
-                              {badge && (
-                                <span
-                                  className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-                                  style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}
-                                >
-                                  {badge}
-                                </span>
-                              )}
+                              {badge && <TypeChip>{badge}</TypeChip>}
                             </div>
-                            <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                            <div className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>
                               {formatDate(booking.scheduled_at, lang, tx, timezone)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {booking.reschedule_request?.status === 'pending' ? (
-                              <span
-                                className="text-[10px] font-semibold px-2 py-0.5 rounded"
-                                style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' }}
-                              >
-                                {tx.reschedulePending}
-                              </span>
+                            {isReschedPending ? (
+                              <StatusBadge variant="pending">{tx.reschedulePending}</StatusBadge>
                             ) : (
-                              <span
-                                className="text-[10px] font-semibold px-2 py-0.5 rounded"
-                                style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }}
-                              >
-                                {tx.statusConfirmed}
-                              </span>
+                              <StatusBadge variant="confirmed">{tx.statusConfirmed}</StatusBadge>
                             )}
                             {canJoin && (
                               <Link
                                 href={`/${lang}/sala/${booking.id}`}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded font-semibold text-[10px] transition-all"
-                                style={{ background: '#C41E3A', color: '#fff' }}
-                                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                                className="ek-red-btn flex items-center gap-1 px-2.5 py-1.5 rounded font-semibold text-[10px]"
+                                style={{ background: 'var(--ek-red)', color: '#fff' }}
                               >
                                 <Video className="h-3 w-3" />
                                 {tx.join}
@@ -497,27 +536,21 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                           </div>
                         </div>
                         <div className="flex items-center justify-end gap-2 mt-2">
-                          {booking.reschedule_request?.status === 'pending' ? (
+                          {isReschedPending ? (
                             <button
                               onClick={() => handleCancelReschedule(booking.reschedule_request!.id, booking.id)}
-                              disabled={isPending || booking.reschedule_request.id === 'pending'}
-                              className="flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px] transition-all disabled:opacity-50"
-                              style={{ border: '1px solid #E5E7EB', color: '#9CA3AF', background: '#fff' }}
-                              onMouseEnter={e => { if (!isPending) { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FCA5A5' } }}
-                              onMouseLeave={e => { if (!isPending) { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.borderColor = '#E5E7EB' } }}
+                              disabled={isPending || booking.reschedule_request!.id === 'pending'}
+                              className="ek-outline-btn ek-link-danger flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px] disabled:opacity-50"
+                              style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-muted)', background: 'var(--ek-card)' }}
                             >
-                              <X className="h-3 w-3" />
                               {tx.rescheduleCancel}
                             </button>
                           ) : (
                             <button
                               onClick={() => openReschedule(booking)}
-                              className="flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px] transition-all"
-                              style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: '#fff' }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#C41E3A'; e.currentTarget.style.color = '#C41E3A' }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#4B5563' }}
+                              className="ek-quickrow flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px]"
+                              style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-soft)', background: 'var(--ek-card)' }}
                             >
-                              <CalendarClock className="h-3 w-3" />
                               {tx.reschedule}
                             </button>
                           )}
@@ -528,109 +561,76 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                 </ul>
               )}
             </AnimatePresence>
-          </div>
+          </section>
         </div>
       </div>
 
       {/* Reschedule modal */}
-      <AnimatePresence>
-        {rescheduleFor && (
-          <motion.div
-            key="resched-backdrop"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.5)' }}
-            onClick={closeReschedule}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 8 }}
-              transition={{ duration: 0.15 }}
-              className="w-full max-w-md rounded-xl"
-              style={{ background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
-              onClick={e => e.stopPropagation()}
+      <Modal
+        open={!!rescheduleFor}
+        onClose={closeReschedule}
+        kicker={tx.rescheduleKicker}
+        title={tx.rescheduleTitle}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={closeReschedule}
+              className="ek-outline-btn px-3 py-1.5 rounded font-semibold text-[12px]"
+              style={{ color: 'var(--ek-text-soft)', background: 'var(--ek-card)', border: '1px solid var(--ek-border)' }}
             >
-              <div className="px-5 py-4 flex items-start justify-between" style={{ borderBottom: '1px solid #E5E7EB' }}>
-                <div>
-                  <h3 className="text-[15px] font-black" style={{ color: '#111111' }}>{tx.rescheduleTitle}</h3>
-                  <p className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{tx.rescheduleSubtitle}</p>
-                </div>
-                <button
-                  onClick={closeReschedule}
-                  className="rounded p-1 -mt-0.5 -mr-1"
-                  style={{ color: '#9CA3AF' }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#111111'; e.currentTarget.style.background = '#F3F4F6' }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.background = 'transparent' }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="px-5 py-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold block mb-1" style={{ color: '#4B5563' }}>{tx.rescheduleNewDate}</label>
-                    <input
-                      type="date"
-                      value={reschedDate}
-                      onChange={e => setReschedDate(e.target.value)}
-                      className="w-full rounded px-2 py-1.5 text-[13px] outline-none"
-                      style={{ border: '1px solid #E5E7EB', color: '#111111' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold block mb-1" style={{ color: '#4B5563' }}>{tx.rescheduleNewTime}</label>
-                    <input
-                      type="time"
-                      value={reschedTime}
-                      onChange={e => setReschedTime(e.target.value)}
-                      className="w-full rounded px-2 py-1.5 text-[13px] outline-none"
-                      style={{ border: '1px solid #E5E7EB', color: '#111111' }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold block mb-1" style={{ color: '#4B5563' }}>{tx.rescheduleReason}</label>
-                  <textarea
-                    value={reschedReason}
-                    onChange={e => setReschedReason(e.target.value)}
-                    placeholder={tx.reschedulePlaceholder}
-                    rows={3}
-                    className="w-full rounded px-2 py-1.5 text-[13px] outline-none resize-none"
-                    style={{ border: '1px solid #E5E7EB', color: '#111111' }}
-                  />
-                </div>
-                {reschedError && (
-                  <p className="text-[12px]" style={{ color: '#DC2626' }}>{reschedError}</p>
-                )}
-              </div>
-
-              <div className="px-5 py-3 flex items-center justify-end gap-2" style={{ borderTop: '1px solid #E5E7EB', background: '#FAFAFA' }}>
-                <button
-                  onClick={closeReschedule}
-                  className="px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ color: '#4B5563', background: '#fff', border: '1px solid #E5E7EB' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#fff' }}
-                >
-                  {tx.rescheduleCancelBtn}
-                </button>
-                <button
-                  onClick={submitReschedule}
-                  disabled={reschedSubmitting}
-                  className="px-3 py-1.5 rounded font-semibold text-[12px] transition-all disabled:opacity-50"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => { if (!reschedSubmitting) e.currentTarget.style.background = '#9E1830' }}
-                  onMouseLeave={e => { if (!reschedSubmitting) e.currentTarget.style.background = '#C41E3A' }}
-                >
-                  {reschedSubmitting ? '…' : tx.rescheduleSubmit}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {tx.rescheduleCancelBtn}
+            </button>
+            <button
+              onClick={submitReschedule}
+              disabled={reschedSubmitting}
+              className="ek-red-btn px-3 py-1.5 rounded font-semibold text-[12px] disabled:opacity-50"
+              style={{ background: 'var(--ek-red)', color: '#fff' }}
+            >
+              {reschedSubmitting ? '…' : tx.rescheduleSubmit}
+            </button>
+          </div>
+        }
+      >
+        <p className="text-[12px] mb-4" style={{ color: 'var(--ek-text-muted)' }}>{tx.rescheduleSubtitle}</p>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--ek-text-soft)' }}>{tx.rescheduleNewDate}</label>
+              <input
+                type="date"
+                value={reschedDate}
+                onChange={e => setReschedDate(e.target.value)}
+                className="ek-input w-full rounded px-2 py-1.5 text-[13px]"
+                style={{ color: 'var(--ek-text)', background: 'var(--ek-card)' }}
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--ek-text-soft)' }}>{tx.rescheduleNewTime}</label>
+              <input
+                type="time"
+                value={reschedTime}
+                onChange={e => setReschedTime(e.target.value)}
+                className="ek-input w-full rounded px-2 py-1.5 text-[13px]"
+                style={{ color: 'var(--ek-text)', background: 'var(--ek-card)' }}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--ek-text-soft)' }}>{tx.rescheduleReason}</label>
+            <textarea
+              value={reschedReason}
+              onChange={e => setReschedReason(e.target.value)}
+              placeholder={tx.reschedulePlaceholder}
+              rows={3}
+              className="ek-input w-full rounded px-2 py-1.5 text-[13px] resize-none"
+              style={{ color: 'var(--ek-text)', background: 'var(--ek-card)' }}
+            />
+          </div>
+          {reschedError && (
+            <p className="text-[12px]" style={{ color: 'var(--ek-red)' }}>{reschedError}</p>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -1,8 +1,9 @@
 'use client'
 
-import { Calendar, Video, CheckCircle2, DollarSign, Wallet } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { StatLedger } from '@/components/ui/StatLedger'
+import { SectionHeader } from '@/components/dashboard/SectionHeader'
 
 interface Session {
   id: string
@@ -81,65 +82,46 @@ export default function GananciasClient({
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto space-y-6">
+      <div className="px-8 py-6 max-w-4xl mx-auto space-y-8">
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: tx.thisMonthEarnings, value: formatUsd(thisMonthEarningsUsd, lang), icon: DollarSign, accent: true },
-            { label: tx.totalEarnings, value: formatUsd(totalEarningsUsd, lang), icon: Wallet, accent: true },
-            { label: tx.thisMonth, value: thisMonthSessions.toString(), icon: Calendar, accent: false },
-            { label: tx.total, value: totalSessions.toString(), icon: CheckCircle2, accent: false },
-          ].map(({ label, value, icon: Icon, accent }) => (
-            <div
-              key={label}
-              className="rounded-xl p-5"
-              style={{
-                background: '#fff',
-                border: `1px solid ${accent ? '#FCA5A5' : '#E5E7EB'}`,
-              }}
-            >
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded mb-3"
-                style={{ background: accent ? '#FEF2F2' : '#F3F4F6' }}
-              >
-                <Icon className="h-4 w-4" style={{ color: accent ? '#C41E3A' : '#9CA3AF' }} />
-              </div>
-              <div className="text-[22px] font-black mb-0.5" style={{ color: '#111111' }}>{value}</div>
-              <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{label}</div>
-            </div>
-          ))}
-        </div>
+        {/* Stats — editorial ledger: big numbers + hairline rules, no boxes.
+            Earnings read in the red accent; session counts stay plain. */}
+        <StatLedger
+          items={[
+            { kicker: tx.thisMonthEarnings, value: formatUsd(thisMonthEarningsUsd, lang), accent: true },
+            { kicker: tx.totalEarnings, value: formatUsd(totalEarningsUsd, lang), accent: true },
+            { kicker: tx.thisMonth, value: thisMonthSessions },
+            { kicker: tx.total, value: totalSessions },
+          ]}
+        />
 
-        {/* Sessions table */}
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-        >
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
-            <h2 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.recentSessions}</h2>
-          </div>
+        {/* Completed sessions — hairline-ruled table, no boxes.
+            Every row is pre-filtered to status='completed', so the redundant
+            green status column is dropped entirely. */}
+        <section>
+          <SectionHeader title={tx.recentSessions} />
 
           {sessions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-                style={{ background: '#F3F4F6' }}
-              >
-                <Video className="h-5 w-5" style={{ color: '#9CA3AF' }} />
-              </div>
-              <p className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.noSessions}</p>
-            </div>
+            <p
+              className="text-[15px] italic py-10"
+              style={{ fontFamily: 'var(--ek-font-serif)', color: 'var(--ek-text-muted)' }}
+            >
+              {tx.noSessions}
+            </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: '#F9FAFB' }}>
-                    {[tx.date, tx.student, tx.duration, tx.earnings, tx.status].map(h => (
+                  <tr>
+                    {[tx.date, tx.student, tx.duration, tx.earnings].map(h => (
                       <th
                         key={h}
-                        className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider"
-                        style={{ color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}
+                        className="text-left py-2.5 text-[11px] font-semibold uppercase tracking-wider"
+                        style={{
+                          color: 'var(--ek-text-muted)',
+                          fontFamily: 'var(--ek-font-mono)',
+                          borderBottom: '1px solid var(--ek-border)',
+                        }}
                       >
                         {h}
                       </th>
@@ -148,29 +130,24 @@ export default function GananciasClient({
                 </thead>
                 <tbody>
                   {sessions.map(s => (
-                    <tr key={s.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                      <td className="px-5 py-3.5 text-[13px]" style={{ color: '#111111' }}>
+                    <tr key={s.id} style={{ borderBottom: '1px solid var(--ek-border-soft)' }}>
+                      <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text)' }}>
                         {new Date(s.scheduled_at).toLocaleDateString(
                           lang === 'es' ? 'es-HN' : 'en-US',
                           { month: 'short', day: 'numeric', year: 'numeric' }
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-[13px] font-medium" style={{ color: '#111111' }}>
+                      <td className="py-3.5 text-[13px] font-medium" style={{ color: 'var(--ek-text)' }}>
                         {s.student?.profile?.full_name?.split(' ')[0] || '—'}
                       </td>
-                      <td className="px-5 py-3.5 text-[13px]" style={{ color: '#4B5563' }}>
+                      <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>
                         {s.duration_minutes}{tx.mins}
                       </td>
-                      <td className="px-5 py-3.5 text-[13px] font-bold" style={{ color: '#C41E3A' }}>
+                      <td
+                        className="py-3.5 text-[13px] font-bold"
+                        style={{ color: 'var(--ek-red)', fontFeatureSettings: '"tnum"' }}
+                      >
                         {formatUsd(s.payoutUsd, lang)}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className="text-[10px] font-semibold px-2.5 py-1 rounded"
-                          style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }}
-                        >
-                          {tx.completed}
-                        </span>
                       </td>
                     </tr>
                   ))}
@@ -178,7 +155,7 @@ export default function GananciasClient({
               </table>
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   )

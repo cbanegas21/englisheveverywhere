@@ -1,16 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import {
-  Calendar, Star, Users, ArrowRight,
-  Video, ChevronRight, Clock, ToggleLeft, ToggleRight,
-  CheckCircle2, BarChart3
-} from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useState, useTransition, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
+import { StatLedger } from '@/components/ui/StatLedger'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { SectionHeader } from '@/components/dashboard/SectionHeader'
 
 const t = {
   en: {
@@ -20,19 +19,26 @@ const t = {
     subtitle: 'Your teaching overview for today.',
     activeToggle: 'Accepting students',
     inactiveToggle: 'Not accepting',
+    acceptingKicker: 'New bookings',
     stats: {
       sessions: 'Sessions this month',
+      sessionsSub: 'completed',
       total: 'Total sessions',
+      totalSub: 'all-time',
       rating: 'Your rating',
+      ratingSub: 'out of 5',
     },
     upcoming: 'Upcoming sessions',
+    upcomingKicker: 'Schedule',
     noUpcoming: 'No upcoming sessions scheduled.',
     noUpcomingSub: 'Set your availability to start receiving bookings.',
     setAvailability: 'Set availability',
     with: 'with',
+    student: 'Student',
     mins: 'min',
-    viewAll: 'View schedule',
+    viewAll: 'View schedule →',
     quickActions: 'Quick actions',
+    quickActionsKicker: 'Shortcuts',
     actions: {
       availability: { title: 'Set availability', sub: 'Define your open time slots', href: '/maestro/dashboard/disponibilidad' },
       students: { title: 'My students', sub: 'View your active students', href: '/maestro/dashboard/estudiantes' },
@@ -52,19 +58,26 @@ const t = {
     subtitle: 'Tu resumen de enseñanza de hoy.',
     activeToggle: 'Aceptando estudiantes',
     inactiveToggle: 'No disponible',
+    acceptingKicker: 'Nuevas reservas',
     stats: {
       sessions: 'Sesiones este mes',
+      sessionsSub: 'completadas',
       total: 'Total de sesiones',
+      totalSub: 'históricas',
       rating: 'Tu calificación',
+      ratingSub: 'sobre 5',
     },
     upcoming: 'Próximas sesiones',
+    upcomingKicker: 'Agenda',
     noUpcoming: 'No tienes sesiones próximas.',
     noUpcomingSub: 'Define tu disponibilidad para comenzar a recibir reservas.',
     setAvailability: 'Definir disponibilidad',
     with: 'con',
+    student: 'Estudiante',
     mins: 'min',
-    viewAll: 'Ver agenda',
+    viewAll: 'Ver agenda →',
     quickActions: 'Acciones rápidas',
+    quickActionsKicker: 'Atajos',
     actions: {
       availability: { title: 'Disponibilidad', sub: 'Define tus horarios libres', href: '/maestro/dashboard/disponibilidad' },
       students: { title: 'Mis estudiantes', sub: 'Ver tus estudiantes activos', href: '/maestro/dashboard/estudiantes' },
@@ -87,24 +100,6 @@ function getGreeting(lang: Locale) {
   return tx.greetingEvening
 }
 
-function ymdInTz(d: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(d)
-}
-
-function formatDate(iso: string, lang: Locale, timeZone: string) {
-  const d = new Date(iso)
-  const now = new Date()
-  const tomorrow = new Date(now.getTime() + 86400000)
-  const tx = t[lang]
-  if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
-  if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
-  return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', timeZone,
-  })
-}
-
 function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
   // Pin locale + tz to keep SSR + client output identical (hydration-safe).
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
@@ -114,6 +109,38 @@ function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
 
 function dayInTz(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat('en-US', { timeZone, day: 'numeric' }).format(new Date(iso))
+}
+
+function weekdayShort(iso: string, lang: Locale, timeZone: string): string {
+  return new Intl.DateTimeFormat(lang === 'es' ? 'es-HN' : 'en-US', { weekday: 'short', timeZone })
+    .format(new Date(iso))
+    .toUpperCase()
+    .replace(/\./g, '')
+}
+
+function monthShort(iso: string, lang: Locale, timeZone: string): string {
+  return new Intl.DateTimeFormat(lang === 'es' ? 'es-HN' : 'en-US', { month: 'short', timeZone })
+    .format(new Date(iso))
+    .toUpperCase()
+    .replace(/\./g, '')
+}
+
+// Supabase nested one-to-one selects can resolve as either an object or a
+// single-element array depending on inferred cardinality. Unwrap both shapes
+// so the real student name survives instead of silently falling back to the
+// generic label. (Opportunistic fix — preserves the existing fallback.)
+function unwrap<T>(v: T | T[] | null | undefined): T | null {
+  if (Array.isArray(v)) return v[0] ?? null
+  return v ?? null
+}
+
+function studentName(session: Session): string | null {
+  const student = unwrap(session.student as
+    | { profile?: { full_name?: string } | { full_name?: string }[] | null }
+    | { profile?: { full_name?: string } | { full_name?: string }[] | null }[]
+    | null)
+  const profile = unwrap(student?.profile)
+  return profile?.full_name || null
 }
 
 interface Session {
@@ -158,9 +185,9 @@ export default function TeacherDashboardClient({
   // inside an effect, so defer the initial set via a 0-ms timeout.
   const [nowTick, setNowTick] = useState<number | null>(null)
   useEffect(() => {
-    const t = setTimeout(() => setNowTick(Date.now()), 0)
+    const tt = setTimeout(() => setNowTick(Date.now()), 0)
     const id = setInterval(() => setNowTick(Date.now()), 60_000)
-    return () => { clearTimeout(t); clearInterval(id) }
+    return () => { clearTimeout(tt); clearInterval(id) }
   }, [])
   const [isPending, startTransition] = useTransition()
 
@@ -178,6 +205,12 @@ export default function TeacherDashboardClient({
     })
   }
 
+  const quickActions = [
+    tx.actions.availability,
+    tx.actions.students,
+    tx.actions.sessions,
+  ]
+
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
@@ -193,60 +226,84 @@ export default function TeacherDashboardClient({
           <button
             onClick={toggleActive}
             disabled={isPending}
+            className="ek-quickrow"
             style={{
               display: 'inline-flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '9px 16px',
-              borderRadius: 999,
+              alignItems: 'baseline',
+              gap: 9,
+              padding: '8px 14px',
+              borderRadius: 4,
               fontSize: 12,
-              fontWeight: 700,
               cursor: 'pointer',
               fontFamily: 'var(--ek-font-sans)',
-              border: active ? '1px solid var(--ek-success-border)' : '1px solid var(--ek-border-mid)',
-              background: active ? 'var(--ek-success-bg)' : 'var(--ek-card)',
-              color: active ? 'var(--ek-success-text)' : 'var(--ek-text-soft)',
+              border: '1px solid var(--ek-border-mid)',
+              background: 'var(--ek-card)',
+              color: 'var(--ek-text-soft)',
               opacity: isPending ? 0.6 : 1,
               whiteSpace: 'nowrap',
             }}
           >
-            {active
-              ? <ToggleRight className="h-4 w-4" style={{ color: 'var(--ek-success-text)' }} />
-              : <ToggleLeft className="h-4 w-4" style={{ color: 'var(--ek-text-muted)' }} />
-            }
-            {active ? tx.activeToggle : tx.inactiveToggle}
+            <span
+              style={{
+                fontFamily: 'var(--ek-font-mono)',
+                fontSize: 10,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--ek-text-muted)',
+              }}
+            >
+              {tx.acceptingKicker}
+            </span>
+            <span
+              style={{
+                fontWeight: 700,
+                color: active ? 'var(--ek-red)' : 'var(--ek-text-muted)',
+              }}
+            >
+              {active ? tx.activeToggle : tx.inactiveToggle}
+            </span>
           </button>
         }
       />
 
-      <div className="px-8 py-6 max-w-5xl mx-auto space-y-6">
+      <div className="px-8 py-6 max-w-5xl mx-auto space-y-7">
 
-        {/* Specializations info bar */}
+        {/* Specializations — squared hairline chips, no pills */}
         {specializations.length > 0 && (
-          <div
-            className="rounded-xl p-4 flex flex-wrap items-center gap-3"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
             <span
-              className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0"
-              style={{ color: '#9CA3AF' }}
+              className="ek-microlabel"
+              style={{ flexShrink: 0 }}
             >
               {tx.specs}
             </span>
-            <div className="flex flex-wrap gap-1.5">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {specializations.slice(0, 5).map(s => (
                 <span
                   key={s}
-                  className="text-[11px] px-2.5 py-1 rounded font-medium"
-                  style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}
+                  style={{
+                    fontSize: 11,
+                    padding: '4px 9px',
+                    borderRadius: 4,
+                    fontWeight: 500,
+                    background: 'var(--ek-paper-deep)',
+                    color: 'var(--ek-text-soft)',
+                    border: '1px solid var(--ek-border)',
+                  }}
                 >
                   {s}
                 </span>
               ))}
               {specializations.length > 5 && (
                 <span
-                  className="text-[11px] px-2.5 py-1 rounded"
-                  style={{ background: '#F3F4F6', color: '#9CA3AF' }}
+                  style={{
+                    fontSize: 11,
+                    padding: '4px 9px',
+                    borderRadius: 4,
+                    background: 'var(--ek-paper-deep)',
+                    color: 'var(--ek-text-muted)',
+                    border: '1px solid var(--ek-border)',
+                  }}
                 >
                   +{specializations.length - 5}
                 </span>
@@ -255,177 +312,209 @@ export default function TeacherDashboardClient({
           </div>
         )}
 
-        {/* Stats row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { label: tx.stats.sessions, value: thisMonthSessions, icon: Video },
-            { label: tx.stats.total, value: totalSessions, icon: CheckCircle2 },
-            { label: tx.stats.rating, value: rating > 0 ? rating.toFixed(1) : '—', icon: Star, isRating: true },
-          ].map(({ label, value, icon: Icon, isRating }) => (
-            <div
-              key={label}
-              className="rounded-xl p-5"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded"
-                  style={{ background: '#F3F4F6' }}
-                >
-                  <Icon className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                {isRating && value !== '—' && (
-                  <Star className="h-4 w-4 flex-shrink-0" style={{ color: '#C41E3A', fill: '#C41E3A' }} />
-                )}
-                <span className="text-[24px] font-black" style={{ color: '#111111' }}>{value}</span>
-              </div>
-              <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{label}</div>
-            </div>
-          ))}
+        {/* Stats — editorial ledger: big numbers + hairline rules, no boxes.
+            Rating is the key signal, marked accent. Mirrors the student
+            dashboard ledger. */}
+        <div>
+          <div className="ek-microlabel" style={{ color: 'var(--ek-red)', marginBottom: 12 }}>
+            {lang === 'es' ? 'De un vistazo' : 'At a glance'}
+          </div>
+          <StatLedger
+            items={[
+              { kicker: tx.stats.sessions, value: thisMonthSessions, sub: tx.stats.sessionsSub },
+              { kicker: tx.stats.total, value: totalSessions, sub: tx.stats.totalSub },
+              { kicker: tx.stats.rating, value: rating > 0 ? rating.toFixed(1) : '—', sub: tx.stats.ratingSub, accent: true },
+            ]}
+          />
         </div>
 
         {/* Main content grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 28 }}>
 
           {/* Upcoming sessions — left 3/5 */}
-          <div
-            className="lg:col-span-3 rounded-xl overflow-hidden"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-          >
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
-              <h2 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.upcoming}</h2>
-              <Link
-                href={`/${lang}/maestro/dashboard/agenda`}
-                className="text-[12px] flex items-center gap-1 transition-colors"
-                style={{ color: '#9CA3AF' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#111111')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#9CA3AF')}
-              >
-                {tx.viewAll}
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+          <section className="lg:col-span-3">
+            <SectionHeader
+              kicker={tx.upcomingKicker}
+              title={tx.upcoming}
+              right={
+                <Link
+                  href={`/${lang}/maestro/dashboard/agenda`}
+                  className="ek-link-muted"
+                  style={{ fontSize: 12 }}
+                >
+                  {tx.viewAll}
+                </Link>
+              }
+            />
 
             {upcomingSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-                <div
-                  className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-                  style={{ background: '#F3F4F6' }}
+              <div style={{ padding: '40px 4px' }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontFamily: 'var(--ek-font-serif)',
+                    fontStyle: 'italic',
+                    fontSize: 19,
+                    color: 'var(--ek-text-soft)',
+                  }}
                 >
-                  <Calendar className="h-6 w-6" style={{ color: '#9CA3AF' }} />
-                </div>
-                <p className="text-[13px] font-semibold mb-1" style={{ color: '#111111' }}>{tx.noUpcoming}</p>
-                <p className="text-[12px] mb-5" style={{ color: '#9CA3AF' }}>{tx.noUpcomingSub}</p>
+                  {tx.noUpcoming}
+                </p>
+                <p style={{ margin: '8px 0 20px', fontSize: 13, color: 'var(--ek-text-muted)' }}>
+                  {tx.noUpcomingSub}
+                </p>
                 <Link
                   href={`/${lang}/maestro/dashboard/disponibilidad`}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#9E1830')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.background = '#C41E3A')}
+                  className="ek-red-btn"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '10px 20px',
+                    borderRadius: 4,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    background: 'var(--ek-red)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                  }}
                 >
                   {tx.setAvailability}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
             ) : (
-              <ul>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {upcomingSessions.map((session) => {
                   const startMs = new Date(session.scheduled_at).getTime()
                   const endMs = startMs + (session.duration_minutes || 60) * 60_000
                   const isLive = nowTick !== null && nowTick >= startMs && nowTick <= endMs
+                  const name = studentName(session)
                   return (
-                  <li
-                    key={session.id}
-                    className="flex items-center gap-4 px-5 py-4"
-                    style={{ borderBottom: '1px solid #E5E7EB' }}
-                  >
-                    <div className="flex-shrink-0 text-center w-10">
-                      <div className="text-[10px] uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                        {formatDate(session.scheduled_at, lang, timezone).slice(0, 3)}
-                      </div>
-                      <div className="text-[18px] font-black leading-none mt-0.5" style={{ color: '#111111' }}>
-                        {dayInTz(session.scheduled_at, timezone)}
-                      </div>
-                    </div>
-
-                    <div
-                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
-                      style={{ background: '#F3F4F6' }}
+                    <li
+                      key={session.id}
+                      className="ek-row"
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '56px 1fr auto auto',
+                        gap: 16,
+                        alignItems: 'center',
+                        padding: '16px 8px',
+                        borderBottom: '1px solid var(--ek-border-soft)',
+                      }}
                     >
-                      <Video className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
-                        {tx.with} {(session.student as { profile?: { full_name?: string } } | null)?.profile?.full_name || 'Student'}
+                      <div style={{ textAlign: 'center' }}>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            letterSpacing: '0.15em',
+                            textTransform: 'uppercase',
+                            color: 'var(--ek-text-muted)',
+                            fontFamily: 'var(--ek-font-mono)',
+                          }}
+                        >
+                          {weekdayShort(session.scheduled_at, lang, timezone)}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 24,
+                            fontWeight: 800,
+                            color: 'var(--ek-text)',
+                            letterSpacing: '-0.025em',
+                            lineHeight: 1,
+                            marginTop: 2,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {dayInTz(session.scheduled_at, timezone)}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 9,
+                            letterSpacing: '0.15em',
+                            textTransform: 'uppercase',
+                            color: 'var(--ek-text-muted)',
+                            marginTop: 2,
+                          }}
+                        >
+                          {monthShort(session.scheduled_at, lang, timezone)}
+                        </div>
                       </div>
-                      <div className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                        {formatTime(session.scheduled_at, lang, timezone)} · {session.duration_minutes}{tx.mins}
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span
-                        className="text-[10px] font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1.5"
-                        style={
-                          isLive
-                            ? { background: '#C41E3A', color: '#fff', border: '1px solid #C41E3A' }
-                            : session.status === 'confirmed'
-                            ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC' }
-                            : { background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.15)' }
-                        }
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: 'var(--ek-text)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {tx.with} {name || tx.student}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--ek-text-muted)',
+                            marginTop: 3,
+                            fontFeatureSettings: '"tnum"',
+                          }}
+                        >
+                          {formatTime(session.scheduled_at, lang, timezone)} · {session.duration_minutes}{tx.mins}
+                        </div>
+                      </div>
+
+                      <StatusBadge
+                        variant={isLive ? 'live' : session.status === 'confirmed' ? 'confirmed' : 'pending'}
+                        dot={isLive}
                       >
-                        {isLive && (
-                          <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: '#fff' }} />
-                        )}
                         {isLive ? tx.statusLive : session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
-                      </span>
+                      </StatusBadge>
+
                       <JoinSessionButton
                         lang={lang}
                         bookingId={session.id}
                         scheduledAt={session.scheduled_at}
                         variant="compact"
                       />
-                    </div>
-                  </li>
+                    </li>
                   )
                 })}
               </ul>
             )}
-          </div>
+          </section>
 
-          {/* Quick actions — right 2/5 */}
-          <div className="lg:col-span-2 space-y-3">
-            <h2 className="text-[14px] font-bold mb-1" style={{ color: '#111111' }}>{tx.quickActions}</h2>
-            {([
-              { href: tx.actions.availability.href, icon: Clock, title: tx.actions.availability.title, sub: tx.actions.availability.sub },
-              { href: tx.actions.students.href, icon: Users, title: tx.actions.students.title, sub: tx.actions.students.sub },
-              { href: tx.actions.sessions.href, icon: BarChart3, title: tx.actions.sessions.title, sub: tx.actions.sessions.sub },
-            ] as Array<{ href: string; icon: React.ElementType; title: string; sub: string }>).map(({ href, icon: Icon, title, sub }) => (
-              <Link key={href} href={`/${lang}${href}`}>
-                <div
-                  className="flex items-center gap-3.5 p-4 rounded-xl transition-all cursor-pointer"
-                  style={{ background: '#fff', border: '1px solid #E5E7EB' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#111111')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                >
-                  <div
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded"
-                    style={{ background: '#F3F4F6' }}
+          {/* Quick actions — typographic hairline list, right 2/5 */}
+          <aside className="lg:col-span-2">
+            <SectionHeader kicker={tx.quickActionsKicker} title={tx.quickActions} />
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {quickActions.map(({ href, title, sub }) => (
+                <li key={href}>
+                  <Link
+                    href={`/${lang}${href}`}
+                    className="ek-quickrow"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                      padding: '16px 14px',
+                      borderBottom: '1px solid var(--ek-border-soft)',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                    }}
                   >
-                    <Icon className="h-4 w-4" style={{ color: '#9CA3AF' }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-semibold" style={{ color: '#111111' }}>{title}</div>
-                    <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{sub}</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" style={{ color: '#E5E7EB' }} />
-                </div>
-              </Link>
-            ))}
-          </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)' }}>{title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 2 }}>{sub}</div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--ek-text-faint)' }} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </aside>
         </div>
       </div>
     </div>

@@ -457,3 +457,44 @@ body {
 
 .ee-card { background: var(--ek-card); border: 1px solid var(--ek-border); border-radius: var(--ek-radius-md); }
 .ee-card-dark { background: var(--ek-ink-2); border: 1px solid var(--ek-border-dark); border-radius: var(--ek-radius-md); }
+
+/* ── Dashboard interaction utilities (de-AI round, 2026-06-06) ───────── */
+/* Replace inline-JS onMouseEnter/onMouseLeave/onFocus style mutations (which
+   trip React's "mixing shorthand and non-shorthand" warning) with plain CSS.
+   Shared by the student + teacher dashboards. */
+
+/* Hairline list row — soft crimson wash on hover. */
+.ek-row { transition: background 0.16s ease; }
+.ek-row:hover { background: var(--ek-red-tint); }
+
+/* Muted link that warms to ink on hover (view-all, meta links). */
+.ek-link-muted { color: var(--ek-text-muted); text-decoration: none; transition: color 0.16s ease; }
+.ek-link-muted:hover { color: var(--ek-text); }
+
+/* Link/button that warms to crimson on hover (destructive, accents). */
+.ek-link-danger { transition: color 0.16s ease; }
+.ek-link-danger:hover { color: var(--ek-red); }
+
+/* Bare icon button (modal/drawer close, etc.). */
+.ek-iconbtn { color: var(--ek-text-muted); background: transparent; border: 0; cursor: pointer; transition: color 0.16s ease; }
+.ek-iconbtn:hover { color: var(--ek-text); }
+
+/* Quick-action / nav row whose border strengthens to ink on hover. */
+.ek-quickrow { transition: border-color 0.16s ease, background 0.16s ease; }
+.ek-quickrow:hover { border-color: var(--ek-ink); }
+
+/* Ghost/outline button (cancel, secondary actions). */
+.ek-outline-btn { transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease; }
+.ek-outline-btn:hover { border-color: var(--ek-ink); background: var(--ek-paper-deep); }
+
+/* Crimson solid button (primary actions on cream). */
+.ek-red-btn { transition: background 0.16s ease; }
+.ek-red-btn:hover { background: var(--ek-red-hover); }
+
+/* Segmented/preset toggle chip. */
+.ek-chip-toggle { transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease; }
+.ek-chip-toggle:hover { border-color: var(--ek-ink); }
+
+/* Form input with a real :focus ring (replaces inline onFocus/onBlur border swap). */
+.ek-input { border: 1px solid var(--ek-border); transition: border-color 0.16s ease; }
+.ek-input:focus, .ek-input:focus-visible { outline: none; border-color: var(--ek-red); }

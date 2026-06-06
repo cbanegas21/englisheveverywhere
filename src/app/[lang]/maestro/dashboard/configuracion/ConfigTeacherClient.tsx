@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { User, Mail, Lock, FileText, Tag, CheckCircle2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { updateTeacherProfile } from '@/app/actions/profile'
 import { DashTopBar } from '@/components/ui/DashTopBar'
@@ -17,6 +16,7 @@ const t = {
     bio: 'Bio',
     specializations: 'Specializations',
     specializationsHint: 'Comma-separated (e.g. Business English, IELTS, Pronunciation)',
+    specializationsPlaceholder: 'Business English, IELTS, Pronunciation',
     email: 'Email address',
     emailReadOnly: 'Email cannot be changed.',
     changePassword: 'Change password',
@@ -34,6 +34,7 @@ const t = {
     bio: 'Biografía',
     specializations: 'Especializaciones',
     specializationsHint: 'Separadas por comas (ej. Business English, IELTS, Pronunciación)',
+    specializationsPlaceholder: 'Business English, IELTS, Pronunciación',
     email: 'Correo electrónico',
     emailReadOnly: 'El correo no se puede cambiar.',
     changePassword: 'Cambiar contraseña',
@@ -82,167 +83,145 @@ export default function ConfigTeacherClient({ lang, fullName, bio, specializatio
   const inputStyle = {
     width: '100%',
     padding: '10px 12px',
-    borderRadius: '4px',
-    border: '1px solid #E5E7EB',
+    borderRadius: 'var(--ek-radius-xs)',
     fontSize: '13px',
-    color: '#111111',
-    background: '#fff',
-    outline: 'none',
+    color: 'var(--ek-text)',
+    background: 'var(--ek-card)',
   } as React.CSSProperties
 
   const labelStyle = {
     display: 'block',
+    marginBottom: '8px',
+  } as React.CSSProperties
+
+  const hintStyle = {
     fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.05em',
-    color: '#9CA3AF',
-    marginBottom: '6px',
-  }
+    marginTop: '6px',
+    color: 'var(--ek-text-muted)',
+  } as React.CSSProperties
 
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
-      <div className="px-8 py-6 max-w-xl mx-auto space-y-5">
+      <div className="px-8 py-6 max-w-xl mx-auto">
 
-        {/* Profile section */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          <div className="px-5 py-3" style={{ background: '#F3F4F6', borderBottom: '1px solid #E5E7EB' }}>
-            <div className="flex items-center gap-2">
-              <User className="h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
-              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                {tx.sectionProfile}
-              </span>
-            </div>
+        {/* Profile section — editorial: kicker + hairline rule, no boxed card */}
+        <section>
+          <div
+            className="ek-microlabel"
+            style={{ color: 'var(--ek-red)', paddingBottom: 12, borderBottom: '1px solid var(--ek-border)' }}
+          >
+            {tx.sectionProfile}
           </div>
 
-          <div className="p-5 space-y-4">
+          <div className="space-y-4" style={{ paddingTop: 18 }}>
             {/* Full name */}
             <div>
-              <label style={labelStyle}>{tx.fullName}</label>
+              <label className="ek-microlabel" style={labelStyle}>{tx.fullName}</label>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder={tx.namePlaceholder}
+                className="ek-input"
                 style={inputStyle}
-                onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
               />
             </div>
 
             {/* Bio */}
             <div>
-              <label style={labelStyle}>
-                <span className="flex items-center gap-1.5">
-                  <FileText className="h-3 w-3" />
-                  {tx.bio}
-                </span>
-              </label>
+              <label className="ek-microlabel" style={labelStyle}>{tx.bio}</label>
               <textarea
                 value={bioVal}
                 onChange={e => setBioVal(e.target.value)}
                 placeholder={tx.bioPlaceholder}
                 rows={4}
+                className="ek-input"
                 style={{ ...inputStyle, resize: 'vertical', lineHeight: '1.6' }}
-                onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
               />
             </div>
 
             {/* Specializations */}
             <div>
-              <label style={labelStyle}>
-                <span className="flex items-center gap-1.5">
-                  <Tag className="h-3 w-3" />
-                  {tx.specializations}
-                </span>
-              </label>
+              <label className="ek-microlabel" style={labelStyle}>{tx.specializations}</label>
               <input
                 type="text"
                 value={specsVal}
                 onChange={e => setSpecsVal(e.target.value)}
-                placeholder="Business English, IELTS, Pronunciation"
+                placeholder={tx.specializationsPlaceholder}
+                className="ek-input"
                 style={inputStyle}
-                onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
               />
-              <p className="text-[11px] mt-1.5" style={{ color: '#9CA3AF' }}>{tx.specializationsHint}</p>
+              <p style={hintStyle}>{tx.specializationsHint}</p>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Account section */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          <div className="px-5 py-3" style={{ background: '#F3F4F6', borderBottom: '1px solid #E5E7EB' }}>
-            <div className="flex items-center gap-2">
-              <Lock className="h-3.5 w-3.5" style={{ color: '#9CA3AF' }} />
-              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#9CA3AF' }}>
-                {tx.sectionAccount}
-              </span>
-            </div>
+        <section style={{ marginTop: 36 }}>
+          <div
+            className="ek-microlabel"
+            style={{ color: 'var(--ek-red)', paddingBottom: 12, borderBottom: '1px solid var(--ek-border)' }}
+          >
+            {tx.sectionAccount}
           </div>
 
-          <div className="p-5 space-y-4">
+          <div className="space-y-4" style={{ paddingTop: 18 }}>
             {/* Email read-only */}
             <div>
-              <label style={labelStyle}>
-                <span className="flex items-center gap-1.5">
-                  <Mail className="h-3 w-3" />
-                  {tx.email}
-                </span>
-              </label>
+              <label className="ek-microlabel" style={labelStyle}>{tx.email}</label>
               <input
                 type="email"
                 value={email}
                 readOnly
-                style={{ ...inputStyle, background: 'var(--ek-paper)', color: '#9CA3AF', cursor: 'not-allowed' }}
+                className="ek-input"
+                style={{ ...inputStyle, background: 'var(--ek-paper)', color: 'var(--ek-text-muted)', cursor: 'not-allowed' }}
               />
-              <p className="text-[11px] mt-1.5" style={{ color: '#9CA3AF' }}>{tx.emailReadOnly}</p>
+              <p style={hintStyle}>{tx.emailReadOnly}</p>
             </div>
 
             {/* Change password */}
             <div>
               <Link
                 href={`/${lang}/login/reset`}
-                className="inline-flex items-center gap-1.5 text-[13px] font-semibold transition-colors"
-                style={{ color: '#C41E3A' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#9E1830')}
-                onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = '#C41E3A')}
+                className="ek-link-danger text-[13px] font-semibold"
+                style={{ color: 'var(--ek-text-soft)', textDecoration: 'none' }}
               >
-                <Lock className="h-3.5 w-3.5" />
                 {tx.changePassword}
               </Link>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Save error */}
         {saveError && (
-          <p className="text-[12px] text-right" style={{ color: '#C41E3A' }}>{saveError}</p>
+          <p className="text-[12px] text-right" style={{ color: 'var(--ek-red)', marginTop: 20 }}>{saveError}</p>
         )}
 
         {/* Save button */}
-        <div className="flex justify-end">
+        <div className="flex justify-end" style={{ marginTop: 28 }}>
           <button
             onClick={handleSave}
             disabled={saving || saved}
-            className="flex items-center gap-2 px-6 py-2.5 rounded text-[13px] font-semibold transition-all"
+            className={saved ? 'px-6 py-2.5 text-[13px] font-semibold' : 'ek-red-btn px-6 py-2.5 text-[13px] font-semibold'}
             style={
               saved
-                ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC', cursor: 'default' }
-                : { background: '#C41E3A', color: '#fff', cursor: saving ? 'wait' : 'pointer' }
+                ? {
+                    background: 'var(--ek-red-tint)',
+                    color: 'var(--ek-red)',
+                    borderRadius: 'var(--ek-radius-xs)',
+                    cursor: 'default',
+                  }
+                : {
+                    background: 'var(--ek-red)',
+                    color: '#fff',
+                    borderRadius: 'var(--ek-radius-xs)',
+                    cursor: saving ? 'wait' : 'pointer',
+                  }
             }
-            onMouseEnter={e => {
-              if (!saved && !saving) (e.currentTarget as HTMLButtonElement).style.background = '#9E1830'
-            }}
-            onMouseLeave={e => {
-              if (!saved && !saving) (e.currentTarget as HTMLButtonElement).style.background = '#C41E3A'
-            }}
           >
-            {saved && <CheckCircle2 className="h-4 w-4" />}
             {saved ? tx.saved : saving ? '...' : tx.save}
           </button>
         </div>

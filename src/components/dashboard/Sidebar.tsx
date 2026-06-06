@@ -10,7 +10,6 @@ import type { Locale } from '@/lib/i18n/translations'
 import { EKMark } from '@/components/ui/EKMark'
 
 interface NavItem {
-  glyph: string
   label: string
   href: string
   badge?: string
@@ -18,49 +17,49 @@ interface NavItem {
 
 const studentNav = {
   en: [
-    { glyph: '▤', label: 'Home', href: '/dashboard' },
-    { glyph: '▦', label: 'My classes', href: '/dashboard/clases' },
-    { glyph: '+', label: 'Schedule', href: '/dashboard/agendar' },
-    { glyph: '✎', label: 'Homework', href: '/dashboard/tareas' },
-    { glyph: '▥', label: 'Library', href: '/dashboard/biblioteca' },
-    { glyph: '○', label: 'My teacher', href: '/dashboard/maestros' },
-    { glyph: '↗', label: 'My progress', href: '/dashboard/progreso' },
-    { glyph: '◇', label: 'My plan', href: '/dashboard/plan' },
-    { glyph: '⚙', label: 'Settings', href: '/dashboard/configuracion' },
+    { label: 'Home', href: '/dashboard' },
+    { label: 'My classes', href: '/dashboard/clases' },
+    { label: 'Schedule', href: '/dashboard/agendar' },
+    { label: 'Homework', href: '/dashboard/tareas' },
+    { label: 'Library', href: '/dashboard/biblioteca' },
+    { label: 'My teacher', href: '/dashboard/maestros' },
+    { label: 'My progress', href: '/dashboard/progreso' },
+    { label: 'My plan', href: '/dashboard/plan' },
+    { label: 'Settings', href: '/dashboard/configuracion' },
   ] as NavItem[],
   es: [
-    { glyph: '▤', label: 'Inicio', href: '/dashboard' },
-    { glyph: '▦', label: 'Mis clases', href: '/dashboard/clases' },
-    { glyph: '+', label: 'Agendar', href: '/dashboard/agendar' },
-    { glyph: '✎', label: 'Tareas', href: '/dashboard/tareas' },
-    { glyph: '▥', label: 'Biblioteca', href: '/dashboard/biblioteca' },
-    { glyph: '○', label: 'Mi maestro', href: '/dashboard/maestros' },
-    { glyph: '↗', label: 'Mi progreso', href: '/dashboard/progreso' },
-    { glyph: '◇', label: 'Mi plan', href: '/dashboard/plan' },
-    { glyph: '⚙', label: 'Configuración', href: '/dashboard/configuracion' },
+    { label: 'Inicio', href: '/dashboard' },
+    { label: 'Mis clases', href: '/dashboard/clases' },
+    { label: 'Agendar', href: '/dashboard/agendar' },
+    { label: 'Tareas', href: '/dashboard/tareas' },
+    { label: 'Biblioteca', href: '/dashboard/biblioteca' },
+    { label: 'Mi maestro', href: '/dashboard/maestros' },
+    { label: 'Mi progreso', href: '/dashboard/progreso' },
+    { label: 'Mi plan', href: '/dashboard/plan' },
+    { label: 'Configuración', href: '/dashboard/configuracion' },
   ] as NavItem[],
 }
 
 const teacherNav = {
   en: [
-    { glyph: '▤', label: 'Home', href: '/maestro/dashboard' },
-    { glyph: '▦', label: 'My schedule', href: '/maestro/dashboard/agenda' },
-    { glyph: '○', label: 'My students', href: '/maestro/dashboard/estudiantes' },
-    { glyph: '✎', label: 'Homework', href: '/maestro/dashboard/tareas' },
-    { glyph: '+', label: 'Availability', href: '/maestro/dashboard/disponibilidad' },
-    { glyph: '▥', label: 'Materials', href: '/maestro/dashboard/materiales' },
-    { glyph: '◇', label: 'Earnings', href: '/maestro/dashboard/ganancias' },
-    { glyph: '⚙', label: 'Settings', href: '/maestro/dashboard/configuracion' },
+    { label: 'Home', href: '/maestro/dashboard' },
+    { label: 'My schedule', href: '/maestro/dashboard/agenda' },
+    { label: 'My students', href: '/maestro/dashboard/estudiantes' },
+    { label: 'Homework', href: '/maestro/dashboard/tareas' },
+    { label: 'Availability', href: '/maestro/dashboard/disponibilidad' },
+    { label: 'Materials', href: '/maestro/dashboard/materiales' },
+    { label: 'Earnings', href: '/maestro/dashboard/ganancias' },
+    { label: 'Settings', href: '/maestro/dashboard/configuracion' },
   ] as NavItem[],
   es: [
-    { glyph: '▤', label: 'Inicio', href: '/maestro/dashboard' },
-    { glyph: '▦', label: 'Mi agenda', href: '/maestro/dashboard/agenda' },
-    { glyph: '○', label: 'Mis estudiantes', href: '/maestro/dashboard/estudiantes' },
-    { glyph: '✎', label: 'Tareas', href: '/maestro/dashboard/tareas' },
-    { glyph: '+', label: 'Disponibilidad', href: '/maestro/dashboard/disponibilidad' },
-    { glyph: '▥', label: 'Materiales', href: '/maestro/dashboard/materiales' },
-    { glyph: '◇', label: 'Ganancias', href: '/maestro/dashboard/ganancias' },
-    { glyph: '⚙', label: 'Configuración', href: '/maestro/dashboard/configuracion' },
+    { label: 'Inicio', href: '/maestro/dashboard' },
+    { label: 'Mi agenda', href: '/maestro/dashboard/agenda' },
+    { label: 'Mis estudiantes', href: '/maestro/dashboard/estudiantes' },
+    { label: 'Tareas', href: '/maestro/dashboard/tareas' },
+    { label: 'Disponibilidad', href: '/maestro/dashboard/disponibilidad' },
+    { label: 'Materiales', href: '/maestro/dashboard/materiales' },
+    { label: 'Ganancias', href: '/maestro/dashboard/ganancias' },
+    { label: 'Configuración', href: '/maestro/dashboard/configuracion' },
   ] as NavItem[],
 }
 
@@ -71,6 +70,28 @@ interface SidebarProps {
   userEmail: string
   avatarInitials: string
 }
+
+const NAV_DIM = 'rgba(244,239,230,0.5)'
+const NAV_DIM_SOFT = 'rgba(244,239,230,0.42)'
+const NAV_TEXT = '#F4EFE6'
+const NAV_BORDER = 'rgba(244,239,230,0.10)'
+
+// Hover/active handled in CSS (no inline-JS style mutation). Colors are inlined
+// into the template because they're sidebar-specific (cream-on-ink), not globals.
+const SIDEBAR_STYLES = `
+.ek-side-link {
+  color: ${NAV_DIM};
+  transition: color 0.16s ease, background 0.16s ease;
+}
+.ek-side-link:hover { color: ${NAV_TEXT}; }
+.ek-side-link[data-active="true"],
+.ek-side-link[data-active="true"]:hover { color: var(--ek-red); }
+.ek-side-foot {
+  color: ${NAV_DIM_SOFT};
+  transition: color 0.16s ease, opacity 0.16s ease;
+}
+.ek-side-foot:hover { color: ${NAV_TEXT}; }
+`
 
 export default function Sidebar({ lang, role, userName, userEmail, avatarInitials }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -100,10 +121,10 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
     return pathname.startsWith(full)
   }
 
-  const dim = 'rgba(244,239,230,0.5)'
-  const dimSoft = 'rgba(244,239,230,0.42)'
-  const text = '#F4EFE6'
-  const border = 'rgba(244,239,230,0.10)'
+  const text = NAV_TEXT
+  const dim = NAV_DIM
+  const dimSoft = NAV_DIM_SOFT
+  const border = NAV_BORDER
 
   const sidebarContent = (
     <div
@@ -114,25 +135,16 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
         fontFamily: 'var(--ek-font-sans)',
       }}
     >
+      <style>{SIDEBAR_STYLES}</style>
       {/* Logo */}
-      <div
-        className="px-[18px] py-[18px]"
-        style={{ borderBottom: `1px solid ${border}` }}
-      >
+      <div className="px-[18px] py-[18px]" style={{ borderBottom: `1px solid ${border}` }}>
         <Link
           href={`/${lang}`}
           className="inline-flex items-center gap-2"
           style={{ textDecoration: 'none', lineHeight: 1 }}
         >
           <EKMark size={26} bg="var(--ek-ink)" barColor="#F4EFE6" />
-          <span
-            style={{
-              color: text,
-              fontWeight: 800,
-              fontSize: 14,
-              letterSpacing: '-0.02em',
-            }}
-          >
+          <span style={{ color: text, fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em' }}>
             EnglishKolab
           </span>
         </Link>
@@ -148,7 +160,8 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
                 <Link
                   href={`/${lang}${item.href}`}
                   onClick={() => setMobileOpen(false)}
-                  className="transition-colors"
+                  className="ek-side-link"
+                  data-active={active ? 'true' : 'false'}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -157,16 +170,9 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
                     borderRadius: 6,
                     fontSize: 13,
                     fontWeight: active ? 700 : 500,
-                    color: active ? 'var(--ek-red)' : dim,
                     background: active ? 'rgba(196,30,58,0.12)' : 'transparent',
                     boxShadow: active ? 'inset 3px 0 0 var(--ek-red)' : 'none',
                     textDecoration: 'none',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active) (e.currentTarget as HTMLAnchorElement).style.color = text
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active) (e.currentTarget as HTMLAnchorElement).style.color = dim
                   }}
                 >
                   <span style={{ flex: 1 }}>{item.label}</span>
@@ -196,7 +202,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             <div style={{ height: 14 }} />
             <Link
               href={`mailto:hola@englishkolab.com?subject=${encodeURIComponent(lang === 'es' ? 'Me interesa enseñar en EnglishKolab' : 'Interested in teaching at EnglishKolab')}`}
-              className="transition-colors"
+              className="ek-side-foot"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -206,11 +212,8 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
                 paddingTop: 14,
                 borderTop: `1px solid ${border}`,
                 fontSize: 13,
-                color: dim,
                 textDecoration: 'none',
               }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = text)}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = dim)}
             >
               {lang === 'es' ? 'Enseñar en la plataforma' : 'Become a teacher'}
             </Link>
@@ -270,6 +273,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
 
         <button
           onClick={handleLocaleSwitch}
+          className="ek-side-foot"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -279,19 +283,12 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             marginBottom: 1,
             borderRadius: 6,
             fontSize: 11.5,
-            color: dimSoft,
             opacity: switching ? 0.5 : 1,
             background: 'transparent',
             border: 0,
             cursor: switching ? 'default' : 'pointer',
             textAlign: 'left',
             fontFamily: 'var(--ek-font-sans)',
-          }}
-          onMouseEnter={(e) => {
-            if (!switching) e.currentTarget.style.color = text
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = dimSoft
           }}
         >
           <span
@@ -304,6 +301,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
 
         <a
           href="mailto:hola@englishkolab.com"
+          className="ek-side-foot"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -313,20 +311,17 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             marginBottom: 1,
             borderRadius: 6,
             fontSize: 11.5,
-            color: dimSoft,
             textDecoration: 'none',
             fontFamily: 'var(--ek-font-sans)',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = text)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = dimSoft)}
         >
-          <span style={{ width: 13, textAlign: 'center', fontFamily: 'var(--ek-font-mono)' }}>?</span>
           {lang === 'es' ? 'Ayuda y contacto' : 'Help & contact'}
         </a>
 
         <form action={signOut.bind(null, lang)}>
           <button
             type="submit"
+            className="ek-side-foot"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -335,17 +330,13 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
               padding: '6px 10px',
               borderRadius: 6,
               fontSize: 11.5,
-              color: dimSoft,
               background: 'transparent',
               border: 0,
               cursor: 'pointer',
               textAlign: 'left',
               fontFamily: 'var(--ek-font-sans)',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = text)}
-            onMouseLeave={(e) => (e.currentTarget.style.color = dimSoft)}
           >
-            <span style={{ width: 13, textAlign: 'center', fontFamily: 'var(--ek-font-mono)' }}>⏻</span>
             {lang === 'es' ? 'Cerrar sesión' : 'Sign out'}
           </button>
         </form>
@@ -377,9 +368,8 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          style={{ color: dim, background: 'transparent', border: 0, cursor: 'pointer' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = text)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = dim)}
+          className="ek-side-foot"
+          style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex' }}
           aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

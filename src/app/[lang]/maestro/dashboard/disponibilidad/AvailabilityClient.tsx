@@ -2,16 +2,30 @@
 
 import { useState, useTransition } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Plus, Trash2, Clock, Save, CheckCircle2, AlertCircle, Layers, X } from 'lucide-react'
 import { saveAvailabilitySlots } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { SectionHeader } from '@/components/dashboard/SectionHeader'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import Modal from '@/components/dashboard/Modal'
 
 interface Slot {
   id?: string
   day_of_week: number
   start_time: string
   end_time: string
+}
+
+// Local-only stable key so removals / bulk inserts don't reuse array indices
+// (which would desync framer-motion + uncontrolled <select> state across rows).
+interface SlotRow extends Slot {
+  _key: string
+}
+
+let _seq = 0
+function makeKey() {
+  _seq += 1
+  return `slot-${_seq}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 interface Props {
@@ -26,7 +40,7 @@ const t = {
     addSlot: 'Add time slot',
     save: 'Save availability',
     saving: 'Saving...',
-    saved: 'Availability saved!',
+    saved: 'Availability saved',
     error: 'An error occurred. Please try again.',
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     dayLabel: 'Day',
@@ -35,13 +49,17 @@ const t = {
     remove: 'Remove',
     booked: 'Booked',
     noSlots: 'No availability set. Add your first time slot.',
-    tipTitle: 'How it works',
+    invalidSlot: 'End time must be after start time.',
+    invalidPresent: 'Fix the highlighted rows before saving.',
+    tipKicker: 'How it works',
     tipBody: 'Students see these slots and can book any open window. Booked slots are locked until the session is complete.',
     weeklySummary: 'Weekly summary',
-    noSlotsConfigured: 'No slots configured',
+    noSlotsConfigured: 'No slots configured.',
     slots: 'slots',
+    mySlots: 'My time slots',
     bulkAdd: 'Bulk add',
     bulkTitle: 'Add availability for multiple days',
+    bulkKicker: 'Bulk add',
     bulkSub: 'Pick the days and a time window. One slot will be created per selected day.',
     bulkPresetWeekdays: 'Mon–Fri',
     bulkPresetWeekends: 'Weekends',
@@ -57,7 +75,7 @@ const t = {
     addSlot: 'Agregar horario',
     save: 'Guardar disponibilidad',
     saving: 'Guardando...',
-    saved: '¡Disponibilidad guardada!',
+    saved: 'Disponibilidad guardada',
     error: 'Ocurrió un error. Por favor intenta de nuevo.',
     days: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
     dayLabel: 'Día',
@@ -66,13 +84,17 @@ const t = {
     remove: 'Eliminar',
     booked: 'Reservado',
     noSlots: 'Sin disponibilidad. Agrega tu primer horario.',
-    tipTitle: 'Cómo funciona',
+    invalidSlot: 'La hora de fin debe ser después del inicio.',
+    invalidPresent: 'Corrige los horarios marcados antes de guardar.',
+    tipKicker: 'Cómo funciona',
     tipBody: 'Los estudiantes ven estos horarios y pueden reservar cualquier ventana disponible. Los horarios reservados se bloquean hasta completar la sesión.',
     weeklySummary: 'Resumen semanal',
-    noSlotsConfigured: 'Sin slots configurados',
+    noSlotsConfigured: 'Sin horarios configurados.',
     slots: 'slots',
+    mySlots: 'Mis horarios',
     bulkAdd: 'Agregar en grupo',
     bulkTitle: 'Agregar disponibilidad en varios días',
+    bulkKicker: 'Agregar en grupo',
     bulkSub: 'Elige los días y una ventana horaria. Se creará un horario por cada día seleccionado.',
     bulkPresetWeekdays: 'Lun–Vie',
     bulkPresetWeekends: 'Fines de semana',
@@ -92,10 +114,10 @@ for (let h = 0; h < 24; h++) {
 TIME_OPTIONS.push('23:59')
 
 const selectStyle = {
-  border: '1px solid #E5E7EB',
-  color: '#111111',
+  border: '1px solid var(--ek-border)',
+  color: 'var(--ek-text)',
   background: 'var(--ek-paper)',
-  borderRadius: '6px',
+  borderRadius: 'var(--ek-radius-sm)',
   padding: '8px 12px',
   fontSize: '13px',
   fontWeight: 500,
@@ -103,10 +125,22 @@ const selectStyle = {
   width: '100%',
 }
 
+const labelStyle = {
+  fontFamily: 'var(--ek-font-mono)',
+  fontSize: '10px',
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase' as const,
+  marginBottom: 4,
+  display: 'block',
+  color: 'var(--ek-text-muted)',
+}
+
 export default function AvailabilityClient({ lang, existingSlots }: Props) {
   const tx = t[lang]
   const [isPending, startTransition] = useTransition()
-  const [slots, setSlots] = useState<Slot[]>(existingSlots)
+  const [slots, setSlots] = useState<SlotRow[]>(() =>
+    existingSlots.map((s) => ({ ...s, _key: makeKey() })),
+  )
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
 
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -115,15 +149,18 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
   const [bulkEnd, setBulkEnd] = useState('17:00')
   const [bulkError, setBulkError] = useState('')
 
+  const hasInvalid = slots.some((s) => s.end_time <= s.start_time)
+
   function addSlot() {
-    setSlots(prev => [...prev, { day_of_week: 1, start_time: '09:00', end_time: '10:00' }])
+    setSlots((prev) => [...prev, { _key: makeKey(), day_of_week: 1, start_time: '09:00', end_time: '10:00' }])
     setSaveStatus('idle')
   }
 
   function toggleBulkDay(d: number) {
-    setBulkDays(prev => {
+    setBulkDays((prev) => {
       const next = new Set(prev)
-      if (next.has(d)) next.delete(d); else next.add(d)
+      if (next.has(d)) next.delete(d)
+      else next.add(d)
       return next
     })
     setBulkError('')
@@ -137,31 +174,44 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
   }
 
   function handleBulkApply() {
-    if (bulkDays.size === 0) { setBulkError(tx.bulkPickDaysError); return }
-    if (bulkEnd <= bulkStart) { setBulkError(tx.bulkTimeError); return }
-    const newSlots: Slot[] = Array.from(bulkDays)
+    if (bulkDays.size === 0) {
+      setBulkError(tx.bulkPickDaysError)
+      return
+    }
+    if (bulkEnd <= bulkStart) {
+      setBulkError(tx.bulkTimeError)
+      return
+    }
+    const newSlots: SlotRow[] = Array.from(bulkDays)
       .sort((a, b) => a - b)
-      .map(d => ({ day_of_week: d, start_time: bulkStart, end_time: bulkEnd }))
-    setSlots(prev => [...prev, ...newSlots])
+      .map((d) => ({ _key: makeKey(), day_of_week: d, start_time: bulkStart, end_time: bulkEnd }))
+    setSlots((prev) => [...prev, ...newSlots])
     setSaveStatus('idle')
     setBulkOpen(false)
     setBulkError('')
   }
 
-  function removeSlot(index: number) {
-    setSlots(prev => prev.filter((_, i) => i !== index))
+  function removeSlot(key: string) {
+    setSlots((prev) => prev.filter((s) => s._key !== key))
     setSaveStatus('idle')
   }
 
-  function updateSlot(index: number, field: keyof Slot, value: string | number) {
-    setSlots(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s))
+  function updateSlot(key: string, field: keyof Slot, value: string | number) {
+    setSlots((prev) => prev.map((s) => (s._key === key ? { ...s, [field]: value } : s)))
     setSaveStatus('idle')
   }
 
   function handleSave() {
     setSaveStatus('idle')
-    const toSave = slots
-      .map(s => ({ day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time }))
+    if (hasInvalid) {
+      setSaveStatus('error')
+      return
+    }
+    const toSave = slots.map((s) => ({
+      day_of_week: s.day_of_week,
+      start_time: s.start_time,
+      end_time: s.end_time,
+    }))
 
     startTransition(async () => {
       const result = await saveAvailabilitySlots(toSave, lang)
@@ -175,150 +225,200 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
 
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
-
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
       <div className="px-8 py-6 max-w-4xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
           {/* Slots editor */}
           <div
-            className="lg:col-span-2 rounded-xl overflow-hidden"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+            className="lg:col-span-2 overflow-hidden"
+            style={{
+              background: 'var(--ek-card)',
+              border: '1px solid var(--ek-border)',
+              borderRadius: 'var(--ek-radius-lg)',
+            }}
           >
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #E5E7EB' }}>
-              <h2 className="text-[13px] font-bold" style={{ color: '#111111' }}>
-                {lang === 'es' ? 'Mis horarios' : 'My time slots'}
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setBulkError(''); setBulkOpen(true) }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: 'var(--ek-paper)' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                >
-                  <Layers className="h-3.5 w-3.5" />
-                  {tx.bulkAdd}
-                </button>
-                <button
-                  onClick={addSlot}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[12px] transition-all"
-                  style={{ border: '1px solid #E5E7EB', color: '#111111', background: 'var(--ek-paper)' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {tx.addSlot}
-                </button>
-              </div>
+            <div className="px-5 pt-5 pb-4">
+              <SectionHeader
+                title={tx.mySlots}
+                right={
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setBulkError('')
+                        setBulkOpen(true)
+                      }}
+                      className="ek-quickrow px-3 py-1.5 font-semibold text-[12px]"
+                      style={{
+                        border: '1px solid var(--ek-border)',
+                        color: 'var(--ek-text)',
+                        background: 'var(--ek-paper)',
+                        borderRadius: 'var(--ek-radius-xs)',
+                      }}
+                    >
+                      {tx.bulkAdd}
+                    </button>
+                    <button
+                      onClick={addSlot}
+                      className="ek-quickrow px-3 py-1.5 font-semibold text-[12px]"
+                      style={{
+                        border: '1px solid var(--ek-border)',
+                        color: 'var(--ek-text)',
+                        background: 'var(--ek-paper)',
+                        borderRadius: 'var(--ek-radius-xs)',
+                      }}
+                    >
+                      + {tx.addSlot}
+                    </button>
+                  </div>
+                }
+              />
             </div>
 
             <AnimatePresence mode="popLayout">
               {slots.length === 0 ? (
                 <motion.div
                   key="empty"
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="flex flex-col items-center justify-center py-14 text-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="px-5 py-14 text-center"
                 >
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-                    style={{ background: '#F3F4F6' }}
+                  <p
+                    style={{
+                      margin: 0,
+                      fontFamily: 'var(--ek-font-serif)',
+                      fontStyle: 'italic',
+                      fontSize: 20,
+                      color: 'var(--ek-text-soft)',
+                    }}
                   >
-                    <Clock className="h-6 w-6" style={{ color: '#9CA3AF' }} />
-                  </div>
-                  <p className="text-[13px]" style={{ color: '#9CA3AF' }}>{tx.noSlots}</p>
+                    {tx.noSlots}
+                  </p>
                 </motion.div>
               ) : (
                 <div>
-                  {slots.map((slot, index) => (
-                    <motion.div
-                      key={index}
-                      layout
-                      exit={{ opacity: 0, height: 0 }}
-                      className="px-5 py-4"
-                      style={{
-                        borderBottom: '1px solid #E5E7EB',
-                        opacity: 1,
-                      }}
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                        {/* Day */}
-                        <div className="flex-1 min-w-0">
-                          <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: '#9CA3AF' }}>
-                            {tx.dayLabel}
-                          </label>
-                          <select
-                            value={slot.day_of_week}
-                            onChange={(e) => updateSlot(index, 'day_of_week', parseInt(e.target.value))}
-                            style={selectStyle}
-                          >
-                            {tx.days.map((day, i) => (
-                              <option key={i} value={i}>{day}</option>
-                            ))}
-                          </select>
+                  {slots.map((slot) => {
+                    const invalid = slot.end_time <= slot.start_time
+                    return (
+                      <motion.div
+                        key={slot._key}
+                        layout
+                        exit={{ opacity: 0, height: 0 }}
+                        className="px-5 py-4"
+                        style={{
+                          borderTop: '1px solid var(--ek-border-soft)',
+                          background: invalid ? 'var(--ek-red-tint)' : 'transparent',
+                        }}
+                      >
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                          {/* Day */}
+                          <div className="flex-1 min-w-0">
+                            <label style={labelStyle}>{tx.dayLabel}</label>
+                            <select
+                              className="ek-input"
+                              value={slot.day_of_week}
+                              onChange={(e) => updateSlot(slot._key, 'day_of_week', parseInt(e.target.value))}
+                              style={selectStyle}
+                            >
+                              {tx.days.map((day, i) => (
+                                <option key={i} value={i}>
+                                  {day}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Start time */}
+                          <div className="w-28 flex-shrink-0">
+                            <label style={labelStyle}>{tx.startTime}</label>
+                            <select
+                              className="ek-input"
+                              value={slot.start_time}
+                              onChange={(e) => updateSlot(slot._key, 'start_time', e.target.value)}
+                              style={selectStyle}
+                            >
+                              {TIME_OPTIONS.map((time) => (
+                                <option key={time} value={time}>
+                                  {time}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* End time */}
+                          <div className="w-28 flex-shrink-0">
+                            <label style={labelStyle}>{tx.endTime}</label>
+                            <select
+                              className="ek-input"
+                              value={slot.end_time}
+                              onChange={(e) => updateSlot(slot._key, 'end_time', e.target.value)}
+                              style={{
+                                ...selectStyle,
+                                borderColor: invalid ? 'var(--ek-red)' : 'var(--ek-border)',
+                              }}
+                            >
+                              {TIME_OPTIONS.map((time) => (
+                                <option key={time} value={time}>
+                                  {time}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Action */}
+                          <div className="flex-shrink-0 mt-4 sm:mt-4">
+                            <button
+                              onClick={() => removeSlot(slot._key)}
+                              aria-label={tx.remove}
+                              className="ek-link-danger px-3 py-2 font-semibold text-[12px]"
+                              style={{
+                                color: 'var(--ek-text-muted)',
+                                background: 'transparent',
+                                border: 0,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {tx.remove}
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Start time */}
-                        <div className="w-28 flex-shrink-0">
-                          <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: '#9CA3AF' }}>
-                            {tx.startTime}
-                          </label>
-                          <select
-                            value={slot.start_time}
-                            onChange={(e) => updateSlot(index, 'start_time', e.target.value)}
-                            style={selectStyle}
+                        {invalid && (
+                          <div
+                            style={{
+                              marginTop: 8,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: 'var(--ek-red)',
+                            }}
                           >
-                            {TIME_OPTIONS.map(t => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* End time */}
-                        <div className="w-28 flex-shrink-0">
-                          <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: '#9CA3AF' }}>
-                            {tx.endTime}
-                          </label>
-                          <select
-                            value={slot.end_time}
-                            onChange={(e) => updateSlot(index, 'end_time', e.target.value)}
-                            style={selectStyle}
-                          >
-                            {TIME_OPTIONS.map(t => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Action */}
-                        <div className="flex-shrink-0 mt-4 sm:mt-4">
-                          <button
-                            onClick={() => removeSlot(index)}
-                            className="p-2 rounded transition-all"
-                            style={{ color: '#E5E7EB' }}
-                            onMouseEnter={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = '#FEF2F2' }}
-                            onMouseLeave={e => { e.currentTarget.style.color = '#E5E7EB'; e.currentTarget.style.background = 'transparent' }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                            {tx.invalidSlot}
+                          </div>
+                        )}
+                      </motion.div>
+                    )
+                  })}
                 </div>
               )}
             </AnimatePresence>
 
             {/* Save bar */}
-            <div className="px-5 py-4 flex items-center gap-4" style={{ borderTop: '1px solid #E5E7EB' }}>
+            <div
+              className="px-5 py-4 flex items-center gap-4"
+              style={{ borderTop: '1px solid var(--ek-border)' }}
+            >
               <button
                 onClick={handleSave}
                 disabled={isPending}
-                className="flex items-center gap-2 px-5 py-2.5 rounded font-semibold text-[13px] transition-all disabled:opacity-60"
-                style={{ background: '#C41E3A', color: '#fff' }}
-                onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = '#9E1830' }}
-                onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = '#C41E3A' }}
+                className="ek-red-btn flex items-center gap-2 px-5 py-2.5 font-semibold text-[13px] disabled:opacity-60"
+                style={{
+                  background: 'var(--ek-red)',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 'var(--ek-radius-xs)',
+                  cursor: isPending ? 'default' : 'pointer',
+                }}
               >
                 {isPending ? (
                   <>
@@ -326,32 +426,31 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                     {tx.saving}
                   </>
                 ) : (
-                  <>
-                    <Save className="h-3.5 w-3.5" />
-                    {tx.save}
-                  </>
+                  tx.save
                 )}
               </button>
 
               <AnimatePresence>
                 {saveStatus === 'saved' && (
                   <motion.div
-                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                    className="flex items-center gap-1.5 text-[12px] font-semibold"
-                    style={{ color: '#16A34A' }}
+                    key="saved"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
                   >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {tx.saved}
+                    <StatusBadge variant="confirmed">{tx.saved}</StatusBadge>
                   </motion.div>
                 )}
                 {saveStatus === 'error' && (
                   <motion.div
-                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                    className="flex items-center gap-1.5 text-[12px] font-semibold"
-                    style={{ color: '#DC2626' }}
+                    key="error"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-[12px] font-semibold"
+                    style={{ color: 'var(--ek-red)' }}
                   >
-                    <AlertCircle className="h-4 w-4" />
-                    {tx.error}
+                    {hasInvalid ? tx.invalidPresent : tx.error}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -360,49 +459,111 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
 
           {/* Info sidebar */}
           <div className="lg:col-span-1 space-y-4">
-
             {/* How it works */}
             <div
-              className="rounded-xl p-5"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+              className="p-5"
+              style={{
+                background: 'var(--ek-card)',
+                border: '1px solid var(--ek-border)',
+                borderRadius: 'var(--ek-radius-lg)',
+              }}
             >
               <div
-                className="flex h-8 w-8 items-center justify-center rounded mb-4"
-                style={{ background: '#F3F4F6' }}
+                className="ek-microlabel"
+                style={{
+                  color: 'var(--ek-red)',
+                  paddingBottom: 10,
+                  marginBottom: 12,
+                  borderBottom: '1px solid var(--ek-border)',
+                }}
               >
-                <Clock className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+                {tx.tipKicker}
               </div>
-              <h3 className="text-[13px] font-bold mb-2" style={{ color: '#111111' }}>{tx.tipTitle}</h3>
-              <p className="text-[12px] leading-relaxed" style={{ color: '#4B5563' }}>{tx.tipBody}</p>
+              <p
+                className="text-[12px] leading-relaxed"
+                style={{ color: 'var(--ek-text-soft)', margin: 0 }}
+              >
+                {tx.tipBody}
+              </p>
             </div>
 
             {/* Weekly summary */}
             <div
-              className="rounded-xl p-5"
-              style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+              className="p-5"
+              style={{
+                background: 'var(--ek-card)',
+                border: '1px solid var(--ek-border)',
+                borderRadius: 'var(--ek-radius-lg)',
+              }}
             >
-              <h3
-                className="text-[12px] uppercase tracking-wider font-semibold mb-3"
-                style={{ color: '#9CA3AF' }}
+              <div
+                className="ek-microlabel"
+                style={{
+                  color: 'var(--ek-red)',
+                  paddingBottom: 10,
+                  marginBottom: 6,
+                  borderBottom: '1px solid var(--ek-border)',
+                }}
               >
                 {tx.weeklySummary}
-              </h3>
-              {[0,1,2,3,4,5,6].map(day => {
-                const daySlots = slots.filter(s => s.day_of_week === day)
+              </div>
+              {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+                const daySlots = slots.filter((s) => s.day_of_week === day)
                 if (daySlots.length === 0) return null
                 return (
                   <div
                     key={day}
-                    className="flex items-center justify-between py-2 last:border-0"
-                    style={{ borderBottom: '1px solid #E5E7EB' }}
+                    className="flex items-baseline justify-between py-2.5"
+                    style={{ borderBottom: '1px solid var(--ek-border-soft)' }}
                   >
-                    <span className="text-[12px]" style={{ color: '#4B5563' }}>{tx.days[day].slice(0, 3)}</span>
-                    <span className="text-[12px] font-semibold" style={{ color: '#111111' }}>{daySlots.length} {tx.slots}</span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--ek-font-mono)',
+                        fontSize: 11,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: 'var(--ek-text-muted)',
+                      }}
+                    >
+                      {tx.days[day].slice(0, 3)}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 800,
+                        letterSpacing: '-0.02em',
+                        color: 'var(--ek-text)',
+                        fontFeatureSettings: '"tnum"',
+                      }}
+                    >
+                      {daySlots.length}
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 500,
+                          color: 'var(--ek-text-muted)',
+                          marginLeft: 5,
+                        }}
+                      >
+                        {tx.slots}
+                      </span>
+                    </span>
                   </div>
                 )
               })}
               {slots.length === 0 && (
-                <p className="text-[12px] italic" style={{ color: '#9CA3AF' }}>{tx.noSlotsConfigured}</p>
+                <p
+                  className="text-[12px]"
+                  style={{
+                    fontFamily: 'var(--ek-font-serif)',
+                    fontStyle: 'italic',
+                    fontSize: 14,
+                    color: 'var(--ek-text-muted)',
+                    margin: '6px 0 0',
+                  }}
+                >
+                  {tx.noSlotsConfigured}
+                </p>
               )}
             </div>
           </div>
@@ -410,144 +571,151 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
       </div>
 
       {/* Bulk-add modal */}
-      <AnimatePresence>
-        {bulkOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      <Modal
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        kicker={tx.bulkKicker}
+        title={tx.bulkTitle}
+        footer={
+          <div className="flex gap-3">
+            <button
               onClick={() => setBulkOpen(false)}
-              className="fixed inset-0 z-40"
-              style={{ background: 'rgba(17,17,17,0.5)', backdropFilter: 'blur(3px)' }}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 8 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[460px] rounded-2xl shadow-2xl z-50 overflow-hidden"
-              style={{ background: '#fff' }}
+              className="ek-outline-btn flex-1 py-3 font-medium text-[13px]"
+              style={{
+                border: '1px solid var(--ek-border)',
+                color: 'var(--ek-text-soft)',
+                background: 'var(--ek-paper)',
+                borderRadius: 'var(--ek-radius-xs)',
+                cursor: 'pointer',
+              }}
             >
-              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
-                <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                  <h3 className="font-bold text-[15px]" style={{ color: '#111111' }}>{tx.bulkTitle}</h3>
-                </div>
+              {tx.bulkCancel}
+            </button>
+            <button
+              onClick={handleBulkApply}
+              className="ek-red-btn flex-1 flex items-center justify-center gap-2 py-3 font-bold text-[13px]"
+              style={{
+                background: 'var(--ek-red)',
+                color: '#fff',
+                border: 0,
+                borderRadius: 'var(--ek-radius-xs)',
+                cursor: 'pointer',
+              }}
+            >
+              {tx.bulkApply(bulkDays.size)}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ek-text-muted)', margin: 0 }}>
+            {tx.bulkSub}
+          </p>
+
+          {/* Presets — segmented text toggles */}
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ['weekdays', tx.bulkPresetWeekdays] as const,
+                ['weekends', tx.bulkPresetWeekends] as const,
+                ['all', tx.bulkPresetAll] as const,
+              ]
+            ).map(([kind, label]) => (
+              <button
+                key={kind}
+                onClick={() => applyBulkPreset(kind)}
+                className="ek-chip-toggle px-3 py-1.5 text-[11px] font-semibold"
+                style={{
+                  background: 'var(--ek-paper)',
+                  color: 'var(--ek-text-soft)',
+                  border: '1px solid var(--ek-border)',
+                  borderRadius: 'var(--ek-radius-xs)',
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Day toggles */}
+          <div className="grid grid-cols-7 gap-1.5">
+            {tx.days.map((d, i) => {
+              const active = bulkDays.has(i)
+              return (
                 <button
-                  onClick={() => setBulkOpen(false)}
-                  className="transition-colors"
-                  style={{ color: '#9CA3AF' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
+                  key={i}
+                  onClick={() => toggleBulkDay(i)}
+                  className="ek-chip-toggle flex items-center justify-center h-12 text-[11px] font-bold"
+                  style={{
+                    background: active ? 'var(--ek-red)' : 'var(--ek-paper)',
+                    color: active ? '#fff' : 'var(--ek-text-soft)',
+                    border: `1px solid ${active ? 'var(--ek-red)' : 'var(--ek-border)'}`,
+                    borderRadius: 'var(--ek-radius-xs)',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <X className="h-4 w-4" />
+                  {d.slice(0, 3)}
                 </button>
-              </div>
+              )
+            })}
+          </div>
 
-              <div className="px-6 py-5 space-y-5">
-                <p className="text-[12px] leading-relaxed" style={{ color: '#6B7280' }}>{tx.bulkSub}</p>
+          {/* Times */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label style={labelStyle}>{tx.startTime}</label>
+              <select
+                className="ek-input"
+                value={bulkStart}
+                onChange={(e) => {
+                  setBulkStart(e.target.value)
+                  setBulkError('')
+                }}
+                style={selectStyle}
+              >
+                {TIME_OPTIONS.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>{tx.endTime}</label>
+              <select
+                className="ek-input"
+                value={bulkEnd}
+                onChange={(e) => {
+                  setBulkEnd(e.target.value)
+                  setBulkError('')
+                }}
+                style={selectStyle}
+              >
+                {TIME_OPTIONS.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-                {/* Presets */}
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    ['weekdays', tx.bulkPresetWeekdays] as const,
-                    ['weekends', tx.bulkPresetWeekends] as const,
-                    ['all', tx.bulkPresetAll] as const,
-                  ]).map(([kind, label]) => (
-                    <button
-                      key={kind}
-                      onClick={() => applyBulkPreset(kind)}
-                      className="px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all"
-                      style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #E5E7EB' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#C41E3A'; e.currentTarget.style.color = '#C41E3A' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Day checkboxes */}
-                <div className="grid grid-cols-7 gap-1.5">
-                  {tx.days.map((d, i) => {
-                    const active = bulkDays.has(i)
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => toggleBulkDay(i)}
-                        className="flex flex-col items-center justify-center h-14 rounded-lg text-[10px] font-bold transition-all"
-                        style={{
-                          background: active ? '#C41E3A' : '#F9F9F9',
-                          color: active ? '#fff' : '#374151',
-                          border: `1px solid ${active ? '#C41E3A' : '#E5E7EB'}`,
-                        }}
-                      >
-                        <span className="text-[11px]">{d.slice(0, 3)}</span>
-                        {active && <CheckCircle2 className="h-3 w-3 mt-0.5" />}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Times */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: '#9CA3AF' }}>
-                      {tx.startTime}
-                    </label>
-                    <select
-                      value={bulkStart}
-                      onChange={e => { setBulkStart(e.target.value); setBulkError('') }}
-                      style={selectStyle}
-                    >
-                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: '#9CA3AF' }}>
-                      {tx.endTime}
-                    </label>
-                    <select
-                      value={bulkEnd}
-                      onChange={e => { setBulkEnd(e.target.value); setBulkError('') }}
-                      style={selectStyle}
-                    >
-                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                {bulkError && (
-                  <div className="rounded p-3 text-[12px]" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}>
-                    {bulkError}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 px-6 pb-6">
-                <button
-                  onClick={() => setBulkOpen(false)}
-                  className="flex-1 py-3 rounded font-medium text-[13px] transition-all"
-                  style={{ border: '1px solid #E5E7EB', color: '#4B5563', background: 'var(--ek-paper)' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#F9F9F9')}
-                >
-                  {tx.bulkCancel}
-                </button>
-                <button
-                  onClick={handleBulkApply}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded font-bold text-[13px] transition-all"
-                  style={{ background: '#C41E3A', color: '#fff' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#9E1830')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#C41E3A')}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {tx.bulkApply(bulkDays.size)}
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          {bulkError && (
+            <div
+              className="p-3 text-[12px]"
+              style={{
+                background: 'var(--ek-red-tint)',
+                border: '1px solid var(--ek-red-tint-3)',
+                borderRadius: 'var(--ek-radius-xs)',
+                color: 'var(--ek-red)',
+              }}
+            >
+              {bulkError}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

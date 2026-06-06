@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Users, TrendingUp, Calendar, ChevronRight, X, Briefcase, Target, Brain, User, Check } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
 import type { Locale } from '@/lib/i18n/translations'
 import { teacherSetStudentLevel } from '@/app/actions/placement'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { StatLedger } from '@/components/ui/StatLedger'
+import Drawer from '@/components/dashboard/Drawer'
 
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
 
@@ -36,6 +36,7 @@ const t = {
     saveLevel: 'Save',
     savingLevel: 'Saving…',
     levelSaved: 'Level updated',
+    studentKicker: 'Student',
   },
   es: {
     title: 'Mis Estudiantes',
@@ -62,6 +63,7 @@ const t = {
     saveLevel: 'Guardar',
     savingLevel: 'Guardando…',
     levelSaved: 'Nivel actualizado',
+    studentKicker: 'Estudiante',
   },
 }
 
@@ -132,7 +134,7 @@ function formatDate(iso: string, lang: Locale) {
 }
 
 function getInitials(name: string) {
-  return name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
+  return name.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
 interface Props { lang: Locale; bookings: Booking[] }
@@ -180,283 +182,237 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
     })
   }
 
+  const saveDisabled =
+    isPendingLevel || !levelInput || levelInput === (detailStudent?.level || '')
+
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto space-y-5">
+      <div className="px-8 py-6 max-w-4xl mx-auto space-y-7">
 
-        {/* Summary stats */}
+        {/* Summary stats — editorial ledger: big numbers + hairline rules, no boxes. */}
         {students.length > 0 && (
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: tx.totalStudents, value: students.length, icon: Users },
-              { label: tx.totalSessions, value: totalSessionsAll, icon: Calendar },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="rounded-xl p-5" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-                <div
-                  className="flex h-9 w-9 items-center justify-center rounded mb-3"
-                  style={{ background: 'rgba(196,30,58,0.08)' }}
-                >
-                  <Icon className="h-4 w-4" style={{ color: '#C41E3A' }} />
-                </div>
-                <div className="text-[26px] font-black" style={{ color: '#111111' }}>{value}</div>
-                <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>{label}</div>
-              </div>
-            ))}
-          </div>
+          <StatLedger
+            items={[
+              { kicker: tx.totalStudents, value: students.length, accent: true },
+              { kicker: tx.totalSessions, value: totalSessionsAll },
+            ]}
+          />
         )}
 
         {/* Students list */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-          {students.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl mb-4"
-                style={{ background: 'rgba(196,30,58,0.08)' }}
+        <section>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              gap: 16,
+              paddingBottom: 12,
+              borderBottom: '1px solid var(--ek-border)',
+              marginBottom: 18,
+            }}
+          >
+            <div className="ek-microlabel">{tx.title}</div>
+            {students.length > 0 && (
+              <span
+                style={{
+                  fontFamily: 'var(--ek-font-mono)',
+                  fontSize: 12,
+                  color: 'var(--ek-text-muted)',
+                  fontFeatureSettings: '"tnum"',
+                }}
               >
-                <Users className="h-6 w-6" style={{ color: '#C41E3A' }} />
-              </div>
-              <p className="text-[13px] font-semibold mb-1" style={{ color: '#111111' }}>{tx.noStudents}</p>
-              <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.noStudentsSub}</p>
+                {students.length}
+              </span>
+            )}
+          </div>
+
+          {students.length === 0 ? (
+            <div className="py-14 text-center">
+              <p
+                className="text-[15px]"
+                style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', color: 'var(--ek-text-soft)' }}
+              >
+                {tx.noStudents}
+              </p>
+              <p className="text-[12px] mt-2" style={{ color: 'var(--ek-text-muted)' }}>
+                {tx.noStudentsSub}
+              </p>
             </div>
           ) : (
-            <ul>
-              {students.map((student, idx) => (
+            <ul style={{ borderTop: '1px solid var(--ek-border)' }}>
+              {students.map((student) => (
                 <li
                   key={student.student_id}
-                  className="flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors"
-                  style={{ borderBottom: idx < students.length - 1 ? '1px solid #E5E7EB' : 'none' }}
+                  className="ek-row flex items-center gap-4 px-3 py-4 cursor-pointer"
+                  style={{ borderBottom: '1px solid var(--ek-border-soft)' }}
                   onClick={() => setDetailStudent(student)}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded text-[13px] font-bold"
-                    style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A' }}
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-[13px] font-bold"
+                    style={{
+                      background: 'var(--ek-red-tint-2)',
+                      color: 'var(--ek-red)',
+                      borderRadius: 'var(--ek-radius-xs)',
+                    }}
                   >
                     {getInitials(student.name)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-semibold truncate" style={{ color: '#111111' }}>
+                    <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--ek-text)' }}>
                       {student.name}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                      <span className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>
                         {student.totalSessions} {tx.sessions}
                       </span>
-                      <span className="text-[11px]" style={{ color: '#9CA3AF' }}>
+                      <span className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>
                         {tx.lastSession}: {formatDate(student.lastSessionDate, lang)}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     {student.level ? (
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" style={{ color: '#9CA3AF' }} />
-                        <span
-                          className="text-[11px] font-bold px-2.5 py-1 rounded"
-                          style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A' }}
-                        >
-                          {student.level}
-                        </span>
-                      </div>
+                      <span
+                        className="text-[11px] font-bold"
+                        style={{
+                          fontFamily: 'var(--ek-font-mono)',
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          color: 'var(--ek-red)',
+                        }}
+                      >
+                        {student.level}
+                      </span>
                     ) : (
-                      <span className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.noLevel}</span>
+                      <span className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.noLevel}</span>
                     )}
-                    <ChevronRight className="h-3.5 w-3.5" style={{ color: '#D1D5DB' }} />
+                    <span style={{ color: 'var(--ek-text-faint)', fontSize: 16, lineHeight: 1 }}>›</span>
                   </div>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </section>
       </div>
 
       {/* Student detail slide-over */}
-      <AnimatePresence>
-        {detailStudent && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setDetailStudent(null)}
-              className="fixed inset-0 z-40"
-              style={{ background: 'rgba(17,17,17,0.4)' }}
-            />
-            <motion.div
-              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-              className="fixed right-0 top-0 h-full w-full max-w-[380px] z-50 overflow-y-auto"
-              style={{ background: '#fff', boxShadow: '-4px 0 40px rgba(0,0,0,0.12)' }}
-            >
-              {/* Panel header */}
-              <div
-                className="flex items-center justify-between px-6 py-5 sticky top-0"
-                style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}
+      <Drawer
+        open={!!detailStudent}
+        onClose={() => setDetailStudent(null)}
+        kicker={detailStudent ? tx.studentKicker : undefined}
+        title={detailStudent?.name}
+        footer={
+          detailStudent ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-h-[18px] text-[11px]">
+                {levelError ? (
+                  <span style={{ color: 'var(--ek-red)' }}>{levelError}</span>
+                ) : levelSaved ? (
+                  <span style={{ color: 'var(--ek-text-soft)' }}>{tx.levelSaved}</span>
+                ) : null}
+              </div>
+              <button
+                onClick={handleSaveLevel}
+                disabled={saveDisabled}
+                className="ek-red-btn inline-flex items-center px-4 py-2 text-[12px] font-semibold disabled:opacity-50"
+                style={{ background: 'var(--ek-red)', color: '#fff', borderRadius: 'var(--ek-radius-xs)', border: 'none', cursor: saveDisabled ? 'default' : 'pointer' }}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-10 w-10 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0"
-                    style={{ background: '#C41E3A' }}
-                  >
-                    {getInitials(detailStudent.name)}
-                  </div>
-                  <div>
-                    <p className="text-[14px] font-bold" style={{ color: '#111111' }}>{detailStudent.name}</p>
-                    <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
-                      {detailStudent.totalSessions} {tx.sessions}
-                      {detailStudent.level && ` · ${detailStudent.level}`}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setDetailStudent(null)}
-                  className="transition-colors"
-                  style={{ color: '#9CA3AF' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#111111')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                {isPendingLevel ? tx.savingLevel : tx.saveLevel}
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
+        {detailStudent && (
+          <div className="space-y-6">
+            <div className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>
+              {detailStudent.totalSessions} {tx.sessions}
+              {detailStudent.level && ` · ${detailStudent.level}`}
+            </div>
+
+            {/* CEFR level editor */}
+            <div>
+              <div className="ek-microlabel" style={{ color: 'var(--ek-red)', marginBottom: 4 }}>
+                {tx.setLevel}
+              </div>
+              <p className="text-[11px] mb-2" style={{ color: 'var(--ek-text-muted)' }}>{tx.setLevelHint}</p>
+              <select
+                value={levelInput}
+                onChange={e => { setLevelInput(e.target.value); setLevelSaved(false); setLevelError('') }}
+                disabled={isPendingLevel}
+                className="ek-input w-full px-2.5 py-2 text-[12px]"
+                style={{ color: 'var(--ek-text)', background: 'var(--ek-card)', borderRadius: 'var(--ek-radius-xs)' }}
+              >
+                <option value="">—</option>
+                {CEFR_LEVELS.map(l => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--ek-border-soft)' }} />
+
+            {/* Intake panel */}
+            <div>
+              <div className="ek-microlabel" style={{ marginBottom: 14 }}>
+                {tx.profile}
               </div>
 
-              {/* CEFR level editor */}
-              <div className="px-6 pt-6">
-                <div
-                  className="rounded-xl p-4"
-                  style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
+              {!detailStudent.learning_goal && !detailStudent.work_description && !detailStudent.learning_style ? (
+                <p
+                  className="text-[14px]"
+                  style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', color: 'var(--ek-text-soft)' }}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                      {tx.setLevel}
-                    </span>
-                  </div>
-                  <p className="text-[11px] mb-3" style={{ color: '#9CA3AF' }}>{tx.setLevelHint}</p>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={levelInput}
-                      onChange={e => { setLevelInput(e.target.value); setLevelSaved(false); setLevelError('') }}
-                      disabled={isPendingLevel}
-                      className="flex-1 rounded px-2 py-1.5 text-[12px] outline-none"
-                      style={{ border: '1px solid #E5E7EB', color: '#111111', background: '#fff' }}
-                    >
-                      <option value="">—</option>
-                      {CEFR_LEVELS.map(l => (
-                        <option key={l} value={l}>{l}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={handleSaveLevel}
-                      disabled={isPendingLevel || !levelInput || levelInput === (detailStudent.level || '')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50"
-                      style={{ background: '#C41E3A', color: '#fff' }}
-                    >
-                      {isPendingLevel ? tx.savingLevel : tx.saveLevel}
-                    </button>
-                  </div>
-                  {levelError && (
-                    <p className="text-[11px] mt-2" style={{ color: '#DC2626' }}>{levelError}</p>
-                  )}
-                  {levelSaved && !levelError && (
-                    <p className="text-[11px] mt-2 inline-flex items-center gap-1" style={{ color: '#059669' }}>
-                      <Check className="h-3 w-3" /> {tx.levelSaved}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Intake panel */}
-              <div className="p-6">
-                <h3 className="text-[13px] font-bold uppercase tracking-wide mb-4" style={{ color: '#9CA3AF' }}>
-                  {tx.profile}
-                </h3>
-
-                {!detailStudent.learning_goal && !detailStudent.work_description && !detailStudent.learning_style ? (
-                  <div
-                    className="rounded-xl p-5 text-center"
-                    style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
-                  >
-                    <p className="text-[12px]" style={{ color: '#9CA3AF' }}>{tx.noIntake}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {detailStudent.learning_goal && (
-                      <div
-                        className="rounded-xl p-4"
-                        style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <Target className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
-                          <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                            {tx.goal}
-                          </span>
-                        </div>
-                        <p className="text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
-                          {detailStudent.learning_goal}
-                        </p>
-                      </div>
-                    )}
-
-                    {detailStudent.work_description && (
-                      <div
-                        className="rounded-xl p-4"
-                        style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <Briefcase className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
-                          <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                            {tx.work}
-                          </span>
-                        </div>
-                        <p className="text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
-                          {detailStudent.work_description}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3">
-                      {detailStudent.learning_style && (
-                        <div
-                          className="rounded-xl p-4"
-                          style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
-                        >
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Brain className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
-                            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                              {tx.style}
-                            </span>
-                          </div>
-                          <p className="text-[13px] font-semibold" style={{ color: '#111111' }}>
-                            {tx.styles[detailStudent.learning_style as keyof typeof tx.styles] || detailStudent.learning_style}
-                          </p>
-                        </div>
-                      )}
-                      {detailStudent.age_range && (
-                        <div
-                          className="rounded-xl p-4"
-                          style={{ background: 'var(--ek-paper)', border: '1px solid #E5E7EB' }}
-                        >
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <User className="h-3.5 w-3.5" style={{ color: '#C41E3A' }} />
-                            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#9CA3AF' }}>
-                              {tx.age}
-                            </span>
-                          </div>
-                          <p className="text-[13px] font-semibold" style={{ color: '#111111' }}>
-                            {tx.ages[detailStudent.age_range as keyof typeof tx.ages] || detailStudent.age_range}
-                          </p>
-                        </div>
-                      )}
+                  {tx.noIntake}
+                </p>
+              ) : (
+                <div className="space-y-5">
+                  {detailStudent.learning_goal && (
+                    <div>
+                      <div className="ek-microlabel" style={{ marginBottom: 4 }}>{tx.goal}</div>
+                      <p className="text-[13px] leading-relaxed" style={{ color: 'var(--ek-text-soft)' }}>
+                        {detailStudent.learning_goal}
+                      </p>
                     </div>
+                  )}
+
+                  {detailStudent.work_description && (
+                    <div>
+                      <div className="ek-microlabel" style={{ marginBottom: 4 }}>{tx.work}</div>
+                      <p className="text-[13px] leading-relaxed" style={{ color: 'var(--ek-text-soft)' }}>
+                        {detailStudent.work_description}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-5">
+                    {detailStudent.learning_style && (
+                      <div>
+                        <div className="ek-microlabel" style={{ marginBottom: 4 }}>{tx.style}</div>
+                        <p className="text-[13px] font-semibold" style={{ color: 'var(--ek-text)' }}>
+                          {tx.styles[detailStudent.learning_style as keyof typeof tx.styles] || detailStudent.learning_style}
+                        </p>
+                      </div>
+                    )}
+                    {detailStudent.age_range && (
+                      <div>
+                        <div className="ek-microlabel" style={{ marginBottom: 4 }}>{tx.age}</div>
+                        <p className="text-[13px] font-semibold" style={{ color: 'var(--ek-text)' }}>
+                          {tx.ages[detailStudent.age_range as keyof typeof tx.ages] || detailStudent.age_range}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </motion.div>
-          </>
+                </div>
+              )}
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </Drawer>
     </div>
   )
 }

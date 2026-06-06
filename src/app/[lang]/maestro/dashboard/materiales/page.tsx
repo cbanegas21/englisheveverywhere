@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { BookOpen, FileText, BarChart3, Package } from 'lucide-react'
-import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { SectionHeader } from '@/components/dashboard/SectionHeader'
 
 interface Props {
   params: Promise<{ lang: string }>
@@ -10,7 +9,6 @@ interface Props {
 
 const resources = [
   {
-    icon: BookOpen,
     titleEn: 'Interchange Series',
     titleEs: 'Serie Interchange',
     descEn: 'Main curriculum used across all levels. Audio, exercises, and supplementary materials.',
@@ -19,7 +17,6 @@ const resources = [
     tagEs: 'Currículo principal',
   },
   {
-    icon: FileText,
     titleEn: 'Lesson Plan Templates',
     titleEs: 'Plantillas de Planes de Clase',
     descEn: 'Downloadable templates to structure your sessions by level and skill focus.',
@@ -28,7 +25,6 @@ const resources = [
     tagEs: 'Plantillas',
   },
   {
-    icon: BarChart3,
     titleEn: 'CEFR Level Guide',
     titleEs: 'Guía de Niveles CEFR',
     descEn: 'Assessment guide for evaluating and placing students at the correct CEFR level.',
@@ -55,26 +51,50 @@ export default async function MaterialesPage({ params }: Props) {
         sub={isEs ? 'Recursos y currículo para tus clases.' : 'Resources and curriculum for your classes.'}
       />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto space-y-5">
+      <div className="px-8 py-6 max-w-4xl mx-auto space-y-7">
 
-        {/* Coming soon banner */}
+        {/* Coming soon banner — editorial accent rule + type, no glyph tile */}
         <div
-          className="rounded-xl p-5 flex items-start gap-4"
-          style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+          style={{
+            background: 'var(--ek-card)',
+            border: '1px solid var(--ek-border)',
+            borderRadius: 'var(--ek-radius-lg)',
+            padding: '20px 22px',
+            display: 'flex',
+            gap: 18,
+            alignItems: 'stretch',
+          }}
         >
           <div
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded mt-0.5"
-            style={{ background: 'rgba(196,30,58,0.08)' }}
-          >
-            <Package className="h-5 w-5" style={{ color: '#C41E3A' }} />
-          </div>
+            aria-hidden
+            style={{
+              width: 3,
+              alignSelf: 'stretch',
+              minHeight: 40,
+              borderRadius: 2,
+              background: 'var(--ek-red)',
+              flexShrink: 0,
+            }}
+          />
           <div>
-            <div className="text-[14px] font-bold mb-1" style={{ color: '#111111' }}>
+            <div className="ek-microlabel" style={{ marginBottom: 6 }}>
+              {isEs ? 'En preparación' : 'In preparation'}
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--ek-font-serif)',
+                fontStyle: 'italic',
+                fontSize: 22,
+                lineHeight: 1.15,
+                color: 'var(--ek-text)',
+                marginBottom: 8,
+              }}
+            >
               {isEs
                 ? 'Recursos y materiales en organización'
                 : 'Resources & curriculum being organized'}
             </div>
-            <p className="text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ek-text-soft)', margin: 0 }}>
               {isEs
                 ? 'El equipo de EnglishKolab está organizando todos los materiales de currículo, guías de nivel y plantillas. Aparecerán aquí cuando estén listos.'
                 : "The EnglishKolab team is organizing all curriculum materials, level guides, and templates. They'll appear here once ready."}
@@ -82,54 +102,73 @@ export default async function MaterialesPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Resource cards grid */}
-        <div>
-          <div className="text-[11px] uppercase tracking-wider font-semibold mb-3" style={{ color: '#9CA3AF' }}>
-            {isEs ? 'Recursos disponibles' : 'Available resources'}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {resources.map(({ icon: Icon, titleEn, titleEs, descEn, descEs, tagEn, tagEs }) => (
+        {/* Available resources — hairline-ruled editorial ledger, no card grid */}
+        <section>
+          <SectionHeader
+            kicker={isEs ? 'Recursos disponibles' : 'Available resources'}
+            title={isEs ? 'Currículo y guías' : 'Curriculum & guides'}
+          />
+
+          <div style={{ borderTop: '1px solid var(--ek-border-soft)' }}>
+            {resources.map(({ titleEn, titleEs, descEn, descEs, tagEn, tagEs }, i) => (
               <div
                 key={titleEn}
-                className="rounded-xl p-5"
-                style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '56px 1fr auto',
+                  gap: 20,
+                  alignItems: 'baseline',
+                  padding: '22px 4px',
+                  borderBottom: '1px solid var(--ek-border-soft)',
+                }}
               >
-                {/* Icon + tag */}
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded"
-                    style={{ background: 'rgba(196,30,58,0.08)' }}
-                  >
-                    <Icon className="h-5 w-5" style={{ color: '#C41E3A' }} />
-                  </div>
-                  <span
-                    className="text-[10px] font-semibold px-2 py-1 rounded"
-                    style={{ background: '#F3F4F6', color: '#6B7280' }}
-                  >
+                {/* Index numeral */}
+                <div
+                  aria-hidden
+                  style={{
+                    fontFamily: 'var(--ek-font-serif)',
+                    fontStyle: 'italic',
+                    fontSize: 32,
+                    lineHeight: 1,
+                    color: 'var(--ek-text-faint)',
+                    fontFeatureSettings: '"tnum"',
+                  }}
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </div>
+
+                {/* Title + tag eyebrow + body */}
+                <div style={{ minWidth: 0 }}>
+                  <div className="ek-microlabel" style={{ marginBottom: 6 }}>
                     {isEs ? tagEs : tagEn}
-                  </span>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--ek-font-serif)',
+                      fontSize: 19,
+                      lineHeight: 1.2,
+                      color: 'var(--ek-text)',
+                      marginBottom: 6,
+                    }}
+                  >
+                    {isEs ? titleEs : titleEn}
+                  </div>
+                  <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ek-text-soft)', margin: 0, maxWidth: '52ch' }}>
+                    {isEs ? descEs : descEn}
+                  </p>
                 </div>
 
-                {/* Title */}
-                <div className="text-[14px] font-bold mb-1.5" style={{ color: '#111111' }}>
-                  {isEs ? titleEs : titleEn}
-                </div>
-
-                {/* Description */}
-                <p className="text-[12px] leading-relaxed" style={{ color: '#4B5563' }}>
-                  {isEs ? descEs : descEn}
-                </p>
-
-                {/* Coming soon indicator */}
-                <div className="mt-4 pt-4" style={{ borderTop: '1px solid #E5E7EB' }}>
-                  <span className="text-[11px] font-medium" style={{ color: '#9CA3AF' }}>
-                    {isEs ? 'Próximamente disponible' : 'Coming soon'}
-                  </span>
+                {/* Coming soon microlabel */}
+                <div
+                  className="ek-microlabel"
+                  style={{ whiteSpace: 'nowrap', alignSelf: 'center' }}
+                >
+                  {isEs ? 'Próximamente' : 'Coming soon'}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   )

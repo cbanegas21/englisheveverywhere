@@ -77,15 +77,11 @@ export default async function MaestroPendingPage({ params }: Props) {
       {/* Top bar */}
       <div
         className="px-8 py-4 flex items-center justify-between"
-        style={{ background: '#fff', borderBottom: '1px solid #E5E7EB' }}
+        style={{ background: 'var(--ek-card)', borderBottom: '1px solid var(--ek-border)' }}
       >
         <Logo size={28} />
         <form action={handleSignOut}>
-          <button
-            type="submit"
-            className="text-[12px] transition-colors"
-            style={{ color: '#9CA3AF' }}
-          >
+          <button type="submit" className="ek-link-muted" style={{ fontSize: 12 }}>
             {tx.logout}
           </button>
         </form>
@@ -95,52 +91,55 @@ export default async function MaestroPendingPage({ params }: Props) {
       <div className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-[480px]">
 
-          {/* Status badge */}
-          <div className="flex justify-center mb-8">
-            <span
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold"
-              style={{ background: '#FEF9EE', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.2)' }}
-            >
-              <span
-                className="h-2 w-2 rounded-full animate-pulse"
-                style={{ background: '#C41E3A' }}
-              />
+          {/* Status — typographic crimson microlabel + hairline rule */}
+          <div className="mb-8" style={{ textAlign: 'center' }}>
+            <span className="ek-kicker ek-kicker--red" style={{ justifyContent: 'center' }}>
               {lang === 'es' ? 'En revisión' : 'Under review'}
             </span>
+            <div style={{ borderTop: '1px solid var(--ek-border-soft)', marginTop: 14 }} />
           </div>
 
           {/* Headline */}
           <h1
             className="font-black text-center mb-3"
-            style={{ fontSize: 'clamp(1.4rem, 3vw, 1.8rem)', color: '#111111', lineHeight: 1.2 }}
+            style={{ fontSize: 'clamp(1.4rem, 3vw, 1.8rem)', color: 'var(--ek-text)', lineHeight: 1.2 }}
           >
             {tx.headline}
           </h1>
-          <p className="text-[14px] text-center leading-relaxed mb-2" style={{ color: '#4B5563' }}>
+          <p className="text-[14px] text-center leading-relaxed mb-2" style={{ color: 'var(--ek-text-soft)' }}>
             {tx.sub}
           </p>
-          <p className="text-[12px] text-center mb-10" style={{ color: '#9CA3AF' }}>
+          <p className="text-[12px] text-center mb-10" style={{ color: 'var(--ek-text-muted)' }}>
             {tx.timeline}
           </p>
 
           {/* What happens next */}
           <div
-            className="rounded-xl p-6 mb-5"
-            style={{ background: '#fff', border: '1px solid #E5E7EB' }}
+            className="p-6 mb-5"
+            style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)' }}
           >
-            <h2 className="text-[14px] font-bold mb-4" style={{ color: '#111111' }}>
+            <h2 className="text-[14px] font-bold mb-4" style={{ color: 'var(--ek-text)' }}>
               {tx.whatNext}
             </h2>
-            <ol className="space-y-3">
+            <ol className="space-y-3" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {tx.steps.map((step, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span
-                    className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-[11px] font-bold"
-                    style={{ background: 'rgba(196,30,58,0.08)', color: '#C41E3A' }}
+                    aria-hidden
+                    style={{
+                      flexShrink: 0,
+                      fontFamily: 'var(--ek-font-serif)',
+                      fontSize: 20,
+                      lineHeight: 1,
+                      color: 'var(--ek-red)',
+                      fontFeatureSettings: '"tnum"',
+                      width: 18,
+                      textAlign: 'right',
+                    }}
                   >
                     {i + 1}
                   </span>
-                  <p className="text-[13px] leading-relaxed pt-0.5" style={{ color: '#4B5563' }}>
+                  <p className="text-[13px] leading-relaxed" style={{ color: 'var(--ek-text-soft)' }}>
                     {step}
                   </p>
                 </li>
@@ -149,19 +148,19 @@ export default async function MaestroPendingPage({ params }: Props) {
           </div>
 
           {/* Hello, name */}
-          <p className="text-center text-[13px] mb-4" style={{ color: '#9CA3AF' }}>
+          <p className="text-center text-[13px] mb-4" style={{ color: 'var(--ek-text-muted)' }}>
             {lang === 'es' ? `Cuenta registrada como: ` : `Account registered as: `}
-            <span className="font-semibold" style={{ color: '#4B5563' }}>{name}</span>
+            <span className="font-semibold" style={{ color: 'var(--ek-text-soft)' }}>{name}</span>
           </p>
 
           {/* Contact */}
-          <p className="text-center text-[13px] mb-6" style={{ color: '#9CA3AF' }}>
+          <p className="text-center text-[13px] mb-6" style={{ color: 'var(--ek-text-muted)' }}>
             {tx.questions}{' '}
             {tx.contact}{' '}
             <a
               href="mailto:hola@englishkolab.com"
               className="font-semibold underline underline-offset-2"
-              style={{ color: '#111111' }}
+              style={{ color: 'var(--ek-text)' }}
             >
               hola@englishkolab.com
             </a>
@@ -171,12 +170,9 @@ export default async function MaestroPendingPage({ params }: Props) {
           <div className="text-center">
             <Link
               href={`/${lang}/maestro/pending`}
-              className="inline-flex items-center gap-1.5 text-[12px] font-medium transition-colors"
-              style={{ color: '#9CA3AF' }}
+              className="ek-link-muted"
+              style={{ fontSize: 12, fontWeight: 500 }}
             >
-              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor">
-                <path d="M13.65 2.35A8 8 0 1 0 15 8h-1.5a6.5 6.5 0 1 1-1.12-3.65l-2.13 2.13H14V2l-2.35 2.35z"/>
-              </svg>
               {lang === 'es' ? 'Actualizar estado' : 'Refresh status'}
             </Link>
           </div>
