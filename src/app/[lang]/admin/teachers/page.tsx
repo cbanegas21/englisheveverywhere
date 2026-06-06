@@ -5,8 +5,24 @@ import TeachersTableClient, { type EnrichedTeacher } from './TeachersTableClient
 
 interface Props { params: Promise<{ lang: string }> }
 
+const STR = {
+  en: {
+    kicker: '↳ Admin · Team',
+    teachers: 'Teachers',
+    onThePlatform: 'on the platform',
+    summary: (active: number, pending: number) => `${active} active · ${pending} pending review`,
+  },
+  es: {
+    kicker: '↳ Admin · Equipo',
+    teachers: 'Maestros',
+    onThePlatform: 'en la plataforma',
+    summary: (active: number, pending: number) => `${active} activos · ${pending} pendientes de revisión`,
+  },
+} as const
+
 export default async function AdminTeachersPage({ params }: Props) {
   const { lang } = await params
+  const t = STR[lang === 'en' ? 'en' : 'es']
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -94,7 +110,7 @@ export default async function AdminTeachersPage({ params }: Props) {
             marginBottom: 6,
           }}
         >
-          ↳ Admin · Team
+          {t.kicker}
         </div>
         <h1
           style={{
@@ -106,13 +122,13 @@ export default async function AdminTeachersPage({ params }: Props) {
             lineHeight: 1.1,
           }}
         >
-          Teachers{' '}
+          {t.teachers}{' '}
           <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--ek-text-muted)' }}>
-            on the platform
+            {t.onThePlatform}
           </span>
         </h1>
         <p style={{ fontSize: 13, marginTop: 6, color: 'var(--ek-text-muted)' }}>
-          {activeCount} active · {pendingCount} pending review
+          {t.summary(activeCount, pendingCount)}
         </p>
       </div>
 

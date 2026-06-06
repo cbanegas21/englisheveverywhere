@@ -6,6 +6,7 @@ import {
   useConnectionState,
   useChat,
   useDataChannel,
+  useLocalParticipant,
   isTrackReference,
 } from '@livekit/components-react'
 import type { TrackReference } from '@livekit/components-react'
@@ -170,13 +171,18 @@ export function RoomShell({
   // Uses React's "adjust state based on change" pattern (prev-value state)
   // instead of a useEffect to stay compiler-clean.
   const { chatMessages, send, isSending } = useChat()
+  const { localParticipant } = useLocalParticipant()
   const [baselineCount, setBaselineCount] = useState(0)
   const [prevShowChat, setPrevShowChat] = useState(showChat)
   if (prevShowChat !== showChat) {
     setPrevShowChat(showChat)
     if (showChat) setBaselineCount(chatMessages.length)
   }
-  const unreadCount = Math.max(0, chatMessages.length - baselineCount)
+  // Unread = messages that arrived while the panel was closed, EXCLUDING your
+  // own — sending a message should never badge yourself (CALL-02).
+  const unreadCount = chatMessages
+    .slice(baselineCount)
+    .filter((m) => m.from?.identity !== localParticipant.identity).length
 
   // Leaving takes priority — show the branded "ending" screen even if
   // ConnectionState has transitioned away from Connected during disconnect.

@@ -62,7 +62,7 @@ const t = {
       upcoming: 'Scheduled',
       upcomingSub: 'upcoming',
     },
-    profileKicker: 'Your camino',
+    profileKicker: 'Your path',
     profileTitle: 'Your learning profile',
     profileEmpty: 'Complete your placement to see your learning profile.',
     profileCta: 'Take placement',

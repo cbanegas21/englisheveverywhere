@@ -115,6 +115,14 @@ export async function assignAndConfirmBooking(
     .eq('id', bookingId)
     .single()
 
+  // Accepting-students gate: a paused teacher (accepting_students=false) is
+  // excluded from NEW student assignments, but can still be re-assigned to a
+  // student they already serve. Not force-overridable — pausing intake is the
+  // teacher's own boundary, not an availability hint. See TE-01.
+  if (booking?.student_id) {
+    await assertTeacherAcceptsNewStudent(booking.student_id, teacherId)
+  }
+
   // Primary-teacher continuity guard: once a student is locked to a teacher,
   // admin must force=true to switch them. Protects 1-teacher-per-student.
   if (booking?.student_id) {
@@ -181,6 +189,48 @@ export async function assignAndConfirmBooking(
   scheduleBookingReminders(bookingId).catch(() => {})
 
   revalidatePath('/', 'layout')
+}
+
+// Throws if the teacher has paused new-student intake (accepting_students=false)
+// AND this would be a *new* student for them. A teacher who already serves this
+// student — as their primary teacher or via an existing booking — can always be
+// re-assigned, because pausing only gates NEW assignments, not the continuation
+// of an established relationship. is_active (admin approval) is enforced
+// separately and is not affected here. See TE-01.
+async function assertTeacherAcceptsNewStudent(
+  studentId: string,
+  teacherId: string,
+): Promise<void> {
+  const admin = createAdminClient()
+
+  const { data: teacher } = await admin
+    .from('teachers')
+    .select('accepting_students')
+    .eq('id', teacherId)
+    .single()
+
+  // Default to accepting when the flag is missing/null — never block on absence.
+  if (teacher?.accepting_students !== false) return
+
+  // Teacher is paused. Allow only if a relationship already exists.
+  const { data: student } = await admin
+    .from('students')
+    .select('primary_teacher_id')
+    .eq('id', studentId)
+    .single()
+  if (student?.primary_teacher_id === teacherId) return
+
+  const { data: priorBooking } = await admin
+    .from('bookings')
+    .select('id')
+    .eq('student_id', studentId)
+    .eq('teacher_id', teacherId)
+    .limit(1)
+  if (priorBooking && priorBooking.length > 0) return
+
+  throw new Error(
+    'This teacher has paused new-student bookings and is not currently accepting new assignments.',
+  )
 }
 
 // Throws if the student already has a different primary teacher (unless forced).
@@ -632,8 +682,11 @@ export async function createAdminBooking(
   await assertAdmin()
   const admin = createAdminClient()
 
-  // Continuity guard: only applies when a teacher is being pre-assigned here.
+  // Accepting-students gate + continuity guard: only apply when a teacher is
+  // being pre-assigned here. The accepting-students gate excludes a paused
+  // teacher from a NEW student but still permits an established relationship.
   if (teacherId) {
+    await assertTeacherAcceptsNewStudent(studentId, teacherId)
     await assertPrimaryTeacherOk(studentId, teacherId, options.force ?? false)
   }
 
@@ -828,6 +881,9 @@ export async function bulkAssignTeacher(
     new Set((touched ?? []).map(b => b.student_id).filter((x): x is string => !!x)),
   )
   for (const sid of studentIds) {
+    // Accepting-students gate per student — a paused teacher can only receive
+    // students they already serve, even in a bulk assignment. See TE-01.
+    await assertTeacherAcceptsNewStudent(sid, teacherId)
     await assertPrimaryTeacherOk(sid, teacherId, force)
   }
 

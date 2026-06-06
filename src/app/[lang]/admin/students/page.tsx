@@ -71,6 +71,22 @@ export default async function AdminStudentsPage({ params }: Props) {
   }
 
   // Build enriched student rows
+  const STR = {
+    en: {
+      kicker: '↳ Admin · CRM',
+      title: 'Students',
+      subtitleOne: 'registered student',
+      subtitleMany: 'registered students',
+    },
+    es: {
+      kicker: '↳ Admin · CRM',
+      title: 'Estudiantes',
+      subtitleOne: 'estudiante registrado',
+      subtitleMany: 'estudiantes registrados',
+    },
+  }
+  const t = lang === 'es' ? STR.es : STR.en
+
   const enriched: StudentRow[] = students.map((s) => {
     const sBookings = bookings.filter((b) => b.student_id === s.id)
     const completedCount = sBookings.filter((b) => b.status === 'completed' && b.type === 'class').length
@@ -126,7 +142,7 @@ export default async function AdminStudentsPage({ params }: Props) {
             marginBottom: 6,
           }}
         >
-          ↳ Admin · CRM
+          {t.kicker}
         </div>
         <h1
           style={{
@@ -138,13 +154,13 @@ export default async function AdminStudentsPage({ params }: Props) {
             lineHeight: 1.1,
           }}
         >
-          Students{' '}
+          {t.title}{' '}
           <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--ek-text-muted)' }}>
             ({enriched.length})
           </span>
         </h1>
         <p style={{ fontSize: 13, marginTop: 6, color: 'var(--ek-text-muted)' }}>
-          {enriched.length} registered student{enriched.length !== 1 ? 's' : ''}
+          {enriched.length} {enriched.length !== 1 ? t.subtitleMany : t.subtitleOne}
         </p>
       </div>
 

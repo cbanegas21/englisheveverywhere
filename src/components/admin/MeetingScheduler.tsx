@@ -17,7 +17,9 @@ export interface Props {
   studentName?: string
   teacherName?: string
   allStudents: { id: string; name: string; email: string }[]
-  allTeachers: { id: string; name: string }[]
+  // `accepting` is optional for back-compat; when false the teacher has paused
+  // new-student intake and is disabled for new assignments. See TE-01.
+  allTeachers: { id: string; name: string; accepting?: boolean }[]
   existingBookings: ExistingBooking[]
   onClose: () => void
   onSuccess: () => void
@@ -26,12 +28,106 @@ export interface Props {
 
 type MeetingType = 'placement_test' | 'class' | 'teacher_interview' | 'admin_checkin'
 
-const MEETING_TYPES: { value: MeetingType; label: string; description: string }[] = [
-  { value: 'placement_test', label: 'Diagnostic call', description: 'Evaluate student level' },
-  { value: 'class', label: 'Regular class', description: 'Standard tutoring session' },
-  { value: 'teacher_interview', label: 'Teacher interview', description: 'Onboarding interview' },
-  { value: 'admin_checkin', label: 'Admin check-in', description: 'Internal review call' },
-]
+const STR = {
+  en: {
+    title: 'Schedule a Meeting',
+    steps: ['Participants', 'Date & Time', 'Meeting Type', 'Confirm'],
+    teacherPrefilled: 'Teacher (pre-filled)',
+    studentPrefilled: 'Student (pre-filled)',
+    selectedTeacher: 'Selected teacher',
+    selectedStudent: 'Selected student',
+    selectStudentReq: 'Select Student *',
+    selectStudentPlaceholder: '— Select student —',
+    selectTeacherOptional: 'Select Teacher (optional)',
+    selectTeacherReq: 'Select Teacher *',
+    unassignedOption: '— Unassigned —',
+    pausedSuffix: 'paused — not accepting',
+    selectDay: 'Select Day',
+    selectTime: 'Select Time (Honduras, UTC-6)',
+    meetingType: 'Meeting Type',
+    duration: 'Duration',
+    minShort: (m: number) => `${m} min`,
+    meetingSummary: 'Meeting Summary',
+    sumStudent: 'Student',
+    sumTeacher: 'Teacher',
+    sumDate: 'Date',
+    sumTime: 'Time',
+    sumType: 'Type',
+    sumDuration: 'Duration',
+    notSelected: 'Not selected',
+    unknown: 'Unknown',
+    unassigned: 'Unassigned',
+    minutes: (m: number) => `${m} minutes`,
+    hondurasSuffix: '(Honduras)',
+    notesLabel: 'Notes (optional)',
+    notesPlaceholder: 'Any notes for this meeting…',
+    cancel: 'Cancel',
+    back: 'Back',
+    next: 'Next',
+    scheduling: 'Scheduling…',
+    schedule: 'Schedule meeting',
+    errNoTime: 'No time selected',
+    errNoStudent: 'Select a student',
+    errCreate: 'Error creating booking',
+    assignAnyway: 'Assign anyway?',
+    meetingTypes: {
+      placement_test: { label: 'Diagnostic call', description: 'Evaluate student level' },
+      class: { label: 'Regular class', description: 'Standard tutoring session' },
+      teacher_interview: { label: 'Teacher interview', description: 'Onboarding interview' },
+      admin_checkin: { label: 'Admin check-in', description: 'Internal review call' },
+    },
+  },
+  es: {
+    title: 'Agendar una reunión',
+    steps: ['Participantes', 'Fecha y hora', 'Tipo de reunión', 'Confirmar'],
+    teacherPrefilled: 'Maestro (preseleccionado)',
+    studentPrefilled: 'Estudiante (preseleccionado)',
+    selectedTeacher: 'Maestro seleccionado',
+    selectedStudent: 'Estudiante seleccionado',
+    selectStudentReq: 'Selecciona estudiante *',
+    selectStudentPlaceholder: '— Selecciona estudiante —',
+    selectTeacherOptional: 'Selecciona maestro (opcional)',
+    selectTeacherReq: 'Selecciona maestro *',
+    unassignedOption: '— Sin asignar —',
+    pausedSuffix: 'en pausa — no acepta',
+    selectDay: 'Selecciona día',
+    selectTime: 'Selecciona hora (Honduras, UTC-6)',
+    meetingType: 'Tipo de reunión',
+    duration: 'Duración',
+    minShort: (m: number) => `${m} min`,
+    meetingSummary: 'Resumen de la reunión',
+    sumStudent: 'Estudiante',
+    sumTeacher: 'Maestro',
+    sumDate: 'Fecha',
+    sumTime: 'Hora',
+    sumType: 'Tipo',
+    sumDuration: 'Duración',
+    notSelected: 'Sin seleccionar',
+    unknown: 'Desconocido',
+    unassigned: 'Sin asignar',
+    minutes: (m: number) => `${m} minutos`,
+    hondurasSuffix: '(Honduras)',
+    notesLabel: 'Notas (opcional)',
+    notesPlaceholder: 'Notas para esta reunión…',
+    cancel: 'Cancelar',
+    back: 'Atrás',
+    next: 'Siguiente',
+    scheduling: 'Agendando…',
+    schedule: 'Agendar reunión',
+    errNoTime: 'No se seleccionó una hora',
+    errNoStudent: 'Selecciona un estudiante',
+    errCreate: 'Error al crear la reserva',
+    assignAnyway: '¿Asignar de todas formas?',
+    meetingTypes: {
+      placement_test: { label: 'Llamada diagnóstica', description: 'Evaluar el nivel del estudiante' },
+      class: { label: 'Clase regular', description: 'Sesión de tutoría estándar' },
+      teacher_interview: { label: 'Entrevista de maestro', description: 'Entrevista de incorporación' },
+      admin_checkin: { label: 'Revisión interna', description: 'Llamada de seguimiento interna' },
+    },
+  },
+} as const
+
+const MEETING_TYPE_VALUES: MeetingType[] = ['placement_test', 'class', 'teacher_interview', 'admin_checkin']
 
 const DURATIONS = [30, 45, 60, 90]
 
@@ -60,8 +156,16 @@ function getNext14BusinessDays(): Date[] {
   return days
 }
 
-function formatDayLabel(d: Date) {
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+function formatDayLabel(d: Date, lang: string) {
+  return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'es-HN', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
+function formatHourLabel(h: number, lang: string) {
+  if (lang === 'en') {
+    return h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`
+  }
+  // es-HN: 24-hour clock
+  return `${h.toString().padStart(2, '0')}:00`
 }
 
 function slotToUTC(day: Date, hour: number): Date {
@@ -99,7 +203,9 @@ export default function MeetingScheduler({
   existingBookings,
   onClose,
   onSuccess,
+  lang,
 }: Props) {
+  const t = lang === 'en' ? STR.en : STR.es
   const [step, setStep] = useState(1)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState('')
@@ -133,11 +239,11 @@ export default function MeetingScheduler({
   }
 
   const studentLabel = type === 'teacher_call'
-    ? (studentName ? `Student: ${studentName}` : null)
+    ? (studentName ? `${t.sumStudent}: ${studentName}` : null)
     : null
 
   const teacherLabel = type === 'student_call'
-    ? (teacherName ? `Teacher: ${teacherName}` : null)
+    ? (teacherName ? `${t.sumTeacher}: ${teacherName}` : null)
     : null
 
   function buildScheduledAt(): string {
@@ -170,10 +276,10 @@ export default function MeetingScheduler({
         )
         onSuccess()
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Error creating booking'
+        const msg = e instanceof Error ? e.message : t.errCreate
         // Primary-teacher continuity guard — let the admin override after confirming.
         if (msg.toLowerCase().includes('primary teacher') && !force) {
-          if (confirm(`${msg}\n\nAssign anyway?`)) {
+          if (confirm(`${msg}\n\n${t.assignAnyway}`)) {
             submitBooking(scheduledAt, true)
             return
           }
@@ -186,12 +292,12 @@ export default function MeetingScheduler({
   function handleSubmit() {
     setError('')
     const scheduledAt = buildScheduledAt()
-    if (!scheduledAt) { setError('No time selected'); return }
-    if (!selStudentId) { setError('Select a student'); return }
+    if (!scheduledAt) { setError(t.errNoTime); return }
+    if (!selStudentId) { setError(t.errNoStudent); return }
     submitBooking(scheduledAt)
   }
 
-  const stepLabels = ['Participants', 'Date & Time', 'Meeting Type', 'Confirm']
+  const stepLabels = t.steps
 
   return (
     <div
@@ -221,7 +327,7 @@ export default function MeetingScheduler({
       >
         {/* Header */}
         <div style={{ padding: '24px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111', margin: 0 }}>Schedule a Meeting</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111', margin: 0 }}>{t.title}</h2>
           <button
             onClick={onClose}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4 }}
@@ -263,20 +369,20 @@ export default function MeetingScheduler({
               {type === 'teacher_call' && (
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                    Teacher (pre-filled)
+                    {t.teacherPrefilled}
                   </p>
                   <div style={{ padding: '10px 14px', borderRadius: 8, background: '#F3F4F6', fontSize: 14, color: '#374151', fontWeight: 500 }}>
-                    {teacherName || 'Selected teacher'}
+                    {teacherName || t.selectedTeacher}
                   </div>
                 </div>
               )}
               {type === 'student_call' && (
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                    Student (pre-filled)
+                    {t.studentPrefilled}
                   </p>
                   <div style={{ padding: '10px 14px', borderRadius: 8, background: '#F3F4F6', fontSize: 14, color: '#374151', fontWeight: 500 }}>
-                    {studentLabel || studentName || 'Selected student'}
+                    {studentLabel || studentName || t.selectedStudent}
                   </div>
                 </div>
               )}
@@ -285,14 +391,14 @@ export default function MeetingScheduler({
               {(type === 'teacher_call' || type === 'class') && (
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                    Select Student *
+                    {t.selectStudentReq}
                   </p>
                   <select
                     value={selStudentId}
                     onChange={e => setSelStudentId(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 14, color: '#111', background: '#fff', outline: 'none' }}
                   >
-                    <option value="">— Select student —</option>
+                    <option value="">{t.selectStudentPlaceholder}</option>
                     {allStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.email})</option>)}
                   </select>
                 </div>
@@ -302,7 +408,7 @@ export default function MeetingScheduler({
               {(type === 'student_call' || type === 'class') && (
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                    {type === 'student_call' ? 'Select Teacher (optional)' : 'Select Teacher *'}
+                    {type === 'student_call' ? t.selectTeacherOptional : t.selectTeacherReq}
                   </p>
                   {type === 'student_call' && teacherLabel ? (
                     <div style={{ padding: '10px 14px', borderRadius: 8, background: '#F3F4F6', fontSize: 14, color: '#374151', fontWeight: 500 }}>
@@ -314,8 +420,17 @@ export default function MeetingScheduler({
                       onChange={e => setSelTeacherId(e.target.value)}
                       style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 14, color: '#111', background: '#fff', outline: 'none' }}
                     >
-                      <option value="">— Unassigned —</option>
-                      {allTeachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      <option value="">{t.unassignedOption}</option>
+                      {allTeachers.map(teacher => {
+                        // Paused teachers (accepting === false) are gated for new
+                        // students server-side; disable + flag here too. See TE-01.
+                        const paused = teacher.accepting === false && teacher.id !== teacherId
+                        return (
+                          <option key={teacher.id} value={teacher.id} disabled={paused}>
+                            {paused ? `⏸ ${teacher.name} (${t.pausedSuffix})` : teacher.name}
+                          </option>
+                        )
+                      })}
                     </select>
                   )}
                 </div>
@@ -329,7 +444,7 @@ export default function MeetingScheduler({
               {/* Day selector */}
               <div>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-                  Select Day
+                  {t.selectDay}
                 </p>
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
                   {days.map((d, idx) => (
@@ -350,7 +465,7 @@ export default function MeetingScheduler({
                         flexShrink: 0,
                       }}
                     >
-                      {formatDayLabel(d)}
+                      {formatDayLabel(d, lang)}
                     </button>
                   ))}
                 </div>
@@ -359,13 +474,13 @@ export default function MeetingScheduler({
               {/* Time slots */}
               <div>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-                  Select Time (Honduras, UTC-6)
+                  {t.selectTime}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                   {hours.map(h => {
                     const taken = isTaken(h)
                     const isSelected = selectedHour === h
-                    const label = h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`
+                    const label = formatHourLabel(h, lang)
                     return (
                       <button
                         key={h}
@@ -399,12 +514,12 @@ export default function MeetingScheduler({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-                  Meeting Type
+                  {t.meetingType}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {MEETING_TYPES.map(mt => (
+                  {MEETING_TYPE_VALUES.map(mt => (
                     <label
-                      key={mt.value}
+                      key={mt}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -412,8 +527,8 @@ export default function MeetingScheduler({
                         padding: '12px 16px',
                         borderRadius: 10,
                         border: '1px solid',
-                        borderColor: meetingType === mt.value ? '#C41E3A' : '#E5E7EB',
-                        background: meetingType === mt.value ? 'rgba(196,30,58,0.04)' : '#fff',
+                        borderColor: meetingType === mt ? '#C41E3A' : '#E5E7EB',
+                        background: meetingType === mt ? 'rgba(196,30,58,0.04)' : '#fff',
                         cursor: 'pointer',
                         transition: 'all 0.15s',
                       }}
@@ -421,14 +536,14 @@ export default function MeetingScheduler({
                       <input
                         type="radio"
                         name="meetingType"
-                        value={mt.value}
-                        checked={meetingType === mt.value}
-                        onChange={() => setMeetingType(mt.value)}
+                        value={mt}
+                        checked={meetingType === mt}
+                        onChange={() => setMeetingType(mt)}
                         style={{ accentColor: '#C41E3A' }}
                       />
                       <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: '#111', margin: 0 }}>{mt.label}</p>
-                        <p style={{ fontSize: 12, color: '#6B7280', margin: 0 }}>{mt.description}</p>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#111', margin: 0 }}>{t.meetingTypes[mt].label}</p>
+                        <p style={{ fontSize: 12, color: '#6B7280', margin: 0 }}>{t.meetingTypes[mt].description}</p>
                       </div>
                     </label>
                   ))}
@@ -437,7 +552,7 @@ export default function MeetingScheduler({
 
               <div>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-                  Duration
+                  {t.duration}
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {DURATIONS.map(d => (
@@ -456,7 +571,7 @@ export default function MeetingScheduler({
                         cursor: 'pointer',
                       }}
                     >
-                      {d} min
+                      {t.minShort(d)}
                     </button>
                   ))}
                 </div>
@@ -469,15 +584,15 @@ export default function MeetingScheduler({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Summary card */}
               <div style={{ padding: '16px', borderRadius: 12, background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                <h3 style={{ fontSize: 13, fontWeight: 700, color: '#111', margin: '0 0 12px' }}>Meeting Summary</h3>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: '#111', margin: '0 0 12px' }}>{t.meetingSummary}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
-                    { label: 'Student', value: allStudents.find(s => s.id === selStudentId)?.name || 'Not selected' },
-                    { label: 'Teacher', value: selTeacherId ? (allTeachers.find(t => t.id === selTeacherId)?.name || 'Unknown') : 'Unassigned' },
-                    { label: 'Date', value: selectedDay ? formatDayLabel(selectedDay) : '—' },
-                    { label: 'Time', value: selectedHour !== null ? (selectedHour < 12 ? `${selectedHour}:00 AM` : selectedHour === 12 ? '12:00 PM' : `${selectedHour - 12}:00 PM`) + ' (Honduras)' : '—' },
-                    { label: 'Type', value: MEETING_TYPES.find(m => m.value === meetingType)?.label || meetingType },
-                    { label: 'Duration', value: `${duration} minutes` },
+                    { label: t.sumStudent, value: allStudents.find(s => s.id === selStudentId)?.name || t.notSelected },
+                    { label: t.sumTeacher, value: selTeacherId ? (allTeachers.find(teacher => teacher.id === selTeacherId)?.name || t.unknown) : t.unassigned },
+                    { label: t.sumDate, value: selectedDay ? formatDayLabel(selectedDay, lang) : '—' },
+                    { label: t.sumTime, value: selectedHour !== null ? `${formatHourLabel(selectedHour, lang)} ${t.hondurasSuffix}` : '—' },
+                    { label: t.sumType, value: t.meetingTypes[meetingType].label },
+                    { label: t.sumDuration, value: t.minutes(duration) },
                   ].map(({ label, value }) => (
                     <div key={label} style={{ display: 'flex', gap: 12, fontSize: 13 }}>
                       <span style={{ color: '#6B7280', width: 80, flexShrink: 0 }}>{label}:</span>
@@ -490,12 +605,12 @@ export default function MeetingScheduler({
               {/* Notes */}
               <div>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                  Notes (optional)
+                  {t.notesLabel}
                 </p>
                 <textarea
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  placeholder="Any notes for this meeting…"
+                  placeholder={t.notesPlaceholder}
                   rows={3}
                   style={{
                     width: '100%',
@@ -544,7 +659,7 @@ export default function MeetingScheduler({
             }}
           >
             <ChevronLeft className="h-4 w-4" />
-            {step === 1 ? 'Cancel' : 'Back'}
+            {step === 1 ? t.cancel : t.back}
           </button>
 
           {step < 4 ? (
@@ -565,7 +680,7 @@ export default function MeetingScheduler({
                 cursor: canGoNext() ? 'pointer' : 'not-allowed',
               }}
             >
-              Next
+              {t.next}
               <ChevronRight className="h-4 w-4" />
             </button>
           ) : (
@@ -586,7 +701,7 @@ export default function MeetingScheduler({
                 cursor: isPending ? 'not-allowed' : 'pointer',
               }}
             >
-              {isPending ? 'Scheduling…' : 'Schedule meeting'}
+              {isPending ? t.scheduling : t.schedule}
               {!isPending && <Check className="h-4 w-4" />}
             </button>
           )}

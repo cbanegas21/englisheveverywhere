@@ -1,13 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Menu, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { EKMark } from '@/components/ui/EKMark'
 
 interface Props { lang: string }
 
 export default function AdminSidebar({ lang }: Props) {
+  const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -18,8 +22,8 @@ export default function AdminSidebar({ lang }: Props) {
   }
 
   const labels = lang === 'es'
-    ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', library: 'Biblioteca', signOut: 'Cerrar sesión', adminPanel: 'Panel admin' }
-    : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', library: 'Library', signOut: 'Sign out', adminPanel: 'Admin Panel' }
+    ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', library: 'Biblioteca', signOut: 'Cerrar sesión', adminPanel: 'Panel admin', openMenu: 'Abrir menú', closeMenu: 'Cerrar menú' }
+    : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', library: 'Library', signOut: 'Sign out', adminPanel: 'Admin Panel', openMenu: 'Open menu', closeMenu: 'Close menu' }
 
   // Mono glyphs match the student/teacher sidebar style — JBM mono characters
   // instead of Lucide icons for the editorial direction.
@@ -35,9 +39,11 @@ export default function AdminSidebar({ lang }: Props) {
   const text = '#F4EFE6'
   const border = 'rgba(244,239,230,0.10)'
 
-  return (
-    <aside
-      className="flex flex-col w-[224px] min-h-screen flex-shrink-0"
+  // Shared rail — rendered both in the desktop aside and inside the mobile
+  // off-canvas drawer (mirrors the student/teacher Sidebar mechanics).
+  const railContent = (
+    <div
+      className="flex flex-col h-full"
       style={{
         background: 'var(--ek-ink)',
         borderRight: `1px solid ${border}`,
@@ -53,6 +59,7 @@ export default function AdminSidebar({ lang }: Props) {
           href={`/${lang}/admin`}
           className="inline-flex items-center gap-2"
           style={{ textDecoration: 'none', lineHeight: 1 }}
+          onClick={() => setMobileOpen(false)}
         >
           <EKMark size={26} bg="var(--ek-ink)" barColor="#F4EFE6" />
           <div>
@@ -76,7 +83,7 @@ export default function AdminSidebar({ lang }: Props) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1" style={{ padding: '12px 10px' }}>
+      <nav className="flex-1 overflow-y-auto" style={{ padding: '12px 10px' }}>
         <ul style={{ display: 'flex', flexDirection: 'column', gap: 1, margin: 0, padding: 0, listStyle: 'none' }}>
           {nav.map(({ href, label, glyph }) => {
             const active = pathname.startsWith(href)
@@ -84,6 +91,7 @@ export default function AdminSidebar({ lang }: Props) {
               <li key={href}>
                 <Link
                   href={href}
+                  onClick={() => setMobileOpen(false)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -155,6 +163,64 @@ export default function AdminSidebar({ lang }: Props) {
           {labels.signOut}
         </button>
       </div>
-    </aside>
+    </div>
+  )
+
+  return (
+    <>
+      {/* Desktop rail */}
+      <aside className="hidden md:flex w-[224px] flex-col h-screen sticky top-0 flex-shrink-0">
+        {railContent}
+      </aside>
+
+      {/* Mobile top bar */}
+      <div
+        className="md:hidden flex items-center justify-between px-4 py-3"
+        style={{ background: 'var(--ek-ink)', borderBottom: `1px solid ${border}` }}
+      >
+        <Link
+          href={`/${lang}/admin`}
+          className="inline-flex items-center gap-2"
+          style={{ textDecoration: 'none', lineHeight: 1 }}
+        >
+          <EKMark size={24} bg="var(--ek-ink)" barColor="#F4EFE6" />
+          <span style={{ color: text, fontWeight: 800, fontSize: 14, letterSpacing: '-0.02em' }}>
+            EnglishKolab
+          </span>
+        </Link>
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex', color: text }}
+          aria-label={mobileOpen ? labels.closeMenu : labels.openMenu}
+        >
+          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              className="md:hidden fixed inset-0 z-40"
+              style={{ background: 'rgba(0,0,0,0.6)' }}
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring' as const, stiffness: 300, damping: 30 }}
+              className="md:hidden fixed left-0 top-0 bottom-0 w-[224px] z-50 flex flex-col"
+            >
+              {railContent}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   )
 }

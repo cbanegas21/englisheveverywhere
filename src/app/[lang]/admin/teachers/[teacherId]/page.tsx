@@ -52,7 +52,7 @@ export interface TeacherDetail {
   activeStudentCount: number
   availSlots: { day_of_week: number; start_time: string; end_time: string }[]
   allStudents: { id: string; name: string; email: string }[]
-  allTeachers: { id: string; name: string }[]
+  allTeachers: { id: string; name: string; accepting: boolean }[]
   students: StudentOnTeacher[]
 }
 
@@ -91,7 +91,7 @@ export default async function TeacherProfilePage({ params }: Props) {
       .select('id, level, classes_remaining, profile:profiles(full_name, email)'),
     admin
       .from('teachers')
-      .select('id, profile:profiles(full_name)')
+      .select('id, accepting_students, profile:profiles(full_name)')
       .eq('is_active', true),
     admin
       .from('availability_slots')
@@ -163,13 +163,14 @@ export default async function TeacherProfilePage({ params }: Props) {
   const allStudents = Array.from(studentMap.entries()).map(([id, v]) => ({ id, name: v.name, email: v.email }))
 
   // All teachers for meeting scheduler
-  type RawTeacher = { id: string; profile: { full_name: string | null } | { full_name: string | null }[] | null }
+  type RawTeacher = { id: string; accepting_students?: boolean; profile: { full_name: string | null } | { full_name: string | null }[] | null }
   const allTeachers = (allTeachersResult.data || []).map((t: RawTeacher) => {
     const rawP = t.profile
     let name = 'Unknown'
     if (Array.isArray(rawP)) name = (rawP as { full_name: string | null }[])[0]?.full_name || 'Unknown'
     else if (rawP && typeof rawP === 'object') name = (rawP as { full_name: string | null }).full_name || 'Unknown'
-    return { id: t.id, name }
+    // accepting_students=false → paused; gated for new students. See TE-01.
+    return { id: t.id, name, accepting: t.accepting_students !== false }
   })
 
   // Students tab: unique students from confirmed class bookings

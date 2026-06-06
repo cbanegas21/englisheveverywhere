@@ -8,6 +8,7 @@ import { isTeacherAvailableClient, type AvailabilitySlot } from './availability'
 interface Teacher {
   id: string
   name: string
+  accepting: boolean
 }
 
 interface Props {
@@ -106,10 +107,17 @@ export default function BookingAssign({
         <option value="">Select teacher…</option>
         {teachers.map(t => {
           const ok = availabilityByTeacher?.get(t.id)
-          const label = availabilityByTeacher == null
+          // Paused teachers (accepting_students=false) are gated server-side for
+          // new students. Disable selection here unless they're already this
+          // booking's teacher (re-assignment of an existing relationship). See TE-01.
+          const isCurrent = currentTeacherId === t.id
+          const paused = !t.accepting && !isCurrent
+          const label = paused
+            ? `⏸ ${t.name} (paused — not accepting)`
+            : availabilityByTeacher == null
             ? t.name
             : ok ? `✓ ${t.name}` : `✗ ${t.name} (off-hours)`
-          return <option key={t.id} value={t.id}>{label}</option>
+          return <option key={t.id} value={t.id} disabled={paused}>{label}</option>
         })}
       </select>
       <button

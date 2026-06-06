@@ -195,30 +195,6 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             )
           })}
         </ul>
-
-        {/* Become a teacher */}
-        {role === 'student' && (
-          <>
-            <div style={{ height: 14 }} />
-            <Link
-              href={`mailto:hola@englishkolab.com?subject=${encodeURIComponent(lang === 'es' ? 'Me interesa enseñar en EnglishKolab' : 'Interested in teaching at EnglishKolab')}`}
-              className="ek-side-foot"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 11,
-                padding: '9px 12px',
-                marginTop: 4,
-                paddingTop: 14,
-                borderTop: `1px solid ${border}`,
-                fontSize: 13,
-                textDecoration: 'none',
-              }}
-            >
-              {lang === 'es' ? 'Enseñar en la plataforma' : 'Become a teacher'}
-            </Link>
-          </>
-        )}
       </nav>
 
       {/* User section — bottom */}

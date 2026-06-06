@@ -29,18 +29,17 @@ export default async function AdminLayout({ children, params }: Props) {
   const displayName = profile?.full_name || user.email?.split('@')[0] || 'Admin'
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--ek-paper)' }}>
+    <div className="flex flex-col md:flex-row min-h-screen" style={{ background: 'var(--ek-paper)' }}>
       <AdminSidebar lang={lang} />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header
-          className="flex items-center justify-between flex-shrink-0"
+          className="flex items-center justify-between flex-shrink-0 px-4 py-3 md:px-7 md:py-[14px]"
           style={{
             background: 'var(--ek-card)',
             borderBottom: '1px solid var(--ek-border)',
-            padding: '14px 28px',
             fontFamily: 'var(--ek-font-sans)',
           }}
         >
@@ -85,7 +84,7 @@ export default async function AdminLayout({ children, params }: Props) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-8">
+        <main className="flex-1 min-w-0 p-4 md:p-8">
           {children}
         </main>
       </div>

@@ -31,7 +31,7 @@ interface BookingEntry {
   student_rating: number | null
 }
 
-interface TeacherEntry { id: string; name: string }
+interface TeacherEntry { id: string; name: string; accepting: boolean }
 interface StudentEntry { id: string; name: string; email: string }
 interface AvailSlot { teacher_id: string; day_of_week: number; start_time: string; end_time: string }
 interface PendingEntry {
@@ -845,9 +845,17 @@ export default function BookingCalendarClient({
                   <option value="">Select teacher…</option>
                   {teachers.map(t => {
                     const ok = isTeacherAvailableClient(t.id, availSlots, b.scheduled_at, b.duration_minutes || 60)
+                    // Paused teachers can't take a NEW student (server-gated), so
+                    // disable selection unless they already serve this student
+                    // (i.e. they're the booking's current teacher). See TE-01.
+                    const isCurrent = b.teacher_id === t.id
+                    const paused = !t.accepting && !isCurrent
+                    const label = paused
+                      ? `⏸ ${t.name} (paused — not accepting)`
+                      : ok ? `✓ ${t.name}` : `✗ ${t.name} (off-hours)`
                     return (
-                      <option key={t.id} value={t.id}>
-                        {ok ? `✓ ${t.name}` : `✗ ${t.name} (off-hours)`}
+                      <option key={t.id} value={t.id} disabled={paused}>
+                        {label}
                       </option>
                     )
                   })}

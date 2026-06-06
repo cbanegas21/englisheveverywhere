@@ -18,8 +18,10 @@ const t = {
     greetingEvening: 'Good evening',
     subtitle: 'Your teaching overview for today.',
     activeToggle: 'Accepting students',
-    inactiveToggle: 'Not accepting',
+    inactiveToggle: 'Paused',
     acceptingKicker: 'New bookings',
+    acceptingOnHint: 'On — open to new student bookings.',
+    acceptingOffHint: 'Off — new student bookings are paused. Your current classes are unaffected.',
     stats: {
       sessions: 'Sessions this month',
       sessionsSub: 'completed',
@@ -57,8 +59,10 @@ const t = {
     greetingEvening: 'Buenas noches',
     subtitle: 'Tu resumen de enseñanza de hoy.',
     activeToggle: 'Aceptando estudiantes',
-    inactiveToggle: 'No disponible',
+    inactiveToggle: 'En pausa',
     acceptingKicker: 'Nuevas reservas',
+    acceptingOnHint: 'Activo — abierto a reservas de nuevos estudiantes.',
+    acceptingOffHint: 'En pausa — no recibirás reservas de nuevos estudiantes. Tus clases actuales no se ven afectadas.',
     stats: {
       sessions: 'Sesiones este mes',
       sessionsSub: 'completadas',
@@ -223,46 +227,71 @@ export default function TeacherDashboardClient({
           </span>
         }
         right={
-          <button
-            onClick={toggleActive}
-            disabled={isPending}
-            className="ek-quickrow"
+          <div
             style={{
-              display: 'inline-flex',
-              alignItems: 'baseline',
-              gap: 9,
-              padding: '8px 14px',
-              borderRadius: 4,
-              fontSize: 12,
-              cursor: 'pointer',
-              fontFamily: 'var(--ek-font-sans)',
-              border: '1px solid var(--ek-border-mid)',
-              background: 'var(--ek-card)',
-              color: 'var(--ek-text-soft)',
-              opacity: isPending ? 0.6 : 1,
-              whiteSpace: 'nowrap',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: 5,
             }}
           >
+            <button
+              onClick={toggleActive}
+              disabled={isPending}
+              className="ek-quickrow"
+              aria-pressed={active}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'baseline',
+                gap: 9,
+                padding: '8px 14px',
+                borderRadius: 4,
+                fontSize: 12,
+                cursor: 'pointer',
+                fontFamily: 'var(--ek-font-sans)',
+                border: `1px solid ${active ? 'var(--ek-red)' : 'var(--ek-border-mid)'}`,
+                background: 'var(--ek-card)',
+                color: 'var(--ek-text-soft)',
+                opacity: isPending ? 0.6 : 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: 'var(--ek-font-mono)',
+                  fontSize: 10,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-text-muted)',
+                }}
+              >
+                {tx.acceptingKicker}
+              </span>
+              <span
+                style={{
+                  fontWeight: 700,
+                  color: active ? 'var(--ek-red)' : 'var(--ek-text-muted)',
+                }}
+              >
+                {active ? tx.activeToggle : tx.inactiveToggle}
+              </span>
+            </button>
+            {/* Honest one-line explainer: OFF genuinely pauses new bookings;
+                current classes are unaffected (gated admin-side). See TE-01. */}
             <span
               style={{
-                fontFamily: 'var(--ek-font-mono)',
-                fontSize: 10,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
+                fontSize: 11,
+                lineHeight: 1.35,
                 color: 'var(--ek-text-muted)',
+                fontStyle: 'italic',
+                fontFamily: 'var(--ek-font-serif)',
+                maxWidth: 280,
+                textAlign: 'right',
               }}
             >
-              {tx.acceptingKicker}
+              {active ? tx.acceptingOnHint : tx.acceptingOffHint}
             </span>
-            <span
-              style={{
-                fontWeight: 700,
-                color: active ? 'var(--ek-red)' : 'var(--ek-text-muted)',
-              }}
-            >
-              {active ? tx.activeToggle : tx.inactiveToggle}
-            </span>
-          </button>
+          </div>
         }
       />
 
@@ -333,6 +362,14 @@ export default function TeacherDashboardClient({
 
           {/* Upcoming sessions — left 3/5 */}
           <section className="lg:col-span-3">
+            <style>{`
+              .ek-tsess-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 16px; align-items: center; }
+              .ek-tsess-actions { display: flex; align-items: center; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+              @media (max-width: 560px) {
+                .ek-tsess-row { grid-template-columns: 48px 1fr; }
+                .ek-tsess-actions { grid-column: 1 / -1; justify-content: flex-start; padding-left: 60px; }
+              }
+            `}</style>
             <SectionHeader
               kicker={tx.upcomingKicker}
               title={tx.upcoming}
@@ -393,17 +430,13 @@ export default function TeacherDashboardClient({
                   return (
                     <li
                       key={session.id}
-                      className="ek-row"
+                      className="ek-row ek-tsess-row"
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: '56px 1fr auto auto',
-                        gap: 16,
-                        alignItems: 'center',
                         padding: '16px 8px',
                         borderBottom: '1px solid var(--ek-border-soft)',
                       }}
                     >
-                      <div style={{ textAlign: 'center' }}>
+                      <div className="ek-tsess-date" style={{ textAlign: 'center' }}>
                         <div
                           style={{
                             fontSize: 10,
@@ -441,7 +474,7 @@ export default function TeacherDashboardClient({
                         </div>
                       </div>
 
-                      <div style={{ minWidth: 0 }}>
+                      <div className="ek-tsess-main" style={{ minWidth: 0 }}>
                         <div
                           style={{
                             fontSize: 14,
@@ -466,19 +499,21 @@ export default function TeacherDashboardClient({
                         </div>
                       </div>
 
-                      <StatusBadge
-                        variant={isLive ? 'live' : session.status === 'confirmed' ? 'confirmed' : 'pending'}
-                        dot={isLive}
-                      >
-                        {isLive ? tx.statusLive : session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
-                      </StatusBadge>
+                      <div className="ek-tsess-actions">
+                        <StatusBadge
+                          variant={isLive ? 'live' : session.status === 'confirmed' ? 'confirmed' : 'pending'}
+                          dot={isLive}
+                        >
+                          {isLive ? tx.statusLive : session.status === 'confirmed' ? tx.statusConfirmed : tx.statusPending}
+                        </StatusBadge>
 
-                      <JoinSessionButton
-                        lang={lang}
-                        bookingId={session.id}
-                        scheduledAt={session.scheduled_at}
-                        variant="compact"
-                      />
+                        <JoinSessionButton
+                          lang={lang}
+                          bookingId={session.id}
+                          scheduledAt={session.scheduled_at}
+                          variant="compact"
+                        />
+                      </div>
                     </li>
                   )
                 })}

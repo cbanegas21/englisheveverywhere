@@ -200,22 +200,80 @@ export default function NotificationPreferences({
   }
 
   // ── Panel variant (full-width, used in Settings) ─────────────────
+  // Cálido Editorial: tokens only, hairline rules, mono micro-labels, a red
+  // left-rule accent instead of an icon chip, and crimson/ink-only state.
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-      <div className="px-6 py-5 flex items-start justify-between gap-3" style={{ borderBottom: '1px solid #F3F4F6' }}>
-        <div className="flex items-start gap-3">
-          <div className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(196,30,58,0.08)' }}>
-            <Bell className="h-5 w-5" style={{ color: '#C41E3A' }} />
-          </div>
-          <div>
-            <h3 className="text-[16px] font-black" style={{ color: '#111111' }}>{tx.title}</h3>
-            <p className="text-[12px] mt-0.5" style={{ color: '#6B7280' }}>{tx.subPanel}</p>
-          </div>
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)' }}>
+      <style>{`
+        /* Toggle row — hairline by default, soft crimson wash + crimson hairline when on. */
+        .ek-np-row {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: var(--ek-radius-md);
+          background: var(--ek-card);
+          border: 1px solid var(--ek-border);
+          cursor: pointer;
+          transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+        }
+        .ek-np-row:hover { border-color: var(--ek-border-mid); }
+        .ek-np-row[data-on="true"] {
+          background: var(--ek-red-tint);
+          border-color: var(--ek-red-tint-3);
+        }
+        .ek-np-label {
+          font-family: var(--ek-font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--ek-text);
+          transition: color 0.16s ease;
+        }
+        .ek-np-row[data-on="true"] .ek-np-label { color: var(--ek-red); }
+        /* Pill switch — ink track off, crimson track on. */
+        .ek-np-switch {
+          height: 20px;
+          width: 36px;
+          border-radius: 999px;
+          display: flex;
+          align-items: center;
+          flex-shrink: 0;
+          padding: 2px;
+          background: var(--ek-border-mid);
+          transition: background 0.16s ease;
+        }
+        .ek-np-row[data-on="true"] .ek-np-switch { background: var(--ek-red); }
+        .ek-np-knob {
+          height: 16px;
+          width: 16px;
+          border-radius: 999px;
+          background: var(--ek-card);
+          transition: transform 0.16s ease;
+        }
+        .ek-np-row[data-on="true"] .ek-np-knob { transform: translateX(16px); }
+      `}</style>
+
+      {/* Header — red hairline left-rule + mono kicker, no icon chip / glyph tile. */}
+      <div className="px-6 py-5 flex items-stretch gap-4" style={{ borderBottom: '1px solid var(--ek-border)' }}>
+        <div style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', borderRadius: 2, flexShrink: 0 }} />
+        <div className="flex-1 min-w-0">
+          <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{tx.title}</div>
+          <h3 className="text-[16px] font-black mt-1" style={{ color: 'var(--ek-text)' }}>{tx.title}</h3>
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{tx.subPanel}</p>
         </div>
         {showBadge && (
           <span
-            className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex-shrink-0"
-            style={{ background: 'rgba(245,158,11,0.1)', color: '#B45309', border: '1px solid rgba(245,158,11,0.3)' }}
+            className="ek-microlabel self-start flex-shrink-0 px-2 py-1"
+            style={{
+              fontSize: '9px',
+              letterSpacing: '0.12em',
+              color: 'var(--ek-red)',
+              background: 'var(--ek-red-tint)',
+              border: '1px solid var(--ek-red-tint-3)',
+              borderRadius: 'var(--ek-radius-sm)',
+            }}
           >
             {tx.comingSoon}
           </span>
@@ -224,34 +282,23 @@ export default function NotificationPreferences({
 
       <div className="px-6 py-5 grid gap-6 md:grid-cols-2">
         <section>
-          <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#9CA3AF' }}>
-            {tx.channelsLabel}
-          </p>
+          <p className="ek-microlabel mb-3">{tx.channelsLabel}</p>
           <div className="space-y-2">
-            {channelDefs.map(({ key, label, Icon }) => {
+            {channelDefs.map(({ key, label }) => {
               const active = prefs[key]
               return (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => toggle(key)}
-                  className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl transition-all"
-                  style={{
-                    background: active ? 'rgba(196,30,58,0.04)' : '#fff',
-                    border: `1px solid ${active ? 'rgba(196,30,58,0.25)' : '#E5E7EB'}`,
-                  }}
+                  data-on={active}
+                  className="ek-np-row"
+                  role="switch"
+                  aria-checked={active}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="h-4 w-4" style={{ color: active ? '#C41E3A' : '#9CA3AF' }} />
-                    <span className="text-[13px] font-semibold" style={{ color: active ? '#C41E3A' : '#111111' }}>{label}</span>
-                  </div>
-                  <span
-                    className="h-5 w-9 rounded-full flex items-center transition-all"
-                    style={{ background: active ? '#C41E3A' : '#E5E7EB', padding: '2px' }}
-                  >
-                    <span
-                      className="h-4 w-4 rounded-full bg-white transition-transform"
-                      style={{ transform: active ? 'translateX(16px)' : 'translateX(0)' }}
-                    />
+                  <span className="ek-np-label">{label}</span>
+                  <span className="ek-np-switch">
+                    <span className="ek-np-knob" />
                   </span>
                 </button>
               )
@@ -260,47 +307,60 @@ export default function NotificationPreferences({
         </section>
 
         <section>
-          <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#9CA3AF' }}>
-            {tx.timingLabel}
-          </p>
+          <p className="ek-microlabel mb-3">{tx.timingLabel}</p>
           <div className="space-y-2">
-            {timingDefs.map(({ key, label }) => (
-              <label
-                key={key}
-                className="flex items-center justify-between gap-2 px-4 py-3 rounded-xl cursor-pointer transition-all"
-                style={{
-                  background: prefs[key] ? 'rgba(196,30,58,0.04)' : '#fff',
-                  border: `1px solid ${prefs[key] ? 'rgba(196,30,58,0.25)' : '#E5E7EB'}`,
-                }}
-              >
-                <span className="text-[13px] font-semibold" style={{ color: prefs[key] ? '#C41E3A' : '#111111' }}>{label}</span>
-                <input
-                  type="checkbox"
-                  checked={prefs[key]}
-                  onChange={() => toggle(key)}
-                  className="h-4 w-4 rounded"
-                  style={{ accentColor: '#C41E3A' }}
-                />
-              </label>
-            ))}
+            {timingDefs.map(({ key, label }) => {
+              const active = prefs[key]
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggle(key)}
+                  data-on={active}
+                  className="ek-np-row"
+                  role="switch"
+                  aria-checked={active}
+                >
+                  <span className="ek-np-label">{label}</span>
+                  <span className="ek-np-switch">
+                    <span className="ek-np-knob" />
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </section>
       </div>
 
       {onSave && (
-        <div className="px-6 py-4 flex items-center justify-end gap-3" style={{ background: '#FAFAFA', borderTop: '1px solid #F3F4F6' }}>
-          {error && <span className="text-[12px]" style={{ color: '#C41E3A' }}>{error}</span>}
+        <div
+          className="px-6 py-4 flex items-center justify-end gap-3"
+          style={{ background: 'var(--ek-paper-warm)', borderTop: '1px solid var(--ek-border)' }}
+        >
+          {error && <span className="text-[12px]" style={{ color: 'var(--ek-red)' }}>{error}</span>}
           <button
             onClick={handleSave}
             disabled={saving || saved}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all"
+            data-saving={saving}
+            data-saved={saved}
+            className="ek-red-btn flex items-center gap-2 px-5 py-2.5 text-[13px] font-bold"
             style={
               saved
-                ? { background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC', cursor: 'default' }
-                : { background: '#C41E3A', color: '#fff', cursor: saving ? 'wait' : 'pointer' }
+                ? {
+                    background: 'var(--ek-success-bg)',
+                    color: 'var(--ek-success-text)',
+                    border: '1px solid var(--ek-success-border)',
+                    borderRadius: 'var(--ek-radius-md)',
+                    cursor: 'default',
+                  }
+                : {
+                    background: 'var(--ek-red)',
+                    color: '#fff',
+                    border: '1px solid var(--ek-red)',
+                    borderRadius: 'var(--ek-radius-md)',
+                    cursor: saving ? 'wait' : 'pointer',
+                  }
             }
-            onMouseEnter={e => { if (!saved && !saving) (e.currentTarget as HTMLButtonElement).style.background = '#9E1830' }}
-            onMouseLeave={e => { if (!saved && !saving) (e.currentTarget as HTMLButtonElement).style.background = '#C41E3A' }}
           >
             {saved && <CheckCircle2 className="h-4 w-4" />}
             {saved ? tx.saved : saving ? tx.saving : tx.save}

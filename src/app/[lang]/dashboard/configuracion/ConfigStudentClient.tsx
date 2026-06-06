@@ -24,7 +24,7 @@ import Modal from '@/components/dashboard/Modal'
 // TODO (Phase 4): wire avatar upload to Supabase Storage `avatars/{user.id}`
 // bucket (create bucket + policies if missing).
 
-type TabKey = 'profile' | 'account' | 'notifications' | 'billing' | 'danger'
+type TabKey = 'profile' | 'account' | 'notifications' | 'billing'
 
 const t = {
   en: {
@@ -211,7 +211,6 @@ export default function ConfigStudentClient({
     { key: 'account',       label: tx.tabAccount,       desc: tx.tabDescAccount },
     { key: 'notifications', label: tx.tabNotifications, desc: tx.tabDescNotifications },
     { key: 'billing',       label: tx.tabBilling,       desc: tx.tabDescBilling },
-    { key: 'danger',        label: tx.tabDanger,        desc: tx.tabDescDanger },
   ]
 
   return (
@@ -433,14 +432,19 @@ export default function ConfigStudentClient({
           {/* Main content */}
           <section className="min-w-0">
             {tab === 'profile' && (
-              <ProfilePanel
-                lang={lang}
-                tx={tx}
-                initialFullName={fullName}
-                initialPhone={phone}
-                initialAvatarUrl={avatarUrl}
-                email={email}
-              />
+              <div className="space-y-6">
+                <ProfilePanel
+                  lang={lang}
+                  tx={tx}
+                  initialFullName={fullName}
+                  initialPhone={phone}
+                  initialAvatarUrl={avatarUrl}
+                  email={email}
+                />
+                {/* ST-05: danger zone de-emphasized — small subsection at the
+                    bottom of Profile instead of a top-level primary tab. */}
+                <DangerPanel lang={lang} tx={tx} keyword={deleteTypeKeyword} />
+              </div>
             )}
             {tab === 'account' && (
               <AccountPanel
@@ -472,7 +476,6 @@ export default function ConfigStudentClient({
               />
             )}
             {tab === 'billing' && <BillingPanel lang={lang} tx={tx} />}
-            {tab === 'danger' && <DangerPanel lang={lang} tx={tx} keyword={deleteTypeKeyword} />}
           </section>
         </div>
       </div>
@@ -841,31 +844,24 @@ function DangerPanel({ lang, tx, keyword }: { lang: Locale; tx: typeof t['en']; 
 
   return (
     <>
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-red-tint-3)' }}
-      >
-        {/* Header — kicker + serif-toned title, red hairline rule, no icon chip */}
+      {/* ST-05: minimized danger zone — a quiet hairline-ruled subsection that
+          sits low under Profile. No filled block, no big header; just a mono
+          micro-label + a single inline delete row. The full typed-confirmation
+          flow lives in the Modal below, unchanged. */}
+      <div className="px-1">
+        <div className="ek-microlabel mb-2" style={{ color: 'var(--ek-text-muted)' }}>{tx.dangerKicker}</div>
         <div
-          className="px-6 py-5 flex items-stretch gap-4"
-          style={{ borderBottom: '1px solid var(--ek-red-tint-3)', background: 'var(--ek-red-tint)' }}
+          className="flex items-center justify-between gap-4 py-3"
+          style={{ borderTop: '1px solid var(--ek-border)' }}
         >
-          <div style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', borderRadius: 2, flexShrink: 0 }} />
-          <div>
-            <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{tx.dangerKicker}</div>
-            <h3 className="text-[16px] font-black mt-1" style={{ color: 'var(--ek-red)' }}>{tx.dangerHeader}</h3>
-            <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{tx.dangerSub}</p>
-          </div>
-        </div>
-
-        <div className="px-6 py-5 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[14px] font-bold" style={{ color: 'var(--ek-text)' }}>{tx.deleteTitle}</div>
-            <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{tx.deleteDesc}</p>
+            <div className="text-[13px] font-bold" style={{ color: 'var(--ek-text-soft)' }}>{tx.deleteTitle}</div>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--ek-text-muted)' }}>{tx.deleteDesc}</p>
           </div>
           <button
             onClick={() => setOpen(true)}
-            className="lk-cfg-btn-ghost"
+            className="ek-link-danger text-[12px] font-bold flex-shrink-0"
+            style={{ color: 'var(--ek-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
           >
             {tx.deleteBtn}
           </button>

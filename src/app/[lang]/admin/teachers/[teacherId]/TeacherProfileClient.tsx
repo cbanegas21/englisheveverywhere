@@ -14,8 +14,11 @@ import {
 } from '../../actions'
 import MeetingScheduler from '@/components/admin/MeetingScheduler'
 
-const TABS = ['Overview', 'Schedule', 'Students', 'Session History', 'Profile', 'Admin Tools'] as const
-type Tab = typeof TABS[number]
+type Lang = 'es' | 'en'
+
+// Stable tab keys decouple state/logic from the displayed (localized) label.
+const TAB_KEYS = ['overview', 'schedule', 'students', 'history', 'profile', 'tools'] as const
+type Tab = typeof TAB_KEYS[number]
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
   pending:   { bg: 'rgba(251,191,36,0.15)', color: '#B45309', label: 'Pending' },
@@ -24,7 +27,194 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
   cancelled: { bg: 'rgba(156,163,175,0.15)', color: '#6B7280', label: 'Cancelled' },
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const STR = {
+  en: {
+    locale: 'en-US',
+    tabs: { overview: 'Overview', schedule: 'Schedule', students: 'Students', history: 'Session History', profile: 'Profile', tools: 'Admin Tools' },
+    dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    unknown: 'Unknown',
+    active: 'Active',
+    inactive: 'Inactive',
+    pending: 'Pending',
+    error: 'An error occurred',
+    // toasts
+    rateSaved: 'Rate saved',
+    rateUpdated: 'Rate updated',
+    notesSaved: 'Notes saved',
+    profileSaved: 'Profile saved',
+    teacherActivated: 'Teacher activated',
+    teacherDeactivated: 'Teacher deactivated',
+    resetEmailSent: 'Reset email sent',
+    teacherDeleted: 'Teacher deleted',
+    // sidebar
+    memberSince: 'Member since',
+    totalSessions: 'Total Sessions',
+    activeStudents: 'Active Students',
+    quickActions: 'Quick Actions',
+    scheduleCall: 'Schedule a call',
+    viewAllBookings: 'View all bookings',
+    // overview
+    thisMonth: 'This Month',
+    rating: 'Rating',
+    hourlyRate: 'Hourly Rate',
+    save: 'Save',
+    status: 'Status',
+    clickToToggle: 'click to toggle',
+    availability: 'Availability',
+    slots: 'slots',
+    noAvailability: 'No availability slots configured.',
+    adminNotes: 'Admin Notes',
+    notesPlaceholder: 'Internal notes about this teacher…',
+    autoSaves: 'Auto-saves on blur',
+    // schedule
+    prevWeek: '← Prev week',
+    nextWeek: 'Next week →',
+    scheduleNew: '+ Schedule new',
+    // students tab
+    noStudents: 'No active students assigned.',
+    colStudent: 'Student',
+    colLevel: 'Level',
+    colClassesLeft: 'Classes Left',
+    colNextClass: 'Next Class',
+    // history
+    totalHoursTaught: 'Total Hours Taught',
+    sessionsCompleted: 'Sessions Completed',
+    noCompletedSessions: 'No completed sessions yet.',
+    colDate: 'Date',
+    colDuration: 'Duration',
+    colType: 'Type',
+    min: 'min',
+    // profile tab
+    basicInfo: 'Basic Info',
+    fullName: 'Full Name',
+    timezone: 'Timezone',
+    email: 'Email',
+    bio: 'Bio',
+    bioPlaceholder: 'Teacher bio…',
+    cv: 'CV / Résumé',
+    uploadedCv: 'Uploaded CV',
+    uploaded: 'Uploaded',
+    openNewTab: 'Open in new tab',
+    noCv: 'No CV uploaded — teacher applied before the file requirement was added.',
+    specializations: 'Specializations',
+    addSpec: 'Add specialization…',
+    certifications: 'Certifications',
+    addCert: 'Add certification…',
+    add: 'Add',
+    saveProfile: 'Save Profile',
+    // admin tools
+    passwordReset: 'Password Reset',
+    sendResetCopy: (email: string) => `Send a password reset link to ${email}.`,
+    thisTeacher: 'this teacher',
+    sendResetEmail: 'Send reset email',
+    update: 'Update',
+    saved: '✓ Saved',
+    accountStatus: 'Account Status',
+    activeClickDeactivate: 'Active — click to deactivate',
+    inactiveClickActivate: 'Inactive — click to activate',
+    dangerZone: 'Danger Zone',
+    deleteCopy: 'Permanently delete this teacher record. Their profile will revert to student.',
+    deleteTeacher: 'Delete teacher',
+    areYouSure: 'Are you sure? This cannot be undone.',
+    yesDelete: 'Yes, delete',
+    cancel: 'Cancel',
+    // back link
+    backToTeachers: '← Back to Teachers',
+  },
+  es: {
+    locale: 'es-HN',
+    tabs: { overview: 'Resumen', schedule: 'Agenda', students: 'Estudiantes', history: 'Historial de sesiones', profile: 'Perfil', tools: 'Herramientas de admin' },
+    dayNames: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+    unknown: 'Desconocido',
+    active: 'Activo',
+    inactive: 'Inactivo',
+    pending: 'Pendiente',
+    error: 'Ocurrió un error',
+    // toasts
+    rateSaved: 'Tarifa guardada',
+    rateUpdated: 'Tarifa actualizada',
+    notesSaved: 'Notas guardadas',
+    profileSaved: 'Perfil guardado',
+    teacherActivated: 'Maestro activado',
+    teacherDeactivated: 'Maestro desactivado',
+    resetEmailSent: 'Correo de restablecimiento enviado',
+    teacherDeleted: 'Maestro eliminado',
+    // sidebar
+    memberSince: 'Miembro desde',
+    totalSessions: 'Sesiones totales',
+    activeStudents: 'Estudiantes activos',
+    quickActions: 'Acciones rápidas',
+    scheduleCall: 'Agendar una llamada',
+    viewAllBookings: 'Ver todas las reservas',
+    // overview
+    thisMonth: 'Este mes',
+    rating: 'Calificación',
+    hourlyRate: 'Tarifa por hora',
+    save: 'Guardar',
+    status: 'Estado',
+    clickToToggle: 'clic para cambiar',
+    availability: 'Disponibilidad',
+    slots: 'horarios',
+    noAvailability: 'No hay horarios de disponibilidad configurados.',
+    adminNotes: 'Notas de admin',
+    notesPlaceholder: 'Notas internas sobre este maestro…',
+    autoSaves: 'Se guarda automáticamente al salir',
+    // schedule
+    prevWeek: '← Semana anterior',
+    nextWeek: 'Semana siguiente →',
+    scheduleNew: '+ Agendar nuevo',
+    // students tab
+    noStudents: 'No hay estudiantes activos asignados.',
+    colStudent: 'Estudiante',
+    colLevel: 'Nivel',
+    colClassesLeft: 'Clases restantes',
+    colNextClass: 'Próxima clase',
+    // history
+    totalHoursTaught: 'Horas impartidas',
+    sessionsCompleted: 'Sesiones completadas',
+    noCompletedSessions: 'Aún no hay sesiones completadas.',
+    colDate: 'Fecha',
+    colDuration: 'Duración',
+    colType: 'Tipo',
+    min: 'min',
+    // profile tab
+    basicInfo: 'Información básica',
+    fullName: 'Nombre completo',
+    timezone: 'Zona horaria',
+    email: 'Correo',
+    bio: 'Biografía',
+    bioPlaceholder: 'Biografía del maestro…',
+    cv: 'CV / Currículum',
+    uploadedCv: 'CV cargado',
+    uploaded: 'Cargado',
+    openNewTab: 'Abrir en nueva pestaña',
+    noCv: 'No se cargó CV — el maestro aplicó antes de que se agregara el requisito del archivo.',
+    specializations: 'Especialidades',
+    addSpec: 'Agregar especialidad…',
+    certifications: 'Certificaciones',
+    addCert: 'Agregar certificación…',
+    add: 'Agregar',
+    saveProfile: 'Guardar perfil',
+    // admin tools
+    passwordReset: 'Restablecer contraseña',
+    sendResetCopy: (email: string) => `Enviar un enlace para restablecer la contraseña a ${email}.`,
+    thisTeacher: 'este maestro',
+    sendResetEmail: 'Enviar correo de restablecimiento',
+    update: 'Actualizar',
+    saved: '✓ Guardado',
+    accountStatus: 'Estado de la cuenta',
+    activeClickDeactivate: 'Activo — clic para desactivar',
+    inactiveClickActivate: 'Inactivo — clic para activar',
+    dangerZone: 'Zona de peligro',
+    deleteCopy: 'Eliminar permanentemente el registro de este maestro. Su perfil volverá a ser estudiante.',
+    deleteTeacher: 'Eliminar maestro',
+    areYouSure: '¿Estás seguro? Esta acción no se puede deshacer.',
+    yesDelete: 'Sí, eliminar',
+    cancel: 'Cancelar',
+    // back link
+    backToTeachers: '← Volver a Maestros',
+  },
+} as const
 
 interface Props {
   teacher: TeacherDetail
@@ -46,8 +236,10 @@ function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
 }
 
 export default function TeacherProfileClient({ teacher, lang }: Props) {
+  const t = STR[(lang as Lang) === 'en' ? 'en' : 'es']
+  const DAY_NAMES = t.dayNames
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<Tab>('Overview')
+  const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [showScheduler, setShowScheduler] = useState(false)
@@ -85,14 +277,14 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         showToast(successMsg)
         router.refresh()
       } catch (e) {
-        showToast(e instanceof Error ? e.message : 'An error occurred', 'error')
+        showToast(e instanceof Error ? e.message : t.error, 'error')
       }
     })
   }
 
   const initials = (teacher.profile?.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-  const statusBadge = teacher.is_active ? { bg: 'rgba(5,150,105,0.1)', color: '#059669', label: 'Active' }
-    : { bg: 'rgba(245,158,11,0.1)', color: '#D97706', label: 'Pending' }
+  const statusBadge = teacher.is_active ? { bg: 'rgba(5,150,105,0.1)', color: '#059669', label: t.active }
+    : { bg: 'rgba(245,158,11,0.1)', color: '#D97706', label: t.pending }
 
   const sessionsThisMonth = teacher.bookings.filter(b => {
     if (b.status !== 'completed') return false
@@ -136,11 +328,11 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
             {initials}
           </div>
           <p style={{ fontWeight: 700, fontSize: 16, color: '#111', margin: 0 }}>
-            {teacher.profile?.full_name || 'Unknown'}
+            {teacher.profile?.full_name || t.unknown}
           </p>
           <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{teacher.profile?.email || '—'}</p>
           <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>
-            Member since {new Date(teacher.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {t.memberSince} {new Date(teacher.created_at).toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
           <div style={{ marginTop: 10 }}>
             <span style={{
@@ -157,8 +349,8 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         <div style={cardStyle}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {[
-              { label: 'Total Sessions', value: teacher.total_sessions ?? 0 },
-              { label: 'Active Students', value: teacher.activeStudentCount },
+              { label: t.totalSessions, value: teacher.total_sessions ?? 0 },
+              { label: t.activeStudents, value: teacher.activeStudentCount },
             ].map(stat => (
               <div key={stat.label} style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: 22, fontWeight: 800, color: '#111', margin: 0 }}>{stat.value}</p>
@@ -170,19 +362,19 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
 
         {/* Quick Actions */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Quick Actions</span>
+          <span style={labelStyle}>{t.quickActions}</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
               style={{ ...btnSecondary, textAlign: 'center' }}
               onClick={() => setShowScheduler(true)}
             >
-              Schedule a call
+              {t.scheduleCall}
             </button>
             <a
               href={`/${lang}/admin/bookings`}
               style={{ ...btnSecondary, textAlign: 'center', textDecoration: 'none', display: 'block' }}
             >
-              View all bookings
+              {t.viewAllBookings}
             </a>
           </div>
         </div>
@@ -199,10 +391,10 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         {/* Stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {[
-            { label: 'Total Sessions', value: teacher.total_sessions ?? 0 },
-            { label: 'This Month', value: sessionsThisMonth },
-            { label: 'Active Students', value: teacher.activeStudentCount },
-            { label: 'Rating', value: teacher.rating ? Number(teacher.rating).toFixed(1) : '—' },
+            { label: t.totalSessions, value: teacher.total_sessions ?? 0 },
+            { label: t.thisMonth, value: sessionsThisMonth },
+            { label: t.activeStudents, value: teacher.activeStudentCount },
+            { label: t.rating, value: teacher.rating ? Number(teacher.rating).toFixed(1) : '—' },
           ].map(c => (
             <div key={c.label} style={cardStyle}>
               <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{c.label}</p>
@@ -214,7 +406,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         {/* Rate + Status */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div style={cardStyle}>
-            <span style={labelStyle}>Hourly Rate</span>
+            <span style={labelStyle}>{t.hourlyRate}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#9CA3AF' }}>$</span>
@@ -232,24 +424,24 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                 onClick={() => {
                   const parsed = parseFloat(rate)
                   if (!isNaN(parsed)) {
-                    run(() => setTeacherRate(teacher.id, parsed), 'Rate saved')
+                    run(() => setTeacherRate(teacher.id, parsed), t.rateSaved)
                     setRateSaved(true)
                     setTimeout(() => setRateSaved(false), 2000)
                   }
                 }}
               >
-                {rateSaved ? '✓' : 'Save'}
+                {rateSaved ? '✓' : t.save}
               </button>
             </div>
           </div>
 
           <div style={cardStyle}>
-            <span style={labelStyle}>Status</span>
+            <span style={labelStyle}>{t.status}</span>
             <button
               onClick={() => {
                 const next = !isActive
                 setIsActive(next)
-                run(() => toggleTeacherActive(teacher.id, next), next ? 'Teacher activated' : 'Teacher deactivated')
+                run(() => toggleTeacherActive(teacher.id, next), next ? t.teacherActivated : t.teacherDeactivated)
               }}
               disabled={isPending}
               style={{
@@ -261,16 +453,16 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               }}
             >
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: isActive ? '#059669' : '#9CA3AF' }} />
-              {isActive ? 'Active' : 'Inactive'} — click to toggle
+              {isActive ? t.active : t.inactive} — {t.clickToToggle}
             </button>
           </div>
         </div>
 
         {/* Availability summary */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Availability ({teacher.availSlots.length} slots)</span>
+          <span style={labelStyle}>{t.availability} ({teacher.availSlots.length} {t.slots})</span>
           {teacher.availSlots.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>No availability slots configured.</p>
+            <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>{t.noAvailability}</p>
           ) : (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {uniqueDays.map(d => (
@@ -284,16 +476,16 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
 
         {/* Admin notes */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Admin Notes</span>
+          <span style={labelStyle}>{t.adminNotes}</span>
           <textarea
             value={adminNotes}
             onChange={e => setAdminNotes(e.target.value)}
-            onBlur={() => run(() => saveTeacherAdminNotes(teacher.id, adminNotes), 'Notes saved')}
-            placeholder="Internal notes about this teacher…"
+            onBlur={() => run(() => saveTeacherAdminNotes(teacher.id, adminNotes), t.notesSaved)}
+            placeholder={t.notesPlaceholder}
             rows={4}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
           />
-          <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Auto-saves on blur</p>
+          <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{t.autoSaves}</p>
         </div>
       </div>
     )
@@ -337,17 +529,17 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
             onClick={() => setWeekOffset(o => o - 1)}
             style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: 4 }}
           >
-            ← Prev week
+            {t.prevWeek}
           </button>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>
-            {weekDays[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –{' '}
-            {weekDays[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {weekDays[0].toLocaleDateString(t.locale, { month: 'short', day: 'numeric' })} –{' '}
+            {weekDays[6].toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })}
           </span>
           <button
             onClick={() => setWeekOffset(o => o + 1)}
             style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: 4 }}
           >
-            Next week →
+            {t.nextWeek}
           </button>
         </div>
 
@@ -355,7 +547,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
           style={{ ...btnPrimary, alignSelf: 'flex-start' }}
           onClick={() => setShowScheduler(true)}
         >
-          + Schedule new
+          {t.scheduleNew}
         </button>
 
         {/* Day columns */}
@@ -403,7 +595,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                           cursor: 'default',
                         }}
                       >
-                        {new Date(b.scheduled_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
+                        {new Date(b.scheduled_at).toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
                         <br />
                         <span style={{ fontWeight: 400 }}>{b.studentName || '—'}</span>
                       </div>
@@ -424,14 +616,14 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
       <div style={cardStyle}>
         {teacher.students.length === 0 ? (
           <p style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', padding: '32px 0' }}>
-            No active students assigned.
+            {t.noStudents}
           </p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#F9FAFB' }}>
-                  {['Student', 'Level', 'Classes Left', 'Next Class'].map(h => (
+                  {[t.colStudent, t.colLevel, t.colClassesLeft, t.colNextClass].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
@@ -462,7 +654,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>
                       {s.nextClassDate
-                        ? new Date(s.nextClassDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        ? new Date(s.nextClassDate).toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })
                         : '—'}
                     </td>
                   </tr>
@@ -484,24 +676,24 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={cardStyle}>
-            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Total Hours Taught</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{t.totalHoursTaught}</p>
             <p style={{ fontSize: 26, fontWeight: 800, color: '#111', margin: 0 }}>{totalHours.toFixed(1)}</p>
           </div>
           <div style={cardStyle}>
-            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Sessions Completed</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{t.sessionsCompleted}</p>
             <p style={{ fontSize: 26, fontWeight: 800, color: '#111', margin: 0 }}>{completed.length}</p>
           </div>
         </div>
 
         <div style={cardStyle}>
           {completed.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', padding: '32px 0' }}>No completed sessions yet.</p>
+            <p style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', padding: '32px 0' }}>{t.noCompletedSessions}</p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#F9FAFB' }}>
-                    {['Date', 'Student', 'Duration', 'Type'].map(h => (
+                    {[t.colDate, t.colStudent, t.colDuration, t.colType].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', borderBottom: '1px solid #E5E7EB', whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
@@ -512,11 +704,11 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                   {completed.map(b => (
                     <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
-                        {new Date(b.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(b.scheduled_at).toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151' }}>{b.studentName || '—'}</td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#6B7280' }}>
-                        {b.duration_minutes ? `${b.duration_minutes} min` : '—'}
+                        {b.duration_minutes ? `${b.duration_minutes} ${t.min}` : '—'}
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#6B7280', textTransform: 'capitalize' }}>{b.type}</td>
                     </tr>
@@ -546,46 +738,46 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 16px' }}>Basic Info</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 16px' }}>{t.basicInfo}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
-              <span style={labelStyle}>Full Name</span>
+              <span style={labelStyle}>{t.fullName}</span>
               <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <span style={labelStyle}>Timezone</span>
+              <span style={labelStyle}>{t.timezone}</span>
               <input type="text" value={timezone} onChange={e => setTimezone(e.target.value)} style={inputStyle} placeholder="America/Tegucigalpa" />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
-              <span style={labelStyle}>Email</span>
+              <span style={labelStyle}>{t.email}</span>
               <input type="email" value={teacher.profile?.email || ''} readOnly style={{ ...inputStyle, background: '#F3F4F6', color: '#6B7280' }} />
             </div>
           </div>
         </div>
 
         <div style={cardStyle}>
-          <span style={labelStyle}>Bio</span>
+          <span style={labelStyle}>{t.bio}</span>
           <textarea
             value={bio}
             onChange={e => setBio(e.target.value)}
             rows={5}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
-            placeholder="Teacher bio…"
+            placeholder={t.bioPlaceholder}
           />
         </div>
 
         <div style={cardStyle}>
-          <span style={labelStyle}>CV / Résumé</span>
+          <span style={labelStyle}>{t.cv}</span>
           {teacher.cv_storage_path ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {teacher.cv_original_filename || 'Uploaded CV'}
+                  {teacher.cv_original_filename || t.uploadedCv}
                 </p>
                 <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
                   {teacher.cv_uploaded_at
-                    ? `Uploaded ${new Date(teacher.cv_uploaded_at).toLocaleDateString()}`
-                    : 'Uploaded'}
+                    ? `${t.uploaded} ${new Date(teacher.cv_uploaded_at).toLocaleDateString(t.locale)}`
+                    : t.uploaded}
                 </p>
               </div>
               <button
@@ -599,18 +791,18 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                   }
                 }}
               >
-                Open in new tab
+                {t.openNewTab}
               </button>
             </div>
           ) : (
             <p style={{ margin: 0, fontSize: 13, color: '#9CA3AF', fontStyle: 'italic' }}>
-              No CV uploaded — teacher applied before the file requirement was added.
+              {t.noCv}
             </p>
           )}
         </div>
 
         <div style={cardStyle}>
-          <span style={labelStyle}>Specializations</span>
+          <span style={labelStyle}>{t.specializations}</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
             {specs.map(s => (
               <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, background: 'rgba(196,30,58,0.08)', color: '#C41E3A', fontSize: 12, fontWeight: 600 }}>
@@ -625,15 +817,15 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               value={newSpec}
               onChange={e => setNewSpec(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addSpec()}
-              placeholder="Add specialization…"
+              placeholder={t.addSpec}
               style={{ ...inputStyle, flex: 1 }}
             />
-            <button style={btnSecondary} onClick={addSpec}>Add</button>
+            <button style={btnSecondary} onClick={addSpec}>{t.add}</button>
           </div>
         </div>
 
         <div style={cardStyle}>
-          <span style={labelStyle}>Certifications</span>
+          <span style={labelStyle}>{t.certifications}</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
             {certs.map(c => (
               <span key={c} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, background: 'rgba(59,130,246,0.08)', color: '#2563EB', fontSize: 12, fontWeight: 600 }}>
@@ -648,10 +840,10 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               value={newCert}
               onChange={e => setNewCert(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addCert()}
-              placeholder="Add certification…"
+              placeholder={t.addCert}
               style={{ ...inputStyle, flex: 1 }}
             />
-            <button style={btnSecondary} onClick={addCert}>Add</button>
+            <button style={btnSecondary} onClick={addCert}>{t.add}</button>
           </div>
         </div>
 
@@ -661,10 +853,10 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
             disabled={isPending}
             onClick={() => run(
               () => adminUpdateTeacherProfile(teacher.id, teacher.profile_id, { bio, specializations: specs, certifications: certs, timezone, full_name: fullName }),
-              'Profile saved'
+              t.profileSaved
             )}
           >
-            Save Profile
+            {t.saveProfile}
           </button>
         </div>
       </div>
@@ -677,22 +869,22 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* Password reset */}
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>Password Reset</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>{t.passwordReset}</h3>
           <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 14px' }}>
-            Send a password reset link to {teacher.profile?.email || 'this teacher'}.
+            {t.sendResetCopy(teacher.profile?.email || t.thisTeacher)}
           </p>
           <button
             style={btnPrimary}
             disabled={isPending || !teacher.profile?.email}
-            onClick={() => run(() => resetStudentPassword(teacher.profile!.email!), 'Reset email sent')}
+            onClick={() => run(() => resetStudentPassword(teacher.profile!.email!), t.resetEmailSent)}
           >
-            Send reset email
+            {t.sendResetEmail}
           </button>
         </div>
 
         {/* Rate editor */}
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>Hourly Rate</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>{t.hourlyRate}</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#9CA3AF' }}>$</span>
@@ -707,22 +899,22 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               disabled={isPending}
               onClick={() => {
                 const parsed = parseFloat(rate)
-                if (!isNaN(parsed)) run(() => setTeacherRate(teacher.id, parsed), 'Rate updated')
+                if (!isNaN(parsed)) run(() => setTeacherRate(teacher.id, parsed), t.rateUpdated)
               }}
             >
-              {rateSaved ? '✓ Saved' : 'Update'}
+              {rateSaved ? t.saved : t.update}
             </button>
           </div>
         </div>
 
         {/* Toggle active */}
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>Account Status</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>{t.accountStatus}</h3>
           <button
             onClick={() => {
               const next = !isActive
               setIsActive(next)
-              run(() => toggleTeacherActive(teacher.id, next), next ? 'Teacher activated' : 'Teacher deactivated')
+              run(() => toggleTeacherActive(teacher.id, next), next ? t.teacherActivated : t.teacherDeactivated)
             }}
             disabled={isPending}
             style={{
@@ -731,40 +923,40 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               color: isActive ? '#059669' : '#6B7280',
             }}
           >
-            {isActive ? 'Active — click to deactivate' : 'Inactive — click to activate'}
+            {isActive ? t.activeClickDeactivate : t.inactiveClickActivate}
           </button>
         </div>
 
         {/* Delete teacher */}
         <div style={{ ...cardStyle, border: '1px solid rgba(196,30,58,0.3)', background: 'rgba(196,30,58,0.02)' }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#C41E3A', margin: '0 0 8px' }}>Danger Zone</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#C41E3A', margin: '0 0 8px' }}>{t.dangerZone}</h3>
           <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 14px' }}>
-            Permanently delete this teacher record. Their profile will revert to student.
+            {t.deleteCopy}
           </p>
           {!showDeleteConfirm ? (
             <button
               style={{ ...btnPrimary, background: '#fff', color: '#C41E3A', border: '1px solid #C41E3A' }}
               onClick={() => setShowDeleteConfirm(true)}
             >
-              Delete teacher
+              {t.deleteTeacher}
             </button>
           ) : (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: '#374151' }}>Are you sure? This cannot be undone.</span>
+              <span style={{ fontSize: 13, color: '#374151' }}>{t.areYouSure}</span>
               <button
                 style={btnPrimary}
                 onClick={() => {
                   setShowDeleteConfirm(false)
                   run(
                     () => deleteTeacher(teacher.id, teacher.profile_id),
-                    'Teacher deleted'
+                    t.teacherDeleted
                   )
                   router.push(`/${lang}/admin/teachers`)
                 }}
               >
-                Yes, delete
+                {t.yesDelete}
               </button>
-              <button style={btnSecondary} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+              <button style={btnSecondary} onClick={() => setShowDeleteConfirm(false)}>{t.cancel}</button>
             </div>
           )}
         </div>
@@ -804,7 +996,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
           onClick={() => router.push(`/${lang}/admin/teachers`)}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}
         >
-          ← Back to Teachers
+          {t.backToTeachers}
         </button>
       </div>
 
@@ -817,7 +1009,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
             display: 'flex', gap: 2, background: '#F3F4F6',
             borderRadius: 10, padding: 4, marginBottom: 20, overflowX: 'auto',
           }}>
-            {TABS.map(tab => (
+            {TAB_KEYS.map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -830,17 +1022,17 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                   whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}
               >
-                {tab}
+                {t.tabs[tab]}
               </button>
             ))}
           </div>
 
-          {activeTab === 'Overview' && renderOverview()}
-          {activeTab === 'Schedule' && renderSchedule()}
-          {activeTab === 'Students' && renderStudents()}
-          {activeTab === 'Session History' && renderHistory()}
-          {activeTab === 'Profile' && renderProfile()}
-          {activeTab === 'Admin Tools' && renderAdminTools()}
+          {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'schedule' && renderSchedule()}
+          {activeTab === 'students' && renderStudents()}
+          {activeTab === 'history' && renderHistory()}
+          {activeTab === 'profile' && renderProfile()}
+          {activeTab === 'tools' && renderAdminTools()}
         </div>
 
         {/* Right: sidebar (30%) */}

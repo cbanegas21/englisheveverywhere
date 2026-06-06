@@ -21,6 +21,8 @@ export interface BookingRecord {
 export interface TeacherOption {
   id: string
   name: string
+  // accepting_students=false → paused; gated for new students. See TE-01.
+  accepting: boolean
 }
 
 export interface StudentDetail {
@@ -87,7 +89,7 @@ export default async function StudentProfilePage({ params }: Props) {
       .order('scheduled_at', { ascending: false }),
     admin
       .from('teachers')
-      .select('id, profile:profiles(full_name)')
+      .select('id, accepting_students, profile:profiles(full_name)')
       .eq('is_active', true),
   ])
 
@@ -108,7 +110,11 @@ export default async function StudentProfilePage({ params }: Props) {
     }
     const name = fullName || 'Unknown Teacher'
     teacherMap.set(t.id, name)
-    teacherOptions.push({ id: t.id, name })
+    teacherOptions.push({
+      id: t.id,
+      name,
+      accepting: (t as { accepting_students?: boolean }).accepting_students !== false,
+    })
   }
 
   // Enrich bookings

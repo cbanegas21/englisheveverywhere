@@ -67,7 +67,7 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
 
     admin
       .from('teachers')
-      .select('id, profile:profiles(full_name)')
+      .select('id, accepting_students, profile:profiles(full_name)')
       .eq('is_active', true)
       .order('created_at', { ascending: true }),
 
@@ -175,10 +175,14 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     }
   })
 
-  type TeacherEntry = { id: string; name: string }
+  type TeacherEntry = { id: string; name: string; accepting: boolean }
   const teachers: TeacherEntry[] = (teachersResult.data || []).map((t) => ({
     id: t.id,
     name: getName(t.profile) ?? 'Unknown',
+    // Paused teachers (accepting_students=false) are still listed so they can
+    // be re-assigned to students they already serve, but flagged in the UI and
+    // gated server-side for new students. See TE-01.
+    accepting: (t as { accepting_students?: boolean }).accepting_students !== false,
   }))
 
   type StudentEntry = { id: string; name: string; email: string }

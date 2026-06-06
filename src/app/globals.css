@@ -481,7 +481,7 @@ body {
 
 /* Quick-action / nav row whose border strengthens to ink on hover. */
 .ek-quickrow { transition: border-color 0.16s ease, background 0.16s ease; }
-.ek-quickrow:hover { border-color: var(--ek-ink); }
+.ek-quickrow:hover { border-color: var(--ek-ink); background: var(--ek-paper-deep); }
 
 /* Ghost/outline button (cancel, secondary actions). */
 .ek-outline-btn { transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease; }
@@ -493,7 +493,7 @@ body {
 
 /* Segmented/preset toggle chip. */
 .ek-chip-toggle { transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease; }
-.ek-chip-toggle:hover { border-color: var(--ek-ink); }
+.ek-chip-toggle:hover { border-color: var(--ek-ink); background: var(--ek-paper-deep); }
 
 /* Form input with a real :focus ring (replaces inline onFocus/onBlur border swap). */
 .ek-input { border: 1px solid var(--ek-border); transition: border-color 0.16s ease; }

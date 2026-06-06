@@ -4,6 +4,35 @@ import { useState, useTransition } from 'react'
 import { CheckCircle, XCircle, ToggleLeft, ToggleRight } from 'lucide-react'
 import { approveTeacherWithEmail, rejectTeacherWithEmail, toggleTeacherActive, setTeacherRate } from '../actions'
 
+type Lang = 'es' | 'en'
+
+const STR = {
+  en: {
+    approved: 'Approved',
+    rejected: 'Rejected',
+    approve: 'Approve',
+    reject: 'Reject',
+    rejectConfirm: 'Reject this application? The teacher record will be deleted and the user will revert to student.',
+    error: 'Error',
+    invalid: 'Invalid',
+    save: 'Save',
+    active: 'Active',
+    inactive: 'Inactive',
+  },
+  es: {
+    approved: 'Aprobado',
+    rejected: 'Rechazado',
+    approve: 'Aprobar',
+    reject: 'Rechazar',
+    rejectConfirm: '¿Rechazar esta solicitud? El registro del maestro se eliminará y el usuario volverá a ser estudiante.',
+    error: 'Error',
+    invalid: 'Inválido',
+    save: 'Guardar',
+    active: 'Activo',
+    inactive: 'Inactivo',
+  },
+} as const
+
 // ── Approve / Reject (for pending applications) ───────────────────────────────
 
 export function ApproveRejectButtons({
@@ -11,12 +40,15 @@ export function ApproveRejectButtons({
   profileId,
   teacherName,
   teacherEmail,
+  lang,
 }: {
   teacherId: string
   profileId: string
   teacherName?: string
   teacherEmail?: string
+  lang: Lang
 }) {
+  const t = STR[lang]
   const [isPending, startTransition] = useTransition()
   const [done, setDone] = useState<'approved' | 'rejected' | null>(null)
   const [error, setError] = useState('')
@@ -31,59 +63,61 @@ export function ApproveRejectButtons({
         await approveTeacherWithEmail(teacherId, profileId)
         setDone('approved')
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error')
+        setError(e instanceof Error ? e.message : t.error)
       }
     })
   }
 
   function handleReject() {
-    if (!confirm('Reject this application? The teacher record will be deleted and the user will revert to student.')) return
+    if (!confirm(t.rejectConfirm)) return
     setError('')
     startTransition(async () => {
       try {
         await rejectTeacherWithEmail(teacherId, profileId)
         setDone('rejected')
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error')
+        setError(e instanceof Error ? e.message : t.error)
       }
     })
   }
 
   if (done === 'approved') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: '#059669' }}>
-        <CheckCircle className="h-3.5 w-3.5" /> Approved
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: 'var(--ek-text)' }}>
+        <CheckCircle className="h-3.5 w-3.5" /> {t.approved}
       </span>
     )
   }
   if (done === 'rejected') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: '#6B7280' }}>
-        <XCircle className="h-3.5 w-3.5" /> Rejected
+      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: 'var(--ek-text-muted)' }}>
+        <XCircle className="h-3.5 w-3.5" /> {t.rejected}
       </span>
     )
   }
 
   return (
     <div className="flex items-center gap-2">
-      {error && <span className="text-[11px]" style={{ color: '#DC2626' }}>{error}</span>}
+      {error && <span className="text-[11px]" style={{ color: 'var(--ek-red)' }}>{error}</span>}
+      {/* Primary affirmative action reads in ink (solid), reject is the crimson
+          destructive accent — no green/amber, per the editorial status rule. */}
       <button
         onClick={handleApprove}
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50 hover:bg-green-100"
-        style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold transition-all disabled:opacity-50"
+        style={{ background: 'var(--ek-ink)', color: 'var(--ek-on-dark)', borderRadius: 'var(--ek-radius-sm)' }}
       >
         <CheckCircle className="h-3.5 w-3.5" />
-        {isPending ? '…' : 'Approve'}
+        {isPending ? '…' : t.approve}
       </button>
       <button
         onClick={handleReject}
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[12px] font-semibold transition-all disabled:opacity-50 hover:bg-red-100"
-        style={{ background: 'rgba(220,38,38,0.08)', color: '#DC2626' }}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold transition-all disabled:opacity-50"
+        style={{ background: 'var(--ek-card)', color: 'var(--ek-red)', border: '1px solid var(--ek-border-mid)', borderRadius: 'var(--ek-radius-sm)' }}
       >
         <XCircle className="h-3.5 w-3.5" />
-        Reject
+        {t.reject}
       </button>
     </div>
   )
@@ -94,10 +128,13 @@ export function ApproveRejectButtons({
 export function RateEditor({
   teacherId,
   initialRate,
+  lang,
 }: {
   teacherId: string
   initialRate: number
+  lang: Lang
 }) {
+  const t = STR[lang]
   const [isPending, startTransition] = useTransition()
   const [rate, setRate] = useState(String(initialRate || 0))
   const [saved, setSaved] = useState(false)
@@ -105,7 +142,7 @@ export function RateEditor({
 
   function handleSave() {
     const parsed = parseFloat(rate)
-    if (isNaN(parsed) || parsed < 0) { setError('Invalid'); return }
+    if (isNaN(parsed) || parsed < 0) { setError(t.invalid); return }
     setError('')
     setSaved(false)
     startTransition(async () => {
@@ -114,7 +151,7 @@ export function RateEditor({
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error')
+        setError(e instanceof Error ? e.message : t.error)
       }
     })
   }
@@ -122,30 +159,31 @@ export function RateEditor({
   return (
     <div className="flex items-center gap-2">
       <div className="relative">
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[12px]" style={{ color: '#9CA3AF' }}>$</span>
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>$</span>
         <input
           type="number"
           value={rate}
           onChange={e => { setRate(e.target.value); setSaved(false) }}
           min="0"
-          className="w-20 rounded pl-5 pr-2 py-1 text-[12px] outline-none"
-          style={{ border: '1px solid #E5E7EB', color: '#111111' }}
-          onFocus={e => (e.currentTarget.style.borderColor = '#C41E3A')}
-          onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+          className="w-20 pl-5 pr-2 py-1 text-[12px] outline-none"
+          style={{ border: '1px solid var(--ek-border-mid)', borderRadius: 'var(--ek-radius-sm)', background: 'var(--ek-card)', color: 'var(--ek-text)' }}
+          onFocus={e => (e.currentTarget.style.borderColor = 'var(--ek-red)')}
+          onBlur={e => (e.currentTarget.style.borderColor = 'var(--ek-border-mid)')}
         />
       </div>
       <button
         onClick={handleSave}
         disabled={isPending}
-        className="px-2 py-1 rounded text-[11px] font-semibold transition-all disabled:opacity-50"
+        className="px-2 py-1 text-[11px] font-semibold transition-all disabled:opacity-50"
         style={{
-          background: saved ? 'rgba(5,150,105,0.1)' : 'rgba(196,30,58,0.08)',
-          color: saved ? '#059669' : '#C41E3A',
+          background: 'var(--ek-red-tint-2)',
+          color: 'var(--ek-red)',
+          borderRadius: 'var(--ek-radius-sm)',
         }}
       >
-        {isPending ? '…' : saved ? '✓' : 'Save'}
+        {isPending ? '…' : saved ? '✓' : t.save}
       </button>
-      {error && <span className="text-[11px]" style={{ color: '#DC2626' }}>{error}</span>}
+      {error && <span className="text-[11px]" style={{ color: 'var(--ek-red)' }}>{error}</span>}
     </div>
   )
 }
@@ -155,10 +193,13 @@ export function RateEditor({
 export function ActiveToggle({
   teacherId,
   initialActive,
+  lang,
 }: {
   teacherId: string
   initialActive: boolean
+  lang: Lang
 }) {
+  const t = STR[lang]
   const [isPending, startTransition] = useTransition()
   const [active, setActive] = useState(initialActive)
   const [error, setError] = useState('')
@@ -171,22 +212,23 @@ export function ActiveToggle({
         await toggleTeacherActive(teacherId, next)
         setActive(next)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Error')
+        setError(e instanceof Error ? e.message : t.error)
       }
     })
   }
 
   return (
     <div className="flex items-center gap-2">
-      {error && <span className="text-[11px]" style={{ color: '#DC2626' }}>{error}</span>}
+      {error && <span className="text-[11px]" style={{ color: 'var(--ek-red)' }}>{error}</span>}
+      {/* Active reads ink (the settled state), inactive reads muted — no green. */}
       <button
         onClick={handleToggle}
         disabled={isPending}
         className="flex items-center gap-1.5 text-[12px] font-medium transition-all disabled:opacity-50"
-        style={{ color: active ? '#059669' : '#9CA3AF' }}
+        style={{ color: active ? 'var(--ek-text)' : 'var(--ek-text-muted)' }}
       >
         {active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-        {isPending ? '…' : active ? 'Active' : 'Inactive'}
+        {isPending ? '…' : active ? t.active : t.inactive}
       </button>
     </div>
   )

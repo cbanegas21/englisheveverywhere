@@ -26,15 +26,240 @@ const LEVEL_COLORS: Record<string, { bg: string; color: string }> = {
   C2: { bg: 'rgba(196,30,58,0.15)', color: '#C41E3A' },
 }
 
-const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  pending:   { bg: 'rgba(251,191,36,0.15)', color: '#B45309', label: 'Pending' },
-  confirmed: { bg: 'rgba(59,130,246,0.15)', color: '#1D4ED8', label: 'Confirmed' },
-  completed: { bg: 'rgba(52,211,153,0.15)', color: '#059669', label: 'Completed' },
-  cancelled: { bg: 'rgba(156,163,175,0.15)', color: '#6B7280', label: 'Cancelled' },
+const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
+  pending:   { bg: 'rgba(251,191,36,0.15)', color: '#B45309' },
+  confirmed: { bg: 'rgba(59,130,246,0.15)', color: '#1D4ED8' },
+  completed: { bg: 'rgba(52,211,153,0.15)', color: '#059669' },
+  cancelled: { bg: 'rgba(156,163,175,0.15)', color: '#6B7280' },
 }
 
 const TABS = ['Overview', 'Classes', 'Payments', 'Profile & Preferences', 'Admin Tools'] as const
 type Tab = typeof TABS[number]
+
+const STR = {
+  en: {
+    statusLabels: {
+      pending: 'Pending',
+      confirmed: 'Confirmed',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    } as Record<string, string>,
+    typeLabels: {
+      class: 'Class',
+      placement_test: 'Placement test',
+      student_call: 'Call',
+    } as Record<string, string>,
+    tabLabels: {
+      Overview: 'Overview',
+      Classes: 'Classes',
+      Payments: 'Payments',
+      'Profile & Preferences': 'Profile & Preferences',
+      'Admin Tools': 'Admin Tools',
+    } as Record<Tab, string>,
+    genericError: 'An error occurred',
+    unknown: 'Unknown',
+    dash: '—',
+    memberSince: 'Member since',
+    completed: 'Completed',
+    classesLeft: 'Classes Left',
+    primaryTeacher: 'Primary Teacher',
+    unassigned: 'Unassigned',
+    primaryTeacherHint: "Student's usual teacher. Reference only — each booking is still assigned manually.",
+    paused: 'paused',
+    save: 'Save',
+    quickActions: 'Quick Actions',
+    scheduleCall: 'Schedule a call',
+    sendEmail: 'Send email',
+    addClasses: 'Add classes',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    primaryTeacherUpdated: 'Primary teacher updated',
+    classesAdded: (n: number) => `${n} ${n === 1 ? 'class' : 'classes'} added`,
+    // Overview
+    classesRemaining: 'Classes Remaining',
+    completedClasses: 'Completed Classes',
+    upcomingClasses: 'Upcoming Classes',
+    estTotalPaid: 'Est. Total Paid',
+    cefrLevel: 'CEFR Level',
+    notSet: 'Not set',
+    assignedTeacher: 'Assigned Teacher',
+    levelUpdated: 'Level updated',
+    adminNotes: 'Admin Notes',
+    adminNotesPlaceholder: 'Internal notes about this student...',
+    notesSaved: 'Notes saved',
+    autoSaves: 'Auto-saves on blur',
+    // Classes
+    classHeaders: {
+      date: 'Date',
+      type: 'Type',
+      teacher: 'Teacher',
+      status: 'Status',
+      duration: 'Duration',
+      actions: 'Actions',
+    },
+    noClassBookings: 'No class bookings yet.',
+    min: 'min',
+    complete: 'Complete',
+    cancelBtn: 'Cancel',
+    bookingMarkedComplete: 'Booking marked complete',
+    cancelBookingTitle: 'Cancel this booking?',
+    cancelBookingBody: 'If this is a class booking, 1 class credit will be returned to the student.',
+    keepBooking: 'Keep booking',
+    yesCancel: 'Yes, cancel',
+    bookingCancelled: 'Booking cancelled',
+    // Payments
+    paymentsSoon: 'Payment tracking coming soon. Purchase history will appear here once the payments integration is connected.',
+    addClassesManually: 'Add Classes Manually',
+    addClassesManuallyHint: 'Use this to credit classes without a payment transaction.',
+    classWord: (n: number) => (n !== 1 ? 'classes' : 'class'),
+    add: 'Add',
+    // Profile
+    basicInformation: 'Basic Information',
+    fullName: 'Full Name',
+    timezone: 'Timezone',
+    preferredLanguage: 'Preferred Language',
+    email: 'Email',
+    intakeInformation: 'Intake Information',
+    learningGoal: 'Learning Goal',
+    workDescription: 'Work Description',
+    learningStyle: 'Learning Style',
+    ageRange: 'Age Range',
+    surveyAnswers: 'Survey Answers',
+    saveProfile: 'Save Profile',
+    profileSaved: 'Profile saved',
+    // Admin Tools
+    passwordReset: 'Password Reset',
+    passwordResetHint: (who: string) => `Send a password reset link to ${who}.`,
+    thisStudent: 'this student',
+    sendResetEmail: 'Send reset email',
+    resetEmailSent: 'Reset email sent',
+    changeRole: 'Change Role',
+    roleStudent: 'student',
+    roleTeacher: 'teacher',
+    roleAdmin: 'admin',
+    saveRole: 'Save role',
+    roleUpdated: 'Role updated',
+    dangerZone: 'Danger Zone',
+    dangerZoneHint: 'This action will deactivate access for this student. Use with caution.',
+    deactivateAccount: 'Deactivate account',
+    areYouSure: 'Are you sure?',
+    yesDeactivate: 'Yes, deactivate',
+    accountDeactivated: 'Account deactivated',
+    // Footer / nav
+    backToStudents: '← Back to Students',
+  },
+  es: {
+    statusLabels: {
+      pending: 'Pendiente',
+      confirmed: 'Confirmada',
+      completed: 'Completada',
+      cancelled: 'Cancelada',
+    } as Record<string, string>,
+    typeLabels: {
+      class: 'Clase',
+      placement_test: 'Prueba de nivelación',
+      student_call: 'Llamada',
+    } as Record<string, string>,
+    tabLabels: {
+      Overview: 'Resumen',
+      Classes: 'Clases',
+      Payments: 'Pagos',
+      'Profile & Preferences': 'Perfil y preferencias',
+      'Admin Tools': 'Herramientas de admin',
+    } as Record<Tab, string>,
+    genericError: 'Ocurrió un error',
+    unknown: 'Desconocido',
+    dash: '—',
+    memberSince: 'Miembro desde',
+    completed: 'Completadas',
+    classesLeft: 'Clases restantes',
+    primaryTeacher: 'Maestro principal',
+    unassigned: 'Sin asignar',
+    primaryTeacherHint: 'Maestro habitual del estudiante. Solo de referencia — cada reserva se asigna manualmente.',
+    paused: 'en pausa',
+    save: 'Guardar',
+    quickActions: 'Acciones rápidas',
+    scheduleCall: 'Agendar una llamada',
+    sendEmail: 'Enviar correo',
+    addClasses: 'Agregar clases',
+    confirm: 'Confirmar',
+    cancel: 'Cancelar',
+    primaryTeacherUpdated: 'Maestro principal actualizado',
+    classesAdded: (n: number) => `${n} ${n === 1 ? 'clase agregada' : 'clases agregadas'}`,
+    // Overview
+    classesRemaining: 'Clases restantes',
+    completedClasses: 'Clases completadas',
+    upcomingClasses: 'Clases próximas',
+    estTotalPaid: 'Total pagado aprox.',
+    cefrLevel: 'Nivel MCER',
+    notSet: 'Sin definir',
+    assignedTeacher: 'Maestro asignado',
+    levelUpdated: 'Nivel actualizado',
+    adminNotes: 'Notas de admin',
+    adminNotesPlaceholder: 'Notas internas sobre este estudiante...',
+    notesSaved: 'Notas guardadas',
+    autoSaves: 'Se guarda automáticamente al salir',
+    // Classes
+    classHeaders: {
+      date: 'Fecha',
+      type: 'Tipo',
+      teacher: 'Maestro',
+      status: 'Estado',
+      duration: 'Duración',
+      actions: 'Acciones',
+    },
+    noClassBookings: 'Aún no hay clases reservadas.',
+    min: 'min',
+    complete: 'Completar',
+    cancelBtn: 'Cancelar',
+    bookingMarkedComplete: 'Reserva marcada como completada',
+    cancelBookingTitle: '¿Cancelar esta reserva?',
+    cancelBookingBody: 'Si es una reserva de clase, se devolverá 1 crédito de clase al estudiante.',
+    keepBooking: 'Mantener reserva',
+    yesCancel: 'Sí, cancelar',
+    bookingCancelled: 'Reserva cancelada',
+    // Payments
+    paymentsSoon: 'El seguimiento de pagos llegará pronto. El historial de compras aparecerá aquí una vez que se conecte la integración de pagos.',
+    addClassesManually: 'Agregar clases manualmente',
+    addClassesManuallyHint: 'Úsalo para acreditar clases sin una transacción de pago.',
+    classWord: (n: number) => (n !== 1 ? 'clases' : 'clase'),
+    add: 'Agregar',
+    // Profile
+    basicInformation: 'Información básica',
+    fullName: 'Nombre completo',
+    timezone: 'Zona horaria',
+    preferredLanguage: 'Idioma preferido',
+    email: 'Correo',
+    intakeInformation: 'Información de ingreso',
+    learningGoal: 'Objetivo de aprendizaje',
+    workDescription: 'Descripción del trabajo',
+    learningStyle: 'Estilo de aprendizaje',
+    ageRange: 'Rango de edad',
+    surveyAnswers: 'Respuestas de la encuesta',
+    saveProfile: 'Guardar perfil',
+    profileSaved: 'Perfil guardado',
+    // Admin Tools
+    passwordReset: 'Restablecer contraseña',
+    passwordResetHint: (who: string) => `Enviar un enlace para restablecer la contraseña a ${who}.`,
+    thisStudent: 'este estudiante',
+    sendResetEmail: 'Enviar correo de restablecimiento',
+    resetEmailSent: 'Correo de restablecimiento enviado',
+    changeRole: 'Cambiar rol',
+    roleStudent: 'estudiante',
+    roleTeacher: 'maestro',
+    roleAdmin: 'admin',
+    saveRole: 'Guardar rol',
+    roleUpdated: 'Rol actualizado',
+    dangerZone: 'Zona de peligro',
+    dangerZoneHint: 'Esta acción desactivará el acceso de este estudiante. Úsala con precaución.',
+    deactivateAccount: 'Desactivar cuenta',
+    areYouSure: '¿Estás seguro?',
+    yesDeactivate: 'Sí, desactivar',
+    accountDeactivated: 'Cuenta desactivada',
+    // Footer / nav
+    backToStudents: '← Volver a Estudiantes',
+  },
+}
 
 interface Props {
   student: StudentDetail
@@ -65,6 +290,8 @@ function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
 
 export default function StudentProfileClient({ student, lang }: Props) {
   const router = useRouter()
+  const t = lang === 'es' ? STR.es : STR.en
+  const dateLocale = lang === 'es' ? 'es-HN' : 'en-US'
   const [activeTab, setActiveTab] = useState<Tab>('Overview')
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
@@ -107,7 +334,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
         showToast(successMsg)
         router.refresh()
       } catch (e) {
-        showToast(e instanceof Error ? e.message : 'An error occurred', 'error')
+        showToast(e instanceof Error ? e.message : t.genericError, 'error')
       }
     })
   }
@@ -192,13 +419,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
             {initials}
           </div>
           <p style={{ fontWeight: 700, fontSize: '16px', color: '#111', margin: 0 }}>
-            {student.profile?.full_name || 'Unknown'}
+            {student.profile?.full_name || t.unknown}
           </p>
           <p style={{ fontSize: '12px', color: '#6B7280', marginTop: 2 }}>
-            {student.profile?.email || '—'}
+            {student.profile?.email || t.dash}
           </p>
           <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: 6 }}>
-            Member since {new Date(student.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {t.memberSince} {new Date(student.created_at).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
 
@@ -206,8 +433,8 @@ export default function StudentProfileClient({ student, lang }: Props) {
         <div style={cardStyle}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {[
-              { label: 'Completed', value: completedCount },
-              { label: 'Classes Left', value: student.classes_remaining, red: student.classes_remaining === 0 },
+              { label: t.completed, value: completedCount },
+              { label: t.classesLeft, value: student.classes_remaining, red: student.classes_remaining === 0 },
             ].map((stat) => (
               <div key={stat.label} style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: '22px', fontWeight: 800, color: stat.red ? '#C41E3A' : '#111', margin: 0 }}>
@@ -221,12 +448,12 @@ export default function StudentProfileClient({ student, lang }: Props) {
 
         {/* Primary teacher (continuity hint — admin sets manually) */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Primary Teacher</span>
+          <span style={labelStyle}>{t.primaryTeacher}</span>
           <p style={{ fontSize: '13px', color: student.primary_teacher_name ? '#111' : '#9CA3AF', margin: '0 0 4px' }}>
-            {student.primary_teacher_name || 'Unassigned'}
+            {student.primary_teacher_name || t.unassigned}
           </p>
           <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '0 0 10px' }}>
-            Student&apos;s usual teacher. Reference only — each booking is still assigned manually.
+            {t.primaryTeacherHint}
           </p>
           {student.teachers.length > 0 && (
             <div style={{ display: 'flex', gap: 8 }}>
@@ -235,9 +462,11 @@ export default function StudentProfileClient({ student, lang }: Props) {
                 onChange={(e) => setSelectedTeacher(e.target.value)}
                 style={{ ...inputStyle, flex: 1 }}
               >
-                <option value="">Unassigned</option>
-                {student.teachers.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                <option value="">{t.unassigned}</option>
+                {student.teachers.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.accepting || opt.id === student.primary_teacher_id ? opt.name : `⏸ ${opt.name} (${t.paused})`}
+                  </option>
                 ))}
               </select>
               <button
@@ -245,10 +474,10 @@ export default function StudentProfileClient({ student, lang }: Props) {
                 disabled={isPending || selectedTeacher === (student.primary_teacher_id || '')}
                 onClick={() => run(
                   () => setPrimaryTeacher(student.id, selectedTeacher || null),
-                  'Primary teacher updated'
+                  t.primaryTeacherUpdated
                 )}
               >
-                Save
+                {t.save}
               </button>
             </div>
           )}
@@ -256,22 +485,22 @@ export default function StudentProfileClient({ student, lang }: Props) {
 
         {/* Quick actions */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Quick Actions</span>
+          <span style={labelStyle}>{t.quickActions}</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button style={btnSecondary} onClick={() => setShowScheduler(true)}>
-              Schedule a call
+              {t.scheduleCall}
             </button>
             {student.profile?.email && (
               <a
                 href={`mailto:${student.profile.email}`}
                 style={{ ...btnSecondary, textAlign: 'center', textDecoration: 'none', display: 'block' }}
               >
-                Send email
+                {t.sendEmail}
               </a>
             )}
             {!showAddClasses ? (
               <button style={btnSecondary} onClick={() => setShowAddClasses(true)}>
-                Add classes
+                {t.addClasses}
               </button>
             ) : (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -287,14 +516,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   style={btnPrimary}
                   disabled={isPending}
                   onClick={() => {
-                    run(() => addStudentClasses(student.id, addClassCount), `${addClassCount} class${addClassCount > 1 ? 'es' : ''} added`)
+                    run(() => addStudentClasses(student.id, addClassCount), t.classesAdded(addClassCount))
                     setShowAddClasses(false)
                   }}
                 >
-                  Confirm
+                  {t.confirm}
                 </button>
                 <button style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: 13 }} onClick={() => setShowAddClasses(false)}>
-                  Cancel
+                  {t.cancel}
                 </button>
               </div>
             )}
@@ -314,10 +543,10 @@ export default function StudentProfileClient({ student, lang }: Props) {
         {/* Stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {[
-            { label: 'Classes Remaining', value: student.classes_remaining, red: student.classes_remaining === 0 },
-            { label: 'Completed Classes', value: completedCount },
-            { label: 'Upcoming Classes', value: upcomingCount },
-            { label: 'Est. Total Paid', value: `$${totalPaidApprox}` },
+            { label: t.classesRemaining, value: student.classes_remaining, red: student.classes_remaining === 0 },
+            { label: t.completedClasses, value: completedCount },
+            { label: t.upcomingClasses, value: upcomingCount },
+            { label: t.estTotalPaid, value: `$${totalPaidApprox}` },
           ].map((c) => (
             <div key={c.label} style={cardStyle}>
               <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
@@ -334,14 +563,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           {/* CEFR Level */}
           <div style={cardStyle}>
-            <span style={labelStyle}>CEFR Level</span>
+            <span style={labelStyle}>{t.cefrLevel}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <select
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value)}
                 style={{ ...inputStyle, flex: 1 }}
               >
-                <option value="">Not set</option>
+                <option value="">{t.notSet}</option>
                 {['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map((l) => (
                   <option key={l} value={l}>{l}</option>
                 ))}
@@ -349,9 +578,9 @@ export default function StudentProfileClient({ student, lang }: Props) {
               <button
                 style={btnSecondary}
                 disabled={isPending}
-                onClick={() => run(() => updateStudentLevel(student.id, selectedLevel), 'Level updated')}
+                onClick={() => run(() => updateStudentLevel(student.id, selectedLevel), t.levelUpdated)}
               >
-                Save
+                {t.save}
               </button>
               {selectedLevel && (
                 <span
@@ -365,24 +594,26 @@ export default function StudentProfileClient({ student, lang }: Props) {
 
           {/* Assigned Teacher */}
           <div style={cardStyle}>
-            <span style={labelStyle}>Assigned Teacher</span>
+            <span style={labelStyle}>{t.assignedTeacher}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <select
                 value={selectedTeacher}
                 onChange={(e) => setSelectedTeacher(e.target.value)}
                 style={{ ...inputStyle, flex: 1 }}
               >
-                <option value="">Unassigned</option>
-                {student.teachers.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
+                <option value="">{t.unassigned}</option>
+                {student.teachers.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.accepting || opt.id === student.primary_teacher_id ? opt.name : `⏸ ${opt.name} (${t.paused})`}
+                  </option>
                 ))}
               </select>
               <button
                 style={btnSecondary}
                 disabled={!selectedTeacher || isPending}
-                onClick={() => run(() => setPrimaryTeacher(student.id, selectedTeacher || null), 'Primary teacher updated')}
+                onClick={() => run(() => setPrimaryTeacher(student.id, selectedTeacher || null), t.primaryTeacherUpdated)}
               >
-                Save
+                {t.save}
               </button>
             </div>
           </div>
@@ -390,16 +621,16 @@ export default function StudentProfileClient({ student, lang }: Props) {
 
         {/* Admin notes */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Admin Notes</span>
+          <span style={labelStyle}>{t.adminNotes}</span>
           <textarea
             value={adminNotes}
             onChange={(e) => setAdminNotes(e.target.value)}
-            onBlur={() => run(() => saveAdminNotes(student.id, adminNotes), 'Notes saved')}
-            placeholder="Internal notes about this student..."
+            onBlur={() => run(() => saveAdminNotes(student.id, adminNotes), t.notesSaved)}
+            placeholder={t.adminNotesPlaceholder}
             rows={4}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
           />
-          <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: 4 }}>Auto-saves on blur</p>
+          <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: 4 }}>{t.autoSaves}</p>
         </div>
       </div>
     )
@@ -415,7 +646,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#F9FAFB' }}>
-                {['Date', 'Type', 'Teacher', 'Status', 'Duration', 'Actions'].map((h) => (
+                {[t.classHeaders.date, t.classHeaders.type, t.classHeaders.teacher, t.classHeaders.status, t.classHeaders.duration, t.classHeaders.actions].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -439,43 +670,44 @@ export default function StudentProfileClient({ student, lang }: Props) {
               {classBookings.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ padding: '32px 14px', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>
-                    No class bookings yet.
+                    {t.noClassBookings}
                   </td>
                 </tr>
               ) : classBookings.map((b) => {
                 const ss = STATUS_STYLES[b.status] || STATUS_STYLES['pending']
+                const statusLabel = t.statusLabels[b.status] || b.status
                 return (
                   <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                     <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
-                      {new Date(b.scheduled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(b.scheduled_at).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' })}
                       {' '}
                       <span style={{ color: '#9CA3AF', fontSize: 12 }}>
-                        {new Date(b.scheduled_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(b.scheduled_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>
-                      {b.type}
+                      {t.typeLabels[b.type] || b.type}
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 13, color: b.teacherName ? '#374151' : '#9CA3AF' }}>
-                      {b.teacherName || 'Unassigned'}
+                      {b.teacherName || t.unassigned}
                     </td>
                     <td style={{ padding: '11px 14px' }}>
                       <span style={{ background: ss.bg, color: ss.color, padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
-                        {ss.label}
+                        {statusLabel}
                       </span>
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 13, color: '#6B7280', whiteSpace: 'nowrap' }}>
-                      {b.duration_minutes ? `${b.duration_minutes} min` : '—'}
+                      {b.duration_minutes ? `${b.duration_minutes} ${t.min}` : '—'}
                     </td>
                     <td style={{ padding: '11px 14px' }}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         {b.status === 'confirmed' && (
                           <button
-                            onClick={() => run(() => completeBooking(b.id), 'Booking marked complete')}
+                            onClick={() => run(() => completeBooking(b.id), t.bookingMarkedComplete)}
                             disabled={isPending}
                             style={{ padding: '5px 10px', borderRadius: 6, background: 'rgba(52,211,153,0.1)', color: '#059669', border: '1px solid rgba(52,211,153,0.3)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                           >
-                            Complete
+                            {t.complete}
                           </button>
                         )}
                         {(b.status === 'pending' || b.status === 'confirmed') && (
@@ -484,7 +716,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
                             disabled={isPending}
                             style={{ padding: '5px 10px', borderRadius: 6, background: 'rgba(196,30,58,0.08)', color: '#C41E3A', border: '1px solid rgba(196,30,58,0.2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                           >
-                            Cancel
+                            {t.cancelBtn}
                           </button>
                         )}
                       </div>
@@ -506,21 +738,21 @@ export default function StudentProfileClient({ student, lang }: Props) {
               onClick={(e) => e.stopPropagation()}
               style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 380, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
             >
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111', margin: '0 0 10px' }}>Cancel this booking?</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111', margin: '0 0 10px' }}>{t.cancelBookingTitle}</h3>
               <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>
-                If this is a class booking, 1 class credit will be returned to the student.
+                {t.cancelBookingBody}
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button style={btnSecondary} onClick={() => setCancelConfirmBookingId(null)}>Keep booking</button>
+                <button style={btnSecondary} onClick={() => setCancelConfirmBookingId(null)}>{t.keepBooking}</button>
                 <button
                   style={btnPrimary}
                   onClick={() => {
                     const id = cancelConfirmBookingId
                     setCancelConfirmBookingId(null)
-                    run(() => cancelBookingWithRefund(id), 'Booking cancelled')
+                    run(() => cancelBookingWithRefund(id), t.bookingCancelled)
                   }}
                 >
-                  Yes, cancel
+                  {t.yesCancel}
                 </button>
               </div>
             </div>
@@ -536,14 +768,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={cardStyle}>
           <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>
-            Payment tracking coming soon. Purchase history will appear here once the payments integration is connected.
+            {t.paymentsSoon}
           </p>
         </div>
 
         {/* Manual add classes */}
         <div style={cardStyle}>
-          <span style={labelStyle}>Add Classes Manually</span>
-          <p style={{ fontSize: 12, color: '#9CA3AF', margin: '0 0 12px' }}>Use this to credit classes without a payment transaction.</p>
+          <span style={labelStyle}>{t.addClassesManually}</span>
+          <p style={{ fontSize: 12, color: '#9CA3AF', margin: '0 0 12px' }}>{t.addClassesManuallyHint}</p>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <input
               type="number"
@@ -553,13 +785,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
               onChange={(e) => setAddClassCount(Number(e.target.value))}
               style={{ ...inputStyle, width: 80 }}
             />
-            <span style={{ fontSize: 13, color: '#6B7280' }}>class{addClassCount !== 1 ? 'es' : ''}</span>
+            <span style={{ fontSize: 13, color: '#6B7280' }}>{t.classWord(addClassCount)}</span>
             <button
               style={btnPrimary}
               disabled={isPending}
-              onClick={() => run(() => addStudentClasses(student.id, addClassCount), `${addClassCount} class${addClassCount > 1 ? 'es' : ''} added`)}
+              onClick={() => run(() => addStudentClasses(student.id, addClassCount), t.classesAdded(addClassCount))}
             >
-              Add
+              {t.add}
             </button>
           </div>
         </div>
@@ -572,12 +804,12 @@ export default function StudentProfileClient({ student, lang }: Props) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 16px' }}>Basic Information</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 16px' }}>{t.basicInformation}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {[
-              { key: 'full_name', label: 'Full Name' },
-              { key: 'timezone', label: 'Timezone' },
-              { key: 'preferred_language', label: 'Preferred Language' },
+              { key: 'full_name', label: t.fullName },
+              { key: 'timezone', label: t.timezone },
+              { key: 'preferred_language', label: t.preferredLanguage },
             ].map(({ key, label }) => (
               <div key={key}>
                 <span style={labelStyle}>{label}</span>
@@ -590,7 +822,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
               </div>
             ))}
             <div>
-              <span style={labelStyle}>Email</span>
+              <span style={labelStyle}>{t.email}</span>
               <input
                 type="email"
                 value={student.profile?.email || ''}
@@ -602,13 +834,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
         </div>
 
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 16px' }}>Intake Information</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 16px' }}>{t.intakeInformation}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {[
-              { key: 'learning_goal', label: 'Learning Goal' },
-              { key: 'work_description', label: 'Work Description' },
-              { key: 'learning_style', label: 'Learning Style' },
-              { key: 'age_range', label: 'Age Range' },
+              { key: 'learning_goal', label: t.learningGoal },
+              { key: 'work_description', label: t.workDescription },
+              { key: 'learning_style', label: t.learningStyle },
+              { key: 'age_range', label: t.ageRange },
             ].map(({ key, label }) => (
               <div key={key}>
                 <span style={labelStyle}>{label}</span>
@@ -627,7 +859,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
           <div style={cardStyle}>
             <details>
               <summary style={{ fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', padding: '4px 0' }}>
-                Survey Answers
+                {t.surveyAnswers}
               </summary>
               <pre
                 style={{
@@ -663,11 +895,11 @@ export default function StudentProfileClient({ student, lang }: Props) {
                     learning_style: profileForm.learning_style,
                     age_range: profileForm.age_range,
                   }),
-                'Profile saved'
+                t.profileSaved
               )
             }
           >
-            Save Profile
+            {t.saveProfile}
           </button>
         </div>
       </div>
@@ -680,9 +912,9 @@ export default function StudentProfileClient({ student, lang }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* Reset password */}
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>Password Reset</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>{t.passwordReset}</h3>
           <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 14px' }}>
-            Send a password reset link to {student.profile?.email || 'this student'}.
+            {t.passwordResetHint(student.profile?.email || t.thisStudent)}
           </p>
           <button
             style={btnPrimary}
@@ -690,64 +922,64 @@ export default function StudentProfileClient({ student, lang }: Props) {
             onClick={() =>
               run(
                 () => resetStudentPassword(student.profile!.email!),
-                'Reset email sent'
+                t.resetEmailSent
               )
             }
           >
-            Send reset email
+            {t.sendResetEmail}
           </button>
         </div>
 
         {/* Change role */}
         <div style={cardStyle}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>Change Role</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>{t.changeRole}</h3>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
               style={{ ...inputStyle, maxWidth: 200 }}
             >
-              <option value="student">student</option>
-              <option value="teacher">teacher</option>
-              <option value="admin">admin</option>
+              <option value="student">{t.roleStudent}</option>
+              <option value="teacher">{t.roleTeacher}</option>
+              <option value="admin">{t.roleAdmin}</option>
             </select>
             <button
               style={btnPrimary}
               disabled={isPending}
-              onClick={() => run(() => updateStudentRole(student.profile?.id || '', selectedRole), 'Role updated')}
+              onClick={() => run(() => updateStudentRole(student.profile?.id || '', selectedRole), t.roleUpdated)}
             >
-              Save role
+              {t.saveRole}
             </button>
           </div>
         </div>
 
         {/* Danger zone */}
         <div style={{ ...cardStyle, border: '1px solid rgba(196,30,58,0.3)', background: 'rgba(196,30,58,0.02)' }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#C41E3A', margin: '0 0 8px' }}>Danger Zone</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#C41E3A', margin: '0 0 8px' }}>{t.dangerZone}</h3>
           <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 14px' }}>
-            This action will deactivate access for this student. Use with caution.
+            {t.dangerZoneHint}
           </p>
           {!showCancelConfirm ? (
             <button
               style={{ ...btnPrimary, background: '#fff', color: '#C41E3A', border: '1px solid #C41E3A' }}
               onClick={() => setShowCancelConfirm(true)}
             >
-              Deactivate account
+              {t.deactivateAccount}
             </button>
           ) : (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: '#374151' }}>Are you sure?</span>
+              <span style={{ fontSize: 13, color: '#374151' }}>{t.areYouSure}</span>
               <button
                 style={btnPrimary}
                 onClick={() => {
                   setShowCancelConfirm(false)
-                  run(() => setStudentDeactivated(student.profile?.id || '', true), 'Account deactivated')
+                  run(() => setStudentDeactivated(student.profile?.id || '', true), t.accountDeactivated)
                 }}
               >
-                Yes, deactivate
+                {t.yesDeactivate}
               </button>
               <button style={btnSecondary} onClick={() => setShowCancelConfirm(false)}>
-                Cancel
+                {t.cancel}
               </button>
             </div>
           )}
@@ -766,7 +998,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
           studentId={student.id}
           studentName={student.profile?.full_name || ''}
           allStudents={[{ id: student.id, name: student.profile?.full_name || '', email: student.profile?.email || '' }]}
-          allTeachers={student.teachers.map(t => ({ id: t.id, name: t.name }))}
+          allTeachers={student.teachers.map(t => ({ id: t.id, name: t.name, accepting: t.accepting }))}
           existingBookings={student.bookings.map(b => ({ scheduled_at: b.scheduled_at, teacher_id: b.teacher_id, student_id: student.id }))}
           onClose={() => setShowScheduler(false)}
           onSuccess={() => { setShowScheduler(false); router.refresh() }}
@@ -780,7 +1012,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
           onClick={() => router.push(`/${lang}/admin/students`)}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}
         >
-          ← Back to Students
+          {t.backToStudents}
         </button>
       </div>
 
@@ -818,7 +1050,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   transition: 'all 0.15s',
                 }}
               >
-                {tab}
+                {t.tabLabels[tab]}
               </button>
             ))}
           </div>
