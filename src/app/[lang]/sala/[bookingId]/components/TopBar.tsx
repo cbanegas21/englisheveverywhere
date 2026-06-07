@@ -1,6 +1,5 @@
 'use client'
 
-import { Clock, Users } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
@@ -9,15 +8,12 @@ import { EKMark } from '@/components/ui/EKMark'
 
 interface Props {
   lang: Locale
-  isTeacher: boolean
-  myName: string
   otherName: string
   scheduledAt: string
   durationMinutes: number
-  participantCount: number
 }
 
-export function TopBar({ lang, isTeacher, myName, otherName, scheduledAt, durationMinutes, participantCount }: Props) {
+export function TopBar({ lang, otherName, scheduledAt, durationMinutes }: Props) {
   const tx = videoStrings(lang)
   const timeRemaining = useTimer(scheduledAt, durationMinutes)
 
@@ -27,40 +23,49 @@ export function TopBar({ lang, isTeacher, myName, otherName, scheduledAt, durati
       style={{ background: 'rgba(0,0,0,0.30)', borderBottom: `1px solid ${VIDEO_THEME.border}` }}
     >
       <div className="flex items-center gap-3">
-        <EKMark size={28} bg="#000" barColor="#F4EFE6" />
-        <div>
+        <EKMark size={26} bg="#000" barColor="#F4EFE6" />
+        <div className="leading-tight">
           <div
-            className="text-xs font-bold"
-            style={{ color: '#fff', fontFamily: 'var(--ek-font-sans)' }}
+            style={{
+              fontFamily: 'var(--ek-font-mono)',
+              fontSize: 9,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: VIDEO_THEME.textSubtle,
+            }}
           >
-            {tx.sessionWith} {otherName}
+            {tx.sessionWith}
           </div>
           <div
-            className="text-[10px]"
-            style={{ color: VIDEO_THEME.textSubtle, fontFamily: 'var(--ek-font-sans)' }}
+            className="text-white"
+            style={{ fontFamily: 'var(--ek-font-sans)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em' }}
           >
-            {isTeacher ? tx.teacher : tx.student}: {myName}
+            {otherName}
           </div>
         </div>
       </div>
 
       {timeRemaining && (
-        <div
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5"
-          style={{ background: VIDEO_THEME.surface }}
-        >
-          <Clock className="h-3.5 w-3.5" style={{ color: VIDEO_THEME.brand }} />
-          <span className="text-sm font-mono font-bold text-white">{timeRemaining}</span>
-          <span className="text-[10px]" style={{ color: VIDEO_THEME.textSubtle }}>
+        <div className="flex items-baseline gap-2">
+          <span
+            className="text-white"
+            style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+          >
+            {timeRemaining}
+          </span>
+          <span
+            style={{
+              fontFamily: 'var(--ek-font-mono)',
+              fontSize: 9,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: VIDEO_THEME.textSubtle,
+            }}
+          >
             {tx.timeRemaining}
           </span>
         </div>
       )}
-
-      <div className="flex items-center gap-1.5 text-xs" style={{ color: VIDEO_THEME.textSubtle }}>
-        <Users className="h-3.5 w-3.5" />
-        <span>{participantCount}</span>
-      </div>
     </div>
   )
 }

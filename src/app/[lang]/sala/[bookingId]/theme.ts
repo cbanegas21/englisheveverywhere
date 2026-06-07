@@ -22,7 +22,9 @@ export const VIDEO_THEME = {
   textMuted: 'rgba(255,255,255,0.55)',
   textSubtle: 'rgba(255,255,255,0.35)',
 
-  // Avatar fallback (neutral — brand crimson is reserved for CTAs).
-  avatarBg: '#1F2937',
-  avatarText: '#FFFFFF',
+  // Avatar fallback — warm + restrained (notebook-adjacent), one calm color for
+  // every participant; brand crimson stays reserved for CTAs.
+  avatarBg: '#2A2118',
+  avatarText: '#F4EFE6',
+  avatarRing: 'rgba(244,239,230,0.18)',
 } as const
