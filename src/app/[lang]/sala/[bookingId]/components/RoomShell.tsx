@@ -29,6 +29,8 @@ import { NotesPanel } from './NotesPanel'
 import { ChatPanel } from './ChatPanel'
 import { DeviceMenu } from './DeviceMenu'
 import { Whiteboard } from './Whiteboard'
+import { ReactionsPopover, ReactionsLayer } from './Reactions'
+import type { FloatingReaction, RemoteHand } from './Reactions'
 import { CuadernoPanel } from './CuadernoPanel'
 import { ConnectingScreen } from './ConnectingScreen'
 import { LeavingScreen } from './LeavingScreen'
@@ -168,6 +170,46 @@ export function RoomShell({
     const payload = new TextEncoder().encode(JSON.stringify({ type: 'close' }))
     void sendWhiteboardControl(payload, { topic: 'whiteboard-control', reliable: true })
   }, [sendWhiteboardControl])
+  // Raise-hand (CALL-11) + emoji reactions (CALL-12), mirrored to the peer over
+  // a 'reactions' data channel. Floating emojis + a hand-raise pill render over
+  // the stage; the popover lives above the control bar.
+  const [showReactions, setShowReactions] = useState(false)
+  const [handRaised, setHandRaised] = useState(false)
+  const [remoteHand, setRemoteHand] = useState<RemoteHand>({ raised: false, name: otherName })
+  const [floating, setFloating] = useState<FloatingReaction[]>([])
+  const reactionId = useRef(0)
+
+  const pushFloating = useCallback((emoji: string) => {
+    const id = ++reactionId.current
+    setFloating(prev => [...prev, { id, emoji }])
+    setTimeout(() => setFloating(prev => prev.filter(f => f.id !== id)), 2400)
+  }, [])
+
+  const { send: sendReaction } = useDataChannel('reactions', msg => {
+    try {
+      const evt = JSON.parse(new TextDecoder().decode(msg.payload)) as
+        | { type: 'reaction'; emoji: string }
+        | { type: 'hand'; raised: boolean; name?: string }
+      if (evt.type === 'reaction' && typeof evt.emoji === 'string') pushFloating(evt.emoji)
+      if (evt.type === 'hand') setRemoteHand({ raised: !!evt.raised, name: evt.name || otherName })
+    } catch { /* ignore malformed */ }
+  })
+
+  const handleReact = useCallback((emoji: string) => {
+    pushFloating(emoji)
+    const payload = new TextEncoder().encode(JSON.stringify({ type: 'reaction', emoji }))
+    void sendReaction(payload, { topic: 'reactions', reliable: true })
+  }, [pushFloating, sendReaction])
+
+  const handleToggleHand = useCallback(() => {
+    setHandRaised(prev => {
+      const next = !prev
+      const payload = new TextEncoder().encode(JSON.stringify({ type: 'hand', raised: next, name: myName }))
+      void sendReaction(payload, { topic: 'reactions', reliable: true })
+      return next
+    })
+  }, [sendReaction, myName])
+
   const layout = useRoomLayout()
   const stageRef = useRef<HTMLDivElement | null>(null)
   const selfView = useSelfViewPosition(stageRef)
@@ -316,6 +358,9 @@ export function RoomShell({
           showChat={showChat}
           onToggleChat={() => setShowChat(p => !p)}
           unreadCount={unreadCount}
+          showReactions={showReactions}
+          onToggleReactions={() => setShowReactions(p => !p)}
+          handRaised={handRaised}
           showDevices={showDevices}
           onToggleDevices={() => setShowDevices(p => !p)}
           showWhiteboard={showWhiteboard}
@@ -352,6 +397,20 @@ export function RoomShell({
           bookingId={bookingId}
           show={showWhiteboard}
           onClose={closeWhiteboard}
+        />
+        <ReactionsPopover
+          lang={lang}
+          show={showReactions}
+          onClose={() => setShowReactions(false)}
+          handRaised={handRaised}
+          onToggleHand={handleToggleHand}
+          onReact={handleReact}
+        />
+        <ReactionsLayer
+          lang={lang}
+          floating={floating}
+          localHandRaised={handRaised}
+          remoteHand={remoteHand}
         />
       </div>
       <CuadernoPanel

@@ -62,6 +62,19 @@ try {
   await page.screenshot({ path: path.join(outDir, `${tag}-1b-pip-large.png`) })
   console.log('shot pip-large')
 
+  // CALL-11/12 — reactions popover, raise hand + emoji.
+  await page.getByRole('button', { name: 'Reacciones' }).click().catch(() => {})
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: path.join(outDir, `${tag}-1c-reactions.png`) })
+  await page.getByRole('button', { name: 'Levantar la mano' }).click().catch(() => {})
+  await page.getByRole('button', { name: '🎉' }).click().catch(() => {})
+  await page.waitForTimeout(700)
+  await page.screenshot({ path: path.join(outDir, `${tag}-1d-hand-reaction.png`) })
+  console.log('shot reactions')
+  // close popover + lower hand for subsequent shots
+  await page.keyboard.press('Escape').catch(() => {})
+  await page.waitForTimeout(300)
+
   // Open chat → the PiP must rest LEFT of the panel, fully visible (CALL-01).
   await chatBtn.click()
   await page.waitForTimeout(900)

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare, Captions } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare, Captions, Smile, Hand } from 'lucide-react'
 import { useTrackToggle } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
@@ -22,6 +22,9 @@ interface Props {
   showChat: boolean
   onToggleChat: () => void
   unreadCount: number
+  showReactions: boolean
+  onToggleReactions: () => void
+  handRaised: boolean
   showDevices: boolean
   onToggleDevices: () => void
   showWhiteboard: boolean
@@ -46,6 +49,9 @@ export function ControlBar({
   showChat,
   onToggleChat,
   unreadCount,
+  showReactions,
+  onToggleReactions,
+  handRaised,
   showDevices,
   onToggleDevices,
   showWhiteboard,
@@ -123,6 +129,13 @@ export function ControlBar({
         label={tx.chat}
         icon={<ChatIcon unread={unreadCount} />}
         variant={showChat ? 'brand' : 'neutral'}
+      />
+      <CircleButton
+        active={showReactions || handRaised}
+        onClick={onToggleReactions}
+        label={tx.reactions}
+        icon={handRaised ? <Hand className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
+        variant={showReactions || handRaised ? 'brand' : 'neutral'}
       />
       <CircleButton
         active={screenShare.enabled}
