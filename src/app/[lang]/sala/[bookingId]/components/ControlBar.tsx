@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare, Captions, Smile, Hand } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare, Captions, Smile, Hand, MoreHorizontal } from 'lucide-react'
 import { useTrackToggle } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
@@ -31,9 +31,24 @@ interface Props {
   onToggleWhiteboard: () => void
   showTranscript: boolean
   onToggleTranscript: () => void
-  // Reports the bar's rendered height (it wraps to 2 rows on narrow screens) so
-  // the parent can keep the self-view PiP clear of it (CALL-08).
+  // Reports the bar's rendered height so the parent can keep the self-view PiP
+  // clear of it (CALL-08). With the single-row layout this stays stable, but
+  // the ResizeObserver keeps it honest across breakpoints.
   onHeightChange?: (height: number) => void
+}
+
+// A single control descriptor. The bar renders the same descriptor either inline
+// (a round icon button) or inside the "More" sheet (an icon + label row), so a
+// tool can move between the bar and the overflow menu by breakpoint with no
+// duplicated wiring.
+type Tool = {
+  key: string
+  label: string
+  icon: React.ReactNode
+  onClick: () => void
+  active: boolean
+  variant?: Variant
+  badge?: number
 }
 
 export function ControlBar({
@@ -62,9 +77,28 @@ export function ControlBar({
 }: Props) {
   const tx = videoStrings(lang)
   const rootRef = useRef<HTMLDivElement>(null)
+  const [showMore, setShowMore] = useState(false)
+  // Compact = phone-width. On compact only the essentials stay on the bar; the
+  // rest fold into the "More" sheet so the row never wraps (the old 3-row pile).
+  const [isCompact, setIsCompact] = useState(false)
 
-  // Report height changes (button row wraps on narrow viewports) so the parent
-  // keeps the PiP self-view above the bar.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)')
+    const sync = () => setIsCompact(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  // Close the "More" sheet on Escape.
+  useEffect(() => {
+    if (!showMore) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowMore(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showMore])
+
+  // Report height changes (defensive — keeps the PiP self-view above the bar).
   useEffect(() => {
     const el = rootRef.current
     if (!el || !onHeightChange) return
@@ -74,6 +108,7 @@ export function ControlBar({
     ro.observe(el)
     return () => ro.disconnect()
   }, [onHeightChange])
+
   // Derive mic/camera state from LiveKit (not local useState) so an external
   // mute — network blip, permission change, future admin mute — stays in sync
   // with the button labels. Audit EK-020.
@@ -88,107 +123,189 @@ export function ControlBar({
     onCameraOffChange?.(isCameraOff)
   }, [isCameraOff, onCameraOffChange])
 
-  function toggleMute() {
-    mic.toggle()
-  }
+  // Media controls — always on the bar (mic + camera). Muted/off read as a solid
+  // crimson alert so the state is unmistakable (audit EK-071).
+  const media: Tool[] = [
+    {
+      key: 'mic',
+      label: isMuted ? tx.unmute : tx.mute,
+      icon: isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />,
+      onClick: () => mic.toggle(),
+      active: !isMuted,
+      variant: isMuted ? 'alert' : 'neutral',
+    },
+    {
+      key: 'cam',
+      label: isCameraOff ? tx.startVideo : tx.stopVideo,
+      icon: isCameraOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />,
+      onClick: () => cam.toggle(),
+      active: !isCameraOff,
+      variant: isCameraOff ? 'alert' : 'neutral',
+    },
+  ]
 
-  function toggleCamera() {
-    cam.toggle()
-  }
+  // Collaboration tools. The order is the priority order for what stays on the
+  // bar as width shrinks; the tail folds into "More".
+  const tools: Tool[] = [
+    {
+      key: 'chat',
+      label: tx.chat,
+      icon: <MessageSquare className="h-5 w-5" />,
+      onClick: onToggleChat,
+      active: showChat,
+      variant: showChat ? 'brand' : 'neutral',
+      badge: unreadCount,
+    },
+    {
+      key: 'share',
+      label: screenShare.enabled ? tx.stopSharing : tx.shareScreen,
+      icon: screenShare.enabled ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />,
+      onClick: () => { void screenShare.toggle() },
+      active: screenShare.enabled,
+      variant: screenShare.enabled ? 'brand' : 'neutral',
+    },
+    {
+      key: 'reactions',
+      label: tx.reactions,
+      icon: handRaised ? <Hand className="h-5 w-5" /> : <Smile className="h-5 w-5" />,
+      onClick: onToggleReactions,
+      active: showReactions || handRaised,
+      variant: showReactions || handRaised ? 'brand' : 'neutral',
+    },
+    {
+      key: 'transcript',
+      label: tx.transcript,
+      icon: <Captions className="h-5 w-5" />,
+      onClick: onToggleTranscript,
+      active: showTranscript,
+      variant: showTranscript ? 'brand' : 'neutral',
+    },
+    {
+      key: 'whiteboard',
+      label: tx.whiteboard,
+      icon: <PenSquare className="h-5 w-5" />,
+      onClick: onToggleWhiteboard,
+      active: showWhiteboard,
+      variant: showWhiteboard ? 'brand' : 'neutral',
+    },
+    {
+      key: 'layout',
+      label: layoutMode === 'grid' ? tx.layoutSpeaker : tx.layoutGrid,
+      icon: layoutMode === 'grid' ? <Maximize2 className="h-5 w-5" /> : <LayoutGrid className="h-5 w-5" />,
+      onClick: onToggleLayout,
+      active: false,
+      variant: 'neutral',
+    },
+    {
+      key: 'devices',
+      label: tx.deviceSettings,
+      icon: <Settings2 className="h-5 w-5" />,
+      onClick: onToggleDevices,
+      active: showDevices,
+      variant: showDevices ? 'brand' : 'neutral',
+    },
+    ...(isTeacher
+      ? [{
+          key: 'notes',
+          label: tx.notes,
+          icon: <FileText className="h-5 w-5" />,
+          onClick: onToggleNotes,
+          active: showNotes,
+          variant: (showNotes ? 'brand' : 'neutral') as Variant,
+        }]
+      : []),
+  ]
+
+  // How many tools stay on the bar before folding into "More".
+  // Compact (phone): just Chat. Wide: the first four (chat, share, reactions,
+  // transcript) — the rest live in More so the row never crowds even when both
+  // side panels are open and the stage is narrow.
+  const inlineCount = isCompact ? 1 : 4
+  const inlineTools = tools.slice(0, inlineCount)
+  const moreTools = tools.slice(inlineCount)
 
   return (
     <div
       ref={rootRef}
-      className="absolute bottom-0 left-0 right-0 flex flex-wrap items-center justify-center gap-2 sm:gap-4 px-2 py-5 backdrop-blur-sm z-20"
-      style={{ background: 'rgba(0,0,0,0.60)', borderTop: `1px solid ${VIDEO_THEME.border}` }}
+      className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-center gap-1.5 px-3 py-4 backdrop-blur-md sm:gap-2"
+      style={{ background: 'rgba(10,12,15,0.72)', borderTop: `1px solid ${VIDEO_THEME.border}` }}
     >
-      <CircleButton
-        active={!isMuted}
-        onClick={toggleMute}
-        label={isMuted ? tx.unmute : tx.mute}
-        icon={isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-        variant={isMuted ? 'alert' : 'neutral'}
-      />
-      <CircleButton
-        active={!isCameraOff}
-        onClick={toggleCamera}
-        label={isCameraOff ? tx.startVideo : tx.stopVideo}
-        icon={isCameraOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-        variant={isCameraOff ? 'alert' : 'neutral'}
-      />
-      <CircleButton
-        active={layoutMode === 'grid'}
-        onClick={onToggleLayout}
-        label={layoutMode === 'grid' ? tx.layoutSpeaker : tx.layoutGrid}
-        icon={layoutMode === 'grid' ? <Maximize2 className="h-5 w-5" /> : <LayoutGrid className="h-5 w-5" />}
-        variant="neutral"
-      />
-      <CircleButton
-        active={showChat}
-        onClick={onToggleChat}
-        label={tx.chat}
-        icon={<ChatIcon unread={unreadCount} />}
-        variant={showChat ? 'brand' : 'neutral'}
-      />
-      <CircleButton
-        active={showReactions || handRaised}
-        onClick={onToggleReactions}
-        label={tx.reactions}
-        icon={handRaised ? <Hand className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
-        variant={showReactions || handRaised ? 'brand' : 'neutral'}
-      />
-      <CircleButton
-        active={screenShare.enabled}
-        onClick={() => { void screenShare.toggle() }}
-        label={screenShare.enabled ? tx.stopSharing : tx.shareScreen}
-        icon={screenShare.enabled ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
-        variant={screenShare.enabled ? 'brand' : 'neutral'}
-      />
-      <CircleButton
-        active={showWhiteboard}
-        onClick={onToggleWhiteboard}
-        label={tx.whiteboard}
-        icon={<PenSquare className="h-5 w-5" />}
-        variant={showWhiteboard ? 'brand' : 'neutral'}
-      />
-      <CircleButton
-        active={showTranscript}
-        onClick={onToggleTranscript}
-        label={tx.transcript}
-        icon={<Captions className="h-5 w-5" />}
-        variant={showTranscript ? 'brand' : 'neutral'}
-      />
-      <CircleButton
-        active={showDevices}
-        onClick={onToggleDevices}
-        label={tx.deviceSettings}
-        icon={<Settings2 className="h-5 w-5" />}
-        variant={showDevices ? 'brand' : 'neutral'}
-      />
-      {isTeacher && (
-        <CircleButton
-          active={showNotes}
-          onClick={onToggleNotes}
-          label={tx.notes}
-          icon={<FileText className="h-5 w-5" />}
-          variant={showNotes ? 'brand' : 'neutral'}
-        />
+      {/* Media group */}
+      {media.map((t) => (
+        <RoundButton key={t.key} tool={t} />
+      ))}
+
+      <Divider />
+
+      {/* Tools that fit on the bar */}
+      {inlineTools.map((t) => (
+        <RoundButton key={t.key} tool={t} />
+      ))}
+
+      {/* Overflow */}
+      {moreTools.length > 0 && (
+        <div className="relative">
+          <RoundButton
+            tool={{
+              key: 'more',
+              label: tx.more,
+              icon: <MoreHorizontal className="h-5 w-5" />,
+              onClick: () => setShowMore((p) => !p),
+              active: showMore,
+              variant: showMore ? 'brand' : 'neutral',
+            }}
+          />
+          {showMore && (
+            <>
+              <button
+                aria-hidden="true"
+                tabIndex={-1}
+                onClick={() => setShowMore(false)}
+                className="fixed inset-0 z-40 cursor-default"
+                style={{ background: 'transparent' }}
+              />
+              <div
+                role="menu"
+                className="absolute bottom-full right-0 z-50 mb-3 w-60 overflow-hidden rounded-2xl p-1.5 shadow-2xl"
+                style={{
+                  background: 'rgba(16,18,22,0.97)',
+                  border: `1px solid ${VIDEO_THEME.border}`,
+                  backdropFilter: 'blur(12px)',
+                }}
+              >
+                {moreTools.map((t) => (
+                  <MoreRow
+                    key={t.key}
+                    tool={t}
+                    onPick={() => { t.onClick(); setShowMore(false) }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
+
+      <Divider />
+
+      {/* Leave / End — the one shape that breaks the circle pattern, so it always
+          reads as the exit. */}
       {isTeacher ? (
         <LeaveButton
           onClick={onLeave}
           disabled={isLeaving}
           label={isLeaving ? tx.endingSession : tx.endClass}
           loading={isLeaving}
-          icon={<PhoneOff className="h-5 w-5" />}
+          compact={isCompact}
         />
       ) : (
-        <CircleButton
-          active
+        <LeaveButton
           onClick={onLeave}
+          disabled={false}
           label={tx.leave}
+          loading={false}
+          compact={isCompact}
           icon={<LogOut className="h-5 w-5" />}
-          variant="neutral"
         />
       )}
     </div>
@@ -197,94 +314,130 @@ export function ControlBar({
 
 type Variant = 'neutral' | 'brand' | 'alert'
 
-function CircleButton({
-  active, onClick, label, icon, variant,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-  icon: React.ReactNode
-  variant: Variant
-}) {
-  const styles =
-    variant === 'brand'
-      ? {
-          background: VIDEO_THEME.brandTint20,
-          color: VIDEO_THEME.brand,
-          border: `1px solid ${VIDEO_THEME.brandTint30}`,
-        }
-      : variant === 'alert'
-        ? {
-            // Solid red so a muted mic / off camera is unmistakable vs the
-            // brand-tint (active) and neutral states (audit EK-071).
-            background: VIDEO_THEME.brand,
-            color: '#fff',
-            border: `1px solid ${VIDEO_THEME.brand}`,
-          }
-        : {
-            background: VIDEO_THEME.surface,
-            color: '#fff',
-            border: 'none',
-          }
+function variantStyle(variant: Variant) {
+  if (variant === 'brand') {
+    return {
+      background: VIDEO_THEME.brandTint20,
+      color: VIDEO_THEME.brand,
+      border: `1px solid ${VIDEO_THEME.brandTint30}`,
+    }
+  }
+  if (variant === 'alert') {
+    return {
+      background: VIDEO_THEME.brand,
+      color: '#fff',
+      border: `1px solid ${VIDEO_THEME.brand}`,
+    }
+  }
+  return {
+    background: VIDEO_THEME.surface,
+    color: '#fff',
+    border: `1px solid ${VIDEO_THEME.border}`,
+  }
+}
+
+function RoundButton({ tool }: { tool: Tool }) {
+  const variant = tool.variant ?? 'neutral'
   return (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className="flex flex-col items-center gap-1.5 p-3 rounded-2xl transition-all"
-      style={styles}
-      aria-pressed={active}
-      aria-label={label}
-    >
-      {icon}
-      <span className="text-[9px] font-medium">{label}</span>
-    </motion.button>
+    <div className="group relative">
+      <motion.button
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
+        onClick={tool.onClick}
+        className="relative flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:h-12 sm:w-12"
+        style={variantStyle(variant)}
+        aria-pressed={tool.active}
+        aria-label={tool.label}
+      >
+        {tool.icon}
+        {tool.badge != null && tool.badge > 0 && (
+          <span
+            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
+            style={{ background: VIDEO_THEME.brand, border: '2px solid rgba(10,12,15,1)' }}
+          >
+            {tool.badge > 9 ? '9+' : tool.badge}
+          </span>
+        )}
+      </motion.button>
+      {/* Hover tooltip — Meet-style, replaces the old permanent micro-labels. */}
+      <span
+        className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 sm:block"
+        style={{ background: 'rgba(0,0,0,0.85)' }}
+      >
+        {tool.label}
+      </span>
+    </div>
   )
 }
 
-function ChatIcon({ unread }: { unread: number }) {
+function MoreRow({ tool, onPick }: { tool: Tool; onPick: () => void }) {
+  const isBrand = (tool.variant ?? 'neutral') === 'brand'
   return (
-    <div className="relative">
-      <MessageSquare className="h-5 w-5" />
-      {unread > 0 && (
+    <button
+      role="menuitem"
+      onClick={onPick}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08]"
+      style={{ color: isBrand ? VIDEO_THEME.brand : '#fff' }}
+    >
+      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{tool.icon}</span>
+      <span className="text-[13px] font-medium">{tool.label}</span>
+      {isBrand && (
         <span
-          className="absolute -top-2 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
+          className="ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full"
           style={{ background: VIDEO_THEME.brand }}
+        />
+      )}
+    </button>
+  )
+}
+
+function LeaveButton({
+  onClick, disabled, label, loading, compact, icon,
+}: {
+  onClick: () => void
+  disabled: boolean
+  label: string
+  loading: boolean
+  compact: boolean
+  icon?: React.ReactNode
+}) {
+  const hangup = icon ?? <PhoneOff className="h-5 w-5" />
+  return (
+    <div className="group relative">
+      <motion.button
+        whileHover={{ scale: disabled ? 1 : 1.04 }}
+        whileTap={{ scale: disabled ? 1 : 0.96 }}
+        onClick={onClick}
+        disabled={disabled}
+        className={
+          compact
+            ? 'flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors disabled:opacity-60'
+            : 'flex h-12 items-center gap-2 rounded-full px-5 text-white transition-colors disabled:opacity-60'
+        }
+        style={{ background: VIDEO_THEME.brand }}
+        onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = VIDEO_THEME.brandHover }}
+        onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = VIDEO_THEME.brand }}
+        aria-label={label}
+      >
+        {loading ? (
+          <span className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+        ) : (
+          hangup
+        )}
+        {!compact && <span className="text-[13px] font-semibold">{label}</span>}
+      </motion.button>
+      {compact && (
+        <span
+          className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 sm:block"
+          style={{ background: 'rgba(0,0,0,0.85)' }}
         >
-          {unread > 9 ? '9+' : unread}
+          {label}
         </span>
       )}
     </div>
   )
 }
 
-function LeaveButton({
-  onClick, disabled, label, loading, icon,
-}: {
-  onClick: () => void
-  disabled: boolean
-  label: string
-  loading: boolean
-  icon: React.ReactNode
-}) {
-  return (
-    <motion.button
-      whileHover={{ scale: disabled ? 1 : 1.05 }}
-      whileTap={{ scale: disabled ? 1 : 0.95 }}
-      onClick={onClick}
-      disabled={disabled}
-      className="flex flex-col items-center gap-1.5 px-6 py-3 rounded-2xl text-white transition-colors disabled:opacity-60"
-      style={{ background: VIDEO_THEME.brand }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = VIDEO_THEME.brandHover }}
-      onMouseLeave={e => { if (!disabled) e.currentTarget.style.background = VIDEO_THEME.brand }}
-      aria-label={label}
-    >
-      {loading ? (
-        <span className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-      ) : (
-        icon
-      )}
-      <span className="text-[9px] font-medium">{label}</span>
-    </motion.button>
-  )
+function Divider() {
+  return <span className="mx-1 h-7 w-px flex-shrink-0" style={{ background: VIDEO_THEME.border }} />
 }
