@@ -1,7 +1,7 @@
-import { AlertCircle } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
+import { EKMark } from '@/components/ui/EKMark'
 
 interface Props {
   lang: Locale
@@ -13,23 +13,25 @@ export function ErrorScreen({ lang, errorMsg, onRetry }: Props) {
   const tx = videoStrings(lang)
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center"
+      className="absolute inset-0 flex flex-col items-center justify-center px-6"
       style={{ background: VIDEO_THEME.stage }}
     >
-      <div
-        className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
-        style={{ background: VIDEO_THEME.brandTint20 }}
-      >
-        <AlertCircle className="h-8 w-8" style={{ color: VIDEO_THEME.brand }} />
+      <div className="mb-6">
+        <EKMark size={40} bg="#F4EFE6" arrowColor={VIDEO_THEME.brand} />
       </div>
-      <p className="text-white font-bold mb-2">{tx.errorTitle}</p>
-      <p className="text-xs mb-6 text-center max-w-xs px-4" style={{ color: VIDEO_THEME.textSubtle }}>
+      <h2
+        className="mb-2 text-white"
+        style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontSize: 26 }}
+      >
+        {tx.errorTitle}
+      </h2>
+      <p className="mb-7 max-w-xs text-center text-xs" style={{ color: VIDEO_THEME.textSubtle }}>
         {errorMsg}
       </p>
       <button
         onClick={onRetry}
-        className="px-6 py-2.5 rounded-xl text-white font-bold text-sm transition-colors"
-        style={{ background: VIDEO_THEME.brand }}
+        className="rounded-full px-7 py-2.5 text-white transition-colors"
+        style={{ background: VIDEO_THEME.brand, fontWeight: 600, fontSize: 14 }}
         onMouseEnter={e => { e.currentTarget.style.background = VIDEO_THEME.brandHover }}
         onMouseLeave={e => { e.currentTarget.style.background = VIDEO_THEME.brand }}
       >

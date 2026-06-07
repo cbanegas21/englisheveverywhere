@@ -1,5 +1,5 @@
-import { PhoneOff } from 'lucide-react'
 import { VIDEO_THEME } from '../theme'
+import { EKMark } from '@/components/ui/EKMark'
 
 interface Props {
   message: string
@@ -10,16 +10,22 @@ interface Props {
 export function LeavingScreen({ message }: Props) {
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center z-30"
+      className="absolute inset-0 z-30 flex flex-col items-center justify-center px-6"
       style={{ background: VIDEO_THEME.stage }}
     >
-      <div
-        className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4 shadow-xl"
-        style={{ background: VIDEO_THEME.brand, boxShadow: `0 12px 40px ${VIDEO_THEME.brandTint30}` }}
-      >
-        <PhoneOff className="h-7 w-7 text-white" />
+      <div className="mb-6">
+        <EKMark size={40} bg="#F4EFE6" arrowColor={VIDEO_THEME.brand} />
       </div>
-      <p className="text-sm" style={{ color: VIDEO_THEME.textMuted }}>{message}</p>
+      <p
+        className="mb-5 text-center text-white"
+        style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontSize: 20 }}
+      >
+        {message}
+      </p>
+      <span
+        className="h-5 w-5 animate-spin rounded-full border-2"
+        style={{ borderColor: VIDEO_THEME.border, borderTopColor: VIDEO_THEME.brand }}
+      />
     </div>
   )
 }

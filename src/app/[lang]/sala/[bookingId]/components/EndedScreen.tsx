@@ -2,11 +2,12 @@
 
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Sparkles, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import type { SessionSummary } from '@/app/actions/video'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
+import { EKMark } from '@/components/ui/EKMark'
 
 interface Props {
   lang: Locale
@@ -29,16 +30,15 @@ export function EndedScreen({ lang, isTeacher, summary, isGenerating, dashboardP
         className="max-w-lg w-full bg-white rounded-3xl p-8 shadow-2xl"
       >
         <div className="text-center mb-6">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.2 }}
-            className="flex h-20 w-20 items-center justify-center rounded-3xl mx-auto mb-5 shadow-xl"
-            style={{ background: VIDEO_THEME.brand, boxShadow: `0 20px 50px ${VIDEO_THEME.brandTint30}` }}
+          <div className="mx-auto mb-5 flex justify-center">
+            <EKMark size={44} bg="#111111" arrowColor={VIDEO_THEME.brand} />
+          </div>
+          <h2
+            className="mb-1"
+            style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontSize: 30, color: '#111111', letterSpacing: '-0.015em' }}
           >
-            <CheckCircle2 className="h-10 w-10 text-white" />
-          </motion.div>
-          <h2 className="text-2xl font-black mb-1" style={{ color: '#111111' }}>{tx.sessionEnded}</h2>
+            {tx.sessionEnded}
+          </h2>
           <p className="text-sm" style={{ color: '#4B5563' }}>
             {isTeacher ? tx.sessionEndedSub : tx.studentEndedSub}
           </p>
@@ -46,11 +46,11 @@ export function EndedScreen({ lang, isTeacher, summary, isGenerating, dashboardP
 
         {isTeacher && (
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-4 w-4" style={{ color: VIDEO_THEME.brand }} />
-              <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>
-                {tx.aiSummary}
-              </span>
+            <div
+              className="mb-4"
+              style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#9CA3AF' }}
+            >
+              {tx.aiSummary}
             </div>
 
             {isGenerating && !summary ? (
@@ -118,8 +118,8 @@ export function EndedScreen({ lang, isTeacher, summary, isGenerating, dashboardP
 
         <button
           onClick={() => router.push(dashboardPath)}
-          className="w-full py-3 rounded-xl text-white font-bold shadow-lg transition-all"
-          style={{ background: VIDEO_THEME.brand, boxShadow: `0 12px 32px ${VIDEO_THEME.brandTint30}` }}
+          className="w-full rounded-full py-3 text-white transition-colors"
+          style={{ background: VIDEO_THEME.brand, fontWeight: 600, fontSize: 15 }}
           onMouseEnter={e => { e.currentTarget.style.background = VIDEO_THEME.brandHover }}
           onMouseLeave={e => { e.currentTarget.style.background = VIDEO_THEME.brand }}
         >
