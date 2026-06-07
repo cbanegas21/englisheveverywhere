@@ -16,6 +16,7 @@ type Strings = {
   shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
   deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
   whiteboard: string; whiteboardTitle: string; whiteboardClose: string; whiteboardLoading: string
+  whiteboardZoomIn: string; whiteboardZoomOut: string; whiteboardRecenter: string
   transcript: string; transcriptTitle: string; transcriptClose: string; transcriptEmpty: string; transcriptUnsupported: string; transcriptListening: string
 }
 
@@ -81,6 +82,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     whiteboardTitle: 'Shared whiteboard',
     whiteboardClose: 'Close whiteboard',
     whiteboardLoading: 'Loading…',
+    whiteboardZoomIn: 'Zoom in',
+    whiteboardZoomOut: 'Zoom out',
+    whiteboardRecenter: 'Fit to content',
 
     transcript: 'Transcript',
     transcriptTitle: 'Live transcript',
@@ -150,6 +154,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     whiteboardTitle: 'Pizarra compartida',
     whiteboardClose: 'Cerrar pizarra',
     whiteboardLoading: 'Cargando…',
+    whiteboardZoomIn: 'Acercar',
+    whiteboardZoomOut: 'Alejar',
+    whiteboardRecenter: 'Ajustar al contenido',
 
     transcript: 'Transcripción',
     transcriptTitle: 'Transcripción en vivo',

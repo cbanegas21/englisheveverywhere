@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X } from 'lucide-react'
+import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { useDataChannel } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
@@ -35,10 +35,14 @@ type WireChanges = {
 // screen share). Uses LiveKit data channel with topic 'whiteboard' to sync
 // per-record changes between teacher and student.
 //
-// Sync model: listen for user-source changes locally → send the diff;
-// on remote diff arrival, apply via mergeRemoteChanges so it doesn't echo
-// back out. Late joiners see a blank board (MVP) — persisted locally via
-// persistenceKey for recovery after a reload.
+// Sync model (CALL-04, verified): listen for user-source changes locally →
+// send the diff over the 'whiteboard' data channel; on remote diff arrival,
+// apply via mergeRemoteChanges so it doesn't echo back out. Open/close is
+// mirrored separately via 'whiteboard-control' (see RoomShell) so the peer's
+// board is mounted and subscribed before strokes arrive. Late joiners see a
+// blank board (MVP) — persisted locally via persistenceKey for reload recovery.
+// Zoom/recenter (CALL-05) is intentionally LOCAL-per-user (each person controls
+// their own view); only shape edits sync.
 export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
   const tx = videoStrings(lang)
   const editorRef = useRef<Editor | null>(null)
@@ -53,6 +57,10 @@ export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
       applyRemoteChanges(editor, changes)
     } catch { /* ignore malformed frames */ }
   })
+
+  const zoomIn = useCallback(() => { editorRef.current?.zoomIn() }, [])
+  const zoomOut = useCallback(() => { editorRef.current?.zoomOut() }, [])
+  const recenter = useCallback(() => { editorRef.current?.zoomToFit() }, [])
 
   const onMount = useCallback((editor: Editor) => {
     editorRef.current = editor
@@ -96,13 +104,40 @@ export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
                 <span className="text-[11px]" style={{ color: VIDEO_THEME.textSubtle }}>{tx.whiteboardLoading}</span>
               )}
             </div>
-            <button
-              onClick={onClose}
-              aria-label={tx.whiteboardClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={zoomOut}
+                disabled={!ready}
+                aria-label={tx.whiteboardZoomOut}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white disabled:opacity-40"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <button
+                onClick={recenter}
+                disabled={!ready}
+                aria-label={tx.whiteboardRecenter}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white disabled:opacity-40"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={zoomIn}
+                disabled={!ready}
+                aria-label={tx.whiteboardZoomIn}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white disabled:opacity-40"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+              <span className="mx-1 h-5 w-px" style={{ background: VIDEO_THEME.border }} />
+              <button
+                onClick={onClose}
+                aria-label={tx.whiteboardClose}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </motion.div>
       )}
