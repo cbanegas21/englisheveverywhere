@@ -71,7 +71,7 @@ export function RoomShell({
   const [recognizerLang, setRecognizerLang] = useState<'es-ES' | 'en-US'>(
     lang === 'es' ? 'es-ES' : 'en-US'
   )
-  const transcript = useLiveTranscript({ enabled: true, lang: recognizerLang })
+  const transcript = useLiveTranscript({ enabled: true, bookingId, lang: recognizerLang })
 
   // Live AI cuaderno — extracts teaching-worthy vocab from the running
   // transcript every ~30s via Claude haiku 4.5. Best-effort, silent on
@@ -161,14 +161,14 @@ export function RoomShell({
     setShowWhiteboard(prev => {
       const next = !prev
       const payload = new TextEncoder().encode(JSON.stringify({ type: next ? 'open' : 'close' }))
-      void sendWhiteboardControl(payload, { topic: 'whiteboard-control', reliable: true })
+      void sendWhiteboardControl(payload, { topic: 'whiteboard-control', reliable: true }).catch(() => {})
       return next
     })
   }, [sendWhiteboardControl])
   const closeWhiteboard = useCallback(() => {
     setShowWhiteboard(false)
     const payload = new TextEncoder().encode(JSON.stringify({ type: 'close' }))
-    void sendWhiteboardControl(payload, { topic: 'whiteboard-control', reliable: true })
+    void sendWhiteboardControl(payload, { topic: 'whiteboard-control', reliable: true }).catch(() => {})
   }, [sendWhiteboardControl])
   // Raise-hand (CALL-11) + emoji reactions (CALL-12), mirrored to the peer over
   // a 'reactions' data channel. Floating emojis + a hand-raise pill render over
@@ -205,7 +205,7 @@ export function RoomShell({
     setHandRaised(prev => {
       const next = !prev
       const payload = new TextEncoder().encode(JSON.stringify({ type: 'hand', raised: next, name: myName }))
-      void sendReaction(payload, { topic: 'reactions', reliable: true })
+      void sendReaction(payload, { topic: 'reactions', reliable: true }).catch(() => {})
       return next
     })
   }, [sendReaction, myName])

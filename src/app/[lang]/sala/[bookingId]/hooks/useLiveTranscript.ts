@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataChannel, useLocalParticipant } from '@livekit/components-react'
+import { Track } from 'livekit-client'
+import { transcribeAudioChunk } from '@/app/actions/video'
 
 export interface TranscriptLine {
   id: string
@@ -12,8 +14,8 @@ export interface TranscriptLine {
   isFinal: boolean
 }
 
-// Browser Web Speech API is untyped in lib.dom. Minimal local shim so we
-// avoid pulling in an external dep just for event shapes.
+// Browser Web Speech API is untyped in lib.dom. Minimal local shim so the
+// fallback path avoids pulling in an external dep just for event shapes.
 type SR = {
   lang: string
   continuous: boolean
@@ -35,17 +37,23 @@ declare global {
 
 interface Args {
   enabled: boolean
-  /** BCP-47 lang code for the speech recognizer. Defaults to en-US. Switch
-   *  to 'es-ES' when the student/teacher prefers Spanish recognition; the
-   *  control bar exposes a toggle. */
+  /** Booking id — used to authorize transcription against the call participants. */
+  bookingId: string
+  /** BCP-47 lang for the browser fallback recognizer only (Deepgram uses
+   *  multilingual auto-detect). Defaults to en-US. */
   lang?: string
 }
 
-// Live transcript via browser SpeechRecognition. Each participant captions
-// themselves; the result is broadcast over LiveKit's 'transcript' data
-// channel so the peer sees captions for both speakers. Recognition restarts
-// on `onend` (Chrome caps ~30s of silence) for the life of the call.
-export function useLiveTranscript({ enabled, lang = 'en-US' }: Args) {
+// How long each recorded slice is before it's sent for transcription. Each
+// slice is a standalone WebM, so we stop+restart the recorder per slice.
+const CHUNK_MS = 6000
+
+// Live transcript. Primary engine: record the local mic in short slices and
+// transcribe each server-side via Deepgram nova-3 multilingual (key stays on
+// the server). Each participant captions themselves; finals are broadcast over
+// LiveKit's 'transcript' data channel so the peer sees both speakers. Falls
+// back to the browser Web Speech API when Deepgram isn't configured.
+export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) {
   const { localParticipant } = useLocalParticipant()
 
   const [finals, setFinals] = useState<TranscriptLine[]>([])
@@ -53,8 +61,11 @@ export function useLiveTranscript({ enabled, lang = 'en-US' }: Args) {
   const [supported, setSupported] = useState(true)
   const [listening, setListening] = useState(false)
 
-  const recognitionRef = useRef<SR | null>(null)
   const sendRef = useRef<((payload: Uint8Array, opts: { topic: string; reliable: boolean }) => Promise<void>) | null>(null)
+  const lpRef = useRef(localParticipant)
+  lpRef.current = localParticipant
+  const meRef = useRef({ identity: localParticipant.identity, name: localParticipant.name || 'Speaker' })
+  meRef.current = { identity: localParticipant.identity, name: localParticipant.name || 'Speaker' }
 
   const applyLine = useCallback((line: TranscriptLine) => {
     if (line.isFinal) {
@@ -69,115 +80,170 @@ export function useLiveTranscript({ enabled, lang = 'en-US' }: Args) {
       setInterims(prev => ({ ...prev, [line.identity]: line }))
     }
   }, [])
+  const applyLineRef = useRef(applyLine)
+  applyLineRef.current = applyLine
 
-  // Always subscribe to the 'transcript' topic so peer captions arrive even
-  // when we're not speaking or our recognition engine isn't supported.
+  // Always subscribe to 'transcript' so peer captions arrive even when our own
+  // engine isn't running.
   const { send } = useDataChannel('transcript', msg => {
     try {
       const text = new TextDecoder().decode(msg.payload)
       const line = JSON.parse(text) as TranscriptLine
-      if (line && typeof line.text === 'string') applyLine(line)
+      if (line && typeof line.text === 'string') applyLineRef.current(line)
     } catch { /* ignore malformed */ }
   })
   sendRef.current = send as typeof sendRef.current
 
   const broadcast = useCallback((line: TranscriptLine) => {
-    applyLine(line)
+    applyLineRef.current(line)
     const payload = new TextEncoder().encode(JSON.stringify(line))
     const fn = sendRef.current
-    if (fn) void fn(payload, { topic: 'transcript', reliable: true })
-  }, [applyLine])
-
+    // Best-effort fan-out — swallow rejections (e.g. publishing to a room with
+    // no remote participant yet) so they never surface as unhandled errors.
+    if (fn) void fn(payload, { topic: 'transcript', reliable: true }).catch(() => {})
+  }, [])
   const broadcastRef = useRef(broadcast)
   broadcastRef.current = broadcast
 
   useEffect(() => {
-    if (!enabled) {
-      const rec = recognitionRef.current
-      if (rec) {
-        try { rec.stop() } catch { /* ignore */ }
+    if (!enabled) { setListening(false); return }
+
+    let cancelled = false
+    let usingFallback = false
+    let recorder: MediaRecorder | null = null
+    let stopTimer: ReturnType<typeof setTimeout> | null = null
+    let micWait = 0
+    let sr: SR | null = null
+
+    const lineFrom = (text: string, isFinal: boolean): TranscriptLine => ({
+      id: `${meRef.current.identity}-${Date.now()}`,
+      identity: meRef.current.identity,
+      name: meRef.current.name,
+      text,
+      timestamp: Date.now(),
+      isFinal,
+    })
+
+    const getMicTrack = () =>
+      lpRef.current.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack ?? null
+
+    function pickMime(): string {
+      if (typeof MediaRecorder === 'undefined') return ''
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus'
+      if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm'
+      return ''
+    }
+
+    function startBrowserFallback() {
+      if (cancelled) return
+      usingFallback = true
+      const Ctor = typeof window !== 'undefined'
+        ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+        : undefined
+      if (!Ctor) { setSupported(false); setListening(false); return }
+      const rec = new Ctor()
+      rec.continuous = true
+      rec.interimResults = true
+      rec.lang = lang
+      rec.onresult = evt => {
+        for (let i = evt.resultIndex; i < evt.results.length; i += 1) {
+          const res = evt.results[i]
+          const text = res[0]?.transcript?.trim() || ''
+          if (!text) continue
+          const line = lineFrom(text, Boolean(res.isFinal))
+          if (line.isFinal) broadcastRef.current(line)
+          else applyLineRef.current(line)
+        }
       }
-      recognitionRef.current = null
-      setListening(false)
-      return
+      rec.onend = () => { if (cancelled || sr !== rec) return; try { rec.start() } catch { /* running */ } }
+      rec.onerror = e => { if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') setSupported(false) }
+      try { rec.start(); sr = rec; setListening(true); setSupported(true) } catch { setListening(false) }
     }
 
-    const Ctor = typeof window !== 'undefined'
-      ? (window.SpeechRecognition || window.webkitSpeechRecognition)
-      : undefined
-    if (!Ctor) {
-      setSupported(false)
-      return
+    async function handleBlob(blob: Blob) {
+      if (cancelled || blob.size < 1200) return
+      try {
+        const fd = new FormData()
+        fd.append('bookingId', bookingId)
+        fd.append('audio', blob, 'chunk.webm')
+        const res = await transcribeAudioChunk(fd)
+        if (cancelled) return
+        if ('error' in res) {
+          if (res.error === 'not-configured' && !usingFallback) {
+            cleanupDeepgram()
+            startBrowserFallback()
+          }
+          return
+        }
+        const text = res.text?.trim()
+        if (text) broadcastRef.current(lineFrom(text, true))
+      } catch { /* transient — skip this chunk */ }
     }
 
-    const rec = new Ctor()
-    rec.continuous = true
-    rec.interimResults = true
-    rec.lang = lang
+    function cleanupDeepgram() {
+      if (stopTimer) { clearTimeout(stopTimer); stopTimer = null }
+      try { if (recorder && recorder.state !== 'inactive') recorder.stop() } catch { /* ignore */ }
+      recorder = null
+    }
 
-    let stopped = false
-
-    rec.onresult = evt => {
-      for (let i = evt.resultIndex; i < evt.results.length; i += 1) {
-        const res = evt.results[i]
-        const alt = res[0]
-        const text = alt?.transcript?.trim() || ''
-        if (!text) continue
-        broadcastRef.current({
-          id: `${localParticipant.identity}-${Date.now()}-${i}`,
-          identity: localParticipant.identity,
-          name: localParticipant.name || 'Speaker',
-          text,
-          timestamp: Date.now(),
-          isFinal: Boolean(res.isFinal),
-        })
+    function cycle(mime: string) {
+      if (cancelled || usingFallback) return
+      const micTrack = getMicTrack()
+      if (!micTrack) { stopTimer = setTimeout(() => cycle(mime), 500); return }
+      let rec: MediaRecorder
+      try {
+        rec = new MediaRecorder(new MediaStream([micTrack]), { mimeType: mime })
+      } catch { stopTimer = setTimeout(() => cycle(mime), 800); return }
+      const parts: Blob[] = []
+      rec.ondataavailable = e => { if (e.data.size > 0) parts.push(e.data) }
+      rec.onstop = () => {
+        void handleBlob(new Blob(parts, { type: mime }))
+        if (!cancelled && !usingFallback) cycle(mime)
       }
+      try { rec.start() } catch { stopTimer = setTimeout(() => cycle(mime), 800); return }
+      recorder = rec
+      // NB: only stop the recorder — never micTrack.stop(); it's LiveKit's
+      // published mic and stopping it would kill the call audio.
+      stopTimer = setTimeout(() => { try { if (rec.state !== 'inactive') rec.stop() } catch { /* ignore */ } }, CHUNK_MS)
     }
 
-    rec.onend = () => {
-      // Chrome stops recognition after silence or tab backgrounding. Restart
-      // for the life of this effect so captions continue for the whole class.
-      if (stopped || recognitionRef.current !== rec) return
-      try { rec.start() } catch { /* already running */ }
-    }
-
-    rec.onerror = e => {
-      // Ignore routine errors (no-speech, aborted). onend will restart.
-      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
-        setSupported(false)
+    function start() {
+      if (cancelled) return
+      const mime = pickMime()
+      if (!mime) { startBrowserFallback(); return } // no MediaRecorder support
+      const micTrack = getMicTrack()
+      if (!micTrack) {
+        micWait += 1
+        if (micWait > 30) { startBrowserFallback(); return } // ~15s, no mic → fallback
+        stopTimer = setTimeout(start, 500)
+        return
       }
-    }
-
-    try {
-      rec.start()
-      recognitionRef.current = rec
+      setSupported(true)
       setListening(true)
-    } catch {
-      setListening(false)
+      cycle(mime)
     }
+
+    start()
 
     return () => {
-      stopped = true
-      recognitionRef.current = null
-      try { rec.stop() } catch { /* ignore */ }
+      cancelled = true
+      cleanupDeepgram()
+      if (sr) { try { sr.stop() } catch { /* ignore */ } sr = null }
       setListening(false)
     }
-  }, [enabled, lang, localParticipant.identity, localParticipant.name])
+  }, [enabled, lang, bookingId, localParticipant.identity])
 
   const clear = useCallback(() => {
     setFinals([])
     setInterims({})
   }, [])
 
-  // Serialize finals for persistence. Sorted by timestamp so teacher +
-  // student captions interleave correctly.
+  // Serialize finals for persistence. Sorted by timestamp so teacher + student
+  // captions interleave correctly.
   const snapshot = useCallback(() => {
     const sorted = [...finals].sort((a, b) => a.timestamp - b.timestamp)
     return sorted
-      .map(l => {
-        const when = new Date(l.timestamp).toISOString()
-        return `[${when}] ${l.name}: ${l.text.trim()}`
-      })
+      .map(l => `[${new Date(l.timestamp).toISOString()}] ${l.name}: ${l.text.trim()}`)
       .join('\n')
   }, [finals])
 

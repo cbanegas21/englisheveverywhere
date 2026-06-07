@@ -50,3 +50,6 @@ supabase/seeds/
 
 # QA screenshots — regenerable via scripts/qa-shots.mjs + qa-sections.mjs
 docs/qa-screenshots/
+
+# QA speech fixture (downloaded on demand by qa-transcript.mjs)
+scripts/qa-speech-sample.wav

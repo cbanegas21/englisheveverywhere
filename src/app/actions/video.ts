@@ -11,6 +11,60 @@ export interface SessionSummary {
   progressNote: string
 }
 
+// Transcribe one short audio chunk (recorded from the caller's own mic in the
+// browser) via Deepgram nova-3 multilingual. The Deepgram key stays server-side
+// — the browser only uploads audio, never sees the key. Participant/admin
+// guarded so only people in the call can spend transcription credit. Returns
+// `{ error: 'not-configured' }` when no key is set so the client can fall back.
+export async function transcribeAudioChunk(
+  formData: FormData,
+): Promise<{ text: string } | { error: string }> {
+  const masterKey = process.env.DEEPGRAM_API_KEY
+  if (!masterKey || masterKey === 'dg_placeholder') return { error: 'not-configured' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'unauthorized' }
+
+  const bookingId = formData.get('bookingId') as string | null
+  const audio = formData.get('audio')
+  if (!bookingId || !(audio instanceof File)) return { error: 'bad-request' }
+
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('id, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) return { error: 'unauthorized' }
+
+  const { data: caller } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const isAdmin = caller?.role === 'admin'
+  const isParticipant =
+    user.id === (booking.teacher as any)?.profile_id ||
+    user.id === (booking.student as any)?.profile_id ||
+    user.id === (booking as any).conductor_profile_id
+  if (!isParticipant && !isAdmin) return { error: 'unauthorized' }
+
+  try {
+    const buf = Buffer.from(await audio.arrayBuffer())
+    if (buf.byteLength < 1200) return { text: '' } // too small to hold speech
+    const params = new URLSearchParams({
+      model: 'nova-3', language: 'multi', smart_format: 'true', punctuate: 'true',
+    })
+    const res = await fetch(`https://api.deepgram.com/v1/listen?${params.toString()}`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${masterKey}`, 'Content-Type': audio.type || 'audio/webm' },
+      body: buf,
+    })
+    if (!res.ok) return { error: 'deepgram-error' }
+    const data = await res.json()
+    const text = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim() || ''
+    return { text }
+  } catch {
+    return { error: 'deepgram-error' }
+  }
+}
+
 export async function getRoomAccess(bookingId: string): Promise<
   { url: string; token: string; sessionId: string; isDevMode: boolean } | { error: string }
 > {
