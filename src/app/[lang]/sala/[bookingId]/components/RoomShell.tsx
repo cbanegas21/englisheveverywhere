@@ -17,6 +17,7 @@ import type { SessionSummary } from '@/app/actions/video'
 import { videoStrings } from '../i18n'
 import { useLeaveFlow } from '../hooks/useLeaveFlow'
 import { useRoomLayout } from '../hooks/useRoomLayout'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useSelfViewPosition } from '../hooks/useSelfViewPosition'
 import { useLiveTranscript } from '../hooks/useLiveTranscript'
 import { useLiveVocab } from '../hooks/useLiveVocab'
@@ -140,6 +141,9 @@ export function RoomShell({
   const [showCuaderno, setShowCuaderno] = useState(
     () => typeof window === 'undefined' || window.innerWidth >= 1024
   )
+  // Desktop renders the cuaderno as a 360px right rail; below 1024px it docks as
+  // a bottom-sheet over the stage so the AI-vocab notebook survives on phones.
+  const isDesktopCuaderno = useMediaQuery('(min-width: 1024px)', true)
   const [isCameraOff, setIsCameraOff] = useState(false)
   // Measured control-bar height (wraps to 2 rows on narrow screens) so the PiP
   // self-view always rests above it (CALL-08).
@@ -454,6 +458,9 @@ export function RoomShell({
       <CuadernoPanel
         lang={lang}
         show={showCuaderno}
+        mode={isDesktopCuaderno ? 'rail' : 'sheet'}
+        bottomInset={selfViewBottomInset}
+        onClose={() => setShowCuaderno(false)}
         finals={transcript.finals}
         interims={transcript.interims}
         supported={transcript.supported}

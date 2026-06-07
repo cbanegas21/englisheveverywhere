@@ -8,6 +8,7 @@ export const Z = {
   panel: 30, // == ChatPanel / NotesPanel `z-30`
   selfView: 35, // PiP self-view — above side panels, below the whiteboard
   whiteboard: 40, // full-stage focus surface — above the PiP
+  cuadernoSheet: 45, // mobile cuaderno bottom-sheet — above the stage, below menus
   deviceMenu: 50, // popover backdrop + menu — topmost interactive layer
   lifecycle: 60, // leaving / connecting overlays
 } as const

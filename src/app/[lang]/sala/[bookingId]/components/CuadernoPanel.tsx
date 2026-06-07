@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { motion, useDragControls } from 'framer-motion'
 import type { Locale } from '@/lib/i18n/translations'
 import type { TranscriptLine } from '../hooks/useLiveTranscript'
 import type { CuadernoEntry } from '../hooks/useLiveVocab'
+import { Z } from '../zLayers'
 
 interface Props {
   lang: Locale
@@ -20,6 +22,12 @@ interface Props {
   /** Recognizer language toggle (es-ES / en-US). */
   recognizerLang: 'es-ES' | 'en-US'
   onChangeRecognizerLang: (lang: 'es-ES' | 'en-US') => void
+  /** 'rail' = desktop right column; 'sheet' = mobile bottom-sheet over the stage. */
+  mode?: 'rail' | 'sheet'
+  /** Sheet only: keep the sheet docked above the control bar. */
+  bottomInset?: number
+  /** Sheet only: close via swipe-down (mirrors the control-bar toggle). */
+  onClose?: () => void
 }
 
 type Tab = 'vocab' | 'transcript'
@@ -35,10 +43,17 @@ export function CuadernoPanel({
   show,
   recognizerLang,
   onChangeRecognizerLang,
+  mode = 'rail',
+  bottomInset = 0,
+  onClose,
 }: Props) {
   const tx = lang === 'es' ? T.es : T.en
   const [tab, setTab] = useState<Tab>('vocab')
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const dragControls = useDragControls()
+  // Ticking clock so "just now" badges age out. Seeded once via the lazy
+  // initializer; the interval (a callback, not render) keeps it fresh.
+  const [now, setNow] = useState(() => Date.now())
 
   // Auto-scroll transcript to bottom on new line
   useEffect(() => {
@@ -47,24 +62,18 @@ export function CuadernoPanel({
     if (el) el.scrollTop = el.scrollHeight
   }, [tab, finals.length])
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15_000)
+    return () => clearInterval(id)
+  }, [])
+
   if (!show) return null
 
   const interimLines = Object.values(interims)
-  const isJustNow = (ts: number) => Date.now() - ts < 60_000
+  const isJustNow = (ts: number) => now - ts < 60_000
 
-  return (
-    <aside
-      style={{
-        width: 360,
-        flexShrink: 0,
-        background: 'var(--ek-notebook-bg)',
-        borderLeft: '1px solid rgba(255,255,255,0.08)',
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: 'var(--ek-font-sans)',
-        color: 'var(--ek-notebook-ink)',
-      }}
-    >
+  const inner = (
+    <>
       {/* Header */}
       <header
         style={{
@@ -73,6 +82,7 @@ export function CuadernoPanel({
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
+          flexShrink: 0,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -378,10 +388,81 @@ export function CuadernoPanel({
           color: 'var(--ek-notebook-soft)',
           textAlign: 'center',
           lineHeight: 1.5,
+          flexShrink: 0,
         }}
       >
         {tx.footer}
       </footer>
+    </>
+  )
+
+  // Mobile: a swipe-dismissable bottom-sheet docked above the control bar. Drag
+  // is initiated only from the grab handle (dragListener=false + dragControls)
+  // so the content area still scrolls normally.
+  if (mode === 'sheet') {
+    return (
+      <motion.aside
+        drag="y"
+        dragListener={false}
+        dragControls={dragControls}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.5 }}
+        onDragEnd={(_, info) => { if (info.offset.y > 120) onClose?.() }}
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: bottomInset,
+          height: '72vh',
+          maxHeight: '72vh',
+          background: 'var(--ek-notebook-bg)',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          boxShadow: '0 -12px 40px rgba(0,0,0,0.45)',
+          display: 'flex',
+          flexDirection: 'column',
+          fontFamily: 'var(--ek-font-sans)',
+          color: 'var(--ek-notebook-ink)',
+          zIndex: Z.cuadernoSheet,
+        }}
+      >
+        <div
+          onPointerDown={(e) => dragControls.start(e)}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: 22,
+            flexShrink: 0,
+            cursor: 'grab',
+            touchAction: 'none',
+          }}
+        >
+          <span style={{ width: 40, height: 4, borderRadius: 999, background: 'var(--ek-notebook-line)' }} />
+        </div>
+        {inner}
+      </motion.aside>
+    )
+  }
+
+  // Desktop: the fixed right rail (unchanged).
+  return (
+    <aside
+      style={{
+        width: 360,
+        flexShrink: 0,
+        background: 'var(--ek-notebook-bg)',
+        borderLeft: '1px solid rgba(255,255,255,0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: 'var(--ek-font-sans)',
+        color: 'var(--ek-notebook-ink)',
+      }}
+    >
+      {inner}
     </aside>
   )
 }
