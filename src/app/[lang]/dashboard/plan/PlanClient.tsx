@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { CheckCircle2, CreditCard, ChevronDown } from 'lucide-react'
+import { CreditCard, ChevronDown } from 'lucide-react'
 import { createCheckoutSession } from '@/app/actions/stripe'
 import { savePreferredCurrency } from '@/app/actions/profile'
 import { PRICING_PLANS } from '@/lib/pricing'
@@ -85,6 +85,7 @@ const T = {
     payNow: 'Pay now',
     paying: 'Processing…',
     cancelPay: 'Cancel',
+    successKicker: 'Payment confirmed',
     successTitle: 'Purchase complete!',
     successSub: (n: number) => `${n} ${n === 1 ? 'class has' : 'classes have'} been added to your account.`,
     successCta: 'Schedule your first class',
@@ -152,6 +153,7 @@ const T = {
     payNow: 'Pagar ahora',
     paying: 'Procesando…',
     cancelPay: 'Cancelar',
+    successKicker: 'Pago confirmado',
     successTitle: '¡Compra completada!',
     successSub: (n: number) => `${n === 1 ? '1 clase ha sido agregada' : `${n} clases han sido agregadas`} a tu cuenta.`,
     successCta: 'Agendar tu primera clase',
@@ -299,22 +301,29 @@ export default function PlanClient({
             <div style={{ padding: '40px 24px', background: 'var(--ek-ink)', color: 'var(--ek-on-dark)' }}>
               <div
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: '50%',
-                  margin: '0 auto 16px',
-                  background: 'rgba(255,255,255,0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-on-dark-soft)',
+                  fontFamily: 'var(--ek-font-mono)',
+                  marginBottom: 14,
                 }}
               >
-                <CheckCircle2 className="h-8 w-8" />
+                {tx.successKicker}
               </div>
-              <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em' }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 30,
+                  fontWeight: 600,
+                  letterSpacing: '-0.02em',
+                  fontFamily: 'var(--ek-font-serif)',
+                }}
+              >
                 {tx.successTitle}
               </h2>
-              <p style={{ marginTop: 6, fontSize: 14, color: 'var(--ek-on-dark-soft)' }}>
+              <p style={{ marginTop: 8, fontSize: 14, color: 'var(--ek-on-dark-soft)' }}>
                 {tx.successSub(purchaseResult.classesAdded)}
               </p>
             </div>

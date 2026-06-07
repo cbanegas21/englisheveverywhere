@@ -3,7 +3,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  FileText, Stethoscope, Search,
+  Search,
   MoreVertical, CalendarClock, AlertOctagon, XCircle,
 } from 'lucide-react'
 import { getSessionByBookingId } from '@/app/actions/video'
@@ -770,10 +770,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                         }}
                       >
                         {booking.type === 'placement_test' ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <Stethoscope className="h-3.5 w-3.5" style={{ color: accent }} />
-                            {tx.statusDiagnostic}
-                          </span>
+                          tx.statusDiagnostic
                         ) : awaitingTeacher ? (
                           <em style={{ fontFamily: 'var(--ek-font-serif)' }}>{tx.teacherBeingAssigned}</em>
                         ) : (
@@ -1063,8 +1060,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
               )}
               {sessionData?.notes && (
                 <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+                  <div style={{ marginBottom: 10 }}>
                     <p
                       style={{
                         fontSize: 10,
@@ -1084,8 +1080,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                 </div>
               )}
               <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <FileText className="h-3.5 w-3.5" style={{ color: 'var(--ek-text-muted)' }} />
+                <div style={{ marginBottom: 10 }}>
                   <p
                     style={{
                       fontSize: 10,
