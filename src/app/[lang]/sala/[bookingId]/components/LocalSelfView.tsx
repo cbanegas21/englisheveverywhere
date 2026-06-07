@@ -2,11 +2,11 @@
 
 import { VideoTrack } from '@livekit/components-react'
 import type { TrackReference } from '@livekit/components-react'
-import { VideoOff, X, Video } from 'lucide-react'
+import { VideoOff, X, Video, Minus, Plus } from 'lucide-react'
 import { VIDEO_THEME } from '../theme'
 import { Z } from '../zLayers'
 import { Avatar } from './Avatar'
-import type { Corner } from '../hooks/useSelfViewPosition'
+import type { Corner, SelfViewSize } from '../hooks/useSelfViewPosition'
 
 interface Props {
   trackRef: TrackReference | undefined
@@ -14,6 +14,7 @@ interface Props {
   isCameraOff: boolean
   corner: Corner
   isDragging: boolean
+  size: SelfViewSize
   // px to inset from the right edge when a side panel (chat/notes) is open, so
   // the PiP rests left of the panel instead of behind it (CALL-01).
   rightInset: number
@@ -21,13 +22,24 @@ interface Props {
   // always clears the controls (CALL-08).
   bottomInset: number
   hideLabel: string
+  shrinkLabel: string
+  enlargeLabel: string
   onHide: () => void
+  onShrink: () => void
+  onEnlarge: () => void
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void
 }
 
 const MARGIN = 16
+
+// Self-view dimensions per size step (CALL-09). Keeps the ~11:7 tile ratio.
+const SIZES: Record<SelfViewSize, { w: number; h: number }> = {
+  sm: { w: 128, h: 82 },
+  md: { w: 176, h: 112 },
+  lg: { w: 232, h: 148 },
+}
 
 // Resting position resolved from the corner, offset by any open right-side
 // panel + the control-bar height. Lives in the React style prop; drag is a
@@ -43,34 +55,46 @@ function cornerStyle(corner: Corner, rightInset: number, bottomInset: number): R
   }
 }
 
+const ctrlClass =
+  'flex h-6 w-6 items-center justify-center rounded-full text-white transition-opacity disabled:opacity-40'
+const ctrlStyle: React.CSSProperties = { background: 'rgba(0,0,0,0.55)' }
+
 // Floating picture-in-picture self-view. Draggable between the four stage
-// corners; position + hidden state persist per-user in localStorage via
-// useSelfViewPosition.
+// corners; position, hidden state, and size persist per-user in localStorage
+// via useSelfViewPosition.
 export function LocalSelfView({
   trackRef,
   myName,
   isCameraOff,
   corner,
   isDragging,
+  size,
   rightInset,
   bottomInset,
   hideLabel,
+  shrinkLabel,
+  enlargeLabel,
   onHide,
+  onShrink,
+  onEnlarge,
   onPointerDown,
   onPointerMove,
   onPointerUp,
 }: Props) {
+  const dims = SIZES[size]
   return (
     <div
-      className={`absolute w-44 h-28 rounded-xl overflow-hidden shadow-xl ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`group absolute rounded-xl overflow-hidden shadow-xl ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
       style={{
         ...cornerStyle(corner, rightInset, bottomInset),
+        width: dims.w,
+        height: dims.h,
         zIndex: Z.selfView,
         border: `2px solid ${VIDEO_THEME.border}`,
         touchAction: 'none',
         transition: isDragging
           ? 'none'
-          : 'top 0.2s ease, bottom 0.2s ease, left 0.2s ease, right 0.2s ease, box-shadow 0.15s',
+          : 'top 0.2s ease, bottom 0.2s ease, left 0.2s ease, right 0.2s ease, width 0.15s ease, height 0.15s ease, box-shadow 0.15s',
         boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.35)' : '0 4px 12px rgba(0,0,0,0.2)',
       }}
       onPointerDown={onPointerDown}
@@ -96,6 +120,32 @@ export function LocalSelfView({
           <VideoOff className="h-5 w-5" style={{ color: VIDEO_THEME.textSubtle }} />
         </div>
       )}
+      {/* Resize controls — appear on hover so they don't clutter the tile. */}
+      <div
+        data-selfview-action
+        className="absolute top-1 left-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+      >
+        <button
+          data-selfview-action
+          onClick={onShrink}
+          disabled={size === 'sm'}
+          aria-label={shrinkLabel}
+          className={ctrlClass}
+          style={ctrlStyle}
+        >
+          <Minus className="h-3 w-3" />
+        </button>
+        <button
+          data-selfview-action
+          onClick={onEnlarge}
+          disabled={size === 'lg'}
+          aria-label={enlargeLabel}
+          className={ctrlClass}
+          style={ctrlStyle}
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      </div>
       <button
         data-selfview-action
         onClick={onHide}

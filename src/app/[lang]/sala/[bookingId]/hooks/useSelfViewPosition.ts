@@ -3,9 +3,13 @@
 import { useCallback, useRef, useState, type RefObject } from 'react'
 
 export type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+export type SelfViewSize = 'sm' | 'md' | 'lg'
+
+const SIZE_ORDER: SelfViewSize[] = ['sm', 'md', 'lg']
 
 const LS_KEY_CORNER = 'ee.sala.selfview.corner'
 const LS_KEY_HIDDEN = 'ee.sala.selfview.hidden'
+const LS_KEY_SIZE = 'ee.sala.selfview.size'
 
 // Pick the nearest corner given a release point relative to the stage element.
 function nearestCorner(x: number, y: number, width: number, height: number): Corner {
@@ -33,6 +37,15 @@ function readInitialHidden(): boolean {
   try { return window.localStorage.getItem(LS_KEY_HIDDEN) === 'true' } catch { return false }
 }
 
+function readInitialSize(): SelfViewSize {
+  if (typeof window === 'undefined') return 'md'
+  try {
+    const saved = window.localStorage.getItem(LS_KEY_SIZE)
+    if (saved === 'sm' || saved === 'md' || saved === 'lg') return saved
+  } catch { /* ignore */ }
+  return 'md'
+}
+
 // Caller owns the stage ref and passes it in — this keeps the ref out of
 // the hook's return object, which React Compiler flags as "accessing refs
 // during render" when destructured in the parent.
@@ -44,8 +57,21 @@ function readInitialHidden(): boolean {
 export function useSelfViewPosition(stageRef: RefObject<HTMLElement | null>) {
   const [corner, setCorner] = useState<Corner>(readInitialCorner)
   const [hidden, setHidden] = useState<boolean>(readInitialHidden)
+  const [size, setSizeState] = useState<SelfViewSize>(readInitialSize)
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef<{ x: number; y: number } | null>(null)
+
+  // Step the PiP through sm → md → lg (CALL-09). Persisted per-user.
+  const stepSize = useCallback((dir: 1 | -1) => {
+    setSizeState(prev => {
+      const i = SIZE_ORDER.indexOf(prev)
+      const next = SIZE_ORDER[Math.min(SIZE_ORDER.length - 1, Math.max(0, i + dir))]
+      try { window.localStorage.setItem(LS_KEY_SIZE, next) } catch { /* ignore */ }
+      return next
+    })
+  }, [])
+  const enlarge = useCallback(() => stepSize(1), [stepSize])
+  const shrink = useCallback(() => stepSize(-1), [stepSize])
 
   const persistCorner = useCallback((next: Corner) => {
     setCorner(next)
@@ -97,6 +123,9 @@ export function useSelfViewPosition(stageRef: RefObject<HTMLElement | null>) {
   return {
     corner,
     hidden,
+    size,
+    enlarge,
+    shrink,
     isDragging,
     show,
     hide,

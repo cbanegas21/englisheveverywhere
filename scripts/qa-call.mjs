@@ -56,6 +56,12 @@ try {
   await page.screenshot({ path: path.join(outDir, `${tag}-1-default.png`) })
   console.log('shot default')
 
+  // CALL-09 — resize the PiP up two steps (sm→md→lg from md = one step to lg).
+  await page.getByRole('button', { name: 'Más grande' }).click().catch(() => {})
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: path.join(outDir, `${tag}-1b-pip-large.png`) })
+  console.log('shot pip-large')
+
   // Open chat → the PiP must rest LEFT of the panel, fully visible (CALL-01).
   await chatBtn.click()
   await page.waitForTimeout(900)

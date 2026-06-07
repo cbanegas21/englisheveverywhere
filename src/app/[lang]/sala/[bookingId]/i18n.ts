@@ -11,7 +11,7 @@ type Strings = {
   you: string; teacher: string; student: string
   notes: string; notesPlaceholder: string; notesHint: string; saved: string; saving: string
   aiSummary: string; generatingSummary: string; covered: string; nextTopics: string; progressNote: string; noSummary: string
-  layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string
+  layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string; shrinkSelf: string; enlargeSelf: string
   chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
   shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
   deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
@@ -63,7 +63,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     noSummary: 'Summary not available for this session.',
 
     layoutSpeaker: 'Speaker view', layoutGrid: 'Side by side',
-    hideSelf: 'Hide self', showSelf: 'Show self',
+    hideSelf: 'Hide self', showSelf: 'Show self', shrinkSelf: 'Smaller', enlargeSelf: 'Bigger',
 
     chat: 'Chat', chatTitle: 'Class chat', chatClose: 'Close chat',
     chatEmpty: 'No messages yet. Say hi!',
@@ -132,7 +132,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     noSummary: 'Resumen no disponible para esta sesión.',
 
     layoutSpeaker: 'Vista presentador', layoutGrid: 'Lado a lado',
-    hideSelf: 'Ocultar mi video', showSelf: 'Mostrar mi video',
+    hideSelf: 'Ocultar mi video', showSelf: 'Mostrar mi video', shrinkSelf: 'Más pequeño', enlargeSelf: 'Más grande',
 
     chat: 'Chat', chatTitle: 'Chat del aula', chatClose: 'Cerrar chat',
     chatEmpty: 'Aún no hay mensajes. ¡Saluda!',
