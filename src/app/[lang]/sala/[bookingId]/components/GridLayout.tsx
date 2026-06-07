@@ -1,12 +1,12 @@
 'use client'
 
-import { VideoTrack } from '@livekit/components-react'
 import type { TrackReference } from '@livekit/components-react'
 import { VideoOff } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
 import { Avatar } from './Avatar'
+import { ParticipantVideo, TileLabel } from './ParticipantTile'
 
 interface Props {
   lang: Locale
@@ -15,6 +15,8 @@ interface Props {
   myName: string
   otherName: string
   isCameraOff: boolean
+  /** Control-bar height, so tile labels clear the overlaid controls. */
+  bottomInset?: number
 }
 
 // Two equal tiles side-by-side. Used when the user explicitly prefers the
@@ -26,6 +28,7 @@ export function GridLayout({
   myName,
   otherName,
   isCameraOff,
+  bottomInset = 0,
 }: Props) {
   return (
     <div
@@ -36,6 +39,7 @@ export function GridLayout({
         lang={lang}
         trackRef={remoteTrack}
         fallbackName={otherName}
+        bottomInset={bottomInset}
       />
       <Tile
         lang={lang}
@@ -43,6 +47,7 @@ export function GridLayout({
         fallbackName={myName}
         isLocal
         showCameraOffOverlay={isCameraOff}
+        bottomInset={bottomInset}
       />
     </div>
   )
@@ -54,45 +59,40 @@ function Tile({
   fallbackName,
   isLocal,
   showCameraOffOverlay,
+  bottomInset = 0,
 }: {
   lang: Locale
   trackRef: TrackReference | undefined
   fallbackName: string
   isLocal?: boolean
   showCameraOffOverlay?: boolean
+  bottomInset?: number
 }) {
   const tx = videoStrings(lang)
+  const youLabel = isLocal ? tx.you : undefined
+  const showVideo = trackRef && !showCameraOffOverlay
   return (
     <div
       className="relative rounded-xl overflow-hidden"
       style={{ background: VIDEO_THEME.surface }}
     >
-      {trackRef ? (
-        <VideoTrack trackRef={trackRef} className="w-full h-full object-cover" />
+      {showVideo ? (
+        <ParticipantVideo trackRef={trackRef} name={fallbackName} youLabel={youLabel} rounded bottomInset={bottomInset} />
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="mb-3">
-            <Avatar name={fallbackName} size="lg" />
+        <>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="mb-3">
+              <Avatar name={fallbackName} size="lg" />
+            </div>
+            {showCameraOffOverlay ? (
+              <VideoOff className="h-6 w-6" style={{ color: VIDEO_THEME.textSubtle }} />
+            ) : !isLocal ? (
+              <p className="text-sm" style={{ color: VIDEO_THEME.textSubtle }}>{tx.waitingOther}</p>
+            ) : null}
           </div>
-          {!isLocal && (
-            <p className="text-sm" style={{ color: VIDEO_THEME.textSubtle }}>{tx.waitingOther}</p>
-          )}
-        </div>
+          <TileLabel name={fallbackName} youLabel={youLabel} bottomInset={bottomInset} />
+        </>
       )}
-      {showCameraOffOverlay && (
-        <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ background: VIDEO_THEME.stage }}
-        >
-          <VideoOff className="h-6 w-6" style={{ color: VIDEO_THEME.textSubtle }} />
-        </div>
-      )}
-      <div
-        className="absolute bottom-2 left-2 px-2 py-1 rounded text-[11px] font-medium text-white"
-        style={{ background: 'rgba(0,0,0,0.55)' }}
-      >
-        {fallbackName}{isLocal ? ` · ${tx.you}` : ''}
-      </div>
     </div>
   )
 }

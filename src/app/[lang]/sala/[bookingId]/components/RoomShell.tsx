@@ -353,7 +353,7 @@ export function RoomShell({
           </>
         ) : layout.mode === 'speaker' ? (
           <>
-            <VideoTile lang={lang} trackRef={remoteTrack} fallbackName={otherName} />
+            <VideoTile lang={lang} trackRef={remoteTrack} fallbackName={otherName} bottomInset={selfViewBottomInset} />
             {!panelCoversStage && (!selfView.hidden ? (
               <LocalSelfView
                 trackRef={localTrack}
@@ -392,6 +392,7 @@ export function RoomShell({
             myName={myName}
             otherName={otherName}
             isCameraOff={isCameraOff}
+            bottomInset={selfViewBottomInset}
           />
         )}
         <ControlBar
