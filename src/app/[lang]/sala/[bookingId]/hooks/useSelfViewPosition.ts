@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, type RefObject } from 'react'
+import { useCallback, useRef, useState, type RefObject } from 'react'
 
 export type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
@@ -36,11 +36,16 @@ function readInitialHidden(): boolean {
 // Caller owns the stage ref and passes it in — this keeps the ref out of
 // the hook's return object, which React Compiler flags as "accessing refs
 // during render" when destructured in the parent.
+//
+// Drag uses a CSS `transform` translate (imperative, during the gesture only)
+// so the resting corner position can live entirely in the React style prop —
+// the parent layers panel/control-bar insets onto it without the drag handlers
+// fighting the inline `left/top` values (CALL-01 panel-aware placement).
 export function useSelfViewPosition(stageRef: RefObject<HTMLElement | null>) {
   const [corner, setCorner] = useState<Corner>(readInitialCorner)
   const [hidden, setHidden] = useState<boolean>(readInitialHidden)
   const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
+  const dragStart = useRef<{ x: number; y: number } | null>(null)
 
   const persistCorner = useCallback((next: Corner) => {
     setCorner(next)
@@ -59,49 +64,35 @@ export function useSelfViewPosition(stageRef: RefObject<HTMLElement | null>) {
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-selfview-action]')) return
-    const tile = e.currentTarget
-    const rect = tile.getBoundingClientRect()
-    setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    dragStart.current = { x: e.clientX, y: e.clientY }
     setIsDragging(true)
-    tile.setPointerCapture(e.pointerId)
+    e.currentTarget.setPointerCapture(e.pointerId)
   }, [])
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging || !dragOffset) return
-    const stage = stageRef.current
-    if (!stage) return
-    const stageRect = stage.getBoundingClientRect()
-    const tile = e.currentTarget
-    const x = e.clientX - stageRect.left - dragOffset.x
-    const y = e.clientY - stageRect.top - dragOffset.y
-    tile.style.left = `${x}px`
-    tile.style.top = `${y}px`
-    tile.style.right = 'auto'
-    tile.style.bottom = 'auto'
-  }, [isDragging, dragOffset, stageRef])
+    if (!dragStart.current) return
+    const dx = e.clientX - dragStart.current.x
+    const dy = e.clientY - dragStart.current.y
+    e.currentTarget.style.transform = `translate(${dx}px, ${dy}px)`
+  }, [])
 
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging) return
-    const stage = stageRef.current
-    if (!stage) {
-      setIsDragging(false)
-      setDragOffset(null)
-      return
-    }
-    const stageRect = stage.getBoundingClientRect()
-    const tile = e.currentTarget
-    const tileRect = tile.getBoundingClientRect()
-    const cx = tileRect.left - stageRect.left + tileRect.width / 2
-    const cy = tileRect.top - stageRect.top + tileRect.height / 2
-    const next = nearestCorner(cx, cy, stageRect.width, stageRect.height)
-    tile.style.left = ''
-    tile.style.top = ''
-    tile.style.right = ''
-    tile.style.bottom = ''
-    persistCorner(next)
+    if (!dragStart.current) return
+    dragStart.current = null
     setIsDragging(false)
-    setDragOffset(null)
-  }, [isDragging, persistCorner, stageRef])
+    const tile = e.currentTarget
+    const stage = stageRef.current
+    if (stage) {
+      // Read the rect BEFORE clearing the transform so the corner reflects
+      // where the user actually released the tile.
+      const stageRect = stage.getBoundingClientRect()
+      const tileRect = tile.getBoundingClientRect()
+      const cx = tileRect.left - stageRect.left + tileRect.width / 2
+      const cy = tileRect.top - stageRect.top + tileRect.height / 2
+      persistCorner(nearestCorner(cx, cy, stageRect.width, stageRect.height))
+    }
+    tile.style.transform = ''
+  }, [persistCorner, stageRef])
 
   return {
     corner,

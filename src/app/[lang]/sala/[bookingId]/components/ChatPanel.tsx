@@ -16,9 +16,12 @@ interface Props {
   chatMessages: ReceivedChatMessage[]
   send: (message: string) => Promise<ReceivedChatMessage>
   isSending: boolean
+  // px to leave clear at the bottom (control-bar height) so the panel never
+  // covers the Leave / settings controls (CALL-01).
+  bottomInset: number
 }
 
-export function ChatPanel({ lang, show, onClose, chatMessages, send, isSending }: Props) {
+export function ChatPanel({ lang, show, onClose, chatMessages, send, isSending, bottomInset }: Props) {
   const tx = videoStrings(lang)
   const { localParticipant } = useLocalParticipant()
   const [draft, setDraft] = useState('')
@@ -56,8 +59,8 @@ export function ChatPanel({ lang, show, onClose, chatMessages, send, isSending }
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
-          className="absolute top-0 bottom-0 right-0 z-30 w-[360px] flex flex-col"
-          style={{ background: VIDEO_THEME.surface, borderLeft: `1px solid ${VIDEO_THEME.border}` }}
+          className="absolute top-0 right-0 z-30 w-[360px] flex flex-col"
+          style={{ bottom: bottomInset, background: VIDEO_THEME.surface, borderLeft: `1px solid ${VIDEO_THEME.border}` }}
         >
           <header
             className="flex items-center justify-between px-4 py-3"

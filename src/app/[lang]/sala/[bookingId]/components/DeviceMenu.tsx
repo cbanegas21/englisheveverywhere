@@ -7,6 +7,7 @@ import { useMediaDeviceSelect } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
+import { Z } from '../zLayers'
 
 interface Props {
   lang: Locale
@@ -40,7 +41,8 @@ export function DeviceMenu({ lang, show, onClose }: Props) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="absolute inset-0 z-20"
+            className="absolute inset-0"
+            style={{ zIndex: Z.deviceMenu }}
           />
           <motion.div
             initial={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -49,8 +51,9 @@ export function DeviceMenu({ lang, show, onClose }: Props) {
             transition={{ duration: 0.18, ease: 'easeOut' }}
             role="dialog"
             aria-label={tx.deviceSettings}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-30 w-[340px] max-h-[60vh] overflow-y-auto rounded-2xl shadow-2xl"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 w-[340px] max-h-[60vh] overflow-y-auto rounded-2xl shadow-2xl"
             style={{
+              zIndex: Z.deviceMenu,
               background: 'rgba(18,20,24,0.98)',
               border: `1px solid ${VIDEO_THEME.border}`,
               backdropFilter: 'blur(8px)',

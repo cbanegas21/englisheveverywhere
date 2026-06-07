@@ -13,9 +13,12 @@ interface Props {
   sessionId: string | null
   show: boolean
   onClose: () => void
+  // px to leave clear at the bottom (control-bar height) so the panel never
+  // covers the Leave / settings controls (CALL-01).
+  bottomInset: number
 }
 
-export function NotesPanel({ lang, sessionId, show, onClose }: Props) {
+export function NotesPanel({ lang, sessionId, show, onClose, bottomInset }: Props) {
   const tx = videoStrings(lang)
   const [notes, setNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(true)
@@ -44,8 +47,9 @@ export function NotesPanel({ lang, sessionId, show, onClose }: Props) {
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-          className="fixed right-0 top-0 h-full w-80 z-30 flex flex-col"
+          className="fixed right-0 top-0 w-80 z-30 flex flex-col"
           style={{
+            bottom: bottomInset,
             background: VIDEO_THEME.stageOverlay,
             backdropFilter: 'blur(12px)',
             borderLeft: `1px solid ${VIDEO_THEME.border}`,

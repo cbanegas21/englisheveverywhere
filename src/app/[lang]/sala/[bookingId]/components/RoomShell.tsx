@@ -131,10 +131,16 @@ export function RoomShell({
   const [showWhiteboard, setShowWhiteboard] = useState(false)
   // Cuaderno is the editorial replacement for the prior TranscriptPanel —
   // a paper-cream notebook on the right with both AI vocab and raw
-  // transcript tabs. Defaults to ON; the control-bar toggle now collapses
-  // it (for small screens or when the student wants pure video focus).
-  const [showCuaderno, setShowCuaderno] = useState(true)
+  // transcript tabs. The control-bar toggle collapses it. Defaults ON on
+  // desktop, but OFF on narrow screens where its fixed 360px would otherwise
+  // crush the video stage (mobile = video focus).
+  const [showCuaderno, setShowCuaderno] = useState(
+    () => typeof window === 'undefined' || window.innerWidth >= 1024
+  )
   const [isCameraOff, setIsCameraOff] = useState(false)
+  // Measured control-bar height (wraps to 2 rows on narrow screens) so the PiP
+  // self-view always rests above it (CALL-08).
+  const [controlBarHeight, setControlBarHeight] = useState(96)
 
   // Whiteboard open/close is mirrored across peers via a lightweight control
   // channel. Without this, when the teacher toggled the board open, the
@@ -184,6 +190,12 @@ export function RoomShell({
     .slice(baselineCount)
     .filter((m) => m.from?.identity !== localParticipant.identity).length
 
+  // Keep the PiP self-view clear of an open right-side panel (chat 360 / notes
+  // 320) and of the control bar (CALL-01 / CALL-08). When both chat + notes are
+  // open, use the wider inset.
+  const selfViewRightInset = Math.max(showChat ? 360 : 0, showNotes ? 320 : 0)
+  const selfViewBottomInset = controlBarHeight
+
   // Leaving takes priority — show the branded "ending" screen even if
   // ConnectionState has transitioned away from Connected during disconnect.
   if (isLeaving) {
@@ -227,6 +239,8 @@ export function RoomShell({
                 isCameraOff={isCameraOff}
                 corner={selfView.corner}
                 isDragging={selfView.isDragging}
+                rightInset={selfViewRightInset}
+                bottomInset={selfViewBottomInset}
                 hideLabel={tx.hideSelf}
                 onHide={selfView.hide}
                 onPointerDown={selfView.onPointerDown}
@@ -234,7 +248,12 @@ export function RoomShell({
                 onPointerUp={selfView.onPointerUp}
               />
             ) : (
-              <SelfViewPill label={tx.showSelf} onShow={selfView.show} />
+              <SelfViewPill
+                label={tx.showSelf}
+                rightInset={selfViewRightInset}
+                bottomInset={selfViewBottomInset}
+                onShow={selfView.show}
+              />
             )}
           </>
         ) : layout.mode === 'speaker' ? (
@@ -247,6 +266,8 @@ export function RoomShell({
                 isCameraOff={isCameraOff}
                 corner={selfView.corner}
                 isDragging={selfView.isDragging}
+                rightInset={selfViewRightInset}
+                bottomInset={selfViewBottomInset}
                 hideLabel={tx.hideSelf}
                 onHide={selfView.hide}
                 onPointerDown={selfView.onPointerDown}
@@ -254,7 +275,12 @@ export function RoomShell({
                 onPointerUp={selfView.onPointerUp}
               />
             ) : (
-              <SelfViewPill label={tx.showSelf} onShow={selfView.show} />
+              <SelfViewPill
+                label={tx.showSelf}
+                rightInset={selfViewRightInset}
+                bottomInset={selfViewBottomInset}
+                onShow={selfView.show}
+              />
             )}
           </>
         ) : (
@@ -286,6 +312,7 @@ export function RoomShell({
           onToggleWhiteboard={toggleWhiteboard}
           showTranscript={showCuaderno}
           onToggleTranscript={() => setShowCuaderno(p => !p)}
+          onHeightChange={setControlBarHeight}
         />
         {isTeacher && (
           <NotesPanel
@@ -293,6 +320,7 @@ export function RoomShell({
             sessionId={sessionId}
             show={showNotes}
             onClose={() => setShowNotes(false)}
+            bottomInset={selfViewBottomInset}
           />
         )}
         <ChatPanel
@@ -302,6 +330,7 @@ export function RoomShell({
           chatMessages={chatMessages}
           send={send}
           isSending={isSending}
+          bottomInset={selfViewBottomInset}
         />
         <DeviceMenu
           lang={lang}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Mic, MicOff, Video, VideoOff, PhoneOff, FileText, LogOut, LayoutGrid, Maximize2, MessageSquare, MonitorUp, MonitorX, Settings2, PenSquare, Captions } from 'lucide-react'
 import { useTrackToggle } from '@livekit/components-react'
@@ -28,6 +28,9 @@ interface Props {
   onToggleWhiteboard: () => void
   showTranscript: boolean
   onToggleTranscript: () => void
+  // Reports the bar's rendered height (it wraps to 2 rows on narrow screens) so
+  // the parent can keep the self-view PiP clear of it (CALL-08).
+  onHeightChange?: (height: number) => void
 }
 
 export function ControlBar({
@@ -49,8 +52,22 @@ export function ControlBar({
   onToggleWhiteboard,
   showTranscript,
   onToggleTranscript,
+  onHeightChange,
 }: Props) {
   const tx = videoStrings(lang)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Report height changes (button row wraps on narrow viewports) so the parent
+  // keeps the PiP self-view above the bar.
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el || !onHeightChange) return
+    const report = () => onHeightChange(el.offsetHeight)
+    report()
+    const ro = new ResizeObserver(report)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [onHeightChange])
   // Derive mic/camera state from LiveKit (not local useState) so an external
   // mute — network blip, permission change, future admin mute — stays in sync
   // with the button labels. Audit EK-020.
@@ -75,6 +92,7 @@ export function ControlBar({
 
   return (
     <div
+      ref={rootRef}
       className="absolute bottom-0 left-0 right-0 flex flex-wrap items-center justify-center gap-2 sm:gap-4 px-2 py-5 backdrop-blur-sm z-20"
       style={{ background: 'rgba(0,0,0,0.60)', borderTop: `1px solid ${VIDEO_THEME.border}` }}
     >

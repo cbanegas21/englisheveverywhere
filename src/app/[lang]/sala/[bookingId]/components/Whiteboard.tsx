@@ -8,6 +8,7 @@ import { useDataChannel } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
+import { Z } from '../zLayers'
 import type { Editor, HistoryEntry, TLRecord } from 'tldraw'
 import 'tldraw/tldraw.css'
 
@@ -74,8 +75,8 @@ export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          className="absolute inset-0 z-30"
-          style={{ background: VIDEO_THEME.stage }}
+          className="absolute inset-0"
+          style={{ background: VIDEO_THEME.stage, zIndex: Z.whiteboard }}
         >
           <div className="absolute inset-0 pt-14">
             <Tldraw
