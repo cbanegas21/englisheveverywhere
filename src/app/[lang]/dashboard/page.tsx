@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import StudentDashboardClient from './StudentDashboardClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -62,7 +63,8 @@ export default async function StudentDashboardPage({ params }: Props) {
     .eq('student_id', student?.id || '')
     .eq('type', 'class')
     .in('status', ['confirmed', 'pending'])
-    .gte('scheduled_at', new Date().toISOString())
+    // Keep live / just-started classes visible so the Join button stays reachable.
+    .gte('scheduled_at', activeBookingCutoffIso())
     .order('scheduled_at', { ascending: true })
     .limit(5)
 

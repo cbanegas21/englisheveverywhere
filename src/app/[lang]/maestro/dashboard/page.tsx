@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import TeacherDashboardClient from './TeacherDashboardClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -30,7 +31,8 @@ export default async function TeacherDashboardPage({ params }: Props) {
     `)
     .eq('teacher_id', teacher?.id || '')
     .in('status', ['confirmed', 'pending'])
-    .gte('scheduled_at', new Date().toISOString())
+    // Keep live / just-started sessions visible so the teacher can still join.
+    .gte('scheduled_at', activeBookingCutoffIso())
     .order('scheduled_at', { ascending: true })
     .limit(5)
 

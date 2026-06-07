@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import AgendaClient from './AgendaClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -34,9 +35,9 @@ export default async function AgendaPage({ params }: Props) {
     .gte('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: true })
 
-  // Fetch confirmed upcoming. Include bookings that started up to 2h ago
-  // so teachers can still see / rejoin an in-progress session.
-  const recentCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  // Fetch confirmed upcoming. Include recently-started bookings so teachers can
+  // still see / rejoin an in-progress session (shared with the other surfaces).
+  const recentCutoff = activeBookingCutoffIso()
   const { data: confirmedBookings } = await supabase
     .from('bookings')
     .select(`

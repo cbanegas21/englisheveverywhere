@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import ClasesClient from './ClasesClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -35,7 +36,9 @@ export default async function ClasesPage({ params }: Props) {
     .select(`id, scheduled_at, duration_minutes, status, type, teacher_id, teacher:teachers(profile:profiles(full_name, avatar_url))`)
     .eq('student_id', studentId)
     .in('status', ['confirmed', 'pending'])
-    .gte('scheduled_at', new Date().toISOString())
+    // Keep live / just-started classes in the list (don't drop them the instant
+    // their start time passes) so the Join button stays reachable.
+    .gte('scheduled_at', activeBookingCutoffIso())
     .order('scheduled_at', { ascending: true })
     .limit(20)
 
