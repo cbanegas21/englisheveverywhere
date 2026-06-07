@@ -49,7 +49,7 @@ const T = {
     upgrade: 'Upgrade',
     downgrade: 'Downgrade',
     current: '✓ Current plan',
-    plans: { spark: 'Spark', drive: 'Drive', ascent: 'Ascent', peak: 'Peak' } as Record<string, string>,
+    plans: { spark: 'Departure', drive: 'Journey', ascent: 'Ascent', peak: 'Summit' } as Record<string, string>,
     tags: {
       spark: 'Start the habit',
       drive: 'A month of consistency',
@@ -121,7 +121,7 @@ const T = {
     upgrade: 'Mejorar',
     downgrade: 'Bajar',
     current: '✓ Plan actual',
-    plans: { spark: 'Chispa', drive: 'Impulso', ascent: 'Ascenso', peak: 'Cima' } as Record<string, string>,
+    plans: { spark: 'Partida', drive: 'Trayecto', ascent: 'Ascenso', peak: 'Cumbre' } as Record<string, string>,
     tags: {
       spark: 'Empieza el hábito',
       drive: 'Un mes de constancia',

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
-import { PRICING_MAP, type PricingPlanKey } from '@/lib/pricing'
+import { PRICING_MAP, planName, type PricingPlanKey } from '@/lib/pricing'
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import { StatLedger } from '@/components/ui/StatLedger'
 
@@ -190,6 +190,7 @@ export default function ProgresoClient({
   const accent = 'var(--ek-red)'
   const activeIndex = level ? CEFR_LEVELS.indexOf(level as CefrLevel) : -1
   const planInfo = currentPlan ? PRICING_MAP[currentPlan as PricingPlanKey] : null
+  const planLabel = currentPlan ? planName(currentPlan, lang) : null
   const planTotal = planInfo?.classes ?? 0
   const planProgress = planTotal > 0 ? Math.min(100, (completedThisMonth / planTotal) * 100) : 0
 
@@ -674,7 +675,7 @@ export default function ProgresoClient({
               {planInfo ? (
                 <>
                   <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ek-text)', letterSpacing: '-0.02em' }}>
-                    {planInfo.name}
+                    {planLabel}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 4, marginBottom: 16 }}>
                     {planTotal} {tx.classesTotal}
