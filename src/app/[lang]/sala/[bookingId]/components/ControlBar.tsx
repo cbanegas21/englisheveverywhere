@@ -228,7 +228,12 @@ export function ControlBar({
     <div
       ref={rootRef}
       className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-center gap-1.5 px-3 py-4 backdrop-blur-md sm:gap-2"
-      style={{ background: 'rgba(10,12,15,0.72)', borderTop: `1px solid ${VIDEO_THEME.border}` }}
+      style={{
+        background: 'rgba(10,12,15,0.72)',
+        borderTop: `1px solid ${VIDEO_THEME.border}`,
+        // Clear the iOS home-indicator gesture bar on phones.
+        paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+      }}
     >
       {/* Media group */}
       {media.map((t) => (

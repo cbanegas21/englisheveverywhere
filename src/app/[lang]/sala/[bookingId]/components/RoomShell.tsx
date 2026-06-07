@@ -144,6 +144,9 @@ export function RoomShell({
   // Desktop renders the cuaderno as a 360px right rail; below 1024px it docks as
   // a bottom-sheet over the stage so the AI-vocab notebook survives on phones.
   const isDesktopCuaderno = useMediaQuery('(min-width: 1024px)', true)
+  // Phone-width: the self-view PiP clamps to its small size and a full-width
+  // panel hides it (rather than shoving it off-screen / over the panel input).
+  const isCompact = useMediaQuery('(max-width: 639px)', false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   // Measured control-bar height (wraps to 2 rows on narrow screens) so the PiP
   // self-view always rests above it (CALL-08).
@@ -245,8 +248,14 @@ export function RoomShell({
   // Keep the PiP self-view clear of an open right-side panel (chat 360 / notes
   // 320) and of the control bar (CALL-01 / CALL-08). When both chat + notes are
   // open, use the wider inset.
-  const selfViewRightInset = Math.max(showChat ? 360 : 0, showNotes ? 320 : 0)
+  const selfViewRightInset = isCompact ? 0 : Math.max(showChat ? 360 : 0, showNotes ? 320 : 0)
   const selfViewBottomInset = controlBarHeight
+  // On phones a full-width panel covers the stage — hide the PiP instead of
+  // floating it over the panel's input. Clamp the PiP to small on phones too
+  // (md/lg would eat a third of the screen) without overwriting the stored size.
+  const panelCoversStage = isCompact && (showChat || showNotes)
+  const effectiveSelfSize = isCompact ? 'sm' : selfView.size
+  const effectiveRemoteSize = isCompact ? 'sm' : remoteView.size
 
   // Leaving takes priority — show the branded "ending" screen even if
   // ConnectionState has transitioned away from Connected during disconnect.
@@ -285,14 +294,15 @@ export function RoomShell({
         {activeShareTrack ? (
           <>
             <ScreenShareView lang={lang} shareTrack={activeShareTrack} />
-            {!selfView.hidden ? (
+            {!panelCoversStage && (!selfView.hidden ? (
               <LocalSelfView
                 trackRef={localTrack}
                 myName={myName}
                 isCameraOff={isCameraOff}
                 corner={selfView.corner}
                 isDragging={selfView.isDragging}
-                size={selfView.size}
+                size={effectiveSelfSize}
+                isCompact={isCompact}
                 rightInset={selfViewRightInset}
                 bottomInset={selfViewBottomInset}
                 hideLabel={tx.hideSelf}
@@ -312,17 +322,18 @@ export function RoomShell({
                 bottomInset={selfViewBottomInset}
                 onShow={selfView.show}
               />
-            )}
+            ))}
             {/* Remote face PiP — only while screen-sharing, so you keep seeing
                 them over the shared screen. Hide-able + resizable independently. */}
-            {remoteTrack && (!remoteView.hidden ? (
+            {!panelCoversStage && remoteTrack && (!remoteView.hidden ? (
               <LocalSelfView
                 trackRef={remoteTrack}
                 myName={otherName}
                 isCameraOff={false}
                 corner={remoteView.corner}
                 isDragging={remoteView.isDragging}
-                size={remoteView.size}
+                size={effectiveRemoteSize}
+                isCompact={isCompact}
                 rightInset={selfViewRightInset}
                 bottomInset={selfViewBottomInset}
                 hideLabel={tx.hideTheirs}
@@ -348,14 +359,15 @@ export function RoomShell({
         ) : layout.mode === 'speaker' ? (
           <>
             <VideoTile lang={lang} trackRef={remoteTrack} fallbackName={otherName} />
-            {!selfView.hidden ? (
+            {!panelCoversStage && (!selfView.hidden ? (
               <LocalSelfView
                 trackRef={localTrack}
                 myName={myName}
                 isCameraOff={isCameraOff}
                 corner={selfView.corner}
                 isDragging={selfView.isDragging}
-                size={selfView.size}
+                size={effectiveSelfSize}
+                isCompact={isCompact}
                 rightInset={selfViewRightInset}
                 bottomInset={selfViewBottomInset}
                 hideLabel={tx.hideSelf}
@@ -375,7 +387,7 @@ export function RoomShell({
                 bottomInset={selfViewBottomInset}
                 onShow={selfView.show}
               />
-            )}
+            ))}
           </>
         ) : (
           <GridLayout

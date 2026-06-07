@@ -15,6 +15,9 @@ interface Props {
   corner: Corner
   isDragging: boolean
   size: SelfViewSize
+  // On phones there's no hover and the tile is clamped small, so the resize +/-
+  // controls are dropped and the close button is enlarged + always visible.
+  isCompact?: boolean
   // px to inset from the right edge when a side panel (chat/notes) is open, so
   // the PiP rests left of the panel instead of behind it (CALL-01).
   rightInset: number
@@ -69,6 +72,7 @@ export function LocalSelfView({
   corner,
   isDragging,
   size,
+  isCompact = false,
   rightInset,
   bottomInset,
   hideLabel,
@@ -120,40 +124,43 @@ export function LocalSelfView({
           <VideoOff className="h-5 w-5" style={{ color: VIDEO_THEME.textSubtle }} />
         </div>
       )}
-      {/* Resize controls — appear on hover so they don't clutter the tile. */}
-      <div
-        data-selfview-action
-        className="absolute top-1 left-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
-      >
-        <button
+      {/* Resize controls — hover-revealed on desktop; dropped on phones where the
+          tile is clamped to its small size and there is no hover. */}
+      {!isCompact && (
+        <div
           data-selfview-action
-          onClick={onShrink}
-          disabled={size === 'sm'}
-          aria-label={shrinkLabel}
-          className={ctrlClass}
-          style={ctrlStyle}
+          className="absolute top-1 left-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
         >
-          <Minus className="h-3 w-3" />
-        </button>
-        <button
-          data-selfview-action
-          onClick={onEnlarge}
-          disabled={size === 'lg'}
-          aria-label={enlargeLabel}
-          className={ctrlClass}
-          style={ctrlStyle}
-        >
-          <Plus className="h-3 w-3" />
-        </button>
-      </div>
+          <button
+            data-selfview-action
+            onClick={onShrink}
+            disabled={size === 'sm'}
+            aria-label={shrinkLabel}
+            className={ctrlClass}
+            style={ctrlStyle}
+          >
+            <Minus className="h-3 w-3" />
+          </button>
+          <button
+            data-selfview-action
+            onClick={onEnlarge}
+            disabled={size === 'lg'}
+            aria-label={enlargeLabel}
+            className={ctrlClass}
+            style={ctrlStyle}
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
+      )}
       <button
         data-selfview-action
         onClick={onHide}
         aria-label={hideLabel}
-        className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full text-white transition-opacity"
+        className={`absolute right-1 top-1 flex items-center justify-center rounded-full text-white transition-opacity ${isCompact ? 'h-7 w-7' : 'h-6 w-6'}`}
         style={{ background: 'rgba(0,0,0,0.55)' }}
       >
-        <X className="h-3 w-3" />
+        <X className={isCompact ? 'h-4 w-4' : 'h-3 w-3'} />
       </button>
     </div>
   )
