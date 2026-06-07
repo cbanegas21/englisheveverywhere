@@ -53,8 +53,9 @@ try {
 
   await page.getByRole('button', { name: 'Compartir pantalla' }).click().catch(() => {})
   await page.waitForTimeout(3500)
-  // share is active if the button flipped to "Dejar de compartir"
-  shareActive = await page.getByRole('button', { name: 'Dejar de compartir' }).isVisible().catch(() => false)
+  // share is active if a "Dejar de compartir" control appears (control bar +
+  // the presenter badge both expose one now, so match the first).
+  shareActive = await page.getByRole('button', { name: 'Dejar de compartir' }).first().isVisible().catch(() => false)
   await page.screenshot({ path: path.join(outDir, 'share-layout.png') })
   console.log('screen-share activated:', shareActive)
 } finally {

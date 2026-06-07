@@ -14,7 +14,7 @@ type Strings = {
   layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string; shrinkSelf: string; enlargeSelf: string; hideTheirs: string; showTheirs: string
   reactions: string; raiseHand: string; lowerHand: string; more: string
   chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
-  shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
+  shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string; youSharing: string
   deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
   whiteboard: string; whiteboardTitle: string; whiteboardClose: string; whiteboardLoading: string
   whiteboardZoomIn: string; whiteboardZoomOut: string; whiteboardRecenter: string
@@ -75,6 +75,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
 
     shareScreen: 'Share screen', stopSharing: 'Stop sharing',
     sharingPrefix: '', sharingSuffix: 'is sharing their screen',
+    youSharing: "You're sharing your screen",
 
     deviceSettings: 'Audio & video settings',
     microphone: 'Microphone', camera: 'Camera', speaker: 'Speaker',
@@ -148,6 +149,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
 
     shareScreen: 'Compartir pantalla', stopSharing: 'Dejar de compartir',
     sharingPrefix: '', sharingSuffix: 'está compartiendo la pantalla',
+    youSharing: 'Estás compartiendo tu pantalla',
 
     deviceSettings: 'Ajustes de audio y video',
     microphone: 'Micrófono', camera: 'Cámara', speaker: 'Altavoz',
