@@ -8,7 +8,7 @@ type Strings = {
   endClass: string; leave: string; endingSession: string
   sessionEnded: string; sessionEndedSub: string; studentEndedSub: string; returnDashboard: string
   devMode: string; errorTitle: string; retry: string
-  you: string; teacher: string; student: string
+  you: string; teacher: string; student: string; close: string
   notes: string; notesPlaceholder: string; notesHint: string; saved: string; saving: string
   aiSummary: string; generatingSummary: string; covered: string; nextTopics: string; progressNote: string; noSummary: string
   layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string; shrinkSelf: string; enlargeSelf: string; hideTheirs: string; showTheirs: string
@@ -49,7 +49,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     devMode: 'Development mode — LiveKit credentials not configured',
     errorTitle: 'Could not connect', retry: 'Retry',
 
-    you: 'You', teacher: 'Teacher', student: 'Student',
+    you: 'You', teacher: 'Teacher', student: 'Student', close: 'Close',
 
     notes: 'Class Notes',
     notesPlaceholder:
@@ -122,7 +122,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     devMode: 'Modo desarrollo — credenciales de LiveKit no configuradas',
     errorTitle: 'No se pudo conectar', retry: 'Reintentar',
 
-    you: 'Tú', teacher: 'Maestro', student: 'Estudiante',
+    you: 'Tú', teacher: 'Maestro', student: 'Estudiante', close: 'Cerrar',
 
     notes: 'Notas de Clase',
     notesPlaceholder:

@@ -19,6 +19,10 @@ export const VIDEO_THEME = {
   surface: 'rgba(255,255,255,0.06)',
   surfaceHover: 'rgba(255,255,255,0.12)',
   border: 'rgba(255,255,255,0.08)',
+
+  // Unified frosted side-panel surface — chat + notes share it (one glass
+  // family); the cuaderno stays cream as the deliberate editorial counterpoint.
+  panelGlass: 'rgba(18,20,24,0.72)',
   textMuted: 'rgba(255,255,255,0.55)',
   textSubtle: 'rgba(255,255,255,0.35)',
 
