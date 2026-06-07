@@ -86,6 +86,9 @@ function LoginForm({ lang }: { lang: Locale }) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     fd.set('lang', lang)
+    // Carry the post-login destination (e.g. a /sala room join link, CALL-13).
+    const next = searchParams.get('next')
+    if (next) fd.set('next', next)
     startTransition(() => signIn(fd))
   }
 
@@ -93,10 +96,12 @@ function LoginForm({ lang }: { lang: Locale }) {
     setOauthError('')
     setOauthLoading(provider)
     const supabase = createClient()
+    const next = searchParams.get('next')
+    const callback = `${window.location.origin}/${lang}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/${lang}/auth/callback`,
+        redirectTo: callback,
         ...(provider === 'azure' && { scopes: 'email' }),
       },
     })

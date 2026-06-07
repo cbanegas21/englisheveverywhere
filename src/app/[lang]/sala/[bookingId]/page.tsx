@@ -12,7 +12,12 @@ export default async function VideoRoomPage({ params }: Props) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/${lang}/login`)
+  // Preserve the room as the post-login destination so an email/SMS join link
+  // lands the user straight in the call after they sign in (CALL-13).
+  if (!user) {
+    const next = encodeURIComponent(`/${lang}/sala/${bookingId}`)
+    redirect(`/${lang}/login?next=${next}`)
+  }
 
   // Fetch booking with participants
   const { data: booking } = await supabase

@@ -8,6 +8,7 @@ import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 import { brandedEmail } from '@/lib/email'
+import { safeNextPath } from '@/lib/safeNext'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
 // Layout guards remain the source of truth — cookie staleness never grants access.
@@ -160,6 +161,9 @@ export async function signIn(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const lang = (formData.get('lang') as string) || 'es'
+  // Optional post-login destination (e.g. a /sala room join link, CALL-13).
+  // Validated to a same-origin locale path to prevent open redirects.
+  const next = safeNextPath(formData.get('next') as string | null)
 
   // Per-IP rate limit — 10 login attempts per 15 min. Protects against
   // credential-stuffing; a real user fat-fingering never hits 10.
@@ -192,6 +196,10 @@ export async function signIn(formData: FormData) {
     cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
   }
 
+  // A validated join link wins over the default role landing page.
+  if (next) {
+    redirect(next)
+  }
   if (role === 'teacher') {
     redirect(`/${lang}/maestro/dashboard`)
   }
