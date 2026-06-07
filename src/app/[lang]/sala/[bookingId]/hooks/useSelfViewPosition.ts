@@ -7,10 +7,6 @@ export type SelfViewSize = 'sm' | 'md' | 'lg'
 
 const SIZE_ORDER: SelfViewSize[] = ['sm', 'md', 'lg']
 
-const LS_KEY_CORNER = 'ee.sala.selfview.corner'
-const LS_KEY_HIDDEN = 'ee.sala.selfview.hidden'
-const LS_KEY_SIZE = 'ee.sala.selfview.size'
-
 // Pick the nearest corner given a release point relative to the stage element.
 function nearestCorner(x: number, y: number, width: number, height: number): Corner {
   const top = y < height / 2
@@ -21,29 +17,37 @@ function nearestCorner(x: number, y: number, width: number, height: number): Cor
   return 'bottom-right'
 }
 
-function readInitialCorner(): Corner {
-  if (typeof window === 'undefined') return 'bottom-right'
+function readCorner(prefix: string, fallback: Corner): Corner {
+  if (typeof window === 'undefined') return fallback
   try {
-    const saved = window.localStorage.getItem(LS_KEY_CORNER)
+    const saved = window.localStorage.getItem(`${prefix}.corner`)
     if (saved === 'top-left' || saved === 'top-right' || saved === 'bottom-left' || saved === 'bottom-right') {
       return saved
     }
   } catch { /* ignore */ }
-  return 'bottom-right'
+  return fallback
 }
 
-function readInitialHidden(): boolean {
+function readHidden(prefix: string): boolean {
   if (typeof window === 'undefined') return false
-  try { return window.localStorage.getItem(LS_KEY_HIDDEN) === 'true' } catch { return false }
+  try { return window.localStorage.getItem(`${prefix}.hidden`) === 'true' } catch { return false }
 }
 
-function readInitialSize(): SelfViewSize {
+function readSize(prefix: string): SelfViewSize {
   if (typeof window === 'undefined') return 'md'
   try {
-    const saved = window.localStorage.getItem(LS_KEY_SIZE)
+    const saved = window.localStorage.getItem(`${prefix}.size`)
     if (saved === 'sm' || saved === 'md' || saved === 'lg') return saved
   } catch { /* ignore */ }
   return 'md'
+}
+
+interface Options {
+  /** localStorage key prefix — distinct per tile so the local + remote PiPs
+   *  (CALL-10) persist independently. Defaults to the self-view tile. */
+  keyPrefix?: string
+  /** Corner used when nothing is persisted yet. */
+  defaultCorner?: Corner
 }
 
 // Caller owns the stage ref and passes it in — this keeps the ref out of
@@ -54,10 +58,13 @@ function readInitialSize(): SelfViewSize {
 // so the resting corner position can live entirely in the React style prop —
 // the parent layers panel/control-bar insets onto it without the drag handlers
 // fighting the inline `left/top` values (CALL-01 panel-aware placement).
-export function useSelfViewPosition(stageRef: RefObject<HTMLElement | null>) {
-  const [corner, setCorner] = useState<Corner>(readInitialCorner)
-  const [hidden, setHidden] = useState<boolean>(readInitialHidden)
-  const [size, setSizeState] = useState<SelfViewSize>(readInitialSize)
+export function useSelfViewPosition(stageRef: RefObject<HTMLElement | null>, options: Options = {}) {
+  const prefix = options.keyPrefix ?? 'ee.sala.selfview'
+  const fallbackCorner = options.defaultCorner ?? 'bottom-right'
+
+  const [corner, setCorner] = useState<Corner>(() => readCorner(prefix, fallbackCorner))
+  const [hidden, setHidden] = useState<boolean>(() => readHidden(prefix))
+  const [size, setSizeState] = useState<SelfViewSize>(() => readSize(prefix))
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef<{ x: number; y: number } | null>(null)
 
@@ -66,27 +73,27 @@ export function useSelfViewPosition(stageRef: RefObject<HTMLElement | null>) {
     setSizeState(prev => {
       const i = SIZE_ORDER.indexOf(prev)
       const next = SIZE_ORDER[Math.min(SIZE_ORDER.length - 1, Math.max(0, i + dir))]
-      try { window.localStorage.setItem(LS_KEY_SIZE, next) } catch { /* ignore */ }
+      try { window.localStorage.setItem(`${prefix}.size`, next) } catch { /* ignore */ }
       return next
     })
-  }, [])
+  }, [prefix])
   const enlarge = useCallback(() => stepSize(1), [stepSize])
   const shrink = useCallback(() => stepSize(-1), [stepSize])
 
   const persistCorner = useCallback((next: Corner) => {
     setCorner(next)
-    try { window.localStorage.setItem(LS_KEY_CORNER, next) } catch { /* ignore */ }
-  }, [])
+    try { window.localStorage.setItem(`${prefix}.corner`, next) } catch { /* ignore */ }
+  }, [prefix])
 
   const show = useCallback(() => {
     setHidden(false)
-    try { window.localStorage.setItem(LS_KEY_HIDDEN, 'false') } catch { /* ignore */ }
-  }, [])
+    try { window.localStorage.setItem(`${prefix}.hidden`, 'false') } catch { /* ignore */ }
+  }, [prefix])
 
   const hide = useCallback(() => {
     setHidden(true)
-    try { window.localStorage.setItem(LS_KEY_HIDDEN, 'true') } catch { /* ignore */ }
-  }, [])
+    try { window.localStorage.setItem(`${prefix}.hidden`, 'true') } catch { /* ignore */ }
+  }, [prefix])
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-selfview-action]')) return

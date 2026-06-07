@@ -213,6 +213,10 @@ export function RoomShell({
   const layout = useRoomLayout()
   const stageRef = useRef<HTMLDivElement | null>(null)
   const selfView = useSelfViewPosition(stageRef)
+  // Second PiP for the remote camera, shown during screen-share so both faces
+  // stay visible over the shared screen (CALL-10). Independent position/size/
+  // hidden state (own localStorage prefix); defaults to the opposite corner.
+  const remoteView = useSelfViewPosition(stageRef, { keyPrefix: 'ee.sala.remoteview', defaultCorner: 'bottom-left' })
 
   // Chat + unread counter. Unread = messages that arrived while the panel
   // was closed. Opening the panel resets the baseline to the current count.
@@ -302,6 +306,37 @@ export function RoomShell({
                 onShow={selfView.show}
               />
             )}
+            {/* Remote face PiP — only while screen-sharing, so you keep seeing
+                them over the shared screen. Hide-able + resizable independently. */}
+            {remoteTrack && (!remoteView.hidden ? (
+              <LocalSelfView
+                trackRef={remoteTrack}
+                myName={otherName}
+                isCameraOff={false}
+                corner={remoteView.corner}
+                isDragging={remoteView.isDragging}
+                size={remoteView.size}
+                rightInset={selfViewRightInset}
+                bottomInset={selfViewBottomInset}
+                hideLabel={tx.hideTheirs}
+                shrinkLabel={tx.shrinkSelf}
+                enlargeLabel={tx.enlargeSelf}
+                onHide={remoteView.hide}
+                onShrink={remoteView.shrink}
+                onEnlarge={remoteView.enlarge}
+                onPointerDown={remoteView.onPointerDown}
+                onPointerMove={remoteView.onPointerMove}
+                onPointerUp={remoteView.onPointerUp}
+              />
+            ) : (
+              <SelfViewPill
+                label={tx.showTheirs}
+                side="left"
+                rightInset={selfViewRightInset}
+                bottomInset={selfViewBottomInset}
+                onShow={remoteView.show}
+              />
+            ))}
           </>
         ) : layout.mode === 'speaker' ? (
           <>

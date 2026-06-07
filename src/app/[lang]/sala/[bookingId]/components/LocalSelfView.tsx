@@ -163,23 +163,27 @@ interface PillProps {
   label: string
   rightInset: number
   bottomInset: number
+  /** Which bottom corner to dock in — lets a second (remote) pill sit clear of
+   *  the local one (CALL-10). Defaults to right. */
+  side?: 'left' | 'right'
   onShow: () => void
 }
 
-// Collapsed pill shown when self-view is hidden. Click to restore. Sits in the
-// bottom-right, clear of an open side panel + the control bar.
-export function SelfViewPill({ label, rightInset, bottomInset, onShow }: PillProps) {
+// Collapsed pill shown when a camera is hidden. Click to restore. Docks in a
+// bottom corner, clear of an open side panel + the control bar.
+export function SelfViewPill({ label, rightInset, bottomInset, side = 'right', onShow }: PillProps) {
+  const horizontal = side === 'left' ? { left: MARGIN } : { right: MARGIN + rightInset }
   return (
     <button
       onClick={onShow}
       aria-label={label}
       className="absolute flex items-center gap-2 rounded-full px-3 py-2 text-xs font-medium text-white shadow-lg transition-colors"
       style={{
-        right: MARGIN + rightInset,
+        ...horizontal,
         bottom: MARGIN + bottomInset,
         zIndex: Z.selfView,
         background: VIDEO_THEME.brand,
-        transition: 'right 0.2s ease, bottom 0.2s ease, background 0.15s',
+        transition: 'right 0.2s ease, left 0.2s ease, bottom 0.2s ease, background 0.15s',
       }}
       onMouseEnter={e => { e.currentTarget.style.background = VIDEO_THEME.brandHover }}
       onMouseLeave={e => { e.currentTarget.style.background = VIDEO_THEME.brand }}

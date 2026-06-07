@@ -11,7 +11,7 @@ type Strings = {
   you: string; teacher: string; student: string
   notes: string; notesPlaceholder: string; notesHint: string; saved: string; saving: string
   aiSummary: string; generatingSummary: string; covered: string; nextTopics: string; progressNote: string; noSummary: string
-  layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string; shrinkSelf: string; enlargeSelf: string
+  layoutSpeaker: string; layoutGrid: string; hideSelf: string; showSelf: string; shrinkSelf: string; enlargeSelf: string; hideTheirs: string; showTheirs: string
   reactions: string; raiseHand: string; lowerHand: string
   chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
   shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string
@@ -65,7 +65,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     noSummary: 'Summary not available for this session.',
 
     layoutSpeaker: 'Speaker view', layoutGrid: 'Side by side',
-    hideSelf: 'Hide self', showSelf: 'Show self', shrinkSelf: 'Smaller', enlargeSelf: 'Bigger',
+    hideSelf: 'Hide self', showSelf: 'Show self', shrinkSelf: 'Smaller', enlargeSelf: 'Bigger', hideTheirs: 'Hide their camera', showTheirs: 'Show their camera',
     reactions: 'Reactions', raiseHand: 'Raise hand', lowerHand: 'Lower hand',
 
     chat: 'Chat', chatTitle: 'Class chat', chatClose: 'Close chat',
@@ -138,7 +138,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     noSummary: 'Resumen no disponible para esta sesión.',
 
     layoutSpeaker: 'Vista presentador', layoutGrid: 'Lado a lado',
-    hideSelf: 'Ocultar mi video', showSelf: 'Mostrar mi video', shrinkSelf: 'Más pequeño', enlargeSelf: 'Más grande',
+    hideSelf: 'Ocultar mi video', showSelf: 'Mostrar mi video', shrinkSelf: 'Más pequeño', enlargeSelf: 'Más grande', hideTheirs: 'Ocultar su cámara', showTheirs: 'Mostrar su cámara',
     reactions: 'Reacciones', raiseHand: 'Levantar la mano', lowerHand: 'Bajar la mano',
 
     chat: 'Chat', chatTitle: 'Chat del aula', chatClose: 'Cerrar chat',
