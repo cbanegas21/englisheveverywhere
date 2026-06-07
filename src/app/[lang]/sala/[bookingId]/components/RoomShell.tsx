@@ -7,6 +7,7 @@ import {
   useChat,
   useDataChannel,
   useLocalParticipant,
+  useParticipants,
   isTrackReference,
 } from '@livekit/components-react'
 import type { TrackReference } from '@livekit/components-react'
@@ -210,6 +211,7 @@ export function RoomShell({
     })
   }, [sendReaction, myName])
 
+  const participants = useParticipants()
   const layout = useRoomLayout()
   const stageRef = useRef<HTMLDivElement | null>(null)
   const selfView = useSelfViewPosition(stageRef)
@@ -272,6 +274,7 @@ export function RoomShell({
         otherName={otherName}
         scheduledAt={scheduledAt}
         durationMinutes={durationMinutes}
+        participantCount={participants.length}
       />
       <div className="flex flex-1 min-h-0">
       <div ref={stageRef} className="flex-1 relative min-w-0">

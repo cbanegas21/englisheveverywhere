@@ -14,9 +14,10 @@ interface Props {
   otherName: string
   scheduledAt: string
   durationMinutes: number
+  participantCount: number
 }
 
-export function TopBar({ lang, isTeacher, myName, otherName, scheduledAt, durationMinutes }: Props) {
+export function TopBar({ lang, isTeacher, myName, otherName, scheduledAt, durationMinutes, participantCount }: Props) {
   const tx = videoStrings(lang)
   const timeRemaining = useTimer(scheduledAt, durationMinutes)
 
@@ -58,7 +59,7 @@ export function TopBar({ lang, isTeacher, myName, otherName, scheduledAt, durati
 
       <div className="flex items-center gap-1.5 text-xs" style={{ color: VIDEO_THEME.textSubtle }}>
         <Users className="h-3.5 w-3.5" />
-        <span>2</span>
+        <span>{participantCount}</span>
       </div>
     </div>
   )
