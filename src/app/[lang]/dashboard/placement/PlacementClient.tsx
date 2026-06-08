@@ -86,48 +86,84 @@ interface BusinessDay {
   slots: string[]
 }
 
-function generateBusinessDays(count = 7): BusinessDay[] {
-  const days: BusinessDay[] = []
+// Student-local YYYY-MM-DD for bucketing slots by the viewer's calendar day.
+function ymdInTz(ms: number, tz: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(ms))
+}
+
+// Short offset label for the viewer's zone, e.g. "GMT-6".
+function tzShortLabel(tz: string): string {
+  try {
+    return (
+      new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' })
+        .formatToParts(new Date())
+        .find((p) => p.type === 'timeZoneName')?.value || ''
+    )
+  } catch {
+    return ''
+  }
+}
+
+// Slots are offered on Honduras local hours (when staff are available) but are
+// stored + booked as UTC instants — so we generate the same instants and just
+// group + display them in the STUDENT's timezone (decision #1: de-hardcode).
+function generateBusinessDays(tz: string, count = 7): BusinessDay[] {
+  const zone = tz || 'America/Tegucigalpa'
   const nowMs = Date.now()
   const minMs = nowMs + 24 * 60 * 60 * 1000
-  let offset = 1
-  while (days.length < count && offset <= 45) {
-    const targetMs = nowMs + offset * 86400000
-    const hnMs = targetMs - 6 * 3600000
-    const hn = new Date(hnMs)
+
+  // Candidate UTC instants: every hour of the next ~60 Honduras calendar days.
+  const instants: number[] = []
+  for (let offset = 1; offset <= 60; offset++) {
+    const hn = new Date(nowMs + offset * 86400000 - 6 * 3600000)
     const yr = hn.getUTCFullYear()
     const mo = hn.getUTCMonth()
     const dy = hn.getUTCDate()
-    const slots: string[] = []
     for (let h = 0; h < 24; h++) {
-      const slotMs = Date.UTC(yr, mo, dy, h + 6, 0, 0)
-      if (slotMs > minMs) slots.push(new Date(slotMs).toISOString())
+      const slotMs = Date.UTC(yr, mo, dy, h + 6, 0, 0) // HN hour h == UTC h+6
+      if (slotMs > minMs) instants.push(slotMs)
     }
-    if (slots.length > 0) {
-      const base = new Date(Date.UTC(yr, mo, dy))
-      days.push({
-        isoDate: base.toISOString().slice(0, 10),
-        labelEs: base.toLocaleDateString('es-HN', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }),
-        labelEn: base.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }),
-        shortLabel: base.toLocaleDateString('es-HN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }),
-        slots,
-      })
-    }
-    offset++
+  }
+  instants.sort((a, b) => a - b)
+
+  // Bucket by the student's local calendar day.
+  const byDay = new Map<string, number[]>()
+  for (const ms of instants) {
+    const key = ymdInTz(ms, zone)
+    const bucket = byDay.get(key)
+    if (bucket) bucket.push(ms)
+    else byDay.set(key, [ms])
+  }
+
+  const days: BusinessDay[] = []
+  for (const [key, msList] of [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    if (days.length >= count) break
+    const ref = new Date(msList[0])
+    days.push({
+      isoDate: key,
+      labelEs: ref.toLocaleDateString('es-HN', { weekday: 'long', month: 'long', day: 'numeric', timeZone: zone }),
+      labelEn: ref.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: zone }),
+      shortLabel: ref.toLocaleDateString('es-HN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zone }),
+      slots: msList.map((ms) => new Date(ms).toISOString()),
+    })
   }
   return days
 }
 
-function fmtSlot(isoUtc: string): string {
-  const d = new Date(new Date(isoUtc).getTime() - 6 * 3600000)
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+function fmtSlot(isoUtc: string, tz: string): string {
+  return new Date(isoUtc).toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', hour12: false,
+    timeZone: tz || 'America/Tegucigalpa',
+  })
 }
 
-function fmtBookingDate(isoUtc: string, lang: Locale): string {
+function fmtBookingDate(isoUtc: string, lang: Locale, tz: string): string {
   return new Date(isoUtc).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Tegucigalpa',
+    timeZone: tz || 'America/Tegucigalpa',
   })
 }
 
@@ -156,7 +192,7 @@ const ui = {
     pickDay: 'Select a day',
     pickTime: 'Pick a time',
     noSlots: 'No available slots for this day.',
-    timezone: 'All times in Honduras time (CST, UTC-6)',
+    timezone: 'All times in your timezone',
     confirmTitle: 'Confirm your discovery class',
     confirmDate: 'Date & time',
     confirmDuration: 'Duration',
@@ -193,7 +229,7 @@ const ui = {
     pickDay: 'Selecciona el día',
     pickTime: 'Elige un horario',
     noSlots: 'Sin horarios disponibles para este día.',
-    timezone: 'Horarios en hora de Honduras (CST, UTC-6)',
+    timezone: 'Horarios en tu zona horaria',
     confirmTitle: 'Confirmar tu clase de descubrimiento',
     confirmDate: 'Fecha y hora',
     confirmDuration: 'Duración',
@@ -220,6 +256,8 @@ interface Props {
   existingAnswers: Record<string, unknown> | null
   existingBooking: { id: string; scheduledAt: string; status: string } | null
   isReschedule?: boolean
+  /** The student's stored timezone — all scheduling times render in it. */
+  timezone: string
 }
 
 type Answers = Record<string, string | string[]>
@@ -230,9 +268,11 @@ export default function PlacementClient({
   existingAnswers,
   existingBooking,
   isReschedule,
+  timezone,
 }: Props) {
   const tx = ui[lang]
   const accent = 'var(--ek-red)'
+  const tzOffset = tzShortLabel(timezone)
 
   const initialStage: Stage = existingBooking
     ? 'confirmed'
@@ -251,7 +291,7 @@ export default function PlacementClient({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState('')
 
-  const businessDays = useMemo(() => generateBusinessDays(7), [])
+  const businessDays = useMemo(() => generateBusinessDays(timezone, 7), [timezone])
   const totalQ = QUESTIONS.length
   const currentQ = QUESTIONS[qIndex]
 
@@ -400,10 +440,10 @@ export default function PlacementClient({
                       fontFamily: 'var(--ek-font-mono)',
                     }}
                   >
-                    {lang === 'es' ? 'Hora de Honduras (CST)' : 'Honduras time (CST)'}
+                    {(lang === 'es' ? 'Tu hora local' : 'Your local time')}{tzOffset ? ` · ${tzOffset}` : ''}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-on-dark)' }}>
-                    {fmtBookingDate(confirmedAt, lang)}
+                    {fmtBookingDate(confirmedAt, lang, timezone)}
                   </div>
                 </div>
               )}
@@ -552,7 +592,7 @@ export default function PlacementClient({
               fontFamily: 'var(--ek-font-mono)',
             }}
           >
-            {tx.scheduleKicker} · {tx.timezone}
+            {tx.scheduleKicker} · {tx.timezone}{tzOffset ? ` (${tzOffset})` : ''}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 280px) minmax(0, 1fr)', gap: 16 }}>
@@ -687,7 +727,7 @@ export default function PlacementClient({
                           fontFeatureSettings: '"tnum"',
                         }}
                       >
-                        {fmtSlot(slot)}
+                        {fmtSlot(slot, timezone)}
                       </button>
                     )
                   })}
@@ -733,7 +773,7 @@ export default function PlacementClient({
           {selectedSlot && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                [tx.confirmDate, fmtBookingDate(selectedSlot, lang)],
+                [tx.confirmDate, fmtBookingDate(selectedSlot, lang, timezone)],
                 [tx.confirmDuration, tx.confirmDurationVal],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, fontSize: 13 }}>

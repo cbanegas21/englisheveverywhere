@@ -91,6 +91,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
           existingAnswers={student.survey_answers as Record<string, unknown> | null}
           existingBooking={null}
           isReschedule
+          timezone={timezone}
         />
       )
     }
@@ -121,6 +122,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
             }
           : null
       }
+      timezone={timezone}
     />
   )
 }
