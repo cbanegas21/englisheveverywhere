@@ -24,6 +24,17 @@ type ReminderWindow = '24h' | '1h'
 type Audience = 'student' | 'teacher'
 type Lang = 'es' | 'en'
 
+// profiles.notification_preferences — channel + per-window toggles. All default
+// ON when unset (matches the UI's DEFAULT_PREFS, minus the off-by-default
+// SMS/WhatsApp which only matter once those providers are keyed).
+type NotifPrefs = {
+  email?: boolean
+  sms?: boolean
+  whatsapp?: boolean
+  before24h?: boolean
+  before1h?: boolean
+}
+
 type Recipient = {
   audience: Audience
   email: string
@@ -33,6 +44,7 @@ type Recipient = {
   // IANA zone name (e.g. "America/Tegucigalpa"). Fallback applied before this
   // struct is built, so consumers can always rely on a valid zone here.
   timezone: string
+  prefs: NotifPrefs | null
 }
 
 function isResendConfigured(): boolean {
@@ -52,6 +64,17 @@ function safeZone(candidate: string | null | undefined): string {
   } catch {
     return fallback
   }
+}
+
+// Email reminders honor the recipient's saved preferences. The channel toggle
+// (email) and the per-window timing toggle (before24h / before1h) both default
+// ON when unset. SMS + WhatsApp channels hook in alongside this once Twilio /
+// WhatsApp Cloud API are keyed (prefs.sms / prefs.whatsapp).
+function emailEnabledFor(prefs: NotifPrefs | null, window: ReminderWindow): boolean {
+  if (!prefs) return true
+  const channelOn = prefs.email !== false
+  const windowOn = window === '24h' ? prefs.before24h !== false : prefs.before1h !== false
+  return channelOn && windowOn
 }
 
 function formatScheduled(iso: string, lang: Lang, timezone: string): string {
@@ -181,8 +204,8 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
     .from('bookings')
     .select(`
       id, scheduled_at, scheduled_email_ids,
-      student:students(profile:profiles(full_name, email, timezone, preferred_language)),
-      teacher:teachers(profile:profiles(full_name, email, timezone, preferred_language))
+      student:students(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences)),
+      teacher:teachers(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences))
     `)
     .eq('id', bookingId)
     .maybeSingle()
@@ -201,6 +224,7 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
     email: string | null
     timezone: string | null
     preferred_language: Lang | null
+    notification_preferences: NotifPrefs | null
   }
   const pickProfile = (raw: unknown): ProfileLike | null => {
     if (!raw) return null
@@ -224,6 +248,7 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
       counterpartName: teacherName,
       lang: studentProfile.preferred_language ?? 'es',
       timezone: safeZone(studentProfile.timezone),
+      prefs: studentProfile.notification_preferences ?? null,
     })
   }
   if (teacherProfile?.email) {
@@ -234,6 +259,7 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
       counterpartName: studentName,
       lang: teacherProfile.preferred_language ?? 'es',
       timezone: safeZone(teacherProfile.timezone),
+      prefs: teacherProfile.notification_preferences ?? null,
     })
   }
   if (recipients.length === 0) {
@@ -258,6 +284,8 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
     if (fireAtMs <= now + 60_000) continue
     const fireAtIso = new Date(fireAtMs).toISOString()
     for (const r of recipients) {
+      // Honor the recipient's saved preferences (channel + this window's timing).
+      if (!emailEnabledFor(r.prefs, w.window)) continue
       // Each recipient sees the time in their own zone + language. This is the
       // Phase D change: prior to this, both recipients got es-HN / Tegucigalpa
       // regardless of their profile settings.
