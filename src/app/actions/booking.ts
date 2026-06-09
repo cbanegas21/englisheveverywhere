@@ -131,6 +131,20 @@ export async function createBooking(formData: FormData) {
     }
   }
 
+  // ── Consume a credit FIRST (authoritative atomic gate) ───────
+  // decrement_classes returns false when the student has 0 credits. Doing it
+  // BEFORE the insert closes the TOCTOU race where two concurrent bookings both
+  // pass the read-check above and each book on the same last credit. Only insert
+  // once a credit is actually consumed; compensate (refund) if the insert fails.
+  const { data: creditConsumed } = await admin.rpc('decrement_classes', { p_student_id: student.id })
+  if (!creditConsumed) {
+    return {
+      error: lang === 'es'
+        ? 'No tienes clases disponibles. Adquiere un plan.'
+        : 'No classes remaining. Get a plan.',
+    }
+  }
+
   // ── Create booking — teacher assigned later by admin ─────────
   const { data: booking, error } = await admin
     .from('bookings')
@@ -145,9 +159,11 @@ export async function createBooking(formData: FormData) {
     .select()
     .single()
 
-  if (error) return { error: error.message }
-
-  await admin.rpc('decrement_classes', { p_student_id: student.id })
+  if (error) {
+    // Insert failed after the credit was consumed — give it back.
+    await admin.rpc('increment_classes', { p_student_id: student.id })
+    return { error: error.message }
+  }
 
   const { data: profile } = await admin
     .from('profiles')
@@ -182,13 +198,22 @@ export async function confirmBooking(bookingId: string, lang: string = 'es') {
 
   if (!teacher) return { error: 'Teacher profile not found' }
 
-  const { error } = await admin
+  // Status guard: only a PENDING booking can be confirmed. Without `.eq('status',
+  // 'pending')` a re-confirm could resurrect a cancelled/declined booking (the
+  // student keeps the refunded credit AND gets a live class). The `.select()`
+  // asserts a row actually changed — a foreign/stale id no longer returns success.
+  const { data: confirmed, error } = await admin
     .from('bookings')
     .update({ status: 'confirmed' })
     .eq('id', bookingId)
     .eq('teacher_id', teacher.id)
+    .eq('status', 'pending')
+    .select('id')
 
   if (error) return { error: error.message }
+  if (!confirmed || confirmed.length === 0) {
+    return { error: lang === 'es' ? 'Esta reserva ya no se puede confirmar.' : 'This booking can no longer be confirmed.' }
+  }
 
   // Schedule Resend reminder emails for T-24h and T-1h. Fire-and-forget —
   // we never want a Resend hiccup to fail the teacher's confirm action.
@@ -213,26 +238,25 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
 
   if (!teacher) return { error: 'Teacher profile not found' }
 
-  // Fetch student_id before cancelling so we can restore their class
-  const { data: booking } = await admin
-    .from('bookings')
-    .select('student_id')
-    .eq('id', bookingId)
-    .eq('teacher_id', teacher.id)
-    .single()
-
-  if (!booking) return { error: 'Booking not found' }
-
-  const { error } = await admin
+  // Status-gated cancel: only a still-live booking can be declined, and the
+  // refund fires only when THIS call actually flipped the row — so a double-click
+  // or concurrent decline can't double-credit the student. `.select('student_id')`
+  // both scopes the refund and confirms exactly one row changed.
+  const { data: declined, error } = await admin
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('id', bookingId)
     .eq('teacher_id', teacher.id)
+    .in('status', ['pending', 'confirmed'])
+    .select('student_id')
 
   if (error) return { error: error.message }
+  if (!declined || declined.length === 0) {
+    return { error: lang === 'es' ? 'Esta reserva ya no se puede rechazar.' : 'This booking can no longer be declined.' }
+  }
 
-  // Restore the student's class
-  await admin.rpc('increment_classes', { p_student_id: booking.student_id })
+  // Restore the student's class (exactly once)
+  await admin.rpc('increment_classes', { p_student_id: declined[0].student_id })
 
   // Cancel any already-scheduled reminder emails (no-op if booking was still
   // pending when declined and no reminders had been scheduled yet).
@@ -424,7 +448,10 @@ export async function studentCancelBooking(bookingId: string, lang: string = 'es
   const isLate = startMs - Date.now() < DAY_MS
   const reason = isLate ? 'late' : 'early'
 
-  const { error: updErr } = await admin
+  // Status-gated cancel — only flip a still-live booking, and refund only when
+  // THIS call actually changed the row (idempotent under concurrent cancels, so
+  // the credit can't be restored twice).
+  const { data: cancelledRows, error: updErr } = await admin
     .from('bookings')
     .update({
       status: 'cancelled',
@@ -433,7 +460,13 @@ export async function studentCancelBooking(bookingId: string, lang: string = 'es
       cancelled_at: new Date().toISOString(),
     })
     .eq('id', bookingId)
+    .eq('student_id', student.id)
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
   if (updErr) return { error: updErr.message }
+  if (!cancelledRows || cancelledRows.length === 0) {
+    return { error: lang === 'es' ? 'Esta clase ya no se puede cancelar.' : 'This class can no longer be cancelled.' }
+  }
 
   // Refund credit only if cancelled with ≥24h notice — matches the pricing
   // copy ("classes cancelled with less than 24-hour notice are forfeited").
@@ -577,7 +610,7 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
 
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, scheduled_at, duration_minutes, status, student_id, teacher_id')
+    .select('id, scheduled_at, duration_minutes, status, student_id, teacher_id, type')
     .eq('id', bookingId)
     .single()
   if (!booking) return { error: 'Booking not found' }
@@ -613,7 +646,10 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
     }
   }
 
-  const { error: updErr } = await admin
+  // Status-gated cancel; refund fires only when THIS call flipped the row
+  // (idempotent under races) AND only for paid CLASS bookings — a placement is
+  // free, so refunding a no-show placement would mint a credit from nothing.
+  const { data: noShowRows, error: updErr } = await admin
     .from('bookings')
     .update({
       status: 'cancelled',
@@ -622,9 +658,18 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
       cancelled_at: new Date().toISOString(),
     })
     .eq('id', bookingId)
+    .eq('student_id', student.id)
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
   if (updErr) return { error: updErr.message }
+  if (!noShowRows || noShowRows.length === 0) {
+    return { error: lang === 'es' ? 'Esta clase ya está cerrada.' : 'This class is already closed.' }
+  }
 
-  await admin.rpc('increment_classes', { p_student_id: student.id })
+  const refundIssued = booking.type === 'class'
+  if (refundIssued) {
+    await admin.rpc('increment_classes', { p_student_id: student.id })
+  }
 
   cancelBookingReminders(bookingId).catch(() => {})
 
@@ -639,7 +684,7 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
     studentName: profile?.full_name || user.email || 'Student',
     reason: 'no_show_teacher',
     scheduledAt: booking.scheduled_at,
-    refundIssued: true,
+    refundIssued,
     lang,
   }).catch(() => {})
 

@@ -445,16 +445,19 @@ export async function updateStudentLevel(studentId: string, level: string) {
 export async function addStudentClasses(studentId: string, count: number) {
   await assertAdmin()
   const admin = createAdminClient()
-  const { data: student, error: fetchError } = await admin
-    .from('students')
-    .select('classes_remaining')
-    .eq('id', studentId)
-    .single()
-  if (fetchError || !student) throw new Error('Student not found')
-  const { error } = await admin
-    .from('students')
-    .update({ classes_remaining: (student.classes_remaining || 0) + count })
-    .eq('id', studentId)
+  // Bound + integer-coerce: a negative count would covertly DECREMENT credits and
+  // a huge one would grant unlimited classes. Use the atomic add_classes RPC
+  // (SECURITY DEFINER, migration 015) — the old read-then-write lost concurrent
+  // grants under load.
+  const n = Math.trunc(Number(count))
+  if (!Number.isFinite(n) || n < 1 || n > 100) {
+    throw new Error('Class count must be between 1 and 100')
+  }
+  // add_classes no-ops silently on a non-existent id; keep the old 'Student not
+  // found' behavior so a bad id surfaces instead of a false success toast.
+  const { data: exists } = await admin.from('students').select('id').eq('id', studentId).maybeSingle()
+  if (!exists) throw new Error('Student not found')
+  const { error } = await admin.rpc('add_classes', { p_student_id: studentId, p_count: n })
   if (error) throw new Error(error.message)
   revalidatePath('/', 'layout')
 }
@@ -513,13 +516,29 @@ export async function completeBooking(bookingId: string) {
 
   const { data: booking, error: fetchError } = await admin
     .from('bookings')
-    .select('student_id, type')
+    .select('student_id, type, status')
     .eq('id', bookingId)
     .single()
   if (fetchError || !booking) throw new Error('Booking not found')
+  // Status guard: only a live (pending/confirmed) booking can be completed.
+  // Without it, completing a cancelled booking resurrects it and re-fires the
+  // placement side-effects below, corrupting counts. Throw (not silent no-op) so
+  // the admin gets real feedback instead of a misleading success toast.
+  if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+    throw new Error('Only a pending or confirmed booking can be completed')
+  }
 
-  const { error } = await admin.from('bookings').update({ status: 'completed' }).eq('id', bookingId)
+  const { data: completedRows, error } = await admin
+    .from('bookings')
+    .update({ status: 'completed' })
+    .eq('id', bookingId)
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!completedRows || completedRows.length === 0) {
+    // Lost a race to another completer — booking is already terminal.
+    throw new Error('Only a pending or confirmed booking can be completed')
+  }
 
   // When a placement call is completed, mark the student as placement-done so the
   // onboarding flow advances. An accidental click is recoverable via the student
@@ -542,9 +561,17 @@ export async function cancelBookingWithRefund(bookingId: string) {
     .select('student_id, type')
     .eq('id', bookingId)
     .single()
-  const { error } = await admin.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId)
+  // Status-gated cancel: only refund when THIS call actually flips a live booking
+  // to cancelled. Without the guard, repeated/raced admin cancels each re-credit
+  // the student (credit inflation). Class bookings only — placements cost no credit.
+  const { data: cancelledRows, error } = await admin
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('id', bookingId)
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
   if (error) throw new Error(error.message)
-  if (booking?.type === 'class') {
+  if (cancelledRows && cancelledRows.length > 0 && booking?.type === 'class') {
     // Atomic SQL increment — a read-then-update loses concurrent refunds
     // under load. increment_classes is SECURITY DEFINER (migration 012).
     await admin.rpc('increment_classes', { p_student_id: booking.student_id })
@@ -692,6 +719,17 @@ export async function createAdminBooking(
     await assertPrimaryTeacherOk(studentId, teacherId, options.force ?? false)
   }
 
+  // A class booking consumes one student credit (same as a self-served booking)
+  // so a later cancel-refund returns a credit that was actually paid for. Without
+  // this, an admin-created class would mint a free credit on cancel. Non-class
+  // meetings (interviews / placement) cost no credit and skip this.
+  let creditConsumed = false
+  if (type === 'class') {
+    const { data: ok } = await admin.rpc('decrement_classes', { p_student_id: studentId })
+    if (!ok) throw new Error('Student has no class credits — grant classes before booking a class.')
+    creditConsumed = true
+  }
+
   const { data: booking, error } = await admin
     .from('bookings')
     .insert({
@@ -705,7 +743,10 @@ export async function createAdminBooking(
     })
     .select()
     .single()
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (creditConsumed) await admin.rpc('increment_classes', { p_student_id: studentId })
+    throw new Error(error.message)
+  }
 
   if (teacherId) await lockInPrimaryTeacher(studentId, teacherId)
 

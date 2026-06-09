@@ -244,6 +244,10 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
   const [reschedReason, setReschedReason] = useState('')
   const [reschedError, setReschedError] = useState('')
   const [reschedSubmitting, setReschedSubmitting] = useState(false)
+  // Surfaced when confirm/decline fails (e.g. the booking was concurrently
+  // cancelled or rescheduled so it's no longer pending). Server returns a
+  // localized message — show it instead of failing silently.
+  const [actionError, setActionError] = useState('')
 
   function openReschedule(booking: Booking) {
     // Prefill date/time with the current scheduled value so the teacher only
@@ -322,6 +326,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
 
   function handleConfirm(bookingId: string) {
     setLoadingId(bookingId)
+    setActionError('')
     startTransition(async () => {
       const result = await confirmBooking(bookingId, lang)
       if (!result?.error) {
@@ -330,6 +335,8 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
           setPending(prev => prev.filter(b => b.id !== bookingId))
           setConfirmed(prev => [{ ...booking, status: 'confirmed' }, ...prev])
         }
+      } else {
+        setActionError(result.error)
       }
       setLoadingId(null)
     })
@@ -337,10 +344,13 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
 
   function handleDecline(bookingId: string) {
     setLoadingId(bookingId)
+    setActionError('')
     startTransition(async () => {
       const result = await declineBooking(bookingId, lang)
       if (!result?.error) {
         setPending(prev => prev.filter(b => b.id !== bookingId))
+      } else {
+        setActionError(result.error)
       }
       setLoadingId(null)
     })
@@ -348,6 +358,20 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
 
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
+
+      {actionError && (
+        <div
+          role="alert"
+          onClick={() => setActionError('')}
+          style={{
+            margin: '12px 16px 0', padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+            background: '#fdecea', color: '#611a15', fontSize: 14,
+            border: '1px solid #f5c6cb',
+          }}
+        >
+          {actionError}
+        </div>
+      )}
 
       <DashTopBar
         title={tx.title}
