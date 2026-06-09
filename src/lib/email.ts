@@ -15,6 +15,12 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;')
 }
 
+// Canonical sender + app URL for all transactional email. Centralized so a
+// missing/misconfigured env var can never ship localhost links, and the sender
+// always shows a display name ("EnglishKolab"), not a bare mailbox.
+export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://englishkolab.com'
+export const EMAIL_FROM = process.env.EMAIL_FROM || 'EnglishKolab <noreply@englishkolab.com>'
+
 export function brandedEmail(opts: {
   heading: string
   bodyHtml: string

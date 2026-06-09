@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 
 export async function completeStudentOnboarding(data: {
   userId: string
@@ -117,9 +118,7 @@ async function sendTeacherApplicationEmails(params: {
   lang: 'es' | 'en'
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (!apiKey || apiKey === 're_placeholder') return
 
   const firstName = params.teacherName.split(' ')[0] || ''
@@ -128,52 +127,86 @@ async function sendTeacherApplicationEmails(params: {
     ? '¡Solicitud recibida! — EnglishKolab'
     : 'Application received — EnglishKolab'
 
+  const teacherPendingUrl = `${APP_URL}/${params.lang === 'es' ? 'es' : 'en'}/maestro/pending`
+
   const teacherHtml = params.lang === 'es'
     ? `
-      <h2>¡Hola ${firstName}!</h2>
+      <h2>¡Hola ${escapeHtml(firstName)}!</h2>
       <p>Recibimos tu solicitud para enseñar en EnglishKolab. Gracias por unirte a nuestra comunidad.</p>
-      <p>Nuestro equipo revisará tu perfil en las próximas 24-48 horas. Recibirás un correo en cuanto tu cuenta sea activada.</p>
+      <p>Nuestro equipo revisará tu perfil en las próximas 24–48 horas. Recibirás un correo en cuanto tu cuenta sea activada.</p>
       <p>Mientras tanto, puedes revisar tu solicitud aquí:<br/>
-      <a href="${appUrl}/es/maestro/pending">Ver mi solicitud →</a></p>
+      <a href="${teacherPendingUrl}">Ver mi solicitud →</a></p>
       <p>— El equipo de EnglishKolab</p>
     `
     : `
-      <h2>Hi ${firstName}!</h2>
+      <h2>Hi ${escapeHtml(firstName)}!</h2>
       <p>We received your application to teach with EnglishKolab. Thanks for joining our community.</p>
       <p>Our team will review your profile in the next 24–48 hours. You'll receive an email once your account is activated.</p>
       <p>In the meantime, you can review your application here:<br/>
-      <a href="${appUrl}/en/maestro/pending">View my application →</a></p>
+      <a href="${teacherPendingUrl}">View my application →</a></p>
       <p>— The EnglishKolab team</p>
     `
+
+  const teacherText = params.lang === 'es'
+    ? `¡Hola ${firstName}!
+
+Recibimos tu solicitud para enseñar en EnglishKolab. Gracias por unirte a nuestra comunidad.
+
+Nuestro equipo revisará tu perfil en las próximas 24–48 horas. Recibirás un correo en cuanto tu cuenta sea activada.
+
+Mientras tanto, puedes revisar tu solicitud aquí:
+${teacherPendingUrl}
+
+— El equipo de EnglishKolab`
+    : `Hi ${firstName}!
+
+We received your application to teach with EnglishKolab. Thanks for joining our community.
+
+Our team will review your profile in the next 24–48 hours. You'll receive an email once your account is activated.
+
+In the meantime, you can review your application here:
+${teacherPendingUrl}
+
+— The EnglishKolab team`
 
   // Teacher confirmation
   fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: fromEmail,
+      from: EMAIL_FROM,
       to: params.teacherEmail,
       subject: teacherSubject,
       html: teacherHtml,
+      text: teacherText,
     }),
   }).catch(() => {})
 
   // Admin notification
+  const adminReviewUrl = `${APP_URL}/${params.lang}/admin/teachers`
+  const adminText = `A new teacher just applied. Review and approve in the admin panel.
+
+Name: ${params.teacherName || '(not provided)'}
+Email: ${params.teacherEmail}
+
+Review applications: ${adminReviewUrl}`
+
   fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: fromEmail,
+      from: EMAIL_FROM,
       to: adminEmail,
       subject: `New teacher application — ${params.teacherName || params.teacherEmail}`,
       html: `
         <p>A new teacher just applied. Review and approve in the admin panel.</p>
         <table>
-          <tr><td><strong>Name</strong></td><td>${params.teacherName || '(not provided)'}</td></tr>
-          <tr><td><strong>Email</strong></td><td>${params.teacherEmail}</td></tr>
+          <tr><td><strong>Name</strong></td><td>${escapeHtml(params.teacherName || '(not provided)')}</td></tr>
+          <tr><td><strong>Email</strong></td><td>${escapeHtml(params.teacherEmail)}</td></tr>
         </table>
-        <p><a href="${appUrl}/${params.lang}/admin/teachers">Review applications →</a></p>
+        <p><a href="${adminReviewUrl}">Review applications →</a></p>
       `,
+      text: adminText,
     }),
   }).catch(() => {})
 }

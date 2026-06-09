@@ -18,7 +18,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buildBookingIcs } from '@/lib/ics'
-import { escapeHtml } from '@/lib/email'
+import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 
 const RESEND_BASE = 'https://api.resend.com'
 
@@ -155,6 +155,52 @@ function reminderHtml(params: {
   `
 }
 
+// Plain-text rendering of the reminder email — same copy, no markup. Names are
+// NOT escaped here (plain-text part, not an HTML sink).
+function reminderText(params: {
+  lang: Lang
+  audience: Audience
+  window: ReminderWindow
+  recipientName: string
+  counterpartName: string
+  scheduled: string
+  appUrl: string
+  bookingId: string
+}): string {
+  const { lang, audience, window, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
+  const roomUrl = `${appUrl}/${lang}/sala/${bookingId}`
+  const isEs = lang === 'es'
+
+  const greeting = isEs ? `Hola ${recipientName},` : `Hi ${recipientName},`
+  const heading = isEs
+    ? window === '24h' ? 'Tu clase es en 24 horas' : 'Tu clase empieza pronto'
+    : window === '24h' ? 'Your class is in 24 hours' : 'Your class starts soon'
+  const withLine = isEs
+    ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
+    : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
+  const cta = isEs ? 'Ir a la clase' : 'Go to the class'
+  const whenLabel = isEs ? 'Cuándo' : 'When'
+  const withLabel = isEs ? 'Con' : 'With'
+  const lateNote = isEs
+    ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.'
+    : 'You can join up to 90 minutes after the scheduled start time.'
+
+  return [
+    heading,
+    '',
+    greeting,
+    '',
+    `${whenLabel}: ${scheduled}`,
+    `${withLabel}: ${counterpartName}`,
+    '',
+    `${cta}: ${roomUrl}`,
+    '',
+    lateNote,
+    '',
+    withLine,
+  ].join('\n')
+}
+
 // Confirmation email — sent immediately when a booking becomes confirmed (a
 // teacher is assigned). For the student this is their first email about the
 // class; it carries the .ics calendar invite so the class lands in their
@@ -213,6 +259,49 @@ function confirmationHtml(params: {
   `
 }
 
+// Plain-text rendering of the confirmation email — same copy, no markup. Names
+// are NOT escaped here (plain-text part, not an HTML sink).
+function confirmationText(params: {
+  lang: Lang
+  audience: Audience
+  recipientName: string
+  counterpartName: string
+  scheduled: string
+  appUrl: string
+  bookingId: string
+}): string {
+  const { lang, audience, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
+  const roomUrl = `${appUrl}/${lang}/sala/${bookingId}`
+  const isEs = lang === 'es'
+
+  const greeting = isEs ? `Hola ${recipientName},` : `Hi ${recipientName},`
+  const heading = isEs ? 'Tu clase está confirmada' : 'Your class is confirmed'
+  const withLine = isEs
+    ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
+    : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
+  const cta = isEs ? 'Ir a la clase' : 'Go to the class'
+  const whenLabel = isEs ? 'Cuándo' : 'When'
+  const withLabel = isEs ? 'Con' : 'With'
+  const calNote = isEs
+    ? 'Adjuntamos una invitación de calendario — ábrela para agregar la clase a tu calendario y recibir un recordatorio automático.'
+    : 'We\'ve attached a calendar invite — open it to add the class to your calendar and get an automatic reminder.'
+
+  return [
+    heading,
+    '',
+    greeting,
+    '',
+    `${whenLabel}: ${scheduled}`,
+    `${withLabel}: ${counterpartName}`,
+    '',
+    `${cta}: ${roomUrl}`,
+    '',
+    calNote,
+    '',
+    withLine,
+  ].join('\n')
+}
+
 // Pull a bare address out of an EMAIL_FROM that may be "Name <addr>" or a plain
 // address. Used for the ICS ORGANIZER mailto.
 function bareEmail(from: string): string {
@@ -229,6 +318,7 @@ async function sendConfirmationEmail(params: {
   to: string
   subject: string
   html: string
+  text: string
   icsBase64: string
 }): Promise<void> {
   try {
@@ -243,6 +333,7 @@ async function sendConfirmationEmail(params: {
         to: params.to,
         subject: params.subject,
         html: params.html,
+        text: params.text,
         attachments: [{
           filename: 'clase-englishkolab.ics',
           content: params.icsBase64,
@@ -261,6 +352,7 @@ async function scheduleOne(params: {
   to: string
   subject: string
   html: string
+  text: string
   scheduledAtIso: string
 }): Promise<string | null> {
   try {
@@ -275,6 +367,7 @@ async function scheduleOne(params: {
         to: params.to,
         subject: params.subject,
         html: params.html,
+        text: params.text,
         scheduled_at: params.scheduledAtIso,
       }),
     })
@@ -310,8 +403,8 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
   if (!isResendConfigured()) return
 
   const apiKey = process.env.RESEND_API_KEY as string
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const fromEmail = EMAIL_FROM
+  const appUrl = APP_URL
 
   const admin = createAdminClient()
 
@@ -431,6 +524,15 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
         appUrl,
         bookingId,
       }),
+      text: confirmationText({
+        lang: r.lang,
+        audience: r.audience,
+        recipientName: r.recipientName,
+        counterpartName: r.counterpartName,
+        scheduled: formatScheduled(booking.scheduled_at, r.lang, r.timezone),
+        appUrl,
+        bookingId,
+      }),
       icsBase64: Buffer.from(ics, 'utf-8').toString('base64'),
     }))
   }
@@ -466,6 +568,16 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
           ? (r.lang === 'es' ? 'Tu clase es mañana' : 'Your class is tomorrow')
           : (r.lang === 'es' ? 'Tu clase empieza pronto' : 'Your class starts soon'),
         html: reminderHtml({
+          lang: r.lang,
+          audience: r.audience,
+          window: w.window,
+          recipientName: r.recipientName,
+          counterpartName: r.counterpartName,
+          scheduled: scheduledPretty,
+          appUrl,
+          bookingId,
+        }),
+        text: reminderText({
           lang: r.lang,
           audience: r.audience,
           window: w.window,

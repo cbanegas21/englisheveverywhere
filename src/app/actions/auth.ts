@@ -7,7 +7,7 @@ import { Resend } from 'resend'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
-import { brandedEmail, escapeHtml } from '@/lib/email'
+import { brandedEmail, escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { safeNextPath } from '@/lib/safeNext'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
@@ -19,8 +19,6 @@ const ROLE_COOKIE_OPTS = {
   secure: process.env.NODE_ENV === 'production',
   httpOnly: true,
 }
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 // Map raw Supabase signup errors to friendly, localized copy.
 function friendlySignupError(raw: string, lang: string): string {
@@ -39,7 +37,6 @@ async function sendWelcomeEmail(email: string, fullName: string, lang: string) {
   const key = process.env.RESEND_API_KEY
   if (!key || key === 're_placeholder') return
   const resend = new Resend(key)
-  const from = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   const firstName = (fullName || '').trim().split(' ')[0]
   const suffix = firstName ? `, ${firstName}` : ''
   const htmlSuffix = firstName ? `, ${escapeHtml(firstName)}` : ''
@@ -58,7 +55,7 @@ async function sendWelcomeEmail(email: string, fullName: string, lang: string) {
   const text = isEs
     ? `¡Bienvenido a EnglishKolab${suffix}!\n\nTu cuenta ya está lista. Aprende inglés en vivo, 1 a 1, cuando quieras y a tu ritmo.\n\nIr a mi panel: ${APP_URL}/${lang}/dashboard\n\n¿Dudas? Escríbenos a hola@englishkolab.com`
     : `Welcome to EnglishKolab${suffix}!\n\nYour account is ready. Learn English live, 1-on-1, whenever you want, at your own pace.\n\nGo to my dashboard: ${APP_URL}/${lang}/dashboard\n\nQuestions? Email us at hola@englishkolab.com`
-  await resend.emails.send({ from, to: email, subject, html, text })
+  await resend.emails.send({ from: EMAIL_FROM, to: email, subject, html, text })
 }
 
 export async function signUp(formData: FormData) {

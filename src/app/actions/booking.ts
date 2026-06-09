@@ -4,6 +4,21 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
+import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+
+// Map the raw cancellation_reason enum to a human-readable label for admin
+// notification emails. Keep both languages so the email reads naturally.
+const CANCEL_REASON_LABELS: Record<string, { en: string; es: string }> = {
+  late: { en: 'Late cancellation (within 24h)', es: 'Cancelación tardía (dentro de 24h)' },
+  early: { en: 'Early cancellation (24h+ notice)', es: 'Cancelación anticipada (24h+ de aviso)' },
+  no_show_teacher: { en: 'Teacher no-show', es: 'Ausencia del maestro' },
+}
+
+function cancelReasonLabel(reason: string, lang: string): string {
+  const entry = CANCEL_REASON_LABELS[reason]
+  if (!entry) return reason
+  return lang === 'es' ? entry.es : entry.en
+}
 
 async function sendAdminBookingEmail(params: {
   bookingId: string
@@ -14,7 +29,6 @@ async function sendAdminBookingEmail(params: {
 }) {
   const apiKey = process.env.RESEND_API_KEY
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   if (!apiKey || apiKey === 're_placeholder') return
 
@@ -23,6 +37,8 @@ async function sendAdminBookingEmail(params: {
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
   })
 
+  const assignUrl = `${APP_URL}/${params.lang}/admin/bookings`
+
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -30,21 +46,29 @@ async function sendAdminBookingEmail(params: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM || 'noreply@englishkolab.com',
+      from: EMAIL_FROM,
       to: adminEmail,
       subject: `Class needs a teacher — ${params.studentName}`,
       html: `
         <p>A student booked a class. Assign a teacher in the admin queue.</p>
         <table>
-          <tr><td><strong>Student</strong></td><td>${params.studentName} (${params.studentEmail})</td></tr>
+          <tr><td><strong>Student</strong></td><td>${escapeHtml(params.studentName)} (${escapeHtml(params.studentEmail)})</td></tr>
           <tr><td><strong>Scheduled</strong></td><td>${scheduled}</td></tr>
         </table>
         <p>
-          <a href="${appUrl}/${params.lang}/admin/bookings">
+          <a href="${assignUrl}">
             Assign teacher →
           </a>
         </p>
       `,
+      text: [
+        'A student booked a class. Assign a teacher in the admin queue.',
+        '',
+        `Student: ${params.studentName} (${params.studentEmail})`,
+        `Scheduled: ${scheduled}`,
+        '',
+        `Assign teacher: ${assignUrl}`,
+      ].join('\n'),
     }),
   }).catch(() => {})
 }
@@ -327,11 +351,15 @@ async function notifyAdminOfCancel(params: {
   reason: string
   scheduledAt: string
   refundIssued: boolean
+  lang?: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (!apiKey || apiKey === 're_placeholder') return
+
+  const lang = params.lang || 'es'
+  const reasonLabel = cancelReasonLabel(params.reason, lang)
+  const reviewUrl = `${APP_URL}/${lang}/admin/bookings`
 
   const scheduled = new Date(params.scheduledAt).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
@@ -342,18 +370,27 @@ async function notifyAdminOfCancel(params: {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM || 'noreply@englishkolab.com',
+      from: EMAIL_FROM,
       to: adminEmail,
-      subject: `Booking cancelled — ${params.studentName} (${params.reason})`,
+      subject: `Booking cancelled — ${params.studentName} (${reasonLabel})`,
       html: `
-        <p>${params.studentName} cancelled a class.</p>
+        <p>${escapeHtml(params.studentName)} cancelled a class.</p>
         <table>
-          <tr><td><strong>Reason</strong></td><td>${params.reason}</td></tr>
+          <tr><td><strong>Reason</strong></td><td>${escapeHtml(reasonLabel)}</td></tr>
           <tr><td><strong>Originally scheduled</strong></td><td>${scheduled}</td></tr>
           <tr><td><strong>Class credit refunded</strong></td><td>${params.refundIssued ? 'Yes' : 'No'}</td></tr>
         </table>
-        <p><a href="${appUrl}/es/admin/bookings">Review →</a></p>
+        <p><a href="${reviewUrl}">Review →</a></p>
       `,
+      text: [
+        `${params.studentName} cancelled a class.`,
+        '',
+        `Reason: ${reasonLabel}`,
+        `Originally scheduled: ${scheduled}`,
+        `Class credit refunded: ${params.refundIssued ? 'Yes' : 'No'}`,
+        '',
+        `Review: ${reviewUrl}`,
+      ].join('\n'),
     }),
   }).catch(() => {})
 }
@@ -418,6 +455,7 @@ export async function studentCancelBooking(bookingId: string, lang: string = 'es
     reason,
     scheduledAt: booking.scheduled_at,
     refundIssued: !isLate,
+    lang,
   }).catch(() => {})
 
   revalidatePath('/', 'layout')
@@ -602,6 +640,7 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
     reason: 'no_show_teacher',
     scheduledAt: booking.scheduled_at,
     refundIssued: true,
+    lang,
   }).catch(() => {})
 
   revalidatePath('/', 'layout')

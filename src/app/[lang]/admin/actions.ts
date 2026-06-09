@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
+import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 
@@ -576,16 +577,17 @@ export async function resetStudentPassword(email: string) {
   if (error) throw new Error(error.message)
   // Send via Resend
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   if (apiKey && apiKey !== 're_placeholder' && data?.properties?.action_link) {
+    const actionLink = data.properties.action_link
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: fromEmail,
+        from: EMAIL_FROM,
         to: email,
         subject: 'Reset your password — EnglishKolab',
-        html: `<p>Click below to reset your password:</p><a href="${data.properties.action_link}">Reset password</a>`,
+        html: `<p>Click below to reset your password:</p><a href="${actionLink}">Reset password</a>`,
+        text: `Reset your password — EnglishKolab\n\nClick the link below to reset your password:\n${actionLink}\n\n— EnglishKolab`,
       }),
     })
   }
@@ -722,7 +724,6 @@ function sendBookingEmails(params: {
   bookingId: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   if (!apiKey || apiKey === 're_placeholder') return
 
   const admin = createAdminClient()
@@ -749,12 +750,15 @@ function sendBookingEmails(params: {
       name = (rawProfile as { email: string | null; full_name: string | null }).full_name
     }
     if (email) {
+      const greeting = name ? `Hola ${escapeHtml(name)}` : 'Hola'
+      const greetingText = name ? `Hola ${name}` : 'Hola'
       void fetch('https://api.resend.com/emails', {
         method: 'POST', headers,
         body: JSON.stringify({
-          from: fromEmail, to: email,
+          from: EMAIL_FROM, to: email,
           subject: 'Sesión agendada — EnglishKolab',
-          html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
+          html: `<p>${greeting},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
+          text: `${greetingText},\n\nTienes una sesión agendada para el ${formatted} (hora de Honduras).\n\n— EnglishKolab`,
         }),
       }).catch(() => {})
     }
@@ -776,12 +780,15 @@ function sendBookingEmails(params: {
         name = (rawProfile as { email: string | null; full_name: string | null }).full_name
       }
       if (email) {
+        const greeting = name ? `Hola ${escapeHtml(name)}` : 'Hola'
+        const greetingText = name ? `Hola ${name}` : 'Hola'
         void fetch('https://api.resend.com/emails', {
           method: 'POST', headers,
           body: JSON.stringify({
-            from: fromEmail, to: email,
+            from: EMAIL_FROM, to: email,
             subject: 'Nueva sesión asignada — EnglishKolab',
-            html: `<p>Hola ${name || ''},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
+            html: `<p>${greeting},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
+            text: `${greetingText},\n\nTienes una sesión agendada para el ${formatted} (hora de Honduras).\n\n— EnglishKolab`,
           }),
         }).catch(() => {})
       }
@@ -803,23 +810,23 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
 
   // Send welcome email (non-blocking)
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
+    const dashboardUrl = `${APP_URL}/es/maestro/dashboard`
     fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: fromEmail,
+        from: EMAIL_FROM,
         to: profile.email,
         subject: `¡Bienvenida a EnglishKolab, ${profile.full_name?.split(' ')[0] || ''}!`,
         html: `
           <h2>¡Bienvenida al equipo!</h2>
           <p>Tu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:</p>
-          <p><a href="${appUrl}/es/maestro/dashboard">Acceder a mi dashboard →</a></p>
+          <p><a href="${dashboardUrl}">Acceder a mi dashboard →</a></p>
           <p>Aquí podrás configurar tu disponibilidad y ver tus clases asignadas.</p>
           <p>— El equipo de EnglishKolab</p>
         `,
+        text: `¡Bienvenida al equipo!\n\nTu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:\n${dashboardUrl}\n\nAquí podrás configurar tu disponibilidad y ver tus clases asignadas.\n\n— El equipo de EnglishKolab`,
       }),
     }).catch(() => {})
   }
@@ -839,13 +846,12 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
   await admin.from('profiles').update({ role: 'student' }).eq('id', profileId)
 
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
     fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: fromEmail,
+        from: EMAIL_FROM,
         to: profile.email,
         subject: 'Actualización sobre tu solicitud — EnglishKolab',
         html: `
@@ -854,6 +860,7 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
           <p>Si tienes preguntas, contáctanos en <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
           <p>— El equipo de EnglishKolab</p>
         `,
+        text: `Gracias por tu interés en EnglishKolab.\n\nDespués de revisar tu perfil, no podemos continuar con tu solicitud en este momento.\n\nSi tienes preguntas, contáctanos en hola@englishkolab.com.\n\n— El equipo de EnglishKolab`,
       }),
     }).catch(() => {})
   }
@@ -942,8 +949,6 @@ export async function bulkAssignTeacher(
 
 function sendAssignmentEmail(bookingId: string) {
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   if (!apiKey || apiKey === 're_placeholder') return
 
   const admin = createAdminClient()
@@ -979,10 +984,11 @@ function sendAssignmentEmail(bookingId: string) {
       hour: '2-digit', minute: '2-digit',
       timeZone: 'America/Tegucigalpa',
     })
-    const salaUrl = `${appUrl}/es/sala/${bookingId}`
+    const salaUrl = `${APP_URL}/es/sala/${bookingId}`
 
     const studentFirst = student?.full_name?.split(' ')[0] || ''
     const teacherFirst = teacher?.full_name?.split(' ')[0] || 'tu maestro'
+    const studentLabel = student?.full_name || 'un estudiante'
     const isPlacement = data.type === 'placement_test'
 
     // Student email
@@ -991,22 +997,26 @@ function sendAssignmentEmail(bookingId: string) {
         ? 'Tu llamada de diagnóstico ha sido confirmada — EnglishKolab'
         : 'Tu clase ha sido confirmada — EnglishKolab'
       const lead = isPlacement
-        ? `Tu llamada de diagnóstico con <strong>${teacherFirst}</strong> está confirmada.`
-        : `Tu clase con <strong>${teacherFirst}</strong> está confirmada.`
+        ? `Tu llamada de diagnóstico con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`
+        : `Tu clase con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`
+      const leadText = isPlacement
+        ? `Tu llamada de diagnóstico con ${teacherFirst} está confirmada.`
+        : `Tu clase con ${teacherFirst} está confirmada.`
       void fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: fromEmail,
+          from: EMAIL_FROM,
           to: student.email,
           subject,
           html: `
-            <p>Hola ${studentFirst},</p>
+            <p>Hola ${escapeHtml(studentFirst)},</p>
             <p>${lead}</p>
             <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
             <p><a href="${salaUrl}">Unirse al aula</a> (se abre 15 minutos antes).</p>
             <p>— EnglishKolab</p>
           `,
+          text: `Hola ${studentFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nUnirse al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`,
         }),
       }).catch(() => {})
     }
@@ -1014,27 +1024,30 @@ function sendAssignmentEmail(bookingId: string) {
     // Teacher email — was missing before. Teachers need the booking details
     // and the sala link to prep and join on time.
     if (teacher?.email) {
-      const studentLabel = student?.full_name || 'un estudiante'
       const teacherSubject = isPlacement
         ? 'Nueva llamada de diagnóstico asignada — EnglishKolab'
         : 'Nueva clase asignada — EnglishKolab'
       const teacherLead = isPlacement
-        ? `Te asignamos una llamada de diagnóstico con <strong>${studentLabel}</strong>.`
-        : `Te asignamos una clase con <strong>${studentLabel}</strong>.`
+        ? `Te asignamos una llamada de diagnóstico con <strong>${escapeHtml(studentLabel)}</strong>.`
+        : `Te asignamos una clase con <strong>${escapeHtml(studentLabel)}</strong>.`
+      const teacherLeadText = isPlacement
+        ? `Te asignamos una llamada de diagnóstico con ${studentLabel}.`
+        : `Te asignamos una clase con ${studentLabel}.`
       void fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: fromEmail,
+          from: EMAIL_FROM,
           to: teacher.email,
           subject: teacherSubject,
           html: `
-            <p>Hola ${teacherFirst},</p>
+            <p>Hola ${escapeHtml(teacherFirst)},</p>
             <p>${teacherLead}</p>
             <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
             <p><a href="${salaUrl}">Entrar al aula</a> (se abre 15 minutos antes).</p>
             <p>— EnglishKolab</p>
           `,
+          text: `Hola ${teacherFirst},\n\n${teacherLeadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nEntrar al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`,
         }),
       }).catch(() => {})
     }

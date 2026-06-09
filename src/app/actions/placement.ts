@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { escapeHtml, EMAIL_FROM } from '@/lib/email'
 
 export async function saveSurveyAnswers(
   answers: Record<string, unknown>,
@@ -183,7 +184,6 @@ function sendRescheduleNotification(params: {
 }) {
   const apiKey = process.env.RESEND_API_KEY
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
 
   if (!apiKey || apiKey === 're_placeholder') return
 
@@ -197,16 +197,21 @@ function sendRescheduleNotification(params: {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: fromEmail,
+      from: EMAIL_FROM,
       to: adminEmail,
       subject: `Llamada de diagnóstico reagendada — ${params.studentName}`,
       html: `
         <p>Un estudiante reagendó su llamada de diagnóstico.</p>
         <table>
-          <tr><td><strong>Estudiante</strong></td><td>${params.studentName} (${params.studentEmail})</td></tr>
+          <tr><td><strong>Estudiante</strong></td><td>${escapeHtml(params.studentName)} (${escapeHtml(params.studentEmail)})</td></tr>
           <tr><td><strong>Nueva fecha</strong></td><td>${hnFormatted} (CST Honduras)</td></tr>
         </table>
       `,
+      text: [
+        'Un estudiante reagendó su llamada de diagnóstico.',
+        `Estudiante: ${params.studentName} (${params.studentEmail})`,
+        `Nueva fecha: ${hnFormatted} (CST Honduras)`,
+      ].join('\n'),
     }),
   }).catch(() => {})
 }
@@ -219,7 +224,6 @@ function sendPlacementEmails(params: {
 }) {
   const apiKey = process.env.RESEND_API_KEY
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
-  const fromEmail = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
 
   if (!apiKey || apiKey === 're_placeholder') return
 
@@ -243,17 +247,23 @@ function sendPlacementEmails(params: {
   fetch('https://api.resend.com/emails', {
     method: 'POST', headers,
     body: JSON.stringify({
-      from: fromEmail,
+      from: EMAIL_FROM,
       to: adminEmail,
       subject: `Nueva llamada de diagnóstico — ${params.studentName}`,
       html: `
         <p>Un estudiante agendó su llamada de diagnóstico gratuita.</p>
         <table>
-          <tr><td><strong>Estudiante</strong></td><td>${params.studentName} (${params.studentEmail})</td></tr>
+          <tr><td><strong>Estudiante</strong></td><td>${escapeHtml(params.studentName)} (${escapeHtml(params.studentEmail)})</td></tr>
           <tr><td><strong>Fecha y hora</strong></td><td>${hnFormatted} (CST Honduras)</td></tr>
           <tr><td><strong>Duración</strong></td><td>60 minutos</td></tr>
         </table>
       `,
+      text: [
+        'Un estudiante agendó su llamada de diagnóstico gratuita.',
+        `Estudiante: ${params.studentName} (${params.studentEmail})`,
+        `Fecha y hora: ${hnFormatted} (CST Honduras)`,
+        'Duración: 60 minutos',
+      ].join('\n'),
     }),
   }).catch(() => {})
 
@@ -262,26 +272,41 @@ function sendPlacementEmails(params: {
   fetch('https://api.resend.com/emails', {
     method: 'POST', headers,
     body: JSON.stringify({
-      from: fromEmail,
+      from: EMAIL_FROM,
       to: params.studentEmail,
       subject: isEs
         ? 'Tu llamada de diagnóstico está confirmada — EnglishKolab'
-        : 'Your evaluation call is confirmed — EnglishKolab',
+        : 'Your placement call is confirmed — EnglishKolab',
       html: isEs
         ? `
-          <p>Hola ${params.studentName},</p>
+          <p>Hola ${escapeHtml(params.studentName)},</p>
           <p>¡Tu llamada de diagnóstico gratuita está confirmada!</p>
           <p>📅 <strong>Fecha:</strong> ${hnFormatted} (hora de Honduras, CST)</p>
           <p>Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
           <p>— El equipo de EnglishKolab</p>
         `
         : `
-          <p>Hi ${params.studentName},</p>
-          <p>Your free evaluation call is confirmed!</p>
+          <p>Hi ${escapeHtml(params.studentName)},</p>
+          <p>Your free placement call is confirmed!</p>
           <p>📅 <strong>Date:</strong> ${enFormatted} (Honduras time, CST)</p>
           <p>We'll reach out through the platform. Questions? Email us at <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
           <p>— The EnglishKolab team</p>
         `,
+      text: isEs
+        ? [
+            `Hola ${params.studentName},`,
+            '¡Tu llamada de diagnóstico gratuita está confirmada!',
+            `Fecha: ${hnFormatted} (hora de Honduras, CST)`,
+            'Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a hola@englishkolab.com.',
+            '— El equipo de EnglishKolab',
+          ].join('\n')
+        : [
+            `Hi ${params.studentName},`,
+            'Your free placement call is confirmed!',
+            `Date: ${enFormatted} (Honduras time, CST)`,
+            "We'll reach out through the platform. Questions? Email us at hola@englishkolab.com.",
+            '— The EnglishKolab team',
+          ].join('\n'),
     }),
   }).catch(() => {})
 }
