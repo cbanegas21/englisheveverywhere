@@ -74,6 +74,8 @@ Dynamic QA round started **2026-06-09** (ultracode). This is the **dynamic** hal
 ---
 
 ## Full 24-surface sweep — VERDICT (2026-06-09)
+
+> **UPDATE — cluster #1 + 3 mediums SHIPPED & VERIFIED (commit `47f0693`, migration 030 applied, CI green):** LIVE-S01 (weekStart no-500), S03 (availability times), S11 (assignments render) confirmed live by `tests/e2e/verify-fixes.spec.ts` ✅; S02 (toggle grant), S04 (reset limiter), S12/S13 (profile validation) fixed + verified-by-construction. **Remaining:** LIVE-S05..S10 lows, Email Batch E1 (branding/text/from/escaping sweep), static Batch-1 security, features (WhatsApp toggle+admin view, receipts), test-suite repairs.
 526 probes authored across all 24 surfaces → 618 tests, run live in 2 phases (Phase 1 non-mutating parallel, Phase 2 mutating serial). **145 failures triaged (25-agent adversarial workflow) → only ~11 real bugs, ZERO critical, ZERO high.** The app is healthy. The bulk of failures were **test-infra, not the app**: a stale QA session that expired during the 1.4h serial run bounced ~80 tests to `/login`, anonymous-context session bleed (~9), and over-strict/inverted/locator assertions (~10+).
 
 ### Confirmed real bugs (none critical/high) — 4 medium, rest low
