@@ -7,7 +7,7 @@ import { Resend } from 'resend'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
-import { brandedEmail } from '@/lib/email'
+import { brandedEmail, escapeHtml } from '@/lib/email'
 import { safeNextPath } from '@/lib/safeNext'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
@@ -42,9 +42,10 @@ async function sendWelcomeEmail(email: string, fullName: string, lang: string) {
   const from = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
   const firstName = (fullName || '').trim().split(' ')[0]
   const suffix = firstName ? `, ${firstName}` : ''
+  const htmlSuffix = firstName ? `, ${escapeHtml(firstName)}` : ''
   const isEs = lang === 'es'
   const html = brandedEmail({
-    heading: isEs ? `¡Bienvenido a EnglishKolab${suffix}!` : `Welcome to EnglishKolab${suffix}!`,
+    heading: isEs ? `¡Bienvenido a EnglishKolab${htmlSuffix}!` : `Welcome to EnglishKolab${htmlSuffix}!`,
     bodyHtml: isEs
       ? '<p>Tu cuenta ya está lista. 🎉</p><p>Aprende inglés en vivo, 1 a 1, con un maestro asignado a tu nivel — cuando quieras y a tu ritmo. Reserva tu primera clase cuando estés listo.</p>'
       : "<p>Your account is ready. 🎉</p><p>Learn English live, 1-on-1, with a teacher matched to your level — whenever you want, at your own pace. Book your first class when you're ready.</p>",
@@ -226,6 +227,13 @@ export async function resetPassword(formData: FormData) {
 
   const email = formData.get('email') as string
   const lang = (formData.get('lang') as string) || 'es'
+
+  // Throttle reset requests per IP (inbox-spam / email-quota-drain guard). Still
+  // redirect to the generic success screen on limit to preserve enumeration safety.
+  const limit = await checkAuthRateLimit('reset', email)
+  if (!limit.ok) {
+    redirect(`/${lang}/login?success=reset`)
+  }
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${APP_URL}/${lang}/login/new-password`,

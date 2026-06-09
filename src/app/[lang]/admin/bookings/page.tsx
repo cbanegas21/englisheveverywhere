@@ -30,8 +30,11 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     return monday
   }
 
-  const weekStart = weekStartParam
-    ? new Date(weekStartParam + 'T00:00:00Z')
+  // Guard against a garbage ?weekStart (e.g. ?weekStart=garbage) → Invalid Date →
+  // weekStart.toISOString() throws → 500. Fall back to the current week.
+  const parsedWeek = weekStartParam ? new Date(weekStartParam + 'T00:00:00Z') : null
+  const weekStart = parsedWeek && !Number.isNaN(parsedWeek.getTime())
+    ? parsedWeek
     : getMondayOf(now)
   const weekEnd = new Date(weekStart)
   weekEnd.setUTCDate(weekStart.getUTCDate() + 7)

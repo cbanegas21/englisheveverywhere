@@ -2,6 +2,19 @@
 // cream backdrop, white card, crimson accent + CTA). Reuse for welcome, booking,
 // and any future Resend email so they all read like one product.
 
+// Escape user-supplied values before interpolating them into email HTML.
+// full_name / email / feedback etc. are attacker-controllable and otherwise
+// render as raw markup — including CROSS-PARTY (e.g. one user's name shown in
+// the other party's inbox). Always wrap such values: `${escapeHtml(name)}`.
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export function brandedEmail(opts: {
   heading: string
   bodyHtml: string

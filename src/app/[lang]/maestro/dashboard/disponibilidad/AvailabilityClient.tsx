@@ -139,7 +139,9 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
   const tx = t[lang]
   const [isPending, startTransition] = useTransition()
   const [slots, setSlots] = useState<SlotRow[]>(() =>
-    existingSlots.map((s) => ({ ...s, _key: makeKey() })),
+    // Normalize Postgres `time` values ('HH:MM:SS') to the 'HH:MM' the <select>
+    // options use — otherwise no option matches on load and the field resets to 00:00.
+    existingSlots.map((s) => ({ ...s, start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5), _key: makeKey() })),
   )
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
 

@@ -46,12 +46,18 @@ The static pass went deep on the high-risk logic but **sampled**, ran **one pass
 - **Dead subscription / billing-history UI** — remove, or build real receipts?
 - **AD-06 ratings — REMOVE (confirmed):** drop the dead rating UI + columns.
 
+### Carlos's directives (2026-06-09)
+- **WhatsApp reminders = an ACTIVE feature, NOT "coming soon".** Sent **manually** for now (automated later once revenue justifies). Work: (a) keep `prefs.whatsapp` as a real user opt-in toggle (not coming-soon); (b) build an **admin view of WHO opted in + WHEN to send** — upcoming bookings × students with WhatsApp enabled × their numbers — so the team sends by hand. Supersedes the Phase-D "deferred as future feature" framing. (SMS stays dropped.)
+- **FULL EMAIL AUDIT (high priority, launched 2026-06-09).** Every Resend email (welcome, signup/confirmation, booking confirmation + `.ics`, T-24h/T-1h reminders, teacher approval, etc.) audited for: typos (ES+EN), correct **EnglishKolab** branding/sender, **encoding/ASCII** errors (accents, mojibake, unescaped `full_name`), and HTML+plain-text formatting with real englishkolab.com links. ⚠ Supabase-dashboard-templated auth emails (confirmation, recovery) are NOT in the repo → need a manual dashboard check.
+- **Far-future booking cap** — clarified: it is a sanity/abuse guard (cap how far ahead a class can be booked, ~90 days), NOT a plan/pricing change. Low priority; decision pending.
+- **Receipts / billing UI** — make it **real** (generate receipts from `payments`/Stripe), not remove. Propose during/after the sweep.
+
 ---
 
 ## 5. The repeatable QA process (make it permanent)
 - **Playwright regression suite** seeded from the audit's test matrix — runs on every change: zero console errors, no 404/500, the full role-permission matrix, ES + EN, desktop + mobile.
 - **`enterprise-qa-hunt` workflow** — on-demand deep multi-agent sweep (re-run after big features).
-- **Your human QA checklist** — the exploratory "does this actually make sense" steps you'll hand me, folded in alongside the automation. *(Still owe me: your steps.)*
+- **Carlos's human-QA philosophy (stated 2026-06-09):** a *proper* QA finds **EVERYTHING** by enumerating **every possibility / every "what-if" on every surface**, executed **DYNAMICALLY against the real running app** (not static review). Worked example (login): every input you can type incl. **SQLi/XSS**, every button/link, going in/out, **refresh or mis-click mid-load**, **tampering with the URL / locale / query params in the browser**, trying to break it — as **every role, ES+EN, desktop+mobile**. The 10-dimension matrix (in `QA_ENTERPRISE_FINDINGS.md`) is the operationalized checklist; the **dynamic Playwright round (§2b)** is how it actually runs. "All possibilities" = exhaustive in coverage (equivalence classes + boundaries + adversarial payloads per element), not literally infinite.
 
 ---
 

@@ -11,7 +11,7 @@
 import { headers } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-type Action = 'login' | 'signup'
+type Action = 'login' | 'signup' | 'reset'
 
 const WINDOW_MS = 15 * 60 * 1000
 const LIMIT: Record<Action, number> = {
@@ -21,6 +21,8 @@ const LIMIT: Record<Action, number> = {
   // Signup: 5 per 15 min per IP. Legit traffic is one signup per person; a
   // higher ceiling here only helps bot farms.
   signup: 5,
+  // Password reset: 3 per 15 min per IP — stops inbox-spam / email-quota drain.
+  reset: 3,
 }
 
 function getClientIp(h: Headers): string {

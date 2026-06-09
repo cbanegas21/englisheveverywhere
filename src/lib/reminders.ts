@@ -18,6 +18,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buildBookingIcs } from '@/lib/ics'
+import { escapeHtml } from '@/lib/email'
 
 const RESEND_BASE = 'https://api.resend.com'
 
@@ -107,7 +108,10 @@ function reminderHtml(params: {
   appUrl: string
   bookingId: string
 }): string {
-  const { lang, audience, window, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
+  const { lang, audience, window, scheduled, appUrl, bookingId } = params
+  // Escape user-controlled names — they render in the OTHER party's inbox (cross-party XSS).
+  const recipientName = escapeHtml(params.recipientName)
+  const counterpartName = escapeHtml(params.counterpartName)
   const roomUrl = `${appUrl}/${lang}/sala/${bookingId}`
   const isEs = lang === 'es'
 
@@ -164,7 +168,10 @@ function confirmationHtml(params: {
   appUrl: string
   bookingId: string
 }): string {
-  const { lang, audience, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
+  const { lang, audience, scheduled, appUrl, bookingId } = params
+  // Escape user-controlled names — they render in the OTHER party's inbox (cross-party XSS).
+  const recipientName = escapeHtml(params.recipientName)
+  const counterpartName = escapeHtml(params.counterpartName)
   const roomUrl = `${appUrl}/${lang}/sala/${bookingId}`
   const isEs = lang === 'es'
 

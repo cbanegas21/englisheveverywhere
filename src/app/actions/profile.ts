@@ -33,9 +33,25 @@ export async function updateStudentProfile(data: {
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }
-  if (data.fullName !== undefined)             patch.full_name = data.fullName
+  if (data.fullName !== undefined) {
+    // Sanitize the free-text display name: it's written via the RLS-bypassing
+    // admin client and later interpolated into email HTML, so cap length and
+    // reject markup to close a stored-XSS + unbounded-length gap.
+    const name = (data.fullName || '').trim()
+    if (name.length === 0) return { success: false, error: 'Name is required' }
+    if (name.length > 120) return { success: false, error: 'Name is too long' }
+    if (/[<>]/.test(name)) return { success: false, error: 'Name contains invalid characters' }
+    patch.full_name = name
+  }
   if (data.timezone !== undefined)             patch.timezone = data.timezone
-  if (data.phone !== undefined)                patch.phone = data.phone
+  if (data.phone !== undefined) {
+    if (data.phone === null) patch.phone = null
+    else {
+      const phone = String(data.phone).trim()
+      if (phone.length > 32 || /[<>]/.test(phone)) return { success: false, error: 'Invalid phone number' }
+      patch.phone = phone
+    }
+  }
   if (data.avatarUrl !== undefined)            patch.avatar_url = data.avatarUrl
   if (data.preferredLanguage !== undefined)    patch.preferred_language = data.preferredLanguage
   if (data.preferredCurrency !== undefined) {

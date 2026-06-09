@@ -15,6 +15,10 @@
 /test-results/
 /playwright-report/
 /playwright/.cache/
+# saved auth sessions for the live QA sweep — contain session tokens, never commit
+/.auth/
+# QA run logs (regenerable)
+/qa-*.log
 
 # next.js
 /.next/

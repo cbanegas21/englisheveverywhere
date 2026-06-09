@@ -30,25 +30,32 @@ export default async function StudentTareasPage({ params }: Props) {
     .eq('student_id', student.id)
     .order('created_at', { ascending: false })
 
-  const rows = (assignments || []).map((a: any) => ({
-    id: a.id,
-    title: a.title,
-    instructions: a.instructions,
-    due_at: a.due_at,
-    status: a.status,
-    created_at: a.created_at,
-    teacher_name: a.teacher?.profile?.full_name || 'Teacher',
-    submission: a.submission?.[0]
-      ? {
-          id: a.submission[0].id,
-          text: a.submission[0].submitted_text,
-          submitted_at: a.submission[0].submitted_at,
-          feedback: a.submission[0].teacher_feedback,
-          score: a.submission[0].score,
-          graded_at: a.submission[0].graded_at,
-        }
-      : null,
-  }))
+  const rows = (assignments || []).map((a: any) => {
+    // PostgREST returns this to-one submission embed as an OBJECT (it was being
+    // read as `a.submission?.[0]`, which is always undefined → submissions never
+    // rendered: submitted work stayed "open", graded work showed an editable box).
+    // Normalize either an array or object shape before reading it.
+    const sub = Array.isArray(a.submission) ? a.submission[0] : a.submission
+    return {
+      id: a.id,
+      title: a.title,
+      instructions: a.instructions,
+      due_at: a.due_at,
+      status: a.status,
+      created_at: a.created_at,
+      teacher_name: a.teacher?.profile?.full_name || 'Teacher',
+      submission: sub
+        ? {
+            id: sub.id,
+            text: sub.submitted_text,
+            submitted_at: sub.submitted_at,
+            feedback: sub.teacher_feedback,
+            score: sub.score,
+            graded_at: sub.graded_at,
+          }
+        : null,
+    }
+  })
 
   return <StudentTareasClient lang={lang as Locale} assignments={rows} />
 }
