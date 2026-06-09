@@ -788,6 +788,10 @@ export type Database = {
         Args: { p_count: number; p_student_id: string }
         Returns: undefined
       }
+      add_classes_with_plan: {
+        Args: { p_count: number; p_plan_key: string; p_student_id: string }
+        Returns: undefined
+      }
       auth_student_id: { Args: never; Returns: string }
       decrement_classes: { Args: { p_student_id: string }; Returns: boolean }
       increment_classes: { Args: { p_student_id: string }; Returns: undefined }

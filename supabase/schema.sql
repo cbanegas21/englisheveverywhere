@@ -323,6 +323,7 @@ CREATE INDEX idx_bookings_teacher ON public.bookings USING btree (teacher_id);
 CREATE INDEX idx_library_books_active ON public.library_books USING btree (created_at DESC) WHERE (is_active = true);
 CREATE INDEX idx_payments_student ON public.payments USING btree (student_id);
 CREATE INDEX idx_payments_teacher ON public.payments USING btree (teacher_id);
+CREATE UNIQUE INDEX payments_booking_id_unique ON public.payments USING btree (booking_id);
 CREATE UNIQUE INDEX plans_plan_key_key ON public.plans USING btree (plan_key);
 CREATE INDEX profiles_deleted_at_idx ON public.profiles USING btree (deleted_at) WHERE (deleted_at IS NOT NULL);
 CREATE INDEX reschedule_requests_booking_idx ON public.reschedule_requests USING btree (booking_id);
@@ -481,6 +482,21 @@ BEGIN
   SET classes_remaining = classes_remaining + p_count
   WHERE id = p_student_id;
 END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.add_classes_with_plan(p_student_id uuid, p_count integer, p_plan_key text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  update students
+  set classes_remaining = classes_remaining + p_count,
+      current_plan = p_plan_key
+  where id = p_student_id;
+end;
 $function$
 ;
 

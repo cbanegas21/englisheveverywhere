@@ -138,25 +138,26 @@ export async function POST(req: NextRequest) {
           break
         }
         if (!student) {
-          // No matching student. The event isn't replayable by us regardless,
-          // so ack it as processed and log — avoids infinite Stripe retries
-          // against a broken metadata row.
-          console.error('[stripe webhook] student not found for checkout', { userId, planKey })
+          // A checkout can complete moments before the students row exists (signup
+          // race). Release the ledger claim and let Stripe retry so the credit is
+          // not permanently lost; Stripe stops retrying after a few days if the row
+          // never appears (logged above for manual reconciliation).
+          processingError = `checkout student not found yet for user ${userId} (will retry)`
           break
         }
 
-        // Increment rather than set — a student who still has leftover
-        // credits from a prior purchase must not lose them when they buy
-        // another pack.
-        const newCount = (student.classes_remaining || 0) + classes
-
-        const { error: updateErr } = await supabase
-          .from('students')
-          .update({ classes_remaining: newCount, current_plan: planKey })
-          .eq('id', student.id)
-
-        if (updateErr) {
-          processingError = `checkout credit update failed: ${updateErr.message}`
+        // Grant credit AND set current_plan in ONE atomic statement
+        // (add_classes_with_plan, SECURITY DEFINER, migration 034). Critical for
+        // retry-safety: the ledger claim is released on ANY processingError, so a
+        // split credit-then-plan could double-credit on Stripe's retry if the plan
+        // update failed after the credit landed. One statement = all-or-nothing.
+        const { error: creditErr } = await supabase.rpc('add_classes_with_plan', {
+          p_student_id: student.id,
+          p_count: classes,
+          p_plan_key: planKey,
+        })
+        if (creditErr) {
+          processingError = `checkout credit grant failed: ${creditErr.message}`
         }
       }
       break
@@ -166,6 +167,11 @@ export async function POST(req: NextRequest) {
       const charge = event.data as { object: Record<string, unknown> }
       const refunded = charge.object.amount_refunded as number
       const total = charge.object.amount as number
+      // Guard against missing/null amounts coercing into a wrong full-refund verdict.
+      if (typeof refunded !== 'number' || typeof total !== 'number' || total <= 0) {
+        console.error('[stripe webhook] refund event has invalid amounts — skipping', { refunded, total })
+        break
+      }
       const isFullRefund = refunded >= total
 
       // Only reverse credits on full refund — partial refunds (e.g. a
@@ -188,9 +194,14 @@ export async function POST(req: NextRequest) {
 
           if (student) {
             const newCount = Math.max(0, (student.classes_remaining || 0) - CLASS_COUNTS[planKey])
+            // Clear current_plan when the refund zeroes the balance — otherwise the
+            // student is stuck showing a "current plan" with 0 classes and the
+            // re-buy button for that plan stays disabled.
+            const update: { classes_remaining: number; current_plan?: null } = { classes_remaining: newCount }
+            if (newCount === 0) update.current_plan = null
             const { error: updateErr } = await supabase
               .from('students')
-              .update({ classes_remaining: newCount })
+              .update(update)
               .eq('id', student.id)
 
             if (updateErr) {

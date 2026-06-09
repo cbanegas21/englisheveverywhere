@@ -251,16 +251,23 @@ export async function simulateCompleteSession(
     .single()
   if (!booking) return
 
-  const alreadyCompleted = (booking as any).status === 'completed'
   const teacherId = (booking as any).teacher?.id
   const studentId = (booking as any).student?.id
   const durationMinutes = (booking as any).duration_minutes ?? 60
   const hourlyRate = (booking as any).teacher?.hourly_rate ?? 0
   const totalSessions = (booking as any).teacher?.total_sessions ?? 0
 
-  await fx.admin.from('bookings').update({ status: 'completed' }).eq('id', bookingId)
+  // Mirror completeSession (src/app/actions/video.ts): status-gated flip; only the
+  // call that flips pending/confirmed→completed runs the one-time side effects.
+  const { data: completedRows } = await fx.admin
+    .from('bookings')
+    .update({ status: 'completed' })
+    .eq('id', bookingId)
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
+  const justCompleted = !!(completedRows && completedRows.length > 0)
 
-  if (teacherId && !alreadyCompleted) {
+  if (teacherId && justCompleted) {
     await fx.admin
       .from('teachers')
       .update({ total_sessions: totalSessions + 1 })

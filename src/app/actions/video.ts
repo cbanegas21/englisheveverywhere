@@ -327,9 +327,13 @@ export async function completeSession(
     return { error: 'Only the teacher can end the session' }
   }
 
-  // Idempotency guard — a second click (or retry) must not double-increment
-  // teachers.total_sessions or re-run summary generation.
-  const alreadyCompleted = booking.status === 'completed'
+  // Block completing a CANCELLED session — that would mint a teacher payout +
+  // session count for a class that didn't happen. pending and confirmed both
+  // proceed (a class can go live before a formal confirm, and dev-mode bookings
+  // stay 'pending'); an already-completed booking is idempotent via justCompleted.
+  if (booking.status === 'cancelled') {
+    return { error: 'This session was cancelled.' }
+  }
 
   const adminClient = createAdminClient()
 
@@ -351,16 +355,22 @@ export async function completeSession(
     console.log('[completeSession] session ended_at update', { sid, error: sessionErr?.message })
   }
 
-  const { error: bookingErr } = await adminClient
+  // Status-gated flip confirmed→completed. The call that actually flips the row
+  // (justCompleted) is the only one that runs the one-time side effects below —
+  // race-safe and idempotent on re-calls.
+  const { data: completedRows, error: bookingErr } = await adminClient
     .from('bookings')
     .update({ status: 'completed' })
     .eq('id', bookingId)
-  console.log('[completeSession] booking completed', { bookingId, error: bookingErr?.message })
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
+  if (bookingErr) console.log('[completeSession] booking complete error', { bookingId, error: bookingErr.message })
+  const justCompleted = !!(completedRows && completedRows.length > 0)
 
   const teacherId = (booking.teacher as any)?.id
   const studentId = (booking.student as any)?.id
 
-  if (teacherId && !alreadyCompleted) {
+  if (teacherId && justCompleted) {
     const total = (booking.teacher as any)?.total_sessions || 0
     await adminClient
       .from('teachers')
@@ -379,7 +389,7 @@ export async function completeSession(
       const hourlyRate = (booking.teacher as any)?.hourly_rate || 0
       const sessionRate = Math.round(hourlyRate * ((booking.duration_minutes || 50) / 60))
 
-      await adminClient.from('payments').insert({
+      const { error: payErr } = await adminClient.from('payments').insert({
         booking_id: bookingId,
         student_id: studentId,
         teacher_id: teacherId,
@@ -388,11 +398,16 @@ export async function completeSession(
         platform_fee_usd: 0,
         status: 'completed',
       })
+      // 23505 = unique(payments.booking_id) (migration 034): a concurrent flip
+      // already paid out — safe to ignore so we don't double-pay the teacher.
+      if (payErr && payErr.code !== '23505') {
+        console.log('[completeSession] payment insert error', payErr.message)
+      }
     }
   }
 
   let summary: SessionSummary | undefined
-  if (sid && !alreadyCompleted) {
+  if (sid && justCompleted) {
     const result = await generateSessionSummary(sid, lang).catch(() => null)
     if (result) summary = result
   }
