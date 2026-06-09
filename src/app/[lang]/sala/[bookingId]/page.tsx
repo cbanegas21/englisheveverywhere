@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import VideoRoomClient from './VideoRoomClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -19,8 +20,13 @@ export default async function VideoRoomPage({ params }: Props) {
     redirect(`/${lang}/login?next=${next}`)
   }
 
-  // Fetch booking with participants
-  const { data: booking } = await supabase
+  // Fetch booking with participants via the service-role client (RLS-bypassing):
+  // admins and admin-conductors aren't in the bookings SELECT policies, so a
+  // user-scoped read returns null and strands them on a 404 before the
+  // authorization branch below. Access is gated explicitly by the
+  // isParticipant/isAdmin check, not by RLS visibility.
+  const admin = createAdminClient()
+  const { data: booking } = await admin
     .from('bookings')
     .select(`
       id, status, scheduled_at, duration_minutes, conductor_profile_id,
@@ -37,9 +43,9 @@ export default async function VideoRoomPage({ params }: Props) {
   const conductorProfileId = (booking as any).conductor_profile_id
 
   // Participants (teacher / student / admin-conductor) always get through.
-  // Admins get observer-style access for support. TODO: observer-mode — admins
-  // currently receive full participant permissions; scope down once LiveKit's
-  // observer role is wired in `actions/video.ts → getRoomAccess`.
+  // Non-participant admins get observer-style access for support — the
+  // observer-only LiveKit grant (canPublish:false) is wired in
+  // `actions/video.ts → getRoomAccess`.
   const { data: callerProfile } = await supabase
     .from('profiles')
     .select('role, full_name')

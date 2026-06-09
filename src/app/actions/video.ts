@@ -30,7 +30,12 @@ export async function transcribeAudioChunk(
   const audio = formData.get('audio')
   if (!bookingId || !(audio instanceof File)) return { error: 'bad-request' }
 
-  const { data: booking } = await supabase
+  // Service-role read (RLS-bypassing): admins / admin-conductors aren't in the
+  // bookings SELECT policies, so a user-scoped read would strand a conductor on
+  // 'unauthorized'. The isParticipant/isAdmin check below is the real gate — the
+  // fetch is only made visible, not authorized.
+  const adminClient = createAdminClient()
+  const { data: booking } = await adminClient
     .from('bookings')
     .select('id, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
     .eq('id', bookingId)
@@ -72,7 +77,12 @@ export async function getRoomAccess(bookingId: string): Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: booking } = await supabase
+  // Service-role read (RLS-bypassing): admins / admin-conductors aren't in the
+  // bookings SELECT policies, so a user-scoped read returns null and strands
+  // them on 'Booking not found' before the authorization branch. Access is
+  // gated explicitly by the isParticipant/isAdmin check below, not by RLS.
+  const adminClient = createAdminClient()
+  const { data: booking } = await adminClient
     .from('bookings')
     .select(`
       id, status, scheduled_at, duration_minutes, conductor_profile_id,
@@ -89,8 +99,8 @@ export async function getRoomAccess(bookingId: string): Promise<
   const conductorProfileId = (booking as any).conductor_profile_id
 
   // Admins may join any room (for support / observation / placement conducting).
-  // TODO: observer-mode — admins currently get full publish permissions; wire a
-  // read-only grant once LiveKit's observer role is configured.
+  // Non-participant admins receive an observer-only grant (canPublish:false) at
+  // the token-mint step below; conductors are participants and keep full publish.
   const { data: callerProfile } = await supabase
     .from('profiles')
     .select('role, full_name')
@@ -111,6 +121,13 @@ export async function getRoomAccess(bookingId: string): Promise<
     return { error: 'This session has been cancelled' }
   }
 
+  // A completed booking's room must not re-open — completeSession is terminal
+  // (it pays the teacher + writes the summary). The client shows EndedScreen, but
+  // a direct action call would otherwise mint a fresh token for a finished class.
+  if (booking.status === 'completed') {
+    return { error: 'This session has already ended.' }
+  }
+
   const apiKey = process.env.LIVEKIT_API_KEY
   const apiSecret = process.env.LIVEKIT_API_SECRET
   const wsUrl = process.env.LIVEKIT_URL
@@ -129,8 +146,7 @@ export async function getRoomAccess(bookingId: string): Promise<
     }
   }
 
-  // Create or get session record
-  const adminClient = createAdminClient()
+  // Create or get session record (reusing the admin client from the fetch above)
   const { data: existingSession } = await adminClient
     .from('sessions')
     .select('id')
@@ -176,10 +192,15 @@ export async function getRoomAccess(bookingId: string): Promise<
       ttl: 7200, // 2 hours
     })
 
+    // Non-participant admins join as observers (support / observation): they can
+    // watch and use the data channel, but cannot publish A/V into the class.
+    // Conductors are participants (conductor_profile_id) → full publish, since
+    // they actively run placement calls.
+    const isObserver = isAdmin && !isParticipant
     at.addGrant({
       roomJoin: true,
       room: roomName,
-      canPublish: true,
+      canPublish: !isObserver,
       canSubscribe: true,
       canPublishData: true,
     })
@@ -503,7 +524,10 @@ export async function extractLiveVocab(
   if (!user) return []
 
   if (!bookingId) return []
-  const { data: booking } = await supabase
+  // Service-role read (RLS-bypassing) so admins / admin-conductors resolve on a
+  // placement call; the isParticipant/isAdmin gate below is the real authorization.
+  const adminClient = createAdminClient()
+  const { data: booking } = await adminClient
     .from('bookings')
     .select('id, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
     .eq('id', bookingId)
