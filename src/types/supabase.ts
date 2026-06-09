@@ -788,6 +788,7 @@ export type Database = {
       auth_student_id: { Args: never; Returns: string }
       decrement_classes: { Args: { p_student_id: string }; Returns: boolean }
       increment_classes: { Args: { p_student_id: string }; Returns: undefined }
+      is_matched_teacher: { Args: { p_teacher_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

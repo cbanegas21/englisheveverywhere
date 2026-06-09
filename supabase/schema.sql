@@ -373,7 +373,6 @@ create policy "student reads own assignments" on public.assignments for select u
 create policy "teacher reads own assignments" on public.assignments for select using ((teacher_id IN ( SELECT teachers.id
    FROM teachers
   WHERE (teachers.profile_id = auth.uid()))));
-create policy "Availability slots are publicly visible" on public.availability_slots for select using ((is_active = true));
 create policy "Teachers manage own availability" on public.availability_slots for all using ((auth.uid() = ( SELECT teachers.profile_id
    FROM teachers
   WHERE (teachers.id = availability_slots.teacher_id))));
@@ -460,7 +459,7 @@ create policy "Teachers can read student intake" on public.students for select u
 create policy "Students can view own subscriptions" on public.subscriptions for select using ((auth.uid() = ( SELECT students.profile_id
    FROM students
   WHERE (students.id = subscriptions.student_id))));
-create policy "Teachers are publicly visible" on public.teachers for select using ((is_active = true));
+create policy "Students read their matched teacher" on public.teachers for select to authenticated using (is_matched_teacher(id));
 create policy "Teachers can insert their own record" on public.teachers for insert with check ((profile_id = auth.uid()));
 create policy "Teachers can update own record" on public.teachers for update using ((auth.uid() = profile_id));
 create policy "Teachers can view own record" on public.teachers for select using ((auth.uid() = profile_id));
@@ -528,6 +527,23 @@ BEGIN
   SET classes_remaining = classes_remaining + 1
   WHERE id = p_student_id;
 END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_matched_teacher(p_teacher_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+    select 1 from public.students s
+    where s.profile_id = auth.uid() and s.primary_teacher_id = p_teacher_id
+  ) or exists (
+    select 1 from public.bookings b
+    join public.students s on s.id = b.student_id
+    where s.profile_id = auth.uid() and b.teacher_id = p_teacher_id
+  );
 $function$
 ;
 
