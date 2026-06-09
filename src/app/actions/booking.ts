@@ -82,14 +82,29 @@ export async function createBooking(formData: FormData) {
   const durationMinutes = parseInt(formData.get('duration_minutes') as string) || 60
   const lang = (formData.get('lang') as string) || 'es'
 
-  // ── 24-hour advance notice enforcement ───────────────────────
+  // ── Date validation + 24-hour advance notice ─────────────────
   const scheduledDate = new Date(scheduledAt)
+  // Guard Invalid Date first — `NaN < minAllowed` is `false`, so without this an
+  // 'Invalid Date' would slip straight past the 24h check and persist.
+  if (isNaN(scheduledDate.getTime())) {
+    return { error: lang === 'es' ? 'Fecha inválida.' : 'Invalid date.' }
+  }
   const minAllowed = new Date(Date.now() + 24 * 60 * 60 * 1000)
   if (scheduledDate < minAllowed) {
     return {
       error: lang === 'es'
         ? 'Las reservas requieren al menos 24 horas de anticipación.'
         : 'Bookings require at least 24 hours advance notice.',
+    }
+  }
+  // Far-future sanity cap — a booking 90+ days out consumes a non-expiring credit
+  // with no useful reminders; almost always a typo or abuse.
+  const maxAllowed = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+  if (scheduledDate > maxAllowed) {
+    return {
+      error: lang === 'es'
+        ? 'Solo puedes agendar hasta 90 días por adelantado.'
+        : 'You can only book up to 90 days in advance.',
     }
   }
 

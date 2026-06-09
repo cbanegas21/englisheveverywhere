@@ -34,6 +34,17 @@ export async function bookPlacementCall(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  // Date validation — placement skipped this entirely, so a direct call could
+  // persist an Invalid Date or a past/far-future time. (Lenient on notice since
+  // it's a free intro call — only reject invalid, past, and 90+ days out.)
+  const scheduledDate = new Date(scheduledAt)
+  if (isNaN(scheduledDate.getTime()) || scheduledDate.getTime() < Date.now()) {
+    return { error: lang === 'es' ? 'Fecha inválida o en el pasado.' : 'Invalid or past date.' }
+  }
+  if (scheduledDate.getTime() > Date.now() + 90 * 24 * 60 * 60 * 1000) {
+    return { error: lang === 'es' ? 'Solo puedes agendar hasta 90 días por adelantado.' : 'You can only book up to 90 days in advance.' }
+  }
+
   // Auth validated. Admin client for all subsequent DB access (RLS-edge fix).
   const admin = createAdminClient()
 

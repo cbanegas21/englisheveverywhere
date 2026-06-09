@@ -139,6 +139,11 @@ export async function getRoomAccess(bookingId: string): Promise<
   if (!isDevMode) {
     const now = Date.now()
     const scheduled = new Date(booking.scheduled_at).getTime()
+    // Guard a malformed scheduled_at — NaN arithmetic would make closeAt NaN and
+    // `now > NaN` false, leaving the room joinable forever.
+    if (isNaN(scheduled)) {
+      return { error: 'This session has an invalid time.' }
+    }
     const durationMs = (booking.duration_minutes ?? 60) * 60 * 1000
     const closeAt = scheduled + durationMs + 90 * 60 * 1000
     if (now > closeAt) {

@@ -47,6 +47,11 @@ export async function createAssignment(input: {
 
   const title = input.title.trim()
   if (!title) return { error: 'Title is required' }
+  if (title.length > 120) return { error: 'Title is too long (max 120 characters)' }
+  const instructions = input.instructions.trim()
+  if (!instructions) return { error: 'Instructions are required' }
+  if (instructions.length > 4000) return { error: 'Instructions are too long (max 4000 characters)' }
+  if (input.dueAt && isNaN(new Date(input.dueAt).getTime())) return { error: 'Invalid due date' }
 
   // Must have a non-cancelled booking with this student — same gate as
   // teacherSetStudentLevel so teachers can't assign to random students.
@@ -64,7 +69,7 @@ export async function createAssignment(input: {
       teacher_id: teacherId,
       student_id: input.studentId,
       title,
-      instructions: input.instructions,
+      instructions,
       due_at: input.dueAt,
       status: 'open',
     })
