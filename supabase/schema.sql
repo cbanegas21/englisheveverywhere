@@ -48,6 +48,7 @@ create table public.auth_attempts (
   action text not null,
   email text,
   attempted_at timestamp with time zone not null default now(),
+  success boolean not null default true,
   primary key (id)
 );
 
@@ -309,6 +310,7 @@ alter table public.teachers add constraint teachers_profile_id_key UNIQUE (profi
 CREATE INDEX idx_submissions_assignment ON public.assignment_submissions USING btree (assignment_id);
 CREATE INDEX idx_assignments_student ON public.assignments USING btree (student_id, created_at DESC);
 CREATE INDEX idx_assignments_teacher ON public.assignments USING btree (teacher_id, created_at DESC);
+CREATE INDEX auth_attempts_email_action_time_idx ON public.auth_attempts USING btree (email, action, attempted_at DESC);
 CREATE INDEX auth_attempts_ip_action_time_idx ON public.auth_attempts USING btree (ip, action, attempted_at DESC);
 CREATE INDEX idx_availability_teacher ON public.availability_slots USING btree (teacher_id);
 CREATE UNIQUE INDEX bookings_student_time_unique ON public.bookings USING btree (student_id, scheduled_at) WHERE (status <> 'cancelled'::text);
@@ -509,7 +511,11 @@ begin
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data->>'role', 'student')
+    case
+      when new.raw_user_meta_data->>'role' in ('student', 'teacher')
+        then new.raw_user_meta_data->>'role'
+      else 'student'
+    end
   );
   return new;
 end;

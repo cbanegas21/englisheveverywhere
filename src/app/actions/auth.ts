@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { isValidPhoneNumber } from 'libphonenumber-js'
-import { checkAuthRateLimit } from '@/lib/rateLimit'
+import { checkAuthRateLimit, recordLoginOutcome } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 import { brandedEmail, escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { safeNextPath } from '@/lib/safeNext'
@@ -178,6 +178,11 @@ export async function signIn(formData: FormData) {
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+  // Record the attempt outcome for the limiter (per-IP cap + per-email failed-
+  // login lockout). Awaited before any redirect so the row is written; failures
+  // inside are swallowed and never block the user.
+  await recordLoginOutcome(email, !error)
 
   if (error) {
     redirect(`/${lang}/login?error=${encodeURIComponent(error.message)}`)

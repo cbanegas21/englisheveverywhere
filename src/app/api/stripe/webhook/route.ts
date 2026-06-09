@@ -17,6 +17,21 @@ const CLASS_COUNTS: Record<string, number> = {
   intensivo: PRICING_MAP.ascent.classes,
 }
 
+// Expected charge in cents per plan, pinned from canonical pricing. The webhook
+// compares amount_total against this before crediting so a non-standard /
+// tampered / coupon'd session can't credit a pack for less than its price.
+// Price IS already pinned at checkout-create via a fixed Stripe price ID, so the
+// standard flow can't underpay — this closes the non-standard path (audit
+// "webhook grants credits with NO amount-paid verification"). Legacy aliases are
+// intentionally absent: no active checkout emits them and we have no pinned
+// price to verify against, so they fail the amount check and are not credited.
+const EXPECTED_CENTS: Record<string, number> = {
+  spark: PRICING_MAP.spark.priceUsd * 100,
+  drive: PRICING_MAP.drive.priceUsd * 100,
+  ascent: PRICING_MAP.ascent.priceUsd * 100,
+  peak: PRICING_MAP.peak.priceUsd * 100,
+}
+
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
   const stripeKey = process.env.STRIPE_SECRET_KEY
@@ -83,6 +98,32 @@ export async function POST(req: NextRequest) {
         const classes = CLASS_COUNTS[planKey]
         if (!classes) {
           console.error('[stripe webhook] unknown plan_key in checkout metadata', { userId, planKey })
+          break
+        }
+
+        // Verify the customer actually paid the right amount before crediting.
+        // These are non-transient checks (a mismatch won't resolve on retry), so
+        // they ack the event (break, ledger claim kept) rather than 500-retry.
+        const paymentStatus = session.object.payment_status as string | undefined
+        const mode = session.object.mode as string | undefined
+        const currency = session.object.currency as string | undefined
+        const amountTotal = session.object.amount_total as number | null | undefined
+
+        // Paid, one-time, USD. EXPECTED_CENTS is pinned in USD cents — if the
+        // account ever goes multi-currency, a non-USD session must be rejected
+        // here rather than amount-compared against USD figures (mis-credit risk).
+        if (paymentStatus !== 'paid' || mode !== 'payment' || currency !== 'usd') {
+          console.error('[stripe webhook] checkout not a paid one-time USD payment — skipping credit', {
+            userId, planKey, paymentStatus, mode, currency,
+          })
+          break
+        }
+
+        const expectedCents = EXPECTED_CENTS[planKey]
+        if (expectedCents === undefined || amountTotal !== expectedCents) {
+          console.error('[stripe webhook] amount_total does not match pinned plan price — skipping credit', {
+            userId, planKey, amountTotal, expectedCents,
+          })
           break
         }
 

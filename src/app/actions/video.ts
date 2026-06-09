@@ -484,6 +484,7 @@ export interface CuadernoVocabItem {
 }
 
 export async function extractLiveVocab(
+  bookingId: string,
   text: string,
   options: { lang?: 'es' | 'en'; alreadyKnown?: string[] } = {}
 ): Promise<CuadernoVocabItem[]> {
@@ -492,6 +493,30 @@ export async function extractLiveVocab(
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return []
+
+  // Participant/admin gate. Without this the action is an unauthenticated proxy
+  // to Anthropic on the server key (audit: cost-abuse). Mirrors the guard on
+  // transcribeAudioChunk. Returns [] on any failure to preserve the hook's
+  // graceful-degrade contract (no Anthropic call is reached before this passes).
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  if (!bookingId) return []
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('id, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) return []
+
+  const { data: caller } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const isAdmin = caller?.role === 'admin'
+  const isParticipant =
+    user.id === (booking.teacher as any)?.profile_id ||
+    user.id === (booking.student as any)?.profile_id ||
+    user.id === (booking as any).conductor_profile_id
+  if (!isParticipant && !isAdmin) return []
 
   const lang = options.lang || 'es'
   const known = (options.alreadyKnown || []).slice(0, 60).join(', ')

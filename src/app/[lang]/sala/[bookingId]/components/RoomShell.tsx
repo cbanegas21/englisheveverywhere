@@ -78,6 +78,7 @@ export function RoomShell({
   // transcript every ~30s via Claude haiku 4.5. Best-effort, silent on
   // failure (no Anthropic key = empty vocab list, panel still works).
   const liveVocab = useLiveVocab({
+    bookingId,
     finals: transcript.finals,
     uiLang: lang,
     enabled: true,

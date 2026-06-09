@@ -10,6 +10,9 @@ export interface CuadernoEntry extends CuadernoVocabItem {
 }
 
 interface Args {
+  /** Booking id for this room — forwarded to extractLiveVocab so the server
+   *  action can enforce participant-only access (anti cost-abuse). */
+  bookingId: string
   /** Live transcript finals (in order, may be appended to). Stream from
    *  useLiveTranscript. The hook tracks which lines it has already sent. */
   finals: TranscriptLine[]
@@ -32,6 +35,7 @@ interface Args {
 // Dedup is done client-side via lowercased word string so the same word
 // from two consecutive batches doesn't double up.
 export function useLiveVocab({
+  bookingId,
   finals,
   uiLang = 'es',
   intervalMs = 30_000,
@@ -60,7 +64,7 @@ export function useLiveVocab({
       const known = entriesRef.current.map((e) => e.word.toLowerCase())
       setIsExtracting(true)
       try {
-        const items = await extractLiveVocab(text, { lang: uiLang, alreadyKnown: known })
+        const items = await extractLiveVocab(bookingId, text, { lang: uiLang, alreadyKnown: known })
         if (cancelled || items.length === 0) return
         const ts = Date.now()
         const fresh: CuadernoEntry[] = items
@@ -83,7 +87,7 @@ export function useLiveVocab({
       cancelled = true
       clearInterval(id)
     }
-  }, [enabled, intervalMs, uiLang])
+  }, [enabled, intervalMs, uiLang, bookingId])
 
   return { entries, isExtracting }
 }
