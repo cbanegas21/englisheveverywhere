@@ -60,6 +60,169 @@ const CAL_START_HOUR = 0
 const CAL_END_HOUR = 24
 const HOUR_HEIGHT = 48
 
+// ── i18n ──────────────────────────────────────────────────────────────────────
+// The whole app (admin included) localizes off the /[lang] segment. Server-action
+// error strings stay English by design (admin-facing), so the override-retry
+// matching below keys on the English server phrases, not these display strings.
+
+const STR = {
+  en: {
+    // toasts / prompts
+    assigned: 'Assigned and confirmed',
+    assignFailed: 'Assignment failed',
+    assignAnyway: 'Assign anyway?',
+    markedComplete: 'Booking marked complete',
+    error: 'Error',
+    cancelledRefunded: 'Booking cancelled — class credit refunded',
+    // teacher filter + legend
+    teachers: 'Teachers',
+    allTeachers: 'All teachers',
+    legend: 'Legend',
+    legPending: 'Pending',
+    legConfirmed: 'Confirmed',
+    legCompleted: 'Completed',
+    legPlacement: 'Placement',
+    legInterview: 'Interview',
+    // nav
+    prev: '← Prev',
+    next: 'Next →',
+    weekBack: '← Week',
+    bookingsCount: (n: number) => `${n} bookings`,
+    unassignedCol: (n: number) => `UNASSIGNED (${n})`,
+    // fallbacks
+    studentFallback: 'Student',
+    unassigned: 'Unassigned',
+    unknown: 'Unknown',
+    // detail panel
+    bookingDetail: 'Booking Detail',
+    student: 'Student',
+    teacher: 'Teacher',
+    conductor: 'Conductor',
+    scheduled: 'Scheduled',
+    hondurasTime: 'Honduras time (CST)',
+    duration: 'Duration',
+    type: 'Type',
+    meetingNotes: 'Meeting Notes',
+    aiSummary: 'AI Summary',
+    studentRating: 'Student Rating',
+    assignTeacher: 'Assign Teacher',
+    selectTeacher: 'Select teacher…',
+    pausedOption: (name: string) => `⏸ ${name} (paused — not accepting)`,
+    okOption: (name: string) => `✓ ${name}`,
+    offHoursOption: (name: string) => `✗ ${name} (off-hours)`,
+    assign: 'Assign',
+    markComplete: 'Mark Complete',
+    confirmCancelBtn: 'Confirm Cancel',
+    no: 'No',
+    cancelBooking: 'Cancel Booking',
+    // availability panel
+    availToday: 'Teacher Availability — Today',
+    dayOfWeek: (wd: string) => `(day of week, ${wd})`,
+    hour: 'Hour',
+    available: 'Available',
+    busy: 'Busy',
+    availPanelToggle: 'Teacher Availability Panel',
+    // page header
+    kicker: '↳ Admin · Operations',
+    bookings: 'Bookings',
+    thisWeek: 'this week',
+    visualCalendar: 'Visual calendar — Honduras time (CST, UTC-6)',
+    viewWeek: 'Week',
+    viewDay: 'Day',
+    viewBoard: 'Board',
+    // stats
+    statToday: 'Bookings Today',
+    statPending: 'Pending Assignment',
+    statConfirmed: 'Confirmed This Week',
+    statSlots: 'Availability Slots',
+    // pending table
+    pendingAssignments: (n: number) => `Pending Assignments (${n})`,
+    thStudent: 'Student',
+    thScheduled: 'Scheduled',
+    thType: 'Type',
+    thDuration: 'Duration',
+    thAssign: 'Assign Teacher',
+    noPending: 'No pending assignments. All caught up!',
+    minShort: (m: number) => `${m} min`,
+    minTight: (m: number) => `${m}min`,
+    status: { pending: 'Pending', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' } as Record<string, string>,
+    types: { class: 'Class', placement_test: 'Placement test', teacher_interview: 'Teacher interview', admin_checkin: 'Admin check-in' } as Record<string, string>,
+  },
+  es: {
+    assigned: 'Asignado y confirmado',
+    assignFailed: 'Falló la asignación',
+    assignAnyway: '¿Asignar de todos modos?',
+    markedComplete: 'Sesión marcada como completada',
+    error: 'Error',
+    cancelledRefunded: 'Sesión cancelada — crédito de clase reembolsado',
+    teachers: 'Maestros',
+    allTeachers: 'Todos los maestros',
+    legend: 'Leyenda',
+    legPending: 'Pendiente',
+    legConfirmed: 'Confirmada',
+    legCompleted: 'Completada',
+    legPlacement: 'Diagnóstico',
+    legInterview: 'Entrevista',
+    prev: '← Anterior',
+    next: 'Siguiente →',
+    weekBack: '← Semana',
+    bookingsCount: (n: number) => `${n} reservas`,
+    unassignedCol: (n: number) => `SIN ASIGNAR (${n})`,
+    studentFallback: 'Estudiante',
+    unassigned: 'Sin asignar',
+    unknown: 'Desconocido',
+    bookingDetail: 'Detalle de reserva',
+    student: 'Estudiante',
+    teacher: 'Maestro',
+    conductor: 'Conductor',
+    scheduled: 'Programada',
+    hondurasTime: 'Hora de Honduras (CST)',
+    duration: 'Duración',
+    type: 'Tipo',
+    meetingNotes: 'Notas de la reunión',
+    aiSummary: 'Resumen IA',
+    studentRating: 'Calificación del estudiante',
+    assignTeacher: 'Asignar maestro',
+    selectTeacher: 'Seleccionar maestro…',
+    pausedOption: (name: string) => `⏸ ${name} (en pausa — no acepta)`,
+    okOption: (name: string) => `✓ ${name}`,
+    offHoursOption: (name: string) => `✗ ${name} (fuera de horario)`,
+    assign: 'Asignar',
+    markComplete: 'Marcar completada',
+    confirmCancelBtn: 'Confirmar cancelación',
+    no: 'No',
+    cancelBooking: 'Cancelar reserva',
+    availToday: 'Disponibilidad de maestros — Hoy',
+    dayOfWeek: (wd: string) => `(día de la semana, ${wd})`,
+    hour: 'Hora',
+    available: 'Disponible',
+    busy: 'Ocupado',
+    availPanelToggle: 'Panel de disponibilidad de maestros',
+    kicker: '↳ Admin · Operaciones',
+    bookings: 'Reservas',
+    thisWeek: 'esta semana',
+    visualCalendar: 'Calendario visual — Hora de Honduras (CST, UTC-6)',
+    viewWeek: 'Semana',
+    viewDay: 'Día',
+    viewBoard: 'Tablero',
+    statToday: 'Reservas de hoy',
+    statPending: 'Pendientes de asignar',
+    statConfirmed: 'Confirmadas esta semana',
+    statSlots: 'Horarios disponibles',
+    pendingAssignments: (n: number) => `Asignaciones pendientes (${n})`,
+    thStudent: 'Estudiante',
+    thScheduled: 'Programada',
+    thType: 'Tipo',
+    thDuration: 'Duración',
+    thAssign: 'Asignar maestro',
+    noPending: 'No hay asignaciones pendientes. ¡Todo al día!',
+    minShort: (m: number) => `${m} min`,
+    minTight: (m: number) => `${m}min`,
+    status: { pending: 'Pendiente', confirmed: 'Confirmada', completed: 'Completada', cancelled: 'Cancelada' } as Record<string, string>,
+    types: { class: 'Clase', placement_test: 'Diagnóstico', teacher_interview: 'Entrevista de maestro', admin_checkin: 'Revisión de admin' } as Record<string, string>,
+  },
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toHNHour(iso: string): number {
@@ -137,6 +300,20 @@ export default function BookingCalendarClient({
   const [showAiSummary, setShowAiSummary] = useState(false)
   const router = useRouter()
 
+  // ── i18n bindings ──────────────────────────────────────────────────────────
+  const L: 'en' | 'es' = lang === 'es' ? 'es' : 'en'
+  const tx = STR[L]
+  const DLOC = L === 'es' ? 'es-HN' : 'en-US'
+  function hourLabel(h: number): string {
+    // ES uses 24h (natural for Honduras, fits the 60px gutter); EN keeps 12h am/pm.
+    if (L === 'es') return `${String(h).padStart(2, '0')}:00`
+    return h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`
+  }
+  const typeLabel = (type: string) => tx.types[type] ?? type.replace(/_/g, ' ')
+  const statusLabel = (status: string) => tx.status[status] ?? status
+  const viewLabel = (v: 'week' | 'day' | 'board') =>
+    v === 'week' ? tx.viewWeek : v === 'day' ? tx.viewDay : tx.viewBoard
+
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3500)
@@ -157,8 +334,8 @@ export default function BookingCalendarClient({
       const d = new Date(start)
       d.setUTCDate(start.getUTCDate() + i)
       labels.push({
-        short: d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
-        full: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
+        short: d.toLocaleDateString(DLOC, { weekday: 'short', timeZone: 'UTC' }),
+        full: d.toLocaleDateString(DLOC, { month: 'short', day: 'numeric', timeZone: 'UTC' }),
         iso: d.toISOString().slice(0, 10),
       })
     }
@@ -199,14 +376,15 @@ export default function BookingCalendarClient({
     startTransition(async () => {
       try {
         await assignAndConfirmBooking(bookingId, teacherId, { force })
-        showToast('Assigned and confirmed')
+        showToast(tx.assigned)
         onSuccess()
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Assignment failed'
+        const msg = e instanceof Error ? e.message : tx.assignFailed
+        // Match on the English server-error phrases (server messages stay English).
         const lower = msg.toLowerCase()
         const overridable = lower.includes('not available') || lower.includes('primary teacher')
         if (overridable && !force) {
-          if (confirm(`${msg}\n\nAssign anyway?`)) {
+          if (confirm(`${msg}\n\n${tx.assignAnyway}`)) {
             assignWithAvailabilityGuard(bookingId, teacherId, onSuccess, true)
             return
           }
@@ -232,11 +410,11 @@ export default function BookingCalendarClient({
     startTransition(async () => {
       try {
         await completeBooking(selectedBooking.id)
-        showToast('Booking marked complete')
+        showToast(tx.markedComplete)
         setSelectedBooking(null)
         router.refresh()
       } catch (e) {
-        showToast(e instanceof Error ? e.message : 'Error', 'error')
+        showToast(e instanceof Error ? e.message : tx.error, 'error')
       }
     })
   }
@@ -246,12 +424,12 @@ export default function BookingCalendarClient({
     startTransition(async () => {
       try {
         await cancelBookingWithRefund(selectedBooking.id)
-        showToast('Booking cancelled — class credit refunded')
+        showToast(tx.cancelledRefunded)
         setSelectedBooking(null)
         setConfirmCancel(false)
         router.refresh()
       } catch (e) {
-        showToast(e instanceof Error ? e.message : 'Error', 'error')
+        showToast(e instanceof Error ? e.message : tx.error, 'error')
       }
     })
   }
@@ -291,14 +469,14 @@ export default function BookingCalendarClient({
   function renderTeacherFilter() {
     return (
       <div style={{ width: 180, flexShrink: 0 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Teachers</p>
+        <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{tx.teachers}</p>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={selectedTeachers.size === teachers.length}
             onChange={() => setSelectedTeachers(selectedTeachers.size === teachers.length ? new Set() : new Set(teachers.map(t => t.id)))}
           />
-          <span style={{ fontSize: 12, color: '#374151' }}>All teachers</span>
+          <span style={{ fontSize: 12, color: '#374151' }}>{tx.allTeachers}</span>
         </label>
         {teachers.map(t => (
           <label key={t.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, cursor: 'pointer' }}>
@@ -316,13 +494,13 @@ export default function BookingCalendarClient({
         ))}
 
         <div style={{ marginTop: 20, borderTop: '1px solid #E5E7EB', paddingTop: 16 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Legend</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{tx.legend}</p>
           {[
-            { color: '#FCD34D', label: 'Pending' },
-            { color: '#6EE7B7', label: 'Confirmed' },
-            { color: '#86EFAC', label: 'Completed' },
-            { color: '#93C5FD', label: 'Placement' },
-            { color: '#C4B5FD', label: 'Interview' },
+            { color: '#FCD34D', label: tx.legPending },
+            { color: '#6EE7B7', label: tx.legConfirmed },
+            { color: '#86EFAC', label: tx.legCompleted },
+            { color: '#93C5FD', label: tx.legPlacement },
+            { color: '#C4B5FD', label: tx.legInterview },
           ].map(item => (
             <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <div style={{ width: 10, height: 10, borderRadius: 3, background: item.color }} />
@@ -343,13 +521,13 @@ export default function BookingCalendarClient({
       <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
         {/* Week nav header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #E5E7EB' }}>
-          <button onClick={() => navigate('prev')} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, cursor: 'pointer' }}>← Prev</button>
+          <button onClick={() => navigate('prev')} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, cursor: 'pointer' }}>{tx.prev}</button>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
-            {new Date(weekStart + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+            {new Date(weekStart + 'T00:00:00Z').toLocaleDateString(DLOC, { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
             {' — '}
-            {new Date(new Date(weekStart + 'T00:00:00Z').setUTCDate(new Date(weekStart + 'T00:00:00Z').getUTCDate() + 6)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+            {new Date(new Date(weekStart + 'T00:00:00Z').setUTCDate(new Date(weekStart + 'T00:00:00Z').getUTCDate() + 6)).toLocaleDateString(DLOC, { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
           </span>
-          <button onClick={() => navigate('next')} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, cursor: 'pointer' }}>Next →</button>
+          <button onClick={() => navigate('next')} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, cursor: 'pointer' }}>{tx.next}</button>
         </div>
 
         {/* Day label row */}
@@ -377,7 +555,7 @@ export default function BookingCalendarClient({
             {hours.map(h => (
               <div key={h} style={{ position: 'absolute', top: (h - CAL_START_HOUR) * HOUR_HEIGHT, left: 0, right: 0, height: HOUR_HEIGHT }}>
                 <span style={{ fontSize: 10, color: '#9CA3AF', paddingLeft: 8, paddingTop: 4, display: 'block', userSelect: 'none' }}>
-                  {h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
+                  {hourLabel(h)}
                 </span>
               </div>
             ))}
@@ -447,7 +625,7 @@ export default function BookingCalendarClient({
                       }}
                     >
                       <p style={{ fontSize: 10, fontWeight: 700, color: colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {b.student_name?.split(' ')[0] || 'Student'}
+                        {b.student_name?.split(' ')[0] || tx.studentFallback}
                       </p>
                       {heightPx > 30 && (
                         <p style={{ fontSize: 9, color: '#6B7280', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -456,7 +634,7 @@ export default function BookingCalendarClient({
                       )}
                       {heightPx > 44 && (
                         <p style={{ fontSize: 9, color: '#9CA3AF', margin: 0 }}>
-                          {new Date(b.scheduled_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
+                          {new Date(b.scheduled_at).toLocaleTimeString(DLOC, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
                         </p>
                       )}
                     </div>
@@ -485,7 +663,7 @@ export default function BookingCalendarClient({
       <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
         {/* Day nav */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #E5E7EB' }}>
-          <button onClick={() => navigate('prev')} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, cursor: 'pointer' }}>← Week</button>
+          <button onClick={() => navigate('prev')} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, cursor: 'pointer' }}>{tx.weekBack}</button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setSelectedDay(Math.max(0, selectedDay - 1))} disabled={selectedDay === 0} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: selectedDay === 0 ? '#D1D5DB' : '#374151', fontSize: 13, cursor: selectedDay === 0 ? 'default' : 'pointer' }}>◀</button>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#111', padding: '6px 12px' }}>
@@ -493,7 +671,7 @@ export default function BookingCalendarClient({
             </span>
             <button onClick={() => setSelectedDay(Math.min(6, selectedDay + 1))} disabled={selectedDay === 6} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid #E5E7EB', background: '#fff', color: selectedDay === 6 ? '#D1D5DB' : '#374151', fontSize: 13, cursor: selectedDay === 6 ? 'default' : 'pointer' }}>▶</button>
           </div>
-          <span style={{ fontSize: 12, color: '#9CA3AF' }}>{dayBookings.length} bookings</span>
+          <span style={{ fontSize: 12, color: '#9CA3AF' }}>{tx.bookingsCount(dayBookings.length)}</span>
         </div>
 
         {/* Day tabs */}
@@ -526,7 +704,7 @@ export default function BookingCalendarClient({
             {hours.map(h => (
               <div key={h} style={{ position: 'absolute', top: (h - CAL_START_HOUR) * HOUR_HEIGHT, left: 0, right: 0 }}>
                 <span style={{ fontSize: 10, color: '#9CA3AF', paddingLeft: 8, paddingTop: 4, display: 'block' }}>
-                  {h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
+                  {hourLabel(h)}
                 </span>
               </div>
             ))}
@@ -566,13 +744,13 @@ export default function BookingCalendarClient({
                   }}
                 >
                   <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: colors.text, margin: 0 }}>{b.student_name || 'Student'}</p>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: colors.text, margin: 0 }}>{b.student_name || tx.studentFallback}</p>
                     <p style={{ fontSize: 11, color: '#6B7280', margin: '1px 0 0' }}>
-                      {new Date(b.scheduled_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })} · {b.duration_minutes ? `${b.duration_minutes}min` : ''}
+                      {new Date(b.scheduled_at).toLocaleTimeString(DLOC, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })} · {b.duration_minutes ? tx.minTight(b.duration_minutes) : ''}
                     </p>
                   </div>
                   <div>
-                    <p style={{ fontSize: 11, color: '#6B7280', margin: 0 }}>{b.teacher_name?.split(' ')[0] || 'Unassigned'}</p>
+                    <p style={{ fontSize: 11, color: '#6B7280', margin: 0 }}>{b.teacher_name?.split(' ')[0] || tx.unassigned}</p>
                   </div>
                 </div>
               )
@@ -596,7 +774,7 @@ export default function BookingCalendarClient({
                 style={{ width: 220, minHeight: 400, background: '#FFFBEB', borderRadius: 12, border: '1px solid #FCD34D', padding: 12, flexShrink: 0 }}
               >
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#D97706', marginBottom: 8 }}>
-                  UNASSIGNED ({unassignedBookings.length})
+                  {tx.unassignedCol(unassignedBookings.length)}
                 </p>
                 {unassignedBookings.map((b, index) => (
                   <Draggable key={b.id} draggableId={b.id} index={index}>
@@ -618,12 +796,12 @@ export default function BookingCalendarClient({
                         }}
                       >
                         <p style={{ fontSize: 12, fontWeight: 600, color: '#111', margin: 0 }}>
-                          {b.student_name?.split(' ')[0] || 'Student'}
+                          {b.student_name?.split(' ')[0] || tx.studentFallback}
                         </p>
                         <p style={{ fontSize: 11, color: '#6B7280', margin: '2px 0 0' }}>
-                          {new Date(b.scheduled_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
+                          {new Date(b.scheduled_at).toLocaleString(DLOC, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
                         </p>
-                        <p style={{ fontSize: 10, color: '#9CA3AF', margin: '2px 0 0', textTransform: 'capitalize' }}>{b.type.replace(/_/g, ' ')}</p>
+                        <p style={{ fontSize: 10, color: '#9CA3AF', margin: '2px 0 0', textTransform: 'capitalize' }}>{typeLabel(b.type)}</p>
                       </div>
                     )}
                   </Draggable>
@@ -656,7 +834,7 @@ export default function BookingCalendarClient({
                     <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }}>
                       {teacher.name.split(' ')[0].toUpperCase()}
                     </p>
-                    <p style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 8 }}>{teacherBookings.length} bookings</p>
+                    <p style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 8 }}>{tx.bookingsCount(teacherBookings.length)}</p>
                     {teacherBookings.map((b, index) => {
                       const colors = getBookingColor(b.status, b.type)
                       return (
@@ -678,12 +856,12 @@ export default function BookingCalendarClient({
                               }}
                             >
                               <p style={{ fontSize: 12, fontWeight: 600, color: colors.text, margin: 0 }}>
-                                {b.student_name?.split(' ')[0] || 'Student'}
+                                {b.student_name?.split(' ')[0] || tx.studentFallback}
                               </p>
                               <p style={{ fontSize: 11, color: '#6B7280', margin: '2px 0 0' }}>
-                                {new Date(b.scheduled_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
+                                {new Date(b.scheduled_at).toLocaleString(DLOC, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
                               </p>
-                              <span style={{ fontSize: 10, color: colors.text, textTransform: 'capitalize' }}>{b.status}</span>
+                              <span style={{ fontSize: 10, color: colors.text, textTransform: 'capitalize' }}>{statusLabel(b.status)}</span>
                             </div>
                           )}
                         </Draggable>
@@ -720,9 +898,9 @@ export default function BookingCalendarClient({
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Booking Detail</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>{tx.bookingDetail}</p>
             <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: badge.bg, color: badge.color, textTransform: 'capitalize' }}>
-              {b.status}
+              {statusLabel(b.status)}
             </span>
           </div>
           <button
@@ -735,7 +913,7 @@ export default function BookingCalendarClient({
 
         {/* Student */}
         <div style={{ marginBottom: 14 }}>
-          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>Student</p>
+          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>{tx.student}</p>
           <a href={`/${lang}/admin/students/${b.student_id}`} style={{ fontSize: 14, fontWeight: 700, color: '#111', textDecoration: 'none' }}>
             {b.student_name || '—'}
           </a>
@@ -745,53 +923,53 @@ export default function BookingCalendarClient({
 
         {/* Teacher */}
         <div style={{ marginBottom: 14 }}>
-          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>Teacher</p>
+          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>{tx.teacher}</p>
           {b.teacher_id ? (
             <a href={`/${lang}/admin/teachers/${b.teacher_id}`} style={{ fontSize: 14, fontWeight: 600, color: '#374151', textDecoration: 'none' }}>
-              {b.teacher_name || 'Unknown'}
+              {b.teacher_name || tx.unknown}
             </a>
           ) : (
-            <span style={{ fontSize: 13, color: '#D97706' }}>Unassigned</span>
+            <span style={{ fontSize: 13, color: '#D97706' }}>{tx.unassigned}</span>
           )}
         </div>
 
         {/* Conductor — only relevant for placement calls, which carry an admin-run interviewer on top of the teacher */}
         {b.type === 'placement_test' && (
           <div style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>Conductor</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>{tx.conductor}</p>
             {b.conductor_name ? (
               <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>{b.conductor_name}</span>
             ) : (
-              <span style={{ fontSize: 13, color: '#D97706' }}>Unassigned</span>
+              <span style={{ fontSize: 13, color: '#D97706' }}>{tx.unassigned}</span>
             )}
           </div>
         )}
 
         {/* Date/time */}
         <div style={{ marginBottom: 14 }}>
-          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>Scheduled</p>
+          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>{tx.scheduled}</p>
           <p style={{ fontSize: 13, color: '#111', margin: 0, fontWeight: 600 }}>
-            {new Date(b.scheduled_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
+            {new Date(b.scheduled_at).toLocaleString(DLOC, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
           </p>
-          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '2px 0 0' }}>Honduras time (CST)</p>
+          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '2px 0 0' }}>{tx.hondurasTime}</p>
         </div>
 
         {/* Duration + Type */}
         <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
           <div>
-            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>Duration</p>
-            <p style={{ fontSize: 13, color: '#374151', margin: 0 }}>{b.duration_minutes ? `${b.duration_minutes} min` : '—'}</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>{tx.duration}</p>
+            <p style={{ fontSize: 13, color: '#374151', margin: 0 }}>{b.duration_minutes ? tx.minShort(b.duration_minutes) : '—'}</p>
           </div>
           <div>
-            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>Type</p>
-            <p style={{ fontSize: 13, color: '#374151', margin: 0, textTransform: 'capitalize' }}>{b.type.replace(/_/g, ' ')}</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 2px', fontWeight: 600 }}>{tx.type}</p>
+            <p style={{ fontSize: 13, color: '#374151', margin: 0, textTransform: 'capitalize' }}>{typeLabel(b.type)}</p>
           </div>
         </div>
 
         {/* Meeting notes */}
         {b.meeting_notes && (
           <div style={{ marginBottom: 14, padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid #E5E7EB' }}>
-            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 4px', fontWeight: 600 }}>Meeting Notes</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 4px', fontWeight: 600 }}>{tx.meetingNotes}</p>
             <p style={{ fontSize: 12, color: '#374151', margin: 0, lineHeight: 1.5 }}>{b.meeting_notes}</p>
           </div>
         )}
@@ -803,7 +981,7 @@ export default function BookingCalendarClient({
               onClick={() => setShowAiSummary(!showAiSummary)}
               style={{ background: 'none', border: 'none', fontSize: 11, fontWeight: 700, color: '#7C3AED', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              {showAiSummary ? '▾' : '▸'} AI Summary
+              {showAiSummary ? '▾' : '▸'} {tx.aiSummary}
             </button>
             {showAiSummary && (
               <div style={{ marginTop: 6, padding: '10px 12px', background: '#F5F3FF', borderRadius: 8, border: '1px solid #C4B5FD' }}>
@@ -816,7 +994,7 @@ export default function BookingCalendarClient({
         {/* Student rating */}
         {b.student_rating !== null && (
           <div style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 4px', fontWeight: 600 }}>Student Rating</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 4px', fontWeight: 600 }}>{tx.studentRating}</p>
             <div style={{ display: 'flex', gap: 2 }}>
               {[1, 2, 3, 4, 5].map(star => (
                 <span key={star} style={{ fontSize: 16, color: star <= (b.student_rating ?? 0) ? '#F59E0B' : '#E5E7EB' }}>★</span>
@@ -834,7 +1012,7 @@ export default function BookingCalendarClient({
           {/* Assign teacher (always show if not completed/cancelled) */}
           {b.status !== 'completed' && b.status !== 'cancelled' && (
             <div>
-              <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 6px', fontWeight: 600 }}>Assign Teacher</p>
+              <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 6px', fontWeight: 600 }}>{tx.assignTeacher}</p>
               <div style={{ display: 'flex', gap: 6 }}>
                 <select
                   value={detailAssignTeacher}
@@ -842,7 +1020,7 @@ export default function BookingCalendarClient({
                   disabled={isPending}
                   style={{ flex: 1, borderRadius: 7, border: '1px solid #E5E7EB', padding: '7px 10px', fontSize: 12, color: '#111', background: '#fff', outline: 'none' }}
                 >
-                  <option value="">Select teacher…</option>
+                  <option value="">{tx.selectTeacher}</option>
                   {teachers.map(t => {
                     const ok = isTeacherAvailableClient(t.id, availSlots, b.scheduled_at, b.duration_minutes || 60)
                     // Paused teachers can't take a NEW student (server-gated), so
@@ -851,8 +1029,8 @@ export default function BookingCalendarClient({
                     const isCurrent = b.teacher_id === t.id
                     const paused = !t.accepting && !isCurrent
                     const label = paused
-                      ? `⏸ ${t.name} (paused — not accepting)`
-                      : ok ? `✓ ${t.name}` : `✗ ${t.name} (off-hours)`
+                      ? tx.pausedOption(t.name)
+                      : ok ? tx.okOption(t.name) : tx.offHoursOption(t.name)
                     return (
                       <option key={t.id} value={t.id} disabled={paused}>
                         {label}
@@ -865,7 +1043,7 @@ export default function BookingCalendarClient({
                   disabled={isPending || !detailAssignTeacher}
                   style={{ padding: '7px 12px', borderRadius: 7, border: 'none', background: detailAssignTeacher ? '#111' : '#E5E7EB', color: detailAssignTeacher ? '#fff' : '#9CA3AF', fontSize: 12, fontWeight: 600, cursor: detailAssignTeacher ? 'pointer' : 'default' }}
                 >
-                  {isPending ? '…' : 'Assign'}
+                  {isPending ? '…' : tx.assign}
                 </button>
               </div>
             </div>
@@ -878,7 +1056,7 @@ export default function BookingCalendarClient({
               disabled={isPending}
               style={{ padding: '9px 14px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
             >
-              Mark Complete
+              {tx.markComplete}
             </button>
           )}
 
@@ -903,13 +1081,13 @@ export default function BookingCalendarClient({
                   disabled={isPending}
                   style={{ flex: 1, padding: '9px 14px', borderRadius: 8, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                 >
-                  Confirm Cancel
+                  {tx.confirmCancelBtn}
                 </button>
                 <button
                   onClick={() => setConfirmCancel(false)}
                   style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, cursor: 'pointer' }}
                 >
-                  No
+                  {tx.no}
                 </button>
               </div>
             ) : (
@@ -917,7 +1095,7 @@ export default function BookingCalendarClient({
                 onClick={() => setConfirmCancel(true)}
                 style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid #FCA5A5', background: 'rgba(220,38,38,0.05)', color: '#DC2626', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
-                Cancel Booking
+                {tx.cancelBooking}
               </button>
             )
           )}
@@ -931,16 +1109,16 @@ export default function BookingCalendarClient({
     return (
       <div style={{ marginTop: 16, background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#111', margin: 0 }}>Teacher Availability — Today</p>
-          <span style={{ fontSize: 11, color: '#9CA3AF' }}>(day of week, {new Date().toLocaleDateString('en-US', { weekday: 'long' })})</span>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#111', margin: 0 }}>{tx.availToday}</p>
+          <span style={{ fontSize: 11, color: '#9CA3AF' }}>{tx.dayOfWeek(new Date().toLocaleDateString(DLOC, { weekday: 'long', timeZone: 'America/Tegucigalpa' }))}</span>
         </div>
         <div style={{ padding: 16, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left', padding: '4px 8px', color: '#9CA3AF', fontWeight: 600, fontSize: 11 }}>Hour</th>
-                <th style={{ textAlign: 'left', padding: '4px 8px', color: '#059669', fontWeight: 600, fontSize: 11 }}>Available</th>
-                <th style={{ textAlign: 'left', padding: '4px 8px', color: '#9CA3AF', fontWeight: 600, fontSize: 11 }}>Busy</th>
+                <th style={{ textAlign: 'left', padding: '4px 8px', color: '#9CA3AF', fontWeight: 600, fontSize: 11 }}>{tx.hour}</th>
+                <th style={{ textAlign: 'left', padding: '4px 8px', color: '#059669', fontWeight: 600, fontSize: 11 }}>{tx.available}</th>
+                <th style={{ textAlign: 'left', padding: '4px 8px', color: '#9CA3AF', fontWeight: 600, fontSize: 11 }}>{tx.busy}</th>
               </tr>
             </thead>
             <tbody>
@@ -950,7 +1128,7 @@ export default function BookingCalendarClient({
                 return (
                   <tr key={h} style={{ borderTop: '1px solid #F3F4F6' }}>
                     <td style={{ padding: '4px 8px', color: '#374151', fontWeight: 600 }}>
-                      {h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
+                      {hourLabel(h)}
                     </td>
                     <td style={{ padding: '4px 8px' }}>
                       {available.map(n => (
@@ -992,7 +1170,7 @@ export default function BookingCalendarClient({
               marginBottom: 6,
             }}
           >
-            ↳ Admin · Operations
+            {tx.kicker}
           </div>
           <h1
             style={{
@@ -1005,13 +1183,13 @@ export default function BookingCalendarClient({
               lineHeight: 1.1,
             }}
           >
-            Bookings{' '}
+            {tx.bookings}{' '}
             <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--ek-text-muted)' }}>
-              this week
+              {tx.thisWeek}
             </span>
           </h1>
           <p style={{ fontSize: 13, color: 'var(--ek-text-muted)', margin: '6px 0 0' }}>
-            Visual calendar — Honduras time (CST, UTC-6)
+            {tx.visualCalendar}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -1031,7 +1209,7 @@ export default function BookingCalendarClient({
                 textTransform: 'capitalize',
               }}
             >
-              {v}
+              {viewLabel(v)}
             </button>
           ))}
         </div>
@@ -1040,10 +1218,10 @@ export default function BookingCalendarClient({
       {/* Stats bar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Bookings Today', value: stats.todayCount },
-          { label: 'Pending Assignment', value: stats.pendingCount, red: stats.pendingCount > 0 },
-          { label: 'Confirmed This Week', value: stats.weekConfirmed },
-          { label: 'Availability Slots', value: stats.availableSlots },
+          { label: tx.statToday, value: stats.todayCount },
+          { label: tx.statPending, value: stats.pendingCount, red: stats.pendingCount > 0 },
+          { label: tx.statConfirmed, value: stats.weekConfirmed },
+          { label: tx.statSlots, value: stats.availableSlots },
         ].map(s => (
           <div key={s.label} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, padding: '14px 16px' }}>
             <p style={{ fontSize: 11, color: '#9CA3AF', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{s.label}</p>
@@ -1055,13 +1233,13 @@ export default function BookingCalendarClient({
       {/* Pending assignments — top of page so admin sees them first */}
       <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 12 }}>
-          Pending Assignments ({pendingBookings.length})
+          {tx.pendingAssignments(pendingBookings.length)}
         </h2>
         <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#F9FAFB' }}>
-                {['Student', 'Scheduled', 'Type', 'Duration', 'Assign Teacher'].map(h => (
+                {[tx.thStudent, tx.thScheduled, tx.thType, tx.thDuration, tx.thAssign].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}>{h}</th>
                 ))}
               </tr>
@@ -1070,17 +1248,17 @@ export default function BookingCalendarClient({
               {pendingBookings.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ padding: '24px 16px', textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>
-                    No pending assignments. All caught up!
+                    {tx.noPending}
                   </td>
                 </tr>
               ) : pendingBookings.map(b => (
                 <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                   <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: '#111' }}>{b.student_name || '—'}</td>
                   <td style={{ padding: '12px 16px', fontSize: 13, color: '#4B5563' }}>
-                    {new Date(b.scheduled_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
+                    {new Date(b.scheduled_at).toLocaleString(DLOC, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
                   </td>
-                  <td style={{ padding: '12px 16px', fontSize: 12, color: '#6B7280', textTransform: 'capitalize' }}>{b.type.replace(/_/g, ' ')}</td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: '#4B5563' }}>{b.duration_minutes ? `${b.duration_minutes} min` : '—'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 12, color: '#6B7280', textTransform: 'capitalize' }}>{typeLabel(b.type)}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: '#4B5563' }}>{b.duration_minutes ? tx.minShort(b.duration_minutes) : '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <BookingAssign
                       bookingId={b.id}
@@ -1120,7 +1298,7 @@ export default function BookingCalendarClient({
           onClick={() => setShowAvailability(!showAvailability)}
           style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 0' }}
         >
-          {showAvailability ? '▾' : '▸'} Teacher Availability Panel
+          {showAvailability ? '▾' : '▸'} {tx.availPanelToggle}
         </button>
         {showAvailability && renderAvailabilityPanel()}
       </div>

@@ -57,6 +57,7 @@ const t = {
     placementScheduledLabel: 'Scheduled for',
     errorMsg: 'Something went wrong. Please try again.',
     tryAgain: 'Try again',
+    yourTeacherFallback: 'Your teacher',
   },
   es: {
     title: 'Mi maestro',
@@ -86,6 +87,7 @@ const t = {
     placementScheduledLabel: 'Programada para',
     errorMsg: 'Ocurrió un error. Intenta de nuevo.',
     tryAgain: 'Intentar de nuevo',
+    yourTeacherFallback: 'Tu maestro',
   },
 }
 
@@ -412,7 +414,7 @@ export default async function MiMaestroPage({ params }: Props) {
                         lineHeight: 1,
                       }}
                     >
-                      {teacher.profile?.full_name || 'Your Teacher'}
+                      {teacher.profile?.full_name || tx.yourTeacherFallback}
                     </h2>
                   </div>
                 </div>
