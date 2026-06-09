@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cancelBookingReminders } from '@/lib/reminders'
 import { ROLE_COOKIE } from '@/lib/authCookie'
+import { isValidTimeZone } from '@/lib/timezone'
 
 export interface NotificationPreferences {
   email?: boolean
@@ -43,7 +44,12 @@ export async function updateStudentProfile(data: {
     if (/[<>]/.test(name)) return { success: false, error: 'Name contains invalid characters' }
     patch.full_name = name
   }
-  if (data.timezone !== undefined)             patch.timezone = data.timezone
+  if (data.timezone !== undefined) {
+    // Reject an invalid IANA zone — persisting it would throw a RangeError in a
+    // later toLocale*/Intl call across the app (DASH-01).
+    if (!isValidTimeZone(data.timezone)) return { success: false, error: 'Invalid timezone' }
+    patch.timezone = data.timezone
+  }
   if (data.phone !== undefined) {
     if (data.phone === null) patch.phone = null
     else {

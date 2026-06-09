@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { isValidTimeZone } from '@/lib/timezone'
 
 export async function completeStudentOnboarding(data: {
   userId: string
@@ -23,6 +24,10 @@ export async function completeStudentOnboarding(data: {
   // Without this, a teacher (or any authed user) could create a students record.
   const { data: roleRow } = await admin.from('profiles').select('role').eq('id', data.userId).single()
   if (roleRow?.role !== 'student') return { success: false, error: 'Not a student account' }
+
+  // Reject an invalid IANA zone — persisting it would throw a RangeError in a
+  // later toLocale / Intl call across the app (DASH-01).
+  if (!isValidTimeZone(data.timezone)) return { success: false, error: 'Invalid timezone' }
 
   const { error: profileError } = await admin
     .from('profiles')
@@ -78,6 +83,7 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
   }
   const cvFile = formData.get('cv') as File | null
 
+  if (!isValidTimeZone(timezone)) return { success: false, error: 'Invalid timezone' }
   if (bio.trim().length < 20) return { success: false, error: 'Bio must be at least 20 characters' }
   if (!cvFile || cvFile.size === 0) return { success: false, error: 'CV / resume is required' }
   if (cvFile.size > CV_MAX_BYTES) return { success: false, error: 'CV exceeds 10 MB limit' }

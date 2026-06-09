@@ -9,6 +9,7 @@ import { checkAuthRateLimit, recordLoginOutcome } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 import { brandedEmail, escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { safeNextPath } from '@/lib/safeNext'
+import { isValidTimeZone } from '@/lib/timezone'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
 // Layout guards remain the source of truth — cookie staleness never grants access.
@@ -20,15 +21,36 @@ const ROLE_COOKIE_OPTS = {
   httpOnly: true,
 }
 
-// Map raw Supabase signup errors to friendly, localized copy.
+// Map raw Supabase signup errors to friendly, localized copy. The DEFAULT is
+// generic — like signin, we never reflect the raw provider string into the
+// URL/UI (info leak + untranslated copy). See Auth-MEDIUM-signin-errors.
 function friendlySignupError(raw: string, lang: string): string {
-  const m = raw.toLowerCase()
+  const m = (raw || '').toLowerCase()
   if (m.includes('already registered') || m.includes('already been registered') || m.includes('user already')) {
     return lang === 'es'
       ? 'Ese correo ya tiene una cuenta. Intenta iniciar sesión.'
       : 'That email already has an account. Try logging in.'
   }
-  return raw
+  return lang === 'es'
+    ? 'No pudimos crear tu cuenta. Intenta de nuevo.'
+    : 'We could not create your account. Please try again.'
+}
+
+// Map raw Supabase sign-in errors to a fixed set of localized messages. Unlike
+// signup, the DEFAULT is generic — we never reflect the raw provider string back
+// into the URL/UI (info leak + untranslated copy). See Auth-MEDIUM-signin-errors.
+function friendlySigninError(raw: string, lang: string): string {
+  const m = (raw || '').toLowerCase()
+  const isEs = lang === 'es'
+  if (m.includes('invalid login credentials') || m.includes('invalid credentials')) {
+    return isEs ? 'Correo o contraseña incorrectos.' : 'Incorrect email or password.'
+  }
+  if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+    return isEs ? 'Confirma tu correo antes de iniciar sesión.' : 'Please confirm your email before signing in.'
+  }
+  return isEs
+    ? 'No pudimos iniciar sesión. Verifica tus datos e intenta de nuevo.'
+    : "We couldn't sign you in. Check your details and try again."
 }
 
 // Fire a welcome email after a successful instant-login signup. No confirmation
@@ -75,7 +97,10 @@ export async function signUp(formData: FormData) {
   // the handle_new_user DB trigger is the defense-in-depth follow-up.
   const role: 'student' | 'teacher' = formData.get('role') === 'teacher' ? 'teacher' : 'student'
   const lang = (formData.get('lang') as string) || 'es'
-  const timezone = (formData.get('timezone') as string) || 'America/Bogota'
+  // Validate the client-detected zone before it ever reaches the profile — an
+  // invalid string would later throw a RangeError in a toLocale*/Intl call.
+  const rawTimezone = (formData.get('timezone') as string) || ''
+  const timezone = isValidTimeZone(rawTimezone) ? rawTimezone : 'America/Bogota'
 
   // Per-IP rate limit — 5 signup attempts per 15 min. Supabase has project-
   // wide limits but doesn't stop an IP-bound bot; this does.
@@ -138,10 +163,18 @@ export async function signUp(formData: FormData) {
       const cookieStore = await cookies()
       cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
     }
-    // Best-effort: persist phone onto the profile row the DB trigger just created.
-    if (phone && data.user?.id) {
-      const { error: phoneErr } = await supabase.from('profiles').update({ phone }).eq('id', data.user.id)
-      if (phoneErr) console.error('[signUp] could not save phone (non-blocking):', phoneErr.message)
+    // Best-effort: persist phone + the detected timezone + chosen language onto
+    // the profile row the DB trigger just created. The trigger doesn't coalesce
+    // these from user metadata, so without this every account would default to
+    // America/Bogota and English signups would get Spanish emails (AUTH-02/03).
+    if (data.user?.id) {
+      const profilePatch: { phone?: string; timezone: string; preferred_language: string } = {
+        timezone,
+        preferred_language: lang,
+      }
+      if (phone) profilePatch.phone = phone
+      const { error: patchErr } = await supabase.from('profiles').update(profilePatch).eq('id', data.user.id)
+      if (patchErr) console.error('[signUp] could not save profile fields (non-blocking):', patchErr.message)
     }
     await sendWelcomeEmail(email, fullName, lang).catch((err) =>
       console.error('[signUp] welcome email failed (non-blocking):', err)
@@ -185,7 +218,7 @@ export async function signIn(formData: FormData) {
   await recordLoginOutcome(email, !error)
 
   if (error) {
-    redirect(`/${lang}/login?error=${encodeURIComponent(error.message)}`)
+    redirect(`/${lang}/login?error=${encodeURIComponent(friendlySigninError(error.message, lang))}`)
   }
 
   // Read role from profiles table — single source of truth.

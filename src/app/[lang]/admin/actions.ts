@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { isValidTimeZone } from '@/lib/timezone'
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 
@@ -533,7 +534,10 @@ export async function adminUpdateStudentProfile(
   const profileFields: Record<string, string> = {}
   const studentFields: Record<string, string | null> = {}
   if (fields.full_name !== undefined) profileFields.full_name = fields.full_name
-  if (fields.timezone !== undefined) profileFields.timezone = fields.timezone
+  if (fields.timezone !== undefined) {
+    if (!isValidTimeZone(fields.timezone)) throw new Error('Invalid timezone')
+    profileFields.timezone = fields.timezone
+  }
   if (fields.preferred_language !== undefined) profileFields.preferred_language = fields.preferred_language
   if (fields.learning_goal !== undefined) studentFields.learning_goal = fields.learning_goal
   if (fields.work_description !== undefined) studentFields.work_description = fields.work_description
@@ -740,7 +744,10 @@ export async function adminUpdateTeacherProfile(
   if (fields.bio !== undefined) teacherFields.bio = fields.bio
   if (fields.specializations !== undefined) teacherFields.specializations = fields.specializations
   if (fields.certifications !== undefined) teacherFields.certifications = fields.certifications
-  if (fields.timezone !== undefined) profileFields.timezone = fields.timezone
+  if (fields.timezone !== undefined) {
+    if (!isValidTimeZone(fields.timezone)) throw new Error('Invalid timezone')
+    profileFields.timezone = fields.timezone
+  }
   if (fields.full_name !== undefined) profileFields.full_name = fields.full_name
   if (Object.keys(teacherFields).length > 0) {
     const { error } = await admin.from('teachers').update(teacherFields).eq('id', teacherId)
