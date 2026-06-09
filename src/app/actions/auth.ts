@@ -71,7 +71,11 @@ export async function signUp(formData: FormData) {
   const phone = ((formData.get('phone') as string) || '').trim()
   // Compose the stored display name; fall back to a legacy full_name field.
   const fullName = [firstName, lastName].filter(Boolean).join(' ') || ((formData.get('full_name') as string) || '')
-  const role = formData.get('role') as 'student' | 'teacher'
+  // SECURITY: never trust the client-supplied role. Coerce to the only two
+  // self-service roles — anything else (notably 'admin') falls back to 'student'.
+  // This is the app-layer half of the signup privilege-escalation fix; hardening
+  // the handle_new_user DB trigger is the defense-in-depth follow-up.
+  const role: 'student' | 'teacher' = formData.get('role') === 'teacher' ? 'teacher' : 'student'
   const lang = (formData.get('lang') as string) || 'es'
   const timezone = (formData.get('timezone') as string) || 'America/Bogota'
 
