@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import ConfigStudentClient from './ConfigStudentClient'
 import type { Locale } from '@/lib/i18n/translations'
 import type { NotificationPreferences } from '@/app/actions/profile'
@@ -15,7 +16,13 @@ export default async function ConfiguracionPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
-  const { data: profile } = await supabase
+  // Read own profile via the service-role client (scoped to user.id — own data
+  // only). profiles.phone is column-revoked from the authenticated role (it
+  // leaked to matched students through the "Students can read teacher profiles"
+  // RLS policy, migration 033), so the user-scoped client can no longer select
+  // it. Email comes from auth (user.email), never from profiles.
+  const admin = createAdminClient()
+  const { data: profile } = await admin
     .from('profiles')
     .select('full_name, avatar_url, timezone, phone, preferred_language, preferred_currency, notification_preferences')
     .eq('id', user.id)
