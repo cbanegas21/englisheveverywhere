@@ -165,12 +165,20 @@ export async function gradeSubmission(input: {
     return { error: 'Invalid score value' }
   }
 
+  // Require something to grade with — empty feedback AND no score would lock the
+  // student into read-only with nothing useful (ASSIGN-03).
+  const feedback = input.feedback.trim()
+  if (!feedback && !input.score) return { error: 'Provide feedback or a score' }
+  if (feedback.length > 4000) return { error: 'Feedback is too long (max 4000 characters)' }
+
   const { data: a } = await admin
     .from('assignments')
-    .select('teacher_id')
+    .select('teacher_id, status')
     .eq('id', input.assignmentId)
     .single()
   if (!a || a.teacher_id !== teacherId) return { error: 'Not your assignment' }
+  // Don't grade a cancelled assignment (ASSIGN-04).
+  if (a.status !== 'open') return { error: 'This assignment is no longer open' }
 
   const { data: submission } = await admin
     .from('assignment_submissions')
@@ -182,7 +190,7 @@ export async function gradeSubmission(input: {
   const { error } = await admin
     .from('assignment_submissions')
     .update({
-      teacher_feedback: input.feedback,
+      teacher_feedback: feedback,
       score: input.score,
       graded_at: new Date().toISOString(),
     })
