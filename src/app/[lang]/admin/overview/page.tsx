@@ -173,7 +173,7 @@ export default async function AdminOverviewPage({ params }: Props) {
           {t.overview} <span style={{ fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontWeight: 400, color: 'var(--ek-text-muted)' }}>{t.thisMonth}</span>
         </h1>
         <p style={{ fontSize: 13, marginTop: 6, color: 'var(--ek-text-muted)' }}>
-          {new Date().toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' })}
+          {new Date().toLocaleDateString(dateLocale, { month: 'long', year: 'numeric', timeZone: 'America/Tegucigalpa' })}
         </p>
       </div>
 
@@ -232,6 +232,7 @@ export default async function AdminOverviewPage({ params }: Props) {
                     <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>
                       {new Date(b.scheduled_at).toLocaleString(dateLocale, {
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                        timeZone: 'America/Tegucigalpa',
                       })}
                     </td>
                     <td className="py-3.5">

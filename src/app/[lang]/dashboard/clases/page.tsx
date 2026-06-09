@@ -54,7 +54,7 @@ export default async function ClasesPage({ params }: Props) {
   const timezone =
     (profileRow as { timezone?: string | null } | null)?.timezone ||
     (user.user_metadata?.timezone as string) ||
-    'America/Bogota'
+    'America/Tegucigalpa' // canonical business fallback — matches Agendar/Placement
 
   return (
     <ClasesClient

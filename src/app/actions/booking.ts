@@ -35,6 +35,7 @@ async function sendAdminBookingEmail(params: {
   const scheduled = new Date(params.scheduledAt).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+    timeZone: 'America/Tegucigalpa',
   })
 
   const assignUrl = `${APP_URL}/${params.lang}/admin/bookings`
@@ -406,6 +407,7 @@ async function notifyAdminOfCancel(params: {
   const scheduled = new Date(params.scheduledAt).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+    timeZone: 'America/Tegucigalpa',
   })
 
   await fetch('https://api.resend.com/emails', {
@@ -733,6 +735,21 @@ export async function saveAvailabilitySlots(
 
   if (!teacher) return { error: 'Teacher profile not found' }
   if (!teacher.is_active) return { error: 'Teacher account is not active' }
+
+  // Validate the WHOLE batch BEFORE the destructive delete — otherwise a bad row
+  // wipes the teacher's existing slots and leaves them unbookable.
+  if (slots.length > 80) {
+    return { error: lang === 'es' ? 'Demasiados horarios.' : 'Too many slots.' }
+  }
+  const timeRe = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
+  for (const s of slots) {
+    if (typeof s.day_of_week !== 'number' || !Number.isInteger(s.day_of_week) || s.day_of_week < 0 || s.day_of_week > 6) {
+      return { error: lang === 'es' ? 'Día de la semana inválido.' : 'Invalid day of week.' }
+    }
+    if (!timeRe.test(s.start_time) || !timeRe.test(s.end_time) || s.start_time >= s.end_time) {
+      return { error: lang === 'es' ? 'Rango de horario inválido.' : 'Invalid time range.' }
+    }
+  }
 
   // Delete existing recurring slots
   await admin
