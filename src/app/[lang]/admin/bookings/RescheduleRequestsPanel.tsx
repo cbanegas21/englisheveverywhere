@@ -40,6 +40,7 @@ const t = {
     confirmReject: 'Reject request?',
     confirmApprove: 'Approve and move the class?',
     errorGeneric: 'Something went wrong',
+    approveAnyway: 'Approve anyway',
   },
   es: {
     title: 'Solicitudes de reagendar',
@@ -58,6 +59,7 @@ const t = {
     confirmReject: '¿Rechazar solicitud?',
     confirmApprove: '¿Aprobar y mover la clase?',
     errorGeneric: 'Ocurrió un error',
+    approveAnyway: 'Aprobar de todos modos',
   },
 }
 
@@ -76,33 +78,42 @@ export default function RescheduleRequestsPanel({ lang, requests }: Props) {
   const [actingOn, setActingOn] = useState<{ id: string; mode: 'approve' | 'reject' } | null>(null)
   const [adminNote, setAdminNote] = useState('')
   const [err, setErr] = useState('')
+  // Set when an approve fails on a force-overridable guard (teacher availability),
+  // so we can offer an "Approve anyway" retry. Hard conflicts never set this.
+  const [canForce, setCanForce] = useState(false)
 
   function openAction(id: string, mode: 'approve' | 'reject') {
     setActingOn({ id, mode })
     setAdminNote('')
     setErr('')
+    setCanForce(false)
   }
 
   function close() {
     setActingOn(null)
     setAdminNote('')
     setErr('')
+    setCanForce(false)
   }
 
-  function submit() {
+  function submit(force = false) {
     if (!actingOn) return
     setErr('')
     startTransition(async () => {
       try {
         if (actingOn.mode === 'approve') {
-          await approveRescheduleRequest(actingOn.id, adminNote)
+          await approveRescheduleRequest(actingOn.id, adminNote, { force })
         } else {
           await rejectRescheduleRequest(actingOn.id, adminNote)
         }
         close()
         router.refresh()
       } catch (e) {
-        setErr(e instanceof Error ? e.message : tx.errorGeneric)
+        const msg = e instanceof Error ? e.message : tx.errorGeneric
+        setErr(msg)
+        // Availability guards instruct "retry with force=true" — offer the
+        // override. Slot conflicts (a hard DB invariant) never carry that phrase.
+        setCanForce(actingOn.mode === 'approve' && !force && msg.toLowerCase().includes('force=true'))
       }
     })
   }
@@ -230,17 +241,28 @@ export default function RescheduleRequestsPanel({ lang, requests }: Props) {
                 >
                   {tx.cancel}
                 </button>
-                <button
-                  onClick={submit}
-                  disabled={isPending}
-                  className="px-3 py-1.5 rounded font-semibold text-[12px] disabled:opacity-50"
-                  style={{
-                    background: actingOn.mode === 'approve' ? '#C41E3A' : '#DC2626',
-                    color: '#fff',
-                  }}
-                >
-                  {isPending ? '…' : actingOn.mode === 'approve' ? tx.approve : tx.reject}
-                </button>
+                {canForce ? (
+                  <button
+                    onClick={() => submit(true)}
+                    disabled={isPending}
+                    className="px-3 py-1.5 rounded font-semibold text-[12px] disabled:opacity-50"
+                    style={{ background: '#92400E', color: '#fff' }}
+                  >
+                    {isPending ? '…' : tx.approveAnyway}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => submit()}
+                    disabled={isPending}
+                    className="px-3 py-1.5 rounded font-semibold text-[12px] disabled:opacity-50"
+                    style={{
+                      background: actingOn.mode === 'approve' ? '#C41E3A' : '#DC2626',
+                      color: '#fff',
+                    }}
+                  >
+                    {isPending ? '…' : actingOn.mode === 'approve' ? tx.approve : tx.reject}
+                  </button>
+                )}
               </div>
             </motion.div>
           </motion.div>

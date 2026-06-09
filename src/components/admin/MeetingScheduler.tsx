@@ -277,8 +277,12 @@ export default function MeetingScheduler({
         onSuccess()
       } catch (e) {
         const msg = e instanceof Error ? e.message : t.errCreate
-        // Primary-teacher continuity guard — let the admin override after confirming.
-        if (msg.toLowerCase().includes('primary teacher') && !force) {
+        // Force-overridable guards (primary-teacher continuity, teacher
+        // availability) all instruct the admin to "retry with force=true" — let
+        // them override after confirming. Hard invariants (slot conflicts, paused
+        // teacher) never carry that phrase, so they correctly fall through to the
+        // error display with no override offered.
+        if (msg.toLowerCase().includes('force=true') && !force) {
           if (confirm(`${msg}\n\n${t.assignAnyway}`)) {
             submitBooking(scheduledAt, true)
             return

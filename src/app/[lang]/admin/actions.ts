@@ -149,12 +149,15 @@ export async function assignAndConfirmBooking(
   // Slot-conflict guard: don't drop this teacher onto a slot they've already
   // been confirmed for with a different student. Two students booking the
   // same wall-clock time stays legal at booking time (teacher_id is null);
-  // it only becomes a problem here, when admin picks who gets the slot.
-  if (!force && booking?.scheduled_at) {
+  // it only becomes a problem here, when admin picks who gets the slot. This is
+  // a hard invariant also enforced by bookings_teacher_time_unique, so it runs
+  // even under force — force only relaxes the stated-hours availability guard
+  // above. The message therefore never offers "force=true".
+  if (booking?.scheduled_at) {
     const conflict = await teacherHasConflict(teacherId, booking.scheduled_at, bookingId)
     if (conflict) {
       throw new Error(
-        'Teacher already has a confirmed class at this time. Pick a different time or retry with force=true.',
+        'Teacher already has a confirmed class at this time. Pick a different time.',
       )
     }
   }
@@ -170,15 +173,16 @@ export async function assignAndConfirmBooking(
     // Surface the same human-readable message as the pre-check guard above.
     if (error.code === '23505') {
       throw new Error(
-        'Teacher already has a confirmed class at this time. Pick a different time or retry with force=true.',
+        'Teacher already has a confirmed class at this time. Pick a different time.',
       )
     }
     throw new Error(error.message)
   }
 
   // First-class continuity lock: if the student has no primary teacher yet,
-  // set it to the teacher we just assigned.
-  if (booking?.student_id) await lockInPrimaryTeacher(booking.student_id, teacherId)
+  // set it to the teacher we just assigned. Non-blocking — the booking is
+  // already confirmed, so a continuity-hint failure must not surface as an error.
+  if (booking?.student_id) await lockInPrimaryTeacher(booking.student_id, teacherId).catch(() => {})
 
   // Fire-and-forget student + teacher emails so both sides know the class is locked in.
   sendAssignmentEmail(bookingId)
@@ -263,17 +267,20 @@ async function assertPrimaryTeacherOk(
 async function teacherHasConflict(
   teacherId: string,
   scheduledAt: string,
-  excludeBookingId: string,
+  excludeBookingId?: string,
 ): Promise<boolean> {
   const admin = createAdminClient()
-  const { data } = await admin
+  let query = admin
     .from('bookings')
     .select('id')
     .eq('teacher_id', teacherId)
     .eq('scheduled_at', scheduledAt)
     .eq('status', 'confirmed')
-    .neq('id', excludeBookingId)
-    .limit(1)
+  // Exclude the booking being moved/assigned when one already exists. For a
+  // brand-new booking (createAdminBooking) there's no id yet, and `.neq('id', '')`
+  // would be an invalid-uuid error — so we just skip the exclusion in that case.
+  if (excludeBookingId) query = query.neq('id', excludeBookingId)
+  const { data } = await query.limit(1)
   return !!(data && data.length > 0)
 }
 
@@ -282,8 +289,10 @@ async function teacherHasConflict(
 export async function approveRescheduleRequest(
   requestId: string,
   adminNote: string = '',
+  options: { force?: boolean } = {},
 ) {
   const admin = await assertAdminAndClient()
+  const force = options.force ?? false
 
   const { data: request } = await admin
     .from('reschedule_requests')
@@ -293,6 +302,42 @@ export async function approveRescheduleRequest(
   if (!request) throw new Error('Request not found')
   if (request.status !== 'pending') throw new Error('Request already resolved')
 
+  // Re-check the teacher against the PROPOSED time before moving the booking —
+  // a reschedule can land outside the teacher's stated hours or collide with
+  // another confirmed class, same as a fresh assignment (ADMIN-04). Only
+  // meaningful once a teacher is assigned. Stated-hours availability is admin-
+  // overridable (force) and only constrains real classes; the slot conflict is
+  // a hard invariant (also DB-enforced by bookings_teacher_time_unique) so it
+  // is NOT force-overridable.
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('teacher_id, duration_minutes, type')
+    .eq('id', request.booking_id)
+    .single()
+
+  if (booking?.teacher_id) {
+    if (!force && booking.type === 'class') {
+      const available = await isTeacherAvailable(
+        booking.teacher_id,
+        request.proposed_scheduled_at,
+        booking.duration_minutes ?? 60,
+      )
+      if (!available) {
+        throw new Error(
+          'Teacher is not available at the proposed time. Ask them to add the slot to their availability or retry with force=true.',
+        )
+      }
+    }
+    const conflict = await teacherHasConflict(
+      booking.teacher_id,
+      request.proposed_scheduled_at,
+      request.booking_id,
+    )
+    if (conflict) {
+      throw new Error('Teacher already has a confirmed class at the proposed time. Pick a different time.')
+    }
+  }
+
   // Move the booking to the proposed time first; only record the approval if
   // the booking update succeeded so we never end up with an "approved" request
   // whose booking didn't actually move.
@@ -300,7 +345,14 @@ export async function approveRescheduleRequest(
     .from('bookings')
     .update({ scheduled_at: request.proposed_scheduled_at })
     .eq('id', request.booking_id)
-  if (bookingErr) throw new Error(bookingErr.message)
+  if (bookingErr) {
+    // 23505 = the teacher's confirmed-slot unique index — a concurrent assign
+    // grabbed the proposed time first. Surface the same human-readable message.
+    if (bookingErr.code === '23505') {
+      throw new Error('Teacher already has a confirmed class at the proposed time. Pick a different time.')
+    }
+    throw new Error(bookingErr.message)
+  }
 
   const { error: updateErr } = await admin
     .from('reschedule_requests')
@@ -738,6 +790,27 @@ export async function createAdminBooking(
   if (teacherId) {
     await assertTeacherAcceptsNewStudent(studentId, teacherId)
     await assertPrimaryTeacherOk(studentId, teacherId, options.force ?? false)
+
+    // Availability + slot-conflict guards when a teacher is pre-assigned (same
+    // as assignAndConfirmBooking) — run BEFORE consuming a credit so a blocked
+    // booking never leaves the student short a class (ADMIN-05). Stated-hours
+    // availability is admin-overridable and only constrains real classes;
+    // interviews/check-ins/placement happen outside the teacher's student-facing
+    // slots. The slot conflict (two confirmed bookings on one wall-clock time) is
+    // a hard invariant also enforced by bookings_teacher_time_unique, so it is
+    // NOT force-overridable and is checked for every type.
+    if (!(options.force ?? false) && type === 'class') {
+      const available = await isTeacherAvailable(teacherId, scheduledAt, durationMinutes ?? 60)
+      if (!available) {
+        throw new Error(
+          'Teacher is not available at this time. Ask them to add the slot to their availability or retry with force=true.',
+        )
+      }
+    }
+    const conflict = await teacherHasConflict(teacherId, scheduledAt)
+    if (conflict) {
+      throw new Error('Teacher already has a confirmed class at this time. Pick a different time.')
+    }
   }
 
   // A class booking consumes one student credit (same as a self-served booking)
@@ -766,10 +839,17 @@ export async function createAdminBooking(
     .single()
   if (error) {
     if (creditConsumed) await admin.rpc('increment_classes', { p_student_id: studentId })
+    // 23505 = a confirmed-slot unique index (teacher or student) — the slot was
+    // taken between the pre-check and the insert. Hard invariant; not forceable.
+    if (error.code === '23505') {
+      throw new Error('This time slot is already taken by a confirmed booking. Pick a different time.')
+    }
     throw new Error(error.message)
   }
 
-  if (teacherId) await lockInPrimaryTeacher(studentId, teacherId)
+  // Non-blocking — the booking is already confirmed and the credit consumed, so
+  // a continuity-hint failure must not surface as an error to the admin.
+  if (teacherId) await lockInPrimaryTeacher(studentId, teacherId).catch(() => {})
 
   // Send email notifications (non-blocking)
   sendBookingEmails({ studentId, teacherId, scheduledAt, type, bookingId: booking.id })
@@ -958,32 +1038,33 @@ export async function bulkAssignTeacher(
 
   // Slot-conflict guards: (a) two bookings in this batch can't share the
   // same wall-clock time on one teacher, (b) none of these times can already
-  // be held by an existing confirmed booking for this teacher.
-  if (!force) {
-    const { data: batch } = await admin
-      .from('bookings')
-      .select('id, scheduled_at')
-      .in('id', bookingIds)
+  // be held by an existing confirmed booking for this teacher. Both are hard
+  // invariants also enforced by bookings_teacher_time_unique, so they run even
+  // under force (force only relaxes primary-teacher continuity above) and their
+  // messages never offer "force=true".
+  const { data: batch } = await admin
+    .from('bookings')
+    .select('id, scheduled_at')
+    .in('id', bookingIds)
 
-    const seen = new Set<string>()
-    for (const b of batch ?? []) {
-      if (!b.scheduled_at) continue
-      if (seen.has(b.scheduled_at)) {
-        throw new Error(
-          'This batch contains two bookings at the same time — assigning them to one teacher would double-book.',
-        )
-      }
-      seen.add(b.scheduled_at)
+  const seen = new Set<string>()
+  for (const b of batch ?? []) {
+    if (!b.scheduled_at) continue
+    if (seen.has(b.scheduled_at)) {
+      throw new Error(
+        'This batch contains two bookings at the same time — assigning them to one teacher would double-book.',
+      )
     }
+    seen.add(b.scheduled_at)
+  }
 
-    for (const b of batch ?? []) {
-      if (!b.scheduled_at) continue
-      const conflict = await teacherHasConflict(teacherId, b.scheduled_at, b.id)
-      if (conflict) {
-        throw new Error(
-          `Teacher already has a confirmed class at ${b.scheduled_at}. Adjust the batch or retry with force=true.`,
-        )
-      }
+  for (const b of batch ?? []) {
+    if (!b.scheduled_at) continue
+    const conflict = await teacherHasConflict(teacherId, b.scheduled_at, b.id)
+    if (conflict) {
+      throw new Error(
+        `Teacher already has a confirmed class at ${b.scheduled_at}. Adjust the batch and pick a different time.`,
+      )
     }
   }
 
@@ -991,10 +1072,17 @@ export async function bulkAssignTeacher(
     .from('bookings')
     .update({ teacher_id: teacherId, status: 'confirmed' })
     .in('id', bookingIds)
-  if (error) throw new Error(error.message)
+  if (error) {
+    // 23505 = a concurrent assign grabbed one of these slots first (hard invariant).
+    if (error.code === '23505') {
+      throw new Error('One of these times is already taken by a confirmed booking for this teacher. Adjust the batch and try again.')
+    }
+    throw new Error(error.message)
+  }
 
-  // Lock in primary teacher for any student that didn't have one yet.
-  for (const sid of studentIds) await lockInPrimaryTeacher(sid, teacherId)
+  // Lock in primary teacher for any student that didn't have one yet. Non-blocking —
+  // the bookings are already confirmed, so a continuity-hint failure must not throw.
+  for (const sid of studentIds) await lockInPrimaryTeacher(sid, teacherId).catch(() => {})
 
   // Fan out assignment emails (fire-and-forget, same envelope for each student)
   for (const id of bookingIds) sendAssignmentEmail(id)
