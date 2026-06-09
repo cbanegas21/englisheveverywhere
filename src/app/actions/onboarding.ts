@@ -19,6 +19,11 @@ export async function completeStudentOnboarding(data: {
   // at insert-time ("permission denied for table students/teachers").
   const admin = createAdminClient()
 
+  // Role guard — only a 'student' account may self-provision a students row.
+  // Without this, a teacher (or any authed user) could create a students record.
+  const { data: roleRow } = await admin.from('profiles').select('role').eq('id', data.userId).single()
+  if (roleRow?.role !== 'student') return { success: false, error: 'Not a student account' }
+
   const { error: profileError } = await admin
     .from('profiles')
     .update({ timezone: data.timezone, preferred_language: data.preferredLanguage })
@@ -55,8 +60,22 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
   const timezone = (formData.get('timezone') as string | null) || ''
   const preferredLanguage = ((formData.get('preferredLanguage') as string | null) || 'es') as 'es' | 'en'
   const bio = (formData.get('bio') as string | null) || ''
-  const specializations = JSON.parse((formData.get('specializations') as string | null) || '[]') as string[]
-  const certifications = JSON.parse((formData.get('certifications') as string | null) || '[]') as string[]
+  // Guard the client-supplied JSON — malformed input would otherwise throw an
+  // unhandled error. Normalize to bounded arrays of non-empty strings.
+  let specializations: string[]
+  let certifications: string[]
+  try {
+    const clean = (raw: string | null): string[] => {
+      const arr = JSON.parse(raw || '[]')
+      return Array.isArray(arr)
+        ? arr.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).slice(0, 20).map(s => s.slice(0, 100))
+        : []
+    }
+    specializations = clean(formData.get('specializations') as string | null)
+    certifications = clean(formData.get('certifications') as string | null)
+  } catch {
+    return { success: false, error: 'Invalid specializations or certifications' }
+  }
   const cvFile = formData.get('cv') as File | null
 
   if (bio.trim().length < 20) return { success: false, error: 'Bio must be at least 20 characters' }
@@ -66,6 +85,10 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
 
   // Auth validated. Use admin client for writes (see student branch).
   const admin = createAdminClient()
+
+  // Role guard — only a 'teacher' account may self-provision a teachers row.
+  const { data: roleRow } = await admin.from('profiles').select('role').eq('id', userId).single()
+  if (roleRow?.role !== 'teacher') return { success: false, error: 'Not a teacher account' }
 
   const ext = cvFile.name.toLowerCase().match(/\.(pdf|docx?|doc)$/)?.[0] || '.pdf'
   const storagePath = `${userId}/${Date.now()}${ext}`
@@ -85,19 +108,26 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
 
   if (profileError) return { success: false, error: profileError.message }
 
-  const { error: teacherError } = await admin
+  // Insert-or-update — NEVER reset is_active / hourly_rate on a re-submission,
+  // which would silently DEACTIVATE an already-approved teacher (and zero their
+  // rate). is_active=false + hourly_rate=0 are insert-only application defaults.
+  const application = {
+    bio,
+    specializations,
+    certifications,
+    cv_storage_path: storagePath,
+    cv_uploaded_at: new Date().toISOString(),
+    cv_original_filename: cvFile.name,
+  }
+  const { data: existingTeacher } = await admin
     .from('teachers')
-    .upsert({
-      profile_id: userId,
-      bio,
-      specializations,
-      certifications,
-      hourly_rate: 0,
-      is_active: false,
-      cv_storage_path: storagePath,
-      cv_uploaded_at: new Date().toISOString(),
-      cv_original_filename: cvFile.name,
-    }, { onConflict: 'profile_id' })
+    .select('id')
+    .eq('profile_id', userId)
+    .maybeSingle()
+
+  const { error: teacherError } = existingTeacher
+    ? await admin.from('teachers').update(application).eq('profile_id', userId)
+    : await admin.from('teachers').insert({ profile_id: userId, ...application, hourly_rate: 0, is_active: false })
 
   if (teacherError) return { success: false, error: teacherError.message }
 

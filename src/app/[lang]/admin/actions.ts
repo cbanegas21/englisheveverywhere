@@ -622,7 +622,15 @@ export async function resetStudentPassword(email: string) {
 }
 
 export async function updateStudentRole(profileId: string, role: string) {
-  await assertAdmin()
+  const acting = await assertAdmin()
+  // Allowlist — never write an arbitrary role string to profiles.role.
+  if (!['student', 'teacher', 'admin'].includes(role)) {
+    throw new Error('Invalid role')
+  }
+  // An admin must not demote themselves out of admin — that's a one-click lockout.
+  if (profileId === acting.id && role !== 'admin') {
+    throw new Error('You cannot change your own admin role')
+  }
   const admin = createAdminClient()
   const { error } = await admin.from('profiles').update({ role }).eq('id', profileId)
   if (error) throw new Error(error.message)
@@ -634,7 +642,20 @@ export async function updateStudentRole(profileId: string, role: string) {
 // ban_duration 'none' lifts the ban. (Previously this set an invalid
 // role='deactivated' that was silently ignored — audit EK-017.)
 export async function setStudentDeactivated(profileId: string, deactivated: boolean) {
-  await assertAdmin()
+  const acting = await assertAdmin()
+  // An admin must not ban themselves out of the platform.
+  if (profileId === acting.id && deactivated) {
+    throw new Error('You cannot deactivate your own account')
+  }
+  // Don't let one admin ban another admin (or the last admin) from this CRM
+  // action — admin lifecycle is an out-of-band/service-role concern.
+  if (deactivated) {
+    const adminDb = createAdminClient()
+    const { data: target } = await adminDb.from('profiles').select('role').eq('id', profileId).single()
+    if (target?.role === 'admin') {
+      throw new Error('Admin accounts cannot be deactivated here')
+    }
+  }
   const { createClient: createSupabaseAdmin } = await import('@supabase/supabase-js')
   const supabaseAdmin = createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

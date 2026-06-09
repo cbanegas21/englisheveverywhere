@@ -17,8 +17,11 @@ async function requireTeacher() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'teacher') return { error: 'Teacher role required' as const }
   const admin = createAdminClient()
-  const { data: teacher } = await admin.from('teachers').select('id').eq('profile_id', user.id).single()
+  const { data: teacher } = await admin.from('teachers').select('id, is_active').eq('profile_id', user.id).single()
   if (!teacher?.id) return { error: 'Teacher record not found' as const }
+  // A deactivated or not-yet-approved teacher (is_active=false) must not
+  // create/grade/cancel assignments.
+  if (!teacher.is_active) return { error: 'Teacher account is not active' as const }
   return { admin, teacherId: teacher.id as string, userId: user.id }
 }
 

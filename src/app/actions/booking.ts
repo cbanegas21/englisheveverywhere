@@ -192,11 +192,12 @@ export async function confirmBooking(bookingId: string, lang: string = 'es') {
 
   const { data: teacher } = await admin
     .from('teachers')
-    .select('id')
+    .select('id, is_active')
     .eq('profile_id', user.id)
     .single()
 
   if (!teacher) return { error: 'Teacher profile not found' }
+  if (!teacher.is_active) return { error: 'Teacher account is not active' }
 
   // Status guard: only a PENDING booking can be confirmed. Without `.eq('status',
   // 'pending')` a re-confirm could resurrect a cancelled/declined booking (the
@@ -232,11 +233,12 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
 
   const { data: teacher } = await admin
     .from('teachers')
-    .select('id')
+    .select('id, is_active')
     .eq('profile_id', user.id)
     .single()
 
   if (!teacher) return { error: 'Teacher profile not found' }
+  if (!teacher.is_active) return { error: 'Teacher account is not active' }
 
   // Status-gated cancel: only a still-live booking can be declined, and the
   // refund fires only when THIS call actually flipped the row — so a double-click
@@ -288,10 +290,11 @@ export async function requestReschedule(
   // the original scheduled_at for the audit trail.
   const { data: teacher } = await admin
     .from('teachers')
-    .select('id')
+    .select('id, is_active')
     .eq('profile_id', user.id)
     .single()
   if (!teacher) return { error: 'Teacher profile not found' }
+  if (!teacher.is_active) return { error: 'Teacher account is not active' }
 
   const { data: booking } = await admin
     .from('bookings')
@@ -709,11 +712,12 @@ export async function saveAvailabilitySlots(
 
   const { data: teacher } = await admin
     .from('teachers')
-    .select('id')
+    .select('id, is_active')
     .eq('profile_id', user.id)
     .single()
 
   if (!teacher) return { error: 'Teacher profile not found' }
+  if (!teacher.is_active) return { error: 'Teacher account is not active' }
 
   // Delete existing recurring slots
   await admin
