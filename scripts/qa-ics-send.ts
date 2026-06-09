@@ -3,10 +3,11 @@
 //
 // External write — only run with Carlos's OK + a confirmed recipient.
 import { buildBookingIcs } from '../src/lib/ics.ts'
+import { EMAIL_FROM } from '../src/lib/email.ts'
 
 const TO = 'admin@englishkolab.com'
 const apiKey = process.env.RESEND_API_KEY
-const from = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
+const from = EMAIL_FROM
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://englishkolab.com'
 
 if (!apiKey || apiKey === 're_placeholder') {
@@ -68,6 +69,7 @@ const res = await fetch('https://api.resend.com/emails', {
     to: TO,
     subject: 'Tu clase está confirmada  [QA test]',
     html,
+    text: `Tu clase está confirmada\n\nHola ${recipientName},\n\nCuándo: ${scheduledPretty}\nCon: ${counterpartName}\n\nIr a la clase: ${roomUrl}\n\nAdjuntamos una invitación de calendario para agregar la clase a tu calendario.\n\n[ QA test ]`,
     attachments: [{
       filename: 'clase-englishkolab.ics',
       content: Buffer.from(ics, 'utf-8').toString('base64'),

@@ -19,7 +19,10 @@ export function escapeHtml(value: unknown): string {
 // missing/misconfigured env var can never ship localhost links, and the sender
 // always shows a display name ("EnglishKolab"), not a bare mailbox.
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://englishkolab.com'
-export const EMAIL_FROM = process.env.EMAIL_FROM || 'EnglishKolab <noreply@englishkolab.com>'
+// Always present a display name. EMAIL_FROM is often set to a BARE address
+// (e.g. noreply@englishkolab.com) — wrap it so the sender shows "EnglishKolab".
+const _rawFrom = process.env.EMAIL_FROM || 'noreply@englishkolab.com'
+export const EMAIL_FROM = _rawFrom.includes('<') ? _rawFrom : `EnglishKolab <${_rawFrom}>`
 
 export function brandedEmail(opts: {
   heading: string
