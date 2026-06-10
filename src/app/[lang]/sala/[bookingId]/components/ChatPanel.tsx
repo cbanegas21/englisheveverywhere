@@ -75,7 +75,7 @@ export function ChatPanel({ lang, show, onClose, chatMessages, send, isSending, 
                 const mine = msg.from?.identity === localParticipant.identity
                 const fromName = msg.from?.name || msg.from?.identity || '—'
                 return (
-                  <div key={`${msg.timestamp}-${msg.from?.identity ?? 'x'}`} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] rounded-xl px-3 py-2 ${mine ? 'text-white' : ''}`}
                       style={{
                         background: mine ? VIDEO_THEME.brand : '#F3F4F6',

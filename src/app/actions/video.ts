@@ -293,7 +293,20 @@ Generate a structured post-class summary. Respond in ${langLabel} with valid JSO
     const data = await response.json()
     const text: string = data.content?.[0]?.text || ''
     const cleaned = text.replace(/```(?:json)?\n?/g, '').replace(/```\n?/g, '').trim()
-    const summary: SessionSummary = JSON.parse(cleaned)
+    const parsed = JSON.parse(cleaned) as unknown
+
+    // Don't trust the model's shape (CALL-06). Valid JSON with the wrong shape
+    // (e.g. `covered` as a string) would otherwise persist and crash the client
+    // when it maps over it. Coerce to the SessionSummary contract: arrays of
+    // strings (bounded) + a string note.
+    const toStringList = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 20) : []
+    const obj = (parsed && typeof parsed === 'object') ? parsed as Record<string, unknown> : {}
+    const summary: SessionSummary = {
+      covered: toStringList(obj.covered),
+      nextTopics: toStringList(obj.nextTopics),
+      progressNote: typeof obj.progressNote === 'string' ? obj.progressNote.slice(0, 1000) : '',
+    }
 
     await adminClient
       .from('sessions')

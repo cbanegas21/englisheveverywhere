@@ -35,6 +35,9 @@ export async function uploadBook(formData: FormData) {
 
   if (!file || file.size === 0) return { error: 'File is required' }
   if (!title) return { error: 'Title is required' }
+  // Server-side length caps (LIB-06) — the client textareas are advisory only.
+  if (title.length > 120) return { error: 'Title is too long (max 120 characters)' }
+  if (description.length > 1000) return { error: 'Description is too long (max 1000 characters)' }
   if (file.type !== 'application/pdf') return { error: 'Only PDF files are supported' }
   if (file.size > 40 * 1024 * 1024) return { error: 'File exceeds 40 MB limit' }
 
@@ -46,6 +49,12 @@ export async function uploadBook(formData: FormData) {
   const storagePath = `${Date.now()}-${safeSlug}.pdf`
 
   const buffer = Buffer.from(await file.arrayBuffer())
+  // Magic-byte check (LIB-03) — don't trust the client-supplied file.type alone.
+  // Conforming readers scan ~the first 1KB for the "%PDF-" signature (a leading
+  // BOM/whitespace is tolerated), so match that rather than requiring offset 0.
+  if (buffer.subarray(0, 1024).indexOf(Buffer.from('%PDF-')) === -1) {
+    return { error: 'File does not look like a valid PDF' }
+  }
   const { error: uploadErr } = await admin.storage
     .from(BUCKET)
     .upload(storagePath, buffer, {
@@ -75,11 +84,14 @@ export async function setBookActive(bookId: string, active: boolean) {
   if ('error' in ctx) return { error: ctx.error }
   const { admin } = ctx
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from('library_books')
     .update({ is_active: active })
     .eq('id', bookId)
+    .select('id')
   if (error) return { error: error.message }
+  // Zero rows changed = no such book (LIB-04) — don't report success on a no-op.
+  if (!data || data.length === 0) return { error: 'Book not found' }
 
   revalidatePath('/', 'layout')
   return { success: true as const }
@@ -97,10 +109,14 @@ export async function deleteBook(bookId: string) {
     .single()
   if (!book) return { error: 'Book not found' }
 
-  await admin.storage.from(BUCKET).remove([book.storage_path])
-
+  // Delete the catalog row FIRST (LIB-01). If we removed the storage object first
+  // and the row delete then failed, the catalog would point at a missing file and
+  // every reader would 404. A failed object delete here only orphans a file.
   const { error } = await admin.from('library_books').delete().eq('id', bookId)
   if (error) return { error: error.message }
+
+  const { error: rmErr } = await admin.storage.from(BUCKET).remove([book.storage_path])
+  if (rmErr) console.error('deleteBook: failed to remove storage object', book.storage_path, rmErr.message)
 
   revalidatePath('/', 'layout')
   return { success: true as const }

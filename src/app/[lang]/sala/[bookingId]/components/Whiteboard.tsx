@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
-import { useDataChannel } from '@livekit/components-react'
+import { useDataChannel, useLocalParticipant } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
@@ -45,8 +45,15 @@ type WireChanges = {
 // their own view); only shape edits sync.
 export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
   const tx = videoStrings(lang)
+  const { localParticipant } = useLocalParticipant()
   const editorRef = useRef<Editor | null>(null)
   const [ready, setReady] = useState(false)
+
+  // Scope the local IndexedDB persistence per-user, not just per-booking (CALL-02).
+  // On a shared device, a board keyed only by bookingId would reload the previous
+  // occupant's strokes into the next user's session. Identity (the profile id) is
+  // stable for the duration of a connection.
+  const persistenceKey = `ee-sala-${bookingId}-${localParticipant.identity || 'anon'}`
 
   const { send } = useDataChannel('whiteboard', msg => {
     const editor = editorRef.current
@@ -88,7 +95,7 @@ export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
         >
           <div className="absolute inset-0 pt-14">
             <Tldraw
-              persistenceKey={`ee-sala-${bookingId}`}
+              persistenceKey={persistenceKey}
               onMount={onMount}
               inferDarkMode
             />

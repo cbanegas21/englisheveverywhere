@@ -48,6 +48,13 @@ interface Args {
 // slice is a standalone WebM, so we stop+restart the recorder per slice.
 const CHUNK_MS = 6000
 
+// Bounds on transcript data (CALL-03). Per-line cap stops a malicious/runaway
+// payload from bloating one entry; total cap bounds memory + the persisted
+// snapshot over a long (or flooded) session. 2000 lines ≈ 200 min of 6s chunks,
+// well past the 150-min max room window.
+const MAX_LINE_CHARS = 500
+const MAX_FINALS = 2000
+
 // Live transcript. Primary engine: record the local mic in short slices and
 // transcribe each server-side via Deepgram nova-3 multilingual (key stays on
 // the server). Each participant captions themselves; finals are broadcast over
@@ -69,7 +76,8 @@ export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) 
 
   const applyLine = useCallback((line: TranscriptLine) => {
     if (line.isFinal) {
-      setFinals(prev => [...prev, line])
+      // Keep only the most recent MAX_FINALS to bound memory (CALL-03).
+      setFinals(prev => [...prev, line].slice(-MAX_FINALS))
       setInterims(prev => {
         if (!prev[line.identity]) return prev
         const next = { ...prev }
@@ -88,8 +96,20 @@ export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) 
   const { send } = useDataChannel('transcript', msg => {
     try {
       const text = new TextDecoder().decode(msg.payload)
-      const line = JSON.parse(text) as TranscriptLine
-      if (line && typeof line.text === 'string') applyLineRef.current(line)
+      const raw = JSON.parse(text) as TranscriptLine
+      if (!raw || typeof raw.text !== 'string') return
+      // Attribute the line to the AUTHENTICATED sender (msg.from), not the
+      // payload's claimed identity/name — a peer could otherwise spoof the other
+      // speaker's words in the rendered + persisted transcript. Fall back to the
+      // payload only when msg.from is momentarily unresolved (reconnect race), and
+      // cap the text length to bound a malicious/runaway payload (CALL-03).
+      const line: TranscriptLine = {
+        ...raw,
+        identity: msg.from?.identity ?? raw.identity,
+        name: msg.from?.name || raw.name || 'Speaker',
+        text: raw.text.slice(0, MAX_LINE_CHARS),
+      }
+      applyLineRef.current(line)
     } catch { /* ignore malformed */ }
   })
   sendRef.current = send as typeof sendRef.current
@@ -119,7 +139,7 @@ export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) 
       id: `${meRef.current.identity}-${Date.now()}`,
       identity: meRef.current.identity,
       name: meRef.current.name,
-      text,
+      text: text.slice(0, MAX_LINE_CHARS),
       timestamp: Date.now(),
       isFinal,
     })
