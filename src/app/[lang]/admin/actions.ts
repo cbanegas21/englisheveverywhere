@@ -814,6 +814,32 @@ export async function createAdminBooking(
   await assertAdmin()
   const admin = createAdminClient()
 
+  // Reject a malformed / out-of-range schedule BEFORE any availability check or
+  // credit decrement (ADMIN-05). A NaN/past/far-future date or an unbounded
+  // duration would otherwise persist a junk booking (and a NaN sails past the
+  // availability math). Messages stay English by design (admin-only surface).
+  const when = new Date(scheduledAt)
+  if (isNaN(when.getTime())) {
+    throw new Error('Invalid date/time for the booking.')
+  }
+  const nowMs = Date.now()
+  if (when.getTime() < nowMs - 24 * 60 * 60 * 1000) {
+    throw new Error('Scheduled time is in the past.')
+  }
+  if (when.getTime() > nowMs + 180 * 24 * 60 * 60 * 1000) {
+    throw new Error('Scheduled time is too far in the future (max 180 days).')
+  }
+  if (!Number.isInteger(durationMinutes) || durationMinutes < 15 || durationMinutes > 240) {
+    throw new Error('Duration must be an integer between 15 and 240 minutes.')
+  }
+  // Whitelist the booking type server-side — the UI offers exactly these four,
+  // but the action must not trust an arbitrary caller-supplied string (ADMIN-05
+  // defense-in-depth; partial ADMIN-03).
+  const ALLOWED_BOOKING_TYPES = ['placement_test', 'class', 'teacher_interview', 'admin_checkin']
+  if (!ALLOWED_BOOKING_TYPES.includes(type)) {
+    throw new Error('Invalid booking type.')
+  }
+
   // Accepting-students gate + continuity guard: only apply when a teacher is
   // being pre-assigned here. The accepting-students gate excludes a paused
   // teacher from a NEW student but still permits an established relationship.

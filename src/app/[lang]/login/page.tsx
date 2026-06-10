@@ -1,7 +1,7 @@
 'use client'
 
-import { Suspense, use, useState, useTransition } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Suspense, use, useEffect, useState, useTransition } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { signIn } from '@/app/actions/auth'
@@ -78,9 +78,34 @@ function LoginForm({ lang }: { lang: Locale }) {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [oauthError, setOauthError] = useState('')
   const searchParams = useSearchParams()
+  const router = useRouter()
   const tx: Tx = t[lang]
   const errorMsg = searchParams.get('error')
   const successMsg = searchParams.get('success')
+
+  // Send an already-authenticated visitor to their role home instead of showing
+  // the login form again (LIVE-003). A logged-out user (incl. right after
+  // signOut) gets null and sees the form normally. replace() so Back doesn't
+  // bounce them here.
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!active || !user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+      const role = profile?.role
+      const home =
+        role === 'teacher' ? `/${lang}/maestro/dashboard`
+        : role === 'admin' ? `/${lang}/admin`
+        : `/${lang}/dashboard`
+      if (active) router.replace(home)
+    })
+    return () => { active = false }
+  }, [lang, router])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

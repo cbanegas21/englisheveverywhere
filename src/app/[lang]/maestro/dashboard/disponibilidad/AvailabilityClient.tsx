@@ -55,7 +55,7 @@ const t = {
     tipBody: 'Students see these slots and can book any open window. Booked slots are locked until the session is complete.',
     weeklySummary: 'Weekly summary',
     noSlotsConfigured: 'No slots configured.',
-    slots: 'slots',
+    slots: (n: number) => (n === 1 ? 'slot' : 'slots'),
     mySlots: 'My time slots',
     bulkAdd: 'Bulk add',
     bulkTitle: 'Add availability for multiple days',
@@ -90,7 +90,7 @@ const t = {
     tipBody: 'Los estudiantes ven estos horarios y pueden reservar cualquier ventana disponible. Los horarios reservados se bloquean hasta completar la sesión.',
     weeklySummary: 'Resumen semanal',
     noSlotsConfigured: 'Sin horarios configurados.',
-    slots: 'slots',
+    slots: (n: number) => (n === 1 ? 'horario' : 'horarios'),
     mySlots: 'Mis horarios',
     bulkAdd: 'Agregar en grupo',
     bulkTitle: 'Agregar disponibilidad en varios días',
@@ -547,7 +547,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                           marginLeft: 5,
                         }}
                       >
-                        {tx.slots}
+                        {tx.slots(daySlots.length)}
                       </span>
                     </span>
                   </div>

@@ -61,7 +61,7 @@ const STR = {
     status: 'Status',
     clickToToggle: 'click to toggle',
     availability: 'Availability',
-    slots: 'slots',
+    slots: (n: number) => (n === 1 ? 'slot' : 'slots'),
     noAvailability: 'No availability slots configured.',
     adminNotes: 'Admin Notes',
     notesPlaceholder: 'Internal notes about this teacher…',
@@ -154,7 +154,7 @@ const STR = {
     status: 'Estado',
     clickToToggle: 'clic para cambiar',
     availability: 'Disponibilidad',
-    slots: 'horarios',
+    slots: (n: number) => (n === 1 ? 'horario' : 'horarios'),
     noAvailability: 'No hay horarios de disponibilidad configurados.',
     adminNotes: 'Notas de admin',
     notesPlaceholder: 'Notas internas sobre este maestro…',
@@ -460,7 +460,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
 
         {/* Availability summary */}
         <div style={cardStyle}>
-          <span style={labelStyle}>{t.availability} ({teacher.availSlots.length} {t.slots})</span>
+          <span style={labelStyle}>{t.availability} ({teacher.availSlots.length} {t.slots(teacher.availSlots.length)})</span>
           {teacher.availSlots.length === 0 ? (
             <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>{t.noAvailability}</p>
           ) : (

@@ -8,7 +8,7 @@ import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit, recordLoginOutcome } from '@/lib/rateLimit'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 import { brandedEmail, escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
-import { safeNextPath } from '@/lib/safeNext'
+import { safeNextPath, pathAllowedForRole } from '@/lib/safeNext'
 import { isValidTimeZone } from '@/lib/timezone'
 
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
@@ -236,8 +236,11 @@ export async function signIn(formData: FormData) {
     cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
   }
 
-  // A validated join link wins over the default role landing page.
-  if (next) {
+  // A validated join link wins over the default role landing page — but only
+  // when it targets the user's OWN area (or the shared /sala room). A next= to
+  // another role's area is dropped here and the role default below takes over
+  // (Auth-LOW-next-path).
+  if (next && pathAllowedForRole(next, role)) {
     redirect(next)
   }
   if (role === 'teacher') {

@@ -72,6 +72,13 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
         },
       },
       customer_email: user.email,
+    }, {
+      // Dedupe rapid double-submits: one unique checkout session per
+      // user+plan+minute (Payments-LOW-checkout-ratelimit). The minute bucket
+      // lets a legitimate later re-purchase open a fresh session — a pure
+      // user+plan key would permanently replay the first (possibly expired)
+      // session. Re-clicking within the same minute returns the same session.
+      idempotencyKey: `checkout_${user.id}_${planKey}_${Math.floor(Date.now() / 60000)}`,
     })
 
     return { url: session.url }
