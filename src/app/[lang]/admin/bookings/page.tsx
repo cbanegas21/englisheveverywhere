@@ -95,6 +95,7 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     allPendingResult,
     reschedResult,
     monthResult,
+    studentsResult,
   ] = await Promise.all([
     admin
       .from('bookings')
@@ -180,6 +181,12 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
       .lt('scheduled_at', monthGridEndUtc.toISOString())
       .neq('status', 'cancelled')
       .order('scheduled_at', { ascending: true }),
+
+    // All students for the click-to-create booking picker (P5; re-adds the
+    // allStudents fetch dropped in P1). classes_remaining hints class credits.
+    admin
+      .from('students')
+      .select('id, level, classes_remaining, profile:profiles(full_name, email)'),
   ])
 
   type SessionData = { teacher_notes: string | null; student_rating: number | null }
@@ -309,6 +316,18 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     student_name: getName(((b.student as unknown) as { profile: unknown } | null)?.profile),
   }))
 
+  // Students for the click-to-create picker, sorted by name in the admin's UI.
+  type StudentEntry = { id: string; name: string; email: string | null; level: string | null; classesRemaining: number }
+  const allStudents: StudentEntry[] = (studentsResult.data || [])
+    .map((s) => ({
+      id: s.id,
+      name: getName((s as { profile: unknown }).profile) ?? 'Unknown',
+      email: getEmail((s as { profile: unknown }).profile),
+      level: (s as { level: string | null }).level ?? null,
+      classesRemaining: (s as { classes_remaining: number | null }).classes_remaining ?? 0,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
   const monthRaw = monthResult.data
   const monthBookings = (monthRaw ?? []).map((b) => ({
     id: b.id,
@@ -338,6 +357,7 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
         teachers={teachers}
         availSlots={availSlotsResult.data || []}
         pendingBookings={pendingBookings}
+        allStudents={allStudents}
         stats={{
           todayCount: todayCountResult.count ?? 0,
           pendingCount: pendingCountResult.count ?? 0,

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { assignAndConfirmBooking, cancelBookingWithRefund, completeBooking, adminRescheduleBooking } from '../actions'
+import { assignAndConfirmBooking, cancelBookingWithRefund, completeBooking, adminRescheduleBooking, createAdminBooking } from '../actions'
 import { isTeacherAvailableClient } from './availability'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import Drawer from '@/components/dashboard/Drawer'
@@ -44,6 +44,7 @@ interface PendingEntry {
   type: string
   student_name: string | null
 }
+interface StudentEntry { id: string; name: string; email: string | null; level: string | null; classesRemaining: number }
 
 interface MonthBooking {
   id: string
@@ -68,6 +69,7 @@ interface Props {
   teachers: TeacherEntry[]
   availSlots: AvailSlot[]
   pendingBookings: PendingEntry[]
+  allStudents: StudentEntry[]
   stats: { todayCount: number; pendingCount: number; weekConfirmed: number }
 }
 
@@ -84,6 +86,10 @@ const LIVE_GRACE_MIN = 90  // a confirmed class stays "live" until end + 90m (mi
 // thin LEFT-EDGE bar on each event so an admin can scan "whose class is this" at
 // a glance (the AD-03 teacher-identity decision).
 const TEACHER_TINTS = ['#AD7A55', '#82804F', '#5F6F77', '#856079', '#4F726A', '#9C7A3E']
+
+// Duration presets offered by the click-to-create modal (server allows 15–240).
+const CREATE_DURATIONS = [30, 45, 60, 90]
+const BOOKING_TYPES = ['class', 'placement_test', 'teacher_interview', 'admin_checkin'] as const
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
 // The whole app (admin included) localizes off the /[lang] segment. Server-action
@@ -105,11 +111,25 @@ const STR = {
     ok: 'OK',
     rescheduleKicker: '↳ Reschedule',
     assignKicker: '↳ Assign',
-    dragHint: 'Drag a class to reschedule',
+    dragHint: 'Drag to reschedule · click a slot to add',
     // unassigned inbox rail
     inboxHint: 'Drag onto the calendar to place · click to assign',
     inboxEmpty: 'No bookings waiting on a teacher.',
     availabilityOf: (n: string) => `Showing ${n}'s available hours`,
+    // create-booking modal (click an empty slot)
+    createKicker: '↳ New booking',
+    createTitle: 'Schedule a booking',
+    createStudent: 'Student',
+    createSelectStudent: 'Select student…',
+    createTeacher: 'Teacher (optional)',
+    createUnassigned: '— Unassigned —',
+    createWhen: 'When',
+    createNotes: 'Notes (optional)',
+    createNotesPlaceholder: 'Optional note for this booking…',
+    createSubmit: 'Create booking',
+    creating: 'Creating…',
+    created: 'Booking created',
+    noCredits: (n: string) => `${n} has no class credits — pick another student or type.`,
     // teacher filter + legend
     teachers: 'Teachers',
     allTeachers: 'All teachers',
@@ -187,10 +207,23 @@ const STR = {
     ok: 'Entendido',
     rescheduleKicker: '↳ Reprogramar',
     assignKicker: '↳ Asignar',
-    dragHint: 'Arrastra una clase para reprogramar',
+    dragHint: 'Arrastra para reprogramar · clic en un hueco para agregar',
     inboxHint: 'Arrastra al calendario para ubicar · clic para asignar',
     inboxEmpty: 'No hay reservas esperando maestro.',
     availabilityOf: (n: string) => `Mostrando las horas disponibles de ${n}`,
+    createKicker: '↳ Nueva reserva',
+    createTitle: 'Agendar una reserva',
+    createStudent: 'Estudiante',
+    createSelectStudent: 'Seleccionar estudiante…',
+    createTeacher: 'Maestro (opcional)',
+    createUnassigned: '— Sin asignar —',
+    createWhen: 'Cuándo',
+    createNotes: 'Notas (opcional)',
+    createNotesPlaceholder: 'Nota opcional para esta reserva…',
+    createSubmit: 'Crear reserva',
+    creating: 'Creando…',
+    created: 'Reserva creada',
+    noCredits: (n: string) => `${n} no tiene créditos de clase — elige otro estudiante o tipo.`,
     teachers: 'Maestros',
     allTeachers: 'Todos los maestros',
     legend: 'Estado',
@@ -301,6 +334,7 @@ export default function BookingCalendarClient({
   teachers,
   availSlots,
   pendingBookings,
+  allStudents,
   stats,
 }: Props) {
   const router = useRouter()
@@ -328,6 +362,17 @@ export default function BookingCalendarClient({
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [rDate, setRDate] = useState('')
   const [rTime, setRTime] = useState('')
+  // Click-empty-cell → create (P5)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [cStudent, setCStudent] = useState('')
+  const [cTeacher, setCTeacher] = useState('')
+  const [cDate, setCDate] = useState('')
+  const [cTime, setCTime] = useState('')
+  const [cType, setCType] = useState('class')
+  const [cDuration, setCDuration] = useState(60)
+  const [cNotes, setCNotes] = useState('')
+  const [cError, setCError] = useState('')
+  const [cForceable, setCForceable] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
   const dragGrabPx = useRef(0)
   // Source of truth for the in-flight drag — a ref so dragover/drop read it
@@ -723,6 +768,55 @@ export default function BookingCalendarClient({
     attemptReschedule(selectedBooking.id, iso, false, closeDrawer)
   }
 
+  // ── Click-empty-cell → create booking (P5) ───────────────────────────────────
+  function resetCreateError() { setCError(''); setCForceable(false) }
+  // Open the create modal prefilled with the clicked slot (admin-zone wall-clock).
+  function openCreate(zday: ZDay, hour: number, minute: number) {
+    setCDate(`${zday.year}-${pad2(zday.month + 1)}-${pad2(zday.day)}`)
+    setCTime(`${pad2(hour)}:${pad2(minute)}`)
+    setCStudent(''); setCTeacher(''); setCType('class'); setCDuration(60); setCNotes('')
+    resetCreateError()
+    setCreateOpen(true)
+  }
+  function closeCreate() { setCreateOpen(false); resetCreateError() }
+  // Snap a click in a day column to a 15-min slot within the visible hour range.
+  function slotFromClick(e: React.MouseEvent): { hour: number; minute: number } {
+    const colRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const y = e.clientY - colRect.top
+    let totalMin = Math.round((startHour * 60 + (y / ROW_HEIGHT) * 60) / 15) * 15
+    totalMin = Math.max(startHour * 60, Math.min(totalMin, endHour * 60 - 15))
+    return { hour: Math.floor(totalMin / 60), minute: totalMin % 60 }
+  }
+  // The prospective UTC instant for the create form (admin-zone wall-clock → UTC,
+  // DST-safe). Empty until both date + time are set.
+  const createIso = useMemo(() => {
+    if (!cDate || !cTime) return ''
+    const [y, m, d] = cDate.split('-').map(Number)
+    const [h, mi] = cTime.split(':').map(Number)
+    return zonedWallTimeToUtc(y, (m || 1) - 1, d || 1, h || 0, mi || 0, timezone).toISOString()
+  }, [cDate, cTime, timezone])
+  const createStudentObj = useMemo(() => allStudents.find(s => s.id === cStudent) ?? null, [allStudents, cStudent])
+  const creditWarn = cType === 'class' && !!createStudentObj && createStudentObj.classesRemaining <= 0
+  function submitCreate(force = false) {
+    if (!cStudent || !createIso) return
+    startTransition(async () => {
+      try {
+        await createAdminBooking(cStudent, cTeacher || null, createIso, cType, cDuration, cNotes, { force })
+        showToast(tx.created)
+        closeCreate()
+        router.refresh()
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : tx.error
+        // Same forceable set as assign/reschedule — availability + primary-teacher
+        // continuity instruct "retry with force=true". Hard guards (paused teacher,
+        // slot taken, no credits, out-of-bounds) never carry it → no override offered.
+        const forceable = msg.toLowerCase().includes('force=true')
+        setCForceable(forceable && !force)
+        setCError(msg)
+      }
+    })
+  }
+
   // ── Grid renderer (shared by week + day) ─────────────────────────────────────
   function renderGrid(cols: number[]) {
     const single = cols.length === 1
@@ -758,6 +852,13 @@ export default function BookingCalendarClient({
               data-ek-col={dayIdx}
               onDragOver={(e) => onColumnDragOver(e, dayIdx)}
               onDrop={(e) => onColumnDrop(e, dayIdx)}
+              onClick={(e) => {
+                // Empty-slot click → create. Events stopPropagation (open the
+                // Drawer instead); a just-finished drag is guarded out.
+                if (draggingIdRef.current) return
+                const { hour, minute } = slotFromClick(e)
+                openCreate(weekDays[dayIdx], hour, minute)
+              }}
               style={{
                 position: 'relative',
                 height: calHeight,
@@ -806,7 +907,7 @@ export default function BookingCalendarClient({
                     draggable={canDrag}
                     onDragStart={canDrag ? (e) => onEventDragStart(e, b) : undefined}
                     onDragEnd={endDrag}
-                    onClick={() => setSelectedBooking(b)}
+                    onClick={(e) => { e.stopPropagation(); setSelectedBooking(b) }}
                     style={{
                       position: 'absolute',
                       top: topPx + 1,
@@ -897,6 +998,12 @@ export default function BookingCalendarClient({
     cursor: 'pointer',
     fontFamily: 'var(--ek-font-sans)',
   })
+
+  // Shared field styling for the create modal (mirrors the Drawer's selects).
+  const inputStyle: React.CSSProperties = {
+    boxSizing: 'border-box', borderRadius: 'var(--ek-radius-sm)', padding: '8px 10px',
+    fontSize: 13, color: 'var(--ek-text)', background: 'var(--ek-card)', fontFamily: 'var(--ek-font-sans)',
+  }
 
   const cols = view === 'week' ? [0, 1, 2, 3, 4, 5, 6] : [selectedDay]
   const weekRangeLabel = `${formatZDay(weekDays[0], DLOC, { month: 'long', day: 'numeric' })} – ${formatZDay(weekDays[6], DLOC, { month: 'long', day: 'numeric', year: 'numeric' })}`
@@ -1298,6 +1405,96 @@ export default function BookingCalendarClient({
           </div>
         )}
       </Drawer>
+
+      {/* Create booking — opens from clicking an empty grid slot (P5). On-brand
+          Modal; force-overridable guards (availability / primary-teacher) surface
+          inline as a "Continue anyway" button rather than a stacked dialog. */}
+      <Modal
+        open={createOpen}
+        onClose={closeCreate}
+        kicker={tx.createKicker}
+        title={tx.createTitle}
+        maxWidth={470}
+        labelledBy="ek-create-title"
+        footer={
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={closeCreate} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{tx.cancel}</button>
+            {cForceable ? (
+              <button onClick={() => submitCreate(true)} disabled={isPending} className="ek-btn ek-btn-red ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0', opacity: isPending ? 0.6 : 1 }}>{tx.continueAnyway}</button>
+            ) : (
+              <button onClick={() => submitCreate(false)} disabled={isPending || !cStudent || !createIso} className="ek-btn ek-btn-primary ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0', opacity: (isPending || !cStudent || !createIso) ? 0.6 : 1 }}>{isPending ? tx.creating : tx.createSubmit}</button>
+            )}
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 13 }}>
+          <div>
+            <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 6 }}>{tx.createStudent}</div>
+            <select id="ek-create-student" aria-describedby={creditWarn ? 'ek-create-student-help' : undefined} value={cStudent} onChange={e => { setCStudent(e.target.value); resetCreateError() }} disabled={isPending} className="ek-input" style={{ ...inputStyle, width: '100%' }}>
+              <option value="">{tx.createSelectStudent}</option>
+              {allStudents.map(s => (
+                <option key={s.id} value={s.id}>{s.name}{s.email ? ` · ${s.email}` : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 6 }}>{tx.createTeacher}</div>
+            <select value={cTeacher} onChange={e => { setCTeacher(e.target.value); resetCreateError() }} disabled={isPending} className="ek-input" style={{ ...inputStyle, width: '100%' }}>
+              <option value="">{tx.createUnassigned}</option>
+              {teachers.map(t => {
+                const ok = createIso ? isTeacherAvailableClient(t.id, availSlots, createIso, cDuration) : true
+                const paused = !t.accepting
+                const label = paused
+                  ? tx.pausedOption(t.name)
+                  : (createIso && cType === 'class') ? (ok ? tx.okOption(t.name) : tx.offHoursOption(t.name)) : t.name
+                return <option key={t.id} value={t.id} disabled={paused}>{label}</option>
+              })}
+            </select>
+          </div>
+
+          <div>
+            <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 6 }}>{tx.createWhen} · {zoneLabel}</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input type="date" value={cDate} onChange={e => { setCDate(e.target.value); resetCreateError() }} className="ek-input" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+              <input type="time" value={cTime} step={900} onChange={e => { setCTime(e.target.value); resetCreateError() }} className="ek-input" style={{ ...inputStyle, width: 118, flexShrink: 0 }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 6 }}>{tx.type}</div>
+              <select value={cType} onChange={e => { setCType(e.target.value); resetCreateError() }} disabled={isPending} className="ek-input" style={{ ...inputStyle, width: '100%' }}>
+                {BOOKING_TYPES.map(ty => <option key={ty} value={ty}>{typeLabel(ty)}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 6 }}>{tx.duration}</div>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {CREATE_DURATIONS.map(d => (
+                  <button key={d} type="button" aria-label={tx.minShort(d)} aria-pressed={cDuration === d} onClick={() => { setCDuration(d); resetCreateError() }} style={{
+                    padding: '8px 9px', borderRadius: 'var(--ek-radius-sm)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--ek-font-mono)',
+                    border: `1px solid ${cDuration === d ? 'var(--ek-ink)' : 'var(--ek-border-mid)'}`,
+                    background: cDuration === d ? 'var(--ek-ink)' : 'transparent', color: cDuration === d ? '#fff' : 'var(--ek-text-soft)',
+                  }}>{d}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 6 }}>{tx.createNotes}</div>
+            <textarea value={cNotes} onChange={e => setCNotes(e.target.value)} placeholder={tx.createNotesPlaceholder} rows={2} className="ek-input" style={{ ...inputStyle, width: '100%', resize: 'vertical' }} />
+          </div>
+
+          {creditWarn && !cError && createStudentObj && (
+            <p id="ek-create-student-help" role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--ek-red)', lineHeight: 1.5 }}>{tx.noCredits(createStudentObj.name.split(' ')[0])}</p>
+          )}
+          {cError && (
+            <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--ek-red)', lineHeight: 1.5 }}>{cError}</p>
+          )}
+        </div>
+      </Modal>
 
       {/* Conflict / override Modal — replaces the old native confirm for both
           assign and drag-to-reschedule guard failures. */}
