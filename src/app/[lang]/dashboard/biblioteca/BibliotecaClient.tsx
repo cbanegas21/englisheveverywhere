@@ -67,6 +67,12 @@ const t = {
   },
 }
 
+// Sentinel for the "show everything" filter tab. A CEFR level value can never be
+// this string, so it never collides with a real level key — including a book whose
+// level is the literal 'all' (suitable for all levels), which now gets its own
+// working filter tab instead of a dead duplicate-key tab (LIB-02).
+const ALL_FILTER = '__all__'
+
 function fmtDate(iso: string, lang: Locale) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
     month: 'short',
@@ -81,7 +87,7 @@ export default function BibliotecaClient({ lang, books }: Props) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
-  const [filter, setFilter] = useState<string>('all')
+  const [filter, setFilter] = useState<string>(ALL_FILTER)
 
   const levels = useMemo(() => {
     const set = new Set<string>()
@@ -90,7 +96,7 @@ export default function BibliotecaClient({ lang, books }: Props) {
   }, [books])
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return books
+    if (filter === ALL_FILTER) return books
     return books.filter((b) => b.level === filter)
   }, [books, filter])
 
@@ -169,7 +175,7 @@ export default function BibliotecaClient({ lang, books }: Props) {
               flexWrap: 'wrap',
             }}
           >
-            {([{ key: 'all', label: tx.filterAll }, ...levels.map((l) => ({ key: l, label: l === 'all' ? tx.levelAll : l }))]).map(
+            {([{ key: ALL_FILTER, label: tx.filterAll }, ...levels.map((l) => ({ key: l, label: l === 'all' ? tx.levelAll : l }))]).map(
               (tab) => {
                 const active = filter === tab.key
                 return (

@@ -115,7 +115,7 @@ interface Assignment {
 interface Props { lang: Locale; assignments: Assignment[] }
 
 function formatDate(iso: string, lang: Locale) {
-  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
+  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
     month: 'short', day: 'numeric',
   })
 }
@@ -142,7 +142,11 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
   const [detail, setDetail] = useState<Assignment | null>(null)
 
   const pending = assignments.filter((a) => !a.submission && a.status !== 'cancelled')
-  const completed = assignments.filter((a) => a.submission || a.status === 'cancelled')
+  // "Completed" = anything the student actually submitted. A cancelled assignment
+  // the student never submitted is a retracted task — it shows in neither list
+  // (mirrors `pending` already excluding cancelled). This keeps the section count
+  // identical to the "Completed" stat tile, which only counts submissions (HOMEWORK-02).
+  const completed = assignments.filter((a) => a.submission)
 
   // Average response time (days) for completed submissions
   const avgDays = (() => {
@@ -249,7 +253,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
               },
               {
                 kicker: tx.stats.completed,
-                value: completed.filter((a) => a.submission).length,
+                value: completed.length,
                 sub: tx.stats.completedSub,
               },
               {
@@ -261,8 +265,10 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
           />
         </div>
 
-        {/* Empty state */}
-        {assignments.length === 0 && (
+        {/* Empty state — also covers the case where every assignment was cancelled
+            before submission (filtered out of both lists), so the page never shows
+            stats with no explanation (HOMEWORK-02). */}
+        {pending.length === 0 && completed.length === 0 && (
           <div
             style={{
               background: 'var(--ek-card)',
@@ -298,7 +304,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
             </div>
             <div style={{ display: 'grid', gap: 12 }}>
               {pending.map((a) => (
-                <TaskCard key={a.id} a={a} tx={tx} onOpen={() => setDetail(a)} />
+                <TaskCard key={a.id} a={a} tx={tx} lang={lang} onOpen={() => setDetail(a)} />
               ))}
             </div>
           </section>
@@ -321,7 +327,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
             </div>
             <div style={{ display: 'grid', gap: 12 }}>
               {completed.map((a) => (
-                <TaskCard key={a.id} a={a} tx={tx} onOpen={() => setDetail(a)} />
+                <TaskCard key={a.id} a={a} tx={tx} lang={lang} onOpen={() => setDetail(a)} />
               ))}
             </div>
           </section>
@@ -340,10 +346,12 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
 function TaskCard({
   a,
   tx,
+  lang,
   onOpen,
 }: {
   a: Assignment
   tx: typeof t['en']
+  lang: Locale
   onOpen: () => void
 }) {
   const variant = getStatusVariant(a)
@@ -387,7 +395,7 @@ function TaskCard({
           </span>
           <span style={{ color: 'var(--ek-border-mid)', fontSize: 11 }}>·</span>
           <span style={{ fontSize: 11.5, color: 'var(--ek-text-muted)', fontFeatureSettings: '"tnum"' }}>
-            {a.due_at ? `${tx.due} ${formatDate(a.due_at, 'es' as Locale)}` : tx.noDue}
+            {a.due_at ? `${tx.due} ${formatDate(a.due_at, lang)}` : tx.noDue}
           </span>
         </div>
       </div>

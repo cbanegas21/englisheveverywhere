@@ -80,7 +80,13 @@ export async function createBooking(formData: FormData) {
   if (!user) return { error: 'Not authenticated' }
 
   const scheduledAt = formData.get('scheduled_at') as string
-  const durationMinutes = parseInt(formData.get('duration_minutes') as string) || 60
+  // duration_minutes is client-controlled. The product offers a single
+  // 60-minute class = 1 credit; honoring a tampered value (e.g. 90 or 999) would
+  // hand the student a longer class — and the teacher a larger payout — for the
+  // same one credit. Pin to the allowed set, coercing anything else to 60 (BOOKING-06).
+  const ALLOWED_DURATIONS = [60]
+  const rawDuration = parseInt(formData.get('duration_minutes') as string, 10)
+  const durationMinutes = ALLOWED_DURATIONS.includes(rawDuration) ? rawDuration : 60
   const lang = (formData.get('lang') as string) || 'es'
 
   // ── Date validation + 24-hour advance notice ─────────────────
@@ -178,7 +184,24 @@ export async function createBooking(formData: FormData) {
   if (error) {
     // Insert failed after the credit was consumed — give it back.
     await admin.rpc('increment_classes', { p_student_id: student.id })
-    return { error: error.message }
+    // A unique-constraint violation means a concurrent insert already claimed this
+    // slot (the pre-check above can lose a race). Surface the same friendly
+    // "already booked" copy instead of a raw Postgres string (BOOKING-08).
+    if (error.code === '23505' || /duplicate key/i.test(error.message)) {
+      return {
+        error: lang === 'es'
+          ? 'Ya tienes una clase agendada para ese horario.'
+          : 'You already have a class booked for that time slot.',
+      }
+    }
+    // Any other DB error: log the raw detail server-side, return a generic
+    // localized message so no internal error string leaks to the client.
+    console.error('createBooking insert failed:', error.message)
+    return {
+      error: lang === 'es'
+        ? 'No se pudo crear la reserva. Inténtalo de nuevo.'
+        : 'Could not create the booking. Please try again.',
+    }
   }
 
   const { data: profile } = await admin

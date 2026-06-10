@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { createBooking } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
+import { getZonedParts, zonedWallTimeToUtc } from '@/lib/timezone'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import Modal from '@/components/dashboard/Modal'
@@ -15,6 +16,8 @@ interface Props {
   studentId: string
   classesRemaining: number
   existingBookings: string[]
+  /** Canonical display zone (profiles.timezone) — the grid is built in this zone. */
+  timezone: string
 }
 
 const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -107,15 +110,39 @@ const t = {
   },
 }
 
-function getWeekDates(weekOffset: number): Date[] {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const sunday = new Date(today)
-  sunday.setDate(today.getDate() - today.getDay() + weekOffset * 7)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sunday)
-    d.setDate(sunday.getDate() + i)
-    return d
+// A calendar day expressed in the student's profile zone (month 0-indexed). The
+// whole grid is built from these so day boundaries + slot hours match the zone the
+// rest of the app displays in, not the browser's local zone (DASH-04).
+interface ZonedDay { year: number; month: number; day: number }
+
+// Calendar arithmetic via Date.UTC — UTC has no DST, so rolling days/weekdays off a
+// wall-clock y/m/d is exact (the conversion to an actual instant happens later, in
+// zonedWallTimeToUtc, which IS DST-aware).
+function addDays(d: ZonedDay, n: number): ZonedDay {
+  const dt = new Date(Date.UTC(d.year, d.month, d.day + n))
+  return { year: dt.getUTCFullYear(), month: dt.getUTCMonth(), day: dt.getUTCDate() }
+}
+function weekdayOf(d: ZonedDay): number {
+  return new Date(Date.UTC(d.year, d.month, d.day)).getUTCDay()
+}
+function sameDay(a: ZonedDay, b: ZonedDay): boolean {
+  return a.year === b.year && a.month === b.month && a.day === b.day
+}
+function todayInZone(tz: string): ZonedDay {
+  const p = getZonedParts(new Date(), tz)
+  return { year: p.year, month: p.month, day: p.day }
+}
+function getWeekDays(weekOffset: number, tz: string): ZonedDay[] {
+  const today = todayInZone(tz)
+  const sunday = addDays(today, -weekdayOf(today) + weekOffset * 7)
+  return Array.from({ length: 7 }, (_, i) => addDays(sunday, i))
+}
+// Format the calendar day itself: build it as UTC noon and read back in UTC so the
+// rendered weekday/month/day equals the ZonedDay exactly (no second tz shift).
+function formatZonedDay(day: ZonedDay, locale: string, opts: Intl.DateTimeFormatOptions): string {
+  return new Date(Date.UTC(day.year, day.month, day.day, 12)).toLocaleDateString(locale, {
+    ...opts,
+    timeZone: 'UTC',
   })
 }
 
@@ -127,19 +154,19 @@ function hourLabel(hour: number) {
 }
 
 interface SelectedCell {
-  date: Date
+  /** Profile-zone wall-clock hour (0-23) of the slot. */
   hour: number
+  /** Absolute instant (UTC ISO) the slot maps to. */
   scheduledAt: string
 }
 
 interface LastWeekSuggestion {
-  nextDate: Date
   hour: number
   scheduledAt: string
   displayDate: string
 }
 
-export default function AgendarClient({ lang, classesRemaining, existingBookings }: Props) {
+export default function AgendarClient({ lang, classesRemaining, existingBookings, timezone }: Props) {
   const tx = t[lang]
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -149,7 +176,8 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
   const [booked, setBooked] = useState<SelectedCell | null>(null)
   const [showAllHours, setShowAllHours] = useState(false)
 
-  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
+  const weekDays = useMemo(() => getWeekDays(weekOffset, timezone), [weekOffset, timezone])
+  const todayDay = useMemo(() => todayInZone(timezone), [timezone, weekOffset])
   const visibleHours = showAllHours ? ALL_HOURS : BUSINESS_HOURS
 
   const gridRef = useRef<HTMLDivElement>(null)
@@ -159,14 +187,16 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
     }
   }, [weekOffset, showAllHours])
 
+  // Key occupied slots by their profile-zone calendar day + hour so they line up
+  // with the grid cells (which are also keyed in the profile zone).
   const bookedSet = useMemo(() => {
     const set = new Set<string>()
     for (const iso of existingBookings) {
-      const d = new Date(iso)
-      set.add(`${d.toDateString()}-${d.getHours()}`)
+      const p = getZonedParts(new Date(iso), timezone)
+      set.add(`${p.year}-${p.month}-${p.day}-${p.hour}`)
     }
     return set
-  }, [existingBookings])
+  }, [existingBookings, timezone])
 
   const [nowSnapshotMs] = useState(() => Date.now())
 
@@ -176,27 +206,30 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
     const seen = new Set<string>()
     const suggestions: LastWeekSuggestion[] = []
     for (const iso of existingBookings) {
-      const d = new Date(iso)
-      if (d.getTime() < weekAgo || d.getTime() >= nowSnapshotMs) continue
-      const next = new Date(d)
-      next.setDate(d.getDate() + 7)
-      if (next.getTime() < minBookable) continue
-      const key = `${next.toDateString()}-${next.getHours()}`
+      const instant = new Date(iso)
+      const ms = instant.getTime()
+      if (ms < weekAgo || ms >= nowSnapshotMs) continue
+      // Same profile-zone wall-clock slot, one week later.
+      const p = getZonedParts(instant, timezone)
+      const nextDay = addDays({ year: p.year, month: p.month, day: p.day }, 7)
+      const nextInstant = zonedWallTimeToUtc(nextDay.year, nextDay.month, nextDay.day, p.hour, 0, timezone)
+      if (nextInstant.getTime() < minBookable) continue
+      const key = `${nextDay.year}-${nextDay.month}-${nextDay.day}-${p.hour}`
       if (seen.has(key) || bookedSet.has(key)) continue
       seen.add(key)
       suggestions.push({
-        nextDate: next,
-        hour: next.getHours(),
-        scheduledAt: next.toISOString(),
-        displayDate: next.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+        hour: p.hour,
+        scheduledAt: nextInstant.toISOString(),
+        displayDate: nextInstant.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
           weekday: 'short',
           day: 'numeric',
           month: 'short',
+          timeZone: timezone,
         }),
       })
     }
     return suggestions.slice(0, 3)
-  }, [existingBookings, bookedSet, lang, nowSnapshotMs])
+  }, [existingBookings, bookedSet, lang, nowSnapshotMs, timezone])
 
   function handleConfirm() {
     if (!selected) return
@@ -301,10 +334,11 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
               {[
                 [
                   tx.confirmDate,
-                  booked.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                  new Date(booked.scheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
                     weekday: 'long',
                     month: 'long',
                     day: 'numeric',
+                    timeZone: timezone,
                   }),
                 ],
                 [tx.confirmTime, hourLabel(booked.hour)],
@@ -506,9 +540,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                 <button
                   key={i}
                   className="lk-agendar-repeat"
-                  onClick={() =>
-                    selectSlot({ date: s.nextDate, hour: s.hour, scheduledAt: s.scheduledAt })
-                  }
+                  onClick={() => selectSlot({ hour: s.hour, scheduledAt: s.scheduledAt })}
                 >
                   <div>
                     <div
@@ -646,7 +678,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                   textTransform: 'capitalize',
                 }}
               >
-                {weekDates[0].toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                {formatZonedDay(weekDays[0], lang === 'es' ? 'es-HN' : 'en-US', {
                   month: 'long',
                   year: 'numeric',
                 })}
@@ -717,8 +749,8 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
               }}
             >
               <div />
-              {weekDates.map((date, i) => {
-                const isToday = date.toDateString() === new Date().toDateString()
+              {weekDays.map((day, i) => {
+                const isToday = sameDay(day, todayDay)
                 return (
                   <div key={i} style={{ padding: '12px 0', textAlign: 'center' }}>
                     <div
@@ -731,7 +763,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                         fontFamily: 'var(--ek-font-mono)',
                       }}
                     >
-                      {tx.days[date.getDay()]}
+                      {tx.days[weekdayOf(day)]}
                     </div>
                     <div
                       style={{
@@ -747,7 +779,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                         fontFeatureSettings: '"tnum"',
                       }}
                     >
-                      {date.getDate()}
+                      {day.day}
                     </div>
                   </div>
                 )
@@ -779,17 +811,18 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                   >
                     {hourLabel(hour)}
                   </div>
-                  {weekDates.map((date, colIdx) => {
-                    const cellDate = new Date(date)
-                    cellDate.setHours(hour, 0, 0, 0)
-                    const cellKey = `${date.toDateString()}-${hour}`
+                  {weekDays.map((day, colIdx) => {
+                    // Resolve this profile-zone wall-clock slot to its absolute instant.
+                    const cellInstant = zonedWallTimeToUtc(day.year, day.month, day.day, hour, 0, timezone)
+                    const cellMs = cellInstant.getTime()
+                    const cellKey = `${day.year}-${day.month}-${day.day}-${hour}`
                     const isBooked = bookedSet.has(cellKey)
                     const now = Date.now()
                     const minMs = now + 24 * 60 * 60 * 1000
-                    const isPast = cellDate.getTime() <= now
-                    const isTooSoon = cellDate.getTime() > now && cellDate.getTime() < minMs
+                    const isPast = cellMs <= now
+                    const isTooSoon = cellMs > now && cellMs < minMs
                     const isUnavailable = isPast || isTooSoon
-                    const scheduledAt = cellDate.toISOString()
+                    const scheduledAt = cellInstant.toISOString()
                     const isSelected = !!(selected && selected.scheduledAt === scheduledAt)
 
                     return (
@@ -824,7 +857,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                           />
                         ) : isSelected ? (
                           <button
-                            onClick={() => selectSlot({ date: cellDate, hour, scheduledAt })}
+                            onClick={() => selectSlot({ hour, scheduledAt })}
                             style={{
                               width: '100%',
                               height: 38,
@@ -847,7 +880,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                         ) : (
                           <button
                             className="lk-agendar-slot"
-                            onClick={() => selectSlot({ date: cellDate, hour, scheduledAt })}
+                            onClick={() => selectSlot({ hour, scheduledAt })}
                           >
                             {tx.libre}
                           </button>
@@ -933,10 +966,11 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
               {[
                 [
                   tx.confirmDate,
-                  selected.date.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                  new Date(selected.scheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
                     weekday: 'long',
                     month: 'long',
                     day: 'numeric',
+                    timeZone: timezone,
                   }),
                 ],
                 [tx.confirmTime, hourLabel(selected.hour)],

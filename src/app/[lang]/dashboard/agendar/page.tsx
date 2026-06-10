@@ -38,12 +38,26 @@ export default async function AgendarPage({ params }: Props) {
     .neq('status', 'cancelled')
   const existingBookings = (existingBookingsRaw || []).map((b: { scheduled_at: string }) => b.scheduled_at)
 
+  // Canonical display timezone — same precedence as Mis Clases (profiles.timezone,
+  // then signup metadata, then the business fallback) so the slot grid renders in
+  // the same zone the rest of the app uses, not the browser's (DASH-04).
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone =
+    (profileRow as { timezone?: string | null } | null)?.timezone ||
+    (user.user_metadata?.timezone as string) ||
+    'America/Tegucigalpa'
+
   return (
     <AgendarClient
       lang={lang as Locale}
       studentId={student.id}
       classesRemaining={student.classes_remaining || 0}
       existingBookings={existingBookings}
+      timezone={timezone}
     />
   )
 }

@@ -66,6 +66,10 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
 
   function handleLocaleSwitch() {
     if (switching) return
+    // Preserve the current query string so toggling locale doesn't drop params
+    // like ?intent=discovery (I18N-02). Read at click time to avoid a
+    // useSearchParams() Suspense de-opt on the statically-rendered landing page.
+    const search = typeof window !== 'undefined' ? window.location.search : ''
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('ee-scroll', String(window.scrollY))
       localStorage.setItem('ee-locale', other)
@@ -73,7 +77,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
     }
     setSwitching(true)
     setTimeout(() => {
-      router.push(otherLocalePath, { scroll: false })
+      router.push(otherLocalePath + search, { scroll: false })
     }, 130)
   }
 

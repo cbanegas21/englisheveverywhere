@@ -104,13 +104,16 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
 
   function handleLocaleSwitch() {
     if (switching) return
+    // Preserve the current query string so toggling locale keeps params intact
+    // (I18N-02). Read at click time — no useSearchParams() Suspense boundary needed.
+    const search = typeof window !== 'undefined' ? window.location.search : ''
     if (typeof window !== 'undefined') {
       localStorage.setItem('ee-locale', other)
       document.cookie = `ee-locale=${other}; path=/; max-age=31536000; SameSite=Lax`
     }
     setSwitching(true)
     setTimeout(() => {
-      router.push(otherLocalePath, { scroll: false })
+      router.push(otherLocalePath + search, { scroll: false })
     }, 130)
   }
 
