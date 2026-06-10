@@ -21,7 +21,7 @@ export default async function AgendaPage({ params }: Props) {
     .eq('profile_id', user.id)
     .single()
 
-  if (!teacher) redirect(`/${lang}/maestro/dashboard`)
+  if (!teacher) redirect(`/${lang}/onboarding`)
 
   // Fetch pending bookings
   const { data: pendingBookings } = await supabase

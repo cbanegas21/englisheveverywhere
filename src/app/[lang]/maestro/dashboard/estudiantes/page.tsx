@@ -20,7 +20,7 @@ export default async function EstudiantesPage({ params }: Props) {
     .eq('profile_id', user.id)
     .single()
 
-  if (!teacherData) redirect(`/${lang}/maestro/dashboard`)
+  if (!teacherData) redirect(`/${lang}/onboarding`)
 
   const { data: bookings } = await supabase
     .from('bookings')

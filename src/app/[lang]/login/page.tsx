@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, useTransition } from 'react'
+import { Suspense, use, useState, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
@@ -237,8 +237,10 @@ function LoginForm({ lang }: { lang: Locale }) {
 }
 
 export default function LoginPage({ params }: Props) {
-  const [lang, setLang] = useState<Locale>('es')
-  useEffect(() => { params.then(({ lang: l }) => setLang(l as Locale)) }, [params])
+  // Read lang synchronously so /en never flashes Spanish copy before an effect
+  // resolves the params promise (AUTH-04 FOUC). Mirrors the new-password page.
+  const { lang: raw } = use(params)
+  const lang: Locale = raw === 'en' ? 'en' : 'es'
 
   return (
     <Suspense fallback={<div className="min-h-screen" style={{ background: 'var(--ek-paper)' }} />}>

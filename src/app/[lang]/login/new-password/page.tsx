@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, use, useEffect, useState } from 'react'
+import { Suspense, use, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
@@ -38,6 +38,12 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
   const [sessionReady, setSessionReady] = useState(false)
+  // The reset code/token is single-use: exchanging it twice (e.g. a StrictMode
+  // effect re-run, or a re-render before state settles) burns the second call
+  // and surfaces a spurious "expired link" (PASSWORD-02). Cache the establish()
+  // promise so the actual exchange runs exactly once across re-runs; each run
+  // still attaches its own result handler (guarded by its `active` flag).
+  const establishRef = useRef<Promise<boolean> | null>(null)
 
   // Establish the recovery session from whatever shape the reset link arrives in:
   //  • PKCE flow:      ?code=...                      → exchangeCodeForSession
@@ -47,22 +53,35 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
     let active = true
 
     async function establish(): Promise<boolean> {
+      // Always attempt to consume the recovery token FIRST. An unrelated
+      // pre-existing session must NOT mask it — short-circuiting on getSession()
+      // would update the currently-logged-in account's password instead of the
+      // token subject's. Only on exchange FAILURE do we fall back to an existing
+      // session: that's the double-consume recovery (PASSWORD-02) — a second
+      // effect run / true remount finds the code already spent but the recovery
+      // session from the first exchange still present, so it's a success, not a
+      // spurious "expired link".
       const code = searchParams.get('code')
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
-        return !error
+        if (!error) return true
+        const { data } = await supabase.auth.getSession()
+        return !!data.session
       }
       const tokenHash = searchParams.get('token_hash')
       if (tokenHash) {
         const { error } = await supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash })
-        return !error
+        if (!error) return true
+        const { data } = await supabase.auth.getSession()
+        return !!data.session
       }
       // Hash-fragment flow: createBrowserClient auto-parses #access_token — just check.
       const { data } = await supabase.auth.getSession()
       return !!data.session
     }
 
-    establish().then(ok => {
+    if (!establishRef.current) establishRef.current = establish()
+    establishRef.current.then(ok => {
       if (!active) return
       if (ok) {
         setSessionReady(true)
@@ -104,7 +123,26 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
     } else {
       setStatus('success')
       setMessage(tx.success)
-      setTimeout(() => router.push(`/${lang}/dashboard`), 1500)
+      // Route to the role-appropriate home, not always the student dashboard
+      // (PASSWORD-01). The recovery session is active here, so we can read the
+      // caller's own role (RLS permits self-read of role).
+      let dest = `/${lang}/dashboard`
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile, error: roleErr } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (roleErr || !profile?.role) {
+          // Self-read of own role is permitted (migration 033), so this is
+          // unexpected — keep the safe /dashboard fallback but surface the
+          // anomaly so an RLS/timing misconfig is visible in monitoring.
+          console.warn('[new-password] could not read role for redirect:', roleErr?.message)
+        } else if (profile.role === 'teacher') dest = `/${lang}/maestro/dashboard`
+        else if (profile.role === 'admin') dest = `/${lang}/admin`
+      }
+      setTimeout(() => router.push(dest), 1500)
     }
   }
 

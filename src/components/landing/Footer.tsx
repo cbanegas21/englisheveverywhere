@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import type { Locale } from '@/lib/i18n/translations'
 import { Logo } from '@/components/ui/Logo'
 
@@ -69,6 +70,15 @@ const t = {
 
 export default function Footer({ lang }: { lang: Locale }) {
   const tx = t[lang]
+  const pathname = usePathname()
+  // Preserve the current subpage when switching locale (FOOTER-01): from
+  // /es/privacy → /en/privacy instead of dumping to the /en root. Falls back to
+  // the locale root if pathname is unavailable. Query/hash are intentionally
+  // omitted — the landing/legal pages this footer renders on don't carry
+  // meaningful ones, and reading searchParams here would force a Suspense
+  // de-opt on the statically rendered landing page (same reasoning as I18N-02).
+  const otherLocalePath = (target: Locale) =>
+    pathname ? pathname.replace(/^\/(es|en)(?=\/|$)/, `/${target}`) : `/${target}`
   return (
     <footer
       style={{
@@ -219,7 +229,7 @@ export default function Footer({ lang }: { lang: Locale }) {
               aria-label={tx.langLabel}
             >
               <Link
-                href="/es"
+                href={otherLocalePath('es')}
                 className="lk-footer-link"
                 aria-current={lang === 'es' ? 'true' : undefined}
                 style={{
@@ -231,7 +241,7 @@ export default function Footer({ lang }: { lang: Locale }) {
               </Link>
               <span aria-hidden style={{ color: '#3a3a3a' }}>/</span>
               <Link
-                href="/en"
+                href={otherLocalePath('en')}
                 className="lk-footer-link"
                 aria-current={lang === 'en' ? 'true' : undefined}
                 style={{

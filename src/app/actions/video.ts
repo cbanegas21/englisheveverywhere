@@ -370,7 +370,7 @@ export async function completeSession(
       .from('sessions')
       .update({ ended_at: new Date().toISOString() })
       .eq('id', sid)
-    console.log('[completeSession] session ended_at update', { sid, error: sessionErr?.message })
+    if (sessionErr) console.error('[completeSession] session ended_at update failed:', sessionErr.message)
   }
 
   // Status-gated flip confirmed→completed. The call that actually flips the row
@@ -382,8 +382,11 @@ export async function completeSession(
     .eq('id', bookingId)
     .in('status', ['pending', 'confirmed'])
     .select('id')
-  if (bookingErr) console.log('[completeSession] booking complete error', { bookingId, error: bookingErr.message })
+  if (bookingErr) console.error('[completeSession] booking complete failed:', bookingErr.message)
   const justCompleted = !!(completedRows && completedRows.length > 0)
+  // Success-path signal at the meaningful granularity (the status flip that
+  // triggers payout + summary), so completions stay observable in logs.
+  if (justCompleted) console.info('[completeSession] booking completed', { bookingId })
 
   const teacherId = (booking.teacher as any)?.id
   const studentId = (booking.student as any)?.id
@@ -405,7 +408,15 @@ export async function completeSession(
 
     if (!existingPayment) {
       const hourlyRate = (booking.teacher as any)?.hourly_rate || 0
-      const sessionRate = Math.round(hourlyRate * ((booking.duration_minutes || 50) / 60))
+      // A teacher with no hourly_rate would silently get a $0 payout — flag the
+      // misconfiguration server-side so it's visible in the logs (TEACH-LOW-4).
+      if (!hourlyRate) {
+        console.error('[completeSession] teacher has no hourly_rate; payout will be $0', { teacherId })
+      }
+      // Canonical class length is 60 min (one credit = one 60-min class). Fall
+      // back to 60 (not 50) when duration_minutes is missing so a null duration
+      // never under-prices the teacher's payout.
+      const sessionRate = Math.round(hourlyRate * ((booking.duration_minutes || 60) / 60))
 
       const { error: payErr } = await adminClient.from('payments').insert({
         booking_id: bookingId,
@@ -419,7 +430,7 @@ export async function completeSession(
       // 23505 = unique(payments.booking_id) (migration 034): a concurrent flip
       // already paid out — safe to ignore so we don't double-pay the teacher.
       if (payErr && payErr.code !== '23505') {
-        console.log('[completeSession] payment insert error', payErr.message)
+        console.error('[completeSession] payment insert error:', payErr.message)
       }
     }
   }

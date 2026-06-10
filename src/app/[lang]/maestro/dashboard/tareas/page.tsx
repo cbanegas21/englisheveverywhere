@@ -25,7 +25,7 @@ export default async function MaestroTareasPage({ params }: Props) {
     .select('id')
     .eq('profile_id', user.id)
     .single()
-  if (!teacher) redirect(`/${lang}/maestro/pending`)
+  if (!teacher) redirect(`/${lang}/onboarding`)
 
   // Pull the teacher's students via non-cancelled bookings — mirrors the
   // gate used by teacherSetStudentLevel / createAssignment.

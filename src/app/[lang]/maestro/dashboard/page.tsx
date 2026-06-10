@@ -20,7 +20,14 @@ export default async function TeacherDashboardPage({ params }: Props) {
     .from('teachers')
     .select('id, rating, total_sessions, is_active, accepting_students, specializations')
     .eq('profile_id', user.id)
-    .single()
+    .maybeSingle()
+
+  // A teacher-role user with no teachers row hasn't finished onboarding — send
+  // them to onboarding instead of rendering an empty dashboard (teacher.id would
+  // match no bookings → a blank page). The dashboard layout already enforces
+  // this redirect; guarding here too keeps the page correct on its own and lets
+  // the queries below use teacher.id without the misleading `|| ''` fallback.
+  if (!teacher) redirect(`/${lang}/onboarding`)
 
   // Fetch upcoming sessions
   const { data: upcomingSessions } = await supabase
@@ -29,7 +36,7 @@ export default async function TeacherDashboardPage({ params }: Props) {
       id, scheduled_at, duration_minutes, status,
       student:students(profile:profiles(full_name))
     `)
-    .eq('teacher_id', teacher?.id || '')
+    .eq('teacher_id', teacher.id)
     .in('status', ['confirmed', 'pending'])
     // Keep live / just-started sessions visible so the teacher can still join.
     .gte('scheduled_at', activeBookingCutoffIso())
@@ -44,7 +51,7 @@ export default async function TeacherDashboardPage({ params }: Props) {
   const { count: thisMonthCount } = await supabase
     .from('bookings')
     .select('id', { count: 'exact', head: true })
-    .eq('teacher_id', teacher?.id || '')
+    .eq('teacher_id', teacher.id)
     .eq('status', 'completed')
     .gte('scheduled_at', startOfMonth.toISOString())
 

@@ -300,6 +300,9 @@ export default function StudentProfileClient({ student, lang }: Props) {
   // Sidebar state
   const [addClassCount, setAddClassCount] = useState(1)
   const [showAddClasses, setShowAddClasses] = useState(false)
+  // Billing-tab "manual add classes" input — kept independent from the Overview
+  // sidebar input so editing one never clobbers the other (ADMIN-07).
+  const [manualAddCount, setManualAddCount] = useState(1)
 
   // Overview tab state
   const [selectedLevel, setSelectedLevel] = useState(student.level || '')
@@ -326,6 +329,12 @@ export default function StudentProfileClient({ student, lang }: Props) {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
   }
+
+  // Coerce a number-input value to a valid class count: an integer in [1,100].
+  // A cleared field (Number('') === 0) or garbage (NaN) falls back to 1, so the
+  // toast and the server call never use a stale/0 value (ADMIN-07). Matches the
+  // 1..100 bounds enforced server-side in addStudentClasses.
+  const clampClassCount = (v: string) => Math.max(1, Math.min(100, Math.trunc(Number(v)) || 1))
 
   function run(fn: () => Promise<void>, successMsg: string) {
     startTransition(async () => {
@@ -509,7 +518,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   min={1}
                   max={100}
                   value={addClassCount}
-                  onChange={(e) => setAddClassCount(Number(e.target.value))}
+                  onChange={(e) => setAddClassCount(clampClassCount(e.target.value))}
                   style={{ ...inputStyle, width: 60, flex: '0 0 60px' }}
                 />
                 <button
@@ -781,15 +790,15 @@ export default function StudentProfileClient({ student, lang }: Props) {
               type="number"
               min={1}
               max={100}
-              value={addClassCount}
-              onChange={(e) => setAddClassCount(Number(e.target.value))}
+              value={manualAddCount}
+              onChange={(e) => setManualAddCount(clampClassCount(e.target.value))}
               style={{ ...inputStyle, width: 80 }}
             />
-            <span style={{ fontSize: 13, color: '#6B7280' }}>{t.classWord(addClassCount)}</span>
+            <span style={{ fontSize: 13, color: '#6B7280' }}>{t.classWord(manualAddCount)}</span>
             <button
               style={btnPrimary}
               disabled={isPending}
-              onClick={() => run(() => addStudentClasses(student.id, addClassCount), t.classesAdded(addClassCount))}
+              onClick={() => run(() => addStudentClasses(student.id, manualAddCount), t.classesAdded(manualAddCount))}
             >
               {t.add}
             </button>

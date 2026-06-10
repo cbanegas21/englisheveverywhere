@@ -20,7 +20,7 @@ export default async function AvailabilityPage({ params }: Props) {
     .eq('profile_id', user.id)
     .single()
 
-  if (!teacher) redirect(`/${lang}/maestro/dashboard`)
+  if (!teacher) redirect(`/${lang}/onboarding`)
 
   const { data: slots } = await supabase
     .from('availability_slots')

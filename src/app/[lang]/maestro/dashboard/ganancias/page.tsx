@@ -20,7 +20,7 @@ export default async function GananciasPage({ params }: Props) {
     .eq('profile_id', user.id)
     .single()
 
-  if (!teacher) redirect(`/${lang}/maestro/dashboard`)
+  if (!teacher) redirect(`/${lang}/onboarding`)
 
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
