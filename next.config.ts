@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Move the Next.js dev-tools indicator off the admin sidebar's bottom-left
+  // "Sign out" button (its default position). Dev-only — absent in production.
+  devIndicators: { position: "bottom-right" },
 };
 
 // Sentry only uploads sourcemaps when SENTRY_AUTH_TOKEN + SENTRY_ORG +
