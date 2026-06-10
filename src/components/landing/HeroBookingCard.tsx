@@ -184,10 +184,7 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
                 color: 'var(--ek-text)',
               }}
             >
-              <span style={{ color: 'var(--ek-red)' }}>5</span>
-              <span style={{ color: 'var(--ek-text-muted)', marginLeft: 5 }}>
-                {lang === 'es' ? 'libres' : 'free'}
-              </span>
+              <span style={{ color: 'var(--ek-red)' }}>{lang === 'es' ? 'Disponibles' : 'Available'}</span>
             </div>
           </div>
         </div>

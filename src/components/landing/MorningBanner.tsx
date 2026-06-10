@@ -2,13 +2,13 @@ import type { Locale } from '@/lib/i18n/translations'
 
 const t = {
   en: {
-    eyebrow: '06:14 · Tuesday',
+    eyebrow: '06:14 AM',
     title: 'A class',
     accent: 'before coffee.',
     body: "By the time the sun's up, you've added 30 new words — a live class before the day even starts.",
   },
   es: {
-    eyebrow: '06:14 · martes',
+    eyebrow: '06:14 AM',
     title: 'Antes del café,',
     accent: 'una clase.',
     body: 'Mientras el sol sale, tú ya tienes 30 palabras nuevas — una clase en vivo antes de que arranque el día.',
