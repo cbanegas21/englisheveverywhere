@@ -22,8 +22,8 @@ export default function AdminSidebar({ lang }: Props) {
   }
 
   const labels = lang === 'es'
-    ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', library: 'Biblioteca', signOut: 'Cerrar sesión', adminPanel: 'Panel admin', openMenu: 'Abrir menú', closeMenu: 'Cerrar menú' }
-    : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', library: 'Library', signOut: 'Sign out', adminPanel: 'Admin Panel', openMenu: 'Open menu', closeMenu: 'Close menu' }
+    ? { overview: 'Resumen', students: 'Estudiantes', teachers: 'Maestros', bookings: 'Reservas', whatsapp: 'WhatsApp', library: 'Biblioteca', signOut: 'Cerrar sesión', adminPanel: 'Panel admin', openMenu: 'Abrir menú', closeMenu: 'Cerrar menú' }
+    : { overview: 'Overview', students: 'Students', teachers: 'Teachers', bookings: 'Bookings', whatsapp: 'WhatsApp', library: 'Library', signOut: 'Sign out', adminPanel: 'Admin Panel', openMenu: 'Open menu', closeMenu: 'Close menu' }
 
   // Mono glyphs match the student/teacher sidebar style — JBM mono characters
   // instead of Lucide icons for the editorial direction.
@@ -32,6 +32,7 @@ export default function AdminSidebar({ lang }: Props) {
     { href: `/${lang}/admin/students`,   label: labels.students, glyph: '○' },
     { href: `/${lang}/admin/teachers`,   label: labels.teachers, glyph: '◯' },
     { href: `/${lang}/admin/bookings`,   label: labels.bookings, glyph: '▦' },
+    { href: `/${lang}/admin/whatsapp`,   label: labels.whatsapp, glyph: '◇' },
     { href: `/${lang}/admin/biblioteca`, label: labels.library,  glyph: '▥' },
   ]
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, Mail, Smartphone, MessageSquare, CheckCircle2 } from 'lucide-react'
+import { Bell, Mail, MessageSquare, CheckCircle2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import type { NotificationPreferences as Prefs } from '@/app/actions/profile'
 
@@ -115,9 +115,11 @@ export default function NotificationPreferences({
     }
   }
 
+  // Email = automated (Resend). WhatsApp = an active opt-in; reminders are sent
+  // by staff by hand (admin /admin/whatsapp view) until automation lands. SMS is
+  // dropped, so it's no longer offered as a channel.
   const channelDefs: Array<{ key: keyof Required<Prefs>; label: string; Icon: typeof Mail }> = [
     { key: 'email',    label: tx.email,    Icon: Mail },
-    { key: 'sms',      label: tx.sms,      Icon: Smartphone },
     { key: 'whatsapp', label: tx.whatsapp, Icon: MessageSquare },
   ]
 

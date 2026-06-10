@@ -469,7 +469,6 @@ export default function ConfigStudentClient({
                 lang={lang}
                 variant="panel"
                 initialValues={notificationPreferences}
-                showComingSoon
                 onSave={async (next) => {
                   return await updateStudentProfile({ notificationPreferences: next })
                 }}
