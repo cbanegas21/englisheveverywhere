@@ -62,6 +62,14 @@ export default async function VideoRoomPage({ params }: Props) {
     redirect(`/${lang}/dashboard`)
   }
 
+  // Identities the client may trust for data-channel control events (CALL-01).
+  // LiveKit participant identity === profile id (set in getRoomAccess). The
+  // teacher is the only legitimate sender of a session-end broadcast; the
+  // whiteboard/reaction channels are honored only from a known participant
+  // (teacher / student / placement conductor), never a forged third party.
+  const controlPeerIds = [teacherProfileId, studentProfileId, conductorProfileId]
+    .filter((id): id is string => !!id && id !== user.id)
+
   const isTeacher = user.id === teacherProfileId
   const myName = isTeacher
     ? (booking.teacher as any)?.profile?.full_name || 'Teacher'
@@ -82,6 +90,8 @@ export default async function VideoRoomPage({ params }: Props) {
       myName={myName}
       otherName={otherName}
       status={booking.status}
+      teacherIdentity={teacherProfileId ?? null}
+      peerIdentities={controlPeerIds}
     />
   )
 }

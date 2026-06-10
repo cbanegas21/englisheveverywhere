@@ -28,17 +28,21 @@ const PLANS = Object.fromEntries(
 )
 
 export async function createCheckoutSession(planKey: string, lang: string = 'es') {
+  // Validate the locale before interpolating it into redirect / success URLs
+  // (Payments-LOW-lang-param) — anything but 'en' falls back to the default 'es'.
+  const safeLang = lang === 'en' ? 'en' : 'es'
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/${lang}/login`)
+  if (!user) redirect(`/${safeLang}/login`)
 
   const plan = PLANS[planKey as keyof typeof PLANS]
-  if (!plan) return { error: 'Invalid plan' }
+  if (!plan) return { error: safeLang === 'es' ? 'Plan inválido.' : 'Invalid plan.' }
 
   const stripe = getStripe()
   if (!stripe) {
     // Dev mode — just return a fake URL
-    return { url: `/${lang}/dashboard/plan?success=1&plan=${planKey}` }
+    return { url: `/${safeLang}/dashboard/plan?success=1&plan=${planKey}` }
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -48,13 +52,13 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: [{ price: plan.priceId, quantity: 1 }],
-      success_url: `${appUrl}/${lang}/dashboard/plan?success=1&plan=${planKey}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/${lang}/dashboard/plan?cancelled=1`,
+      success_url: `${appUrl}/${safeLang}/dashboard/plan?success=1&plan=${planKey}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/${safeLang}/dashboard/plan?cancelled=1`,
       client_reference_id: user.id,
       metadata: {
         user_id: user.id,
         plan_key: planKey,
-        lang,
+        lang: safeLang,
       },
       // Propagate the same metadata to the PaymentIntent → Charge. Without this,
       // payment-mode metadata lives only on the Session, so the charge.refunded
@@ -64,7 +68,7 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
         metadata: {
           user_id: user.id,
           plan_key: planKey,
-          lang,
+          lang: safeLang,
         },
       },
       customer_email: user.email,
@@ -72,8 +76,14 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
 
     return { url: session.url }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Stripe error'
-    return { error: msg }
+    // Don't surface raw Stripe error text to the user (Payments-LOW-stripe-errors);
+    // log it server-side and return a generic localized message.
+    console.error('createCheckoutSession failed:', err)
+    return {
+      error: safeLang === 'es'
+        ? 'No se pudo iniciar el pago. Inténtalo de nuevo.'
+        : 'Could not start checkout. Please try again.',
+    }
   }
 }
 
@@ -147,7 +157,12 @@ export async function createStripeConnectLink(lang: string = 'es') {
 
     return { url: accountLink.url }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Stripe Connect error'
-    return { error: msg }
+    // Generic localized message; the raw Stripe error is logged server-side only.
+    console.error('createStripeConnectLink failed:', err)
+    return {
+      error: lang === 'es'
+        ? 'No se pudo conectar con Stripe. Inténtalo de nuevo.'
+        : 'Could not connect to Stripe. Please try again.',
+    }
   }
 }

@@ -6,14 +6,33 @@ import { revalidatePath } from 'next/cache'
 import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { isValidTimeZone } from '@/lib/timezone'
 
+// Localized, user-safe onboarding errors (ONBOARD-06). Raw Supabase/storage
+// error strings are logged server-side and never reflected to the user; the
+// user sees a generic localized message instead.
+const ONB_MSG = {
+  notAuth: { es: 'No autenticado.', en: 'Not authenticated.' },
+  notStudent: { es: 'Esta cuenta no es de estudiante.', en: 'This is not a student account.' },
+  notTeacher: { es: 'Esta cuenta no es de maestro.', en: 'This is not a teacher account.' },
+  invalidTz: { es: 'Zona horaria inválida.', en: 'Invalid timezone.' },
+  invalidLists: { es: 'Especializaciones o certificaciones inválidas.', en: 'Invalid specializations or certifications.' },
+  bioShort: { es: 'La biografía debe tener al menos 20 caracteres.', en: 'Bio must be at least 20 characters.' },
+  cvRequired: { es: 'El CV / currículum es obligatorio.', en: 'CV / resume is required.' },
+  cvTooLarge: { es: 'El CV supera el límite de 10 MB.', en: 'CV exceeds the 10 MB limit.' },
+  cvType: { es: 'El CV debe ser un PDF o un documento de Word.', en: 'CV must be a PDF or Word document.' },
+  uploadFailed: { es: 'No se pudo subir el CV. Inténtalo de nuevo.', en: 'Could not upload your CV. Please try again.' },
+  saveFailed: { es: 'No se pudo completar el registro. Inténtalo de nuevo.', en: 'Could not complete onboarding. Please try again.' },
+} as const
+const onb = (k: keyof typeof ONB_MSG, lang: string) => ONB_MSG[k][lang === 'en' ? 'en' : 'es']
+
 export async function completeStudentOnboarding(data: {
   userId: string
   timezone: string
   preferredLanguage: 'es' | 'en'
 }): Promise<{ success: boolean; error?: string }> {
+  const lang = data.preferredLanguage
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.id !== data.userId) return { success: false, error: 'Not authenticated' }
+  if (!user || user.id !== data.userId) return { success: false, error: onb('notAuth', lang) }
 
   // Auth was validated above. Switch to admin client for the writes —
   // bypasses an RLS edge case where the new user's JWT isn't yet bound
@@ -23,18 +42,21 @@ export async function completeStudentOnboarding(data: {
   // Role guard — only a 'student' account may self-provision a students row.
   // Without this, a teacher (or any authed user) could create a students record.
   const { data: roleRow } = await admin.from('profiles').select('role').eq('id', data.userId).single()
-  if (roleRow?.role !== 'student') return { success: false, error: 'Not a student account' }
+  if (roleRow?.role !== 'student') return { success: false, error: onb('notStudent', lang) }
 
   // Reject an invalid IANA zone — persisting it would throw a RangeError in a
   // later toLocale / Intl call across the app (DASH-01).
-  if (!isValidTimeZone(data.timezone)) return { success: false, error: 'Invalid timezone' }
+  if (!isValidTimeZone(data.timezone)) return { success: false, error: onb('invalidTz', lang) }
 
   const { error: profileError } = await admin
     .from('profiles')
     .update({ timezone: data.timezone, preferred_language: data.preferredLanguage })
     .eq('id', data.userId)
 
-  if (profileError) return { success: false, error: profileError.message }
+  if (profileError) {
+    console.error('completeStudentOnboarding profile update failed:', profileError.message)
+    return { success: false, error: onb('saveFailed', lang) }
+  }
 
   const { error: studentError } = await admin
     .from('students')
@@ -42,7 +64,10 @@ export async function completeStudentOnboarding(data: {
       profile_id: data.userId,
     }, { onConflict: 'profile_id' })
 
-  if (studentError) return { success: false, error: studentError.message }
+  if (studentError) {
+    console.error('completeStudentOnboarding student upsert failed:', studentError.message)
+    return { success: false, error: onb('saveFailed', lang) }
+  }
 
   revalidatePath('/', 'layout')
   return { success: true }
@@ -60,10 +85,11 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const userId = (formData.get('userId') as string | null) || ''
-  if (!user || user.id !== userId) return { success: false, error: 'Not authenticated' }
+  // Parse the locale before the auth check so even the earliest error localizes.
+  const preferredLanguage = ((formData.get('preferredLanguage') as string | null) || 'es') as 'es' | 'en'
+  if (!user || user.id !== userId) return { success: false, error: onb('notAuth', preferredLanguage) }
 
   const timezone = (formData.get('timezone') as string | null) || ''
-  const preferredLanguage = ((formData.get('preferredLanguage') as string | null) || 'es') as 'es' | 'en'
   const bio = (formData.get('bio') as string | null) || ''
   // Guard the client-supplied JSON — malformed input would otherwise throw an
   // unhandled error. Normalize to bounded arrays of non-empty strings.
@@ -79,22 +105,22 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
     specializations = clean(formData.get('specializations') as string | null)
     certifications = clean(formData.get('certifications') as string | null)
   } catch {
-    return { success: false, error: 'Invalid specializations or certifications' }
+    return { success: false, error: onb('invalidLists', preferredLanguage) }
   }
   const cvFile = formData.get('cv') as File | null
 
-  if (!isValidTimeZone(timezone)) return { success: false, error: 'Invalid timezone' }
-  if (bio.trim().length < 20) return { success: false, error: 'Bio must be at least 20 characters' }
-  if (!cvFile || cvFile.size === 0) return { success: false, error: 'CV / resume is required' }
-  if (cvFile.size > CV_MAX_BYTES) return { success: false, error: 'CV exceeds 10 MB limit' }
-  if (!CV_ALLOWED_MIME.has(cvFile.type)) return { success: false, error: 'CV must be a PDF or Word document' }
+  if (!isValidTimeZone(timezone)) return { success: false, error: onb('invalidTz', preferredLanguage) }
+  if (bio.trim().length < 20) return { success: false, error: onb('bioShort', preferredLanguage) }
+  if (!cvFile || cvFile.size === 0) return { success: false, error: onb('cvRequired', preferredLanguage) }
+  if (cvFile.size > CV_MAX_BYTES) return { success: false, error: onb('cvTooLarge', preferredLanguage) }
+  if (!CV_ALLOWED_MIME.has(cvFile.type)) return { success: false, error: onb('cvType', preferredLanguage) }
 
   // Auth validated. Use admin client for writes (see student branch).
   const admin = createAdminClient()
 
   // Role guard — only a 'teacher' account may self-provision a teachers row.
   const { data: roleRow } = await admin.from('profiles').select('role').eq('id', userId).single()
-  if (roleRow?.role !== 'teacher') return { success: false, error: 'Not a teacher account' }
+  if (roleRow?.role !== 'teacher') return { success: false, error: onb('notTeacher', preferredLanguage) }
 
   const ext = cvFile.name.toLowerCase().match(/\.(pdf|docx?|doc)$/)?.[0] || '.pdf'
   const storagePath = `${userId}/${Date.now()}${ext}`
@@ -105,14 +131,20 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
       contentType: cvFile.type,
       upsert: true,
     })
-  if (uploadErr) return { success: false, error: `CV upload failed: ${uploadErr.message}` }
+  if (uploadErr) {
+    console.error('completeTeacherOnboarding CV upload failed:', uploadErr.message)
+    return { success: false, error: onb('uploadFailed', preferredLanguage) }
+  }
 
   const { error: profileError } = await admin
     .from('profiles')
     .update({ timezone, preferred_language: preferredLanguage })
     .eq('id', userId)
 
-  if (profileError) return { success: false, error: profileError.message }
+  if (profileError) {
+    console.error('completeTeacherOnboarding profile update failed:', profileError.message)
+    return { success: false, error: onb('saveFailed', preferredLanguage) }
+  }
 
   // Insert-or-update — NEVER reset is_active / hourly_rate on a re-submission,
   // which would silently DEACTIVATE an already-approved teacher (and zero their
@@ -135,7 +167,10 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
     ? await admin.from('teachers').update(application).eq('profile_id', userId)
     : await admin.from('teachers').insert({ profile_id: userId, ...application, hourly_rate: 0, is_active: false })
 
-  if (teacherError) return { success: false, error: teacherError.message }
+  if (teacherError) {
+    console.error('completeTeacherOnboarding teacher upsert failed:', teacherError.message)
+    return { success: false, error: onb('saveFailed', preferredLanguage) }
+  }
 
   // Fire-and-forget application emails (teacher confirmation + admin notification)
   void sendTeacherApplicationEmails({

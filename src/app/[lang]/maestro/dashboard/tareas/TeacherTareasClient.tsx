@@ -263,6 +263,7 @@ function CreateModal({
         title: title.trim(),
         instructions: instructions.trim(),
         dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+        lang,
       })
       if ('error' in res && res.error) {
         setError(res.error)
@@ -381,6 +382,7 @@ function DetailDrawer({
         assignmentId: assignment.id,
         feedback,
         score: score || null,
+        lang,
       })
       if ('error' in res && res.error) {
         setError(res.error)
@@ -394,7 +396,7 @@ function DetailDrawer({
     if (!assignment) return
     setError('')
     startCancelTransition(async () => {
-      const res = await cancelAssignment(assignment.id)
+      const res = await cancelAssignment(assignment.id, lang)
       if ('error' in res && res.error) {
         setError(res.error)
         setConfirmCancel(false)

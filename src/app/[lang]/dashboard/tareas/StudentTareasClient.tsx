@@ -435,7 +435,7 @@ function DetailPanel({
     }
     setError('')
     startTransition(async () => {
-      const res = await submitAssignment({ assignmentId: assignment.id, text: text.trim() })
+      const res = await submitAssignment({ assignmentId: assignment.id, text: text.trim(), lang })
       if ('error' in res && res.error) {
         setError(res.error)
         return

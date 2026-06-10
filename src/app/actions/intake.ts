@@ -12,12 +12,22 @@ const VALID: Record<string, string[]> = {
   speaking_comfort: ['nervous', 'depends', 'comfortable'],
 }
 
+// Localized, user-safe intake errors (ONBOARD-06). Raw Supabase errors are
+// logged server-side, never reflected to the user.
+const ITK_MSG = {
+  notAuth: { es: 'No autenticado.', en: 'Not authenticated.' },
+  invalid: { es: 'Selección inválida.', en: 'Invalid selection.' },
+  studentNotFound: { es: 'No se encontró tu perfil de estudiante.', en: 'Student profile not found.' },
+  saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
+} as const
+const itk = (k: keyof typeof ITK_MSG, lang: string) => ITK_MSG[k][lang === 'en' ? 'en' : 'es']
+
 export async function saveIntake(formData: FormData) {
+  const lang = (formData.get('lang') as string) || 'es'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { error: itk('notAuth', lang) }
 
-  const lang = (formData.get('lang') as string) || 'es'
   const learning_goal = (formData.get('learning_goal') as string)?.trim() || null
   const learning_style = (formData.get('learning_style') as string | null) || null
   const self_rated_level = (formData.get('self_rated_level') as string | null) || null
@@ -32,7 +42,7 @@ export async function saveIntake(formData: FormData) {
     availability,
     speaking_comfort,
   })) {
-    if (val && !VALID[field].includes(val)) return { error: `Invalid ${field}` }
+    if (val && !VALID[field].includes(val)) return { error: itk('invalid', lang) }
   }
 
   // Auth validated. Use admin client for writes (same RLS-edge fix as onboarding).
@@ -44,7 +54,7 @@ export async function saveIntake(formData: FormData) {
     .eq('profile_id', user.id)
     .single()
 
-  if (!student) return { error: 'Student profile not found' }
+  if (!student) return { error: itk('studentNotFound', lang) }
 
   const { error } = await admin
     .from('students')
@@ -59,7 +69,10 @@ export async function saveIntake(formData: FormData) {
     })
     .eq('id', student.id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    console.error('saveIntake update failed:', error.message)
+    return { error: itk('saveFailed', lang) }
+  }
 
   revalidatePath('/', 'layout')
 

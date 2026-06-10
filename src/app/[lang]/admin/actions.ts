@@ -297,7 +297,7 @@ export async function approveRescheduleRequest(
 
   const { data: request } = await admin
     .from('reschedule_requests')
-    .select('id, booking_id, proposed_scheduled_at, status')
+    .select('id, booking_id, proposed_scheduled_at, original_scheduled_at, status')
     .eq('id', requestId)
     .single()
   if (!request) throw new Error('Request not found')
@@ -312,9 +312,32 @@ export async function approveRescheduleRequest(
   // is NOT force-overridable.
   const { data: booking } = await admin
     .from('bookings')
-    .select('teacher_id, duration_minutes, type')
+    .select('teacher_id, duration_minutes, type, status, scheduled_at')
     .eq('id', request.booking_id)
     .single()
+
+  // Backstop for orphaned requests (BOOK-04): if the underlying booking was
+  // cancelled or completed (by a student cancel/reschedule, a no-show report, a
+  // teacher decline, etc.) the request is stale — never move a dead booking. The
+  // student-side paths also proactively cancel open requests, but this guard
+  // closes every other source at the point of approval.
+  if (!booking) throw new Error('Booking not found')
+  if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+    throw new Error('This booking can no longer be rescheduled — it was cancelled or completed.')
+  }
+
+  // Freshness guard (BOOK-04): a student reschedule leaves the booking 'pending'
+  // (so the status backstop above can't catch it) but MOVES its scheduled_at.
+  // The teacher's request proposed a time relative to the OLD slot, so approving
+  // it would silently overwrite the student's newer time. If the booking has
+  // moved since the request was filed, treat the request as stale. This holds
+  // even when the proactive request-cancel in studentRescheduleBooking failed.
+  if (
+    request.original_scheduled_at && booking.scheduled_at &&
+    new Date(booking.scheduled_at).getTime() !== new Date(request.original_scheduled_at).getTime()
+  ) {
+    throw new Error('This booking has moved since the request was filed — the request is stale.')
+  }
 
   if (booking?.teacher_id) {
     if (!force && booking.type === 'class') {
@@ -865,6 +888,33 @@ export async function createAdminBooking(
   return { success: true, bookingId: booking.id }
 }
 
+// ── Shared helpers for admin notification emails (E8) ─────────────────────────
+//
+// Supabase embeds a to-one relation as either an object or a single-element
+// array depending on the query, so normalize both. preferred_language drives the
+// per-recipient language so a student and teacher each get their own locale.
+
+type EmailProfile = { email: string | null; name: string | null; lang: 'es' | 'en' }
+
+function pickEmailProfile(raw: unknown): EmailProfile {
+  const obj = Array.isArray(raw) ? raw[0] : raw
+  if (!obj || typeof obj !== 'object') return { email: null, name: null, lang: 'es' }
+  const p = obj as { email?: string | null; full_name?: string | null; preferred_language?: string | null }
+  return {
+    email: p.email ?? null,
+    name: p.full_name ?? null,
+    lang: p.preferred_language === 'en' ? 'en' : 'es',
+  }
+}
+
+function formatSessionTime(scheduledAt: string, lang: 'es' | 'en'): string {
+  return new Date(scheduledAt).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Tegucigalpa',
+  })
+}
+
 function sendBookingEmails(params: {
   studentId: string
   teacherId: string | null
@@ -876,72 +926,45 @@ function sendBookingEmails(params: {
   if (!apiKey || apiKey === 're_placeholder') return
 
   const admin = createAdminClient()
-  const formatted = new Date(params.scheduledAt).toLocaleString('es-HN', {
-    weekday: 'long', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Tegucigalpa',
-  })
-
   const headers: Record<string, string> = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
 
-  // Get student email
-  void Promise.resolve(
-    admin.from('students').select('profile:profiles(email, full_name)').eq('id', params.studentId).single()
-  ).then(({ data }) => {
-    const rawProfile = data?.profile
-    let email: string | null = null
-    let name: string | null = null
-    if (Array.isArray(rawProfile)) {
-      email = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.email ?? null
-      name = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.full_name ?? null
-    } else if (rawProfile && typeof rawProfile === 'object') {
-      email = (rawProfile as { email: string | null; full_name: string | null }).email
-      name = (rawProfile as { email: string | null; full_name: string | null }).full_name
-    }
-    if (email) {
-      const greeting = name ? `Hola ${escapeHtml(name)}` : 'Hola'
-      const greetingText = name ? `Hola ${name}` : 'Hola'
-      void fetch('https://api.resend.com/emails', {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          from: EMAIL_FROM, to: email,
-          subject: 'Sesión agendada — EnglishKolab',
-          html: `<p>${greeting},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
-          text: `${greetingText},\n\nTienes una sesión agendada para el ${formatted} (hora de Honduras).\n\n— EnglishKolab`,
-        }),
-      }).catch(() => {})
-    }
-  }).catch(() => {})
+  // Send one notification in the recipient's own language.
+  const send = (p: EmailProfile, role: 'student' | 'teacher') => {
+    if (!p.email) return
+    const formatted = formatSessionTime(params.scheduledAt, p.lang)
+    const hi = p.lang === 'es' ? 'Hola' : 'Hi'
+    const greeting = p.name ? `${hi} ${escapeHtml(p.name)}` : hi
+    const greetingText = p.name ? `${hi} ${p.name}` : hi
+    const subject = role === 'student'
+      ? (p.lang === 'es' ? 'Sesión agendada — EnglishKolab' : 'Session scheduled — EnglishKolab')
+      : (p.lang === 'es' ? 'Nueva sesión asignada — EnglishKolab' : 'New session assigned — EnglishKolab')
+    const line = p.lang === 'es'
+      ? `Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).`
+      : `You have a session scheduled for <strong>${formatted}</strong> (Honduras time).`
+    const lineText = p.lang === 'es'
+      ? `Tienes una sesión agendada para el ${formatted} (hora de Honduras).`
+      : `You have a session scheduled for ${formatted} (Honduras time).`
+    void fetch('https://api.resend.com/emails', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        from: EMAIL_FROM, to: p.email,
+        subject,
+        html: `<p>${greeting},</p><p>${line}</p><p>— EnglishKolab</p>`,
+        text: `${greetingText},\n\n${lineText}\n\n— EnglishKolab`,
+      }),
+    }).catch(() => {})
+  }
 
-  // Get teacher email (if assigned)
+  // Student
+  void Promise.resolve(
+    admin.from('students').select('profile:profiles(email, full_name, preferred_language)').eq('id', params.studentId).single()
+  ).then(({ data }) => send(pickEmailProfile(data?.profile), 'student')).catch(() => {})
+
+  // Teacher (if assigned)
   if (params.teacherId) {
     void Promise.resolve(
-      admin.from('teachers').select('profile:profiles(email, full_name)').eq('id', params.teacherId).single()
-    ).then(({ data }) => {
-      const rawProfile = data?.profile
-      let email: string | null = null
-      let name: string | null = null
-      if (Array.isArray(rawProfile)) {
-        email = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.email ?? null
-        name = (rawProfile as { email: string | null; full_name: string | null }[])[0]?.full_name ?? null
-      } else if (rawProfile && typeof rawProfile === 'object') {
-        email = (rawProfile as { email: string | null; full_name: string | null }).email
-        name = (rawProfile as { email: string | null; full_name: string | null }).full_name
-      }
-      if (email) {
-        const greeting = name ? `Hola ${escapeHtml(name)}` : 'Hola'
-        const greetingText = name ? `Hola ${name}` : 'Hola'
-        void fetch('https://api.resend.com/emails', {
-          method: 'POST', headers,
-          body: JSON.stringify({
-            from: EMAIL_FROM, to: email,
-            subject: 'Nueva sesión asignada — EnglishKolab',
-            html: `<p>${greeting},</p><p>Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).</p><p>— EnglishKolab</p>`,
-            text: `${greetingText},\n\nTienes una sesión agendada para el ${formatted} (hora de Honduras).\n\n— EnglishKolab`,
-          }),
-        }).catch(() => {})
-      }
-    }).catch(() => {})
+      admin.from('teachers').select('profile:profiles(email, full_name, preferred_language)').eq('id', params.teacherId).single()
+    ).then(({ data }) => send(pickEmailProfile(data?.profile), 'teacher')).catch(() => {})
   }
 }
 
@@ -951,31 +974,48 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
   await assertAdmin()
   const admin = createAdminClient()
 
-  // Get teacher name + email for the welcome email
-  const { data: profile } = await admin.from('profiles').select('full_name, email').eq('id', profileId).single()
+  // Get teacher name + email + locale for the welcome email (E9 — was ES-only).
+  const { data: profile } = await admin.from('profiles').select('full_name, email, preferred_language').eq('id', profileId).single()
 
   const { error } = await admin.from('teachers').update({ is_active: true }).eq('id', teacherId)
   if (error) throw new Error(error.message)
 
-  // Send welcome email (non-blocking)
+  // Send welcome email (non-blocking), in the teacher's own language.
   const apiKey = process.env.RESEND_API_KEY
   if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
-    const dashboardUrl = `${APP_URL}/es/maestro/dashboard`
+    const lang = profile.preferred_language === 'en' ? 'en' : 'es'
+    const firstName = profile.full_name?.split(' ')[0] || ''
+    const dashboardUrl = `${APP_URL}/${lang}/maestro/dashboard`
+    const subject = lang === 'es'
+      ? `¡Bienvenida a EnglishKolab, ${firstName}!`
+      : `Welcome to EnglishKolab, ${firstName}!`
+    const html = lang === 'es'
+      ? `
+          <h2>¡Bienvenida al equipo!</h2>
+          <p>Tu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:</p>
+          <p><a href="${dashboardUrl}">Acceder a mi dashboard →</a></p>
+          <p>Aquí podrás configurar tu disponibilidad y ver tus clases asignadas.</p>
+          <p>— El equipo de EnglishKolab</p>
+        `
+      : `
+          <h2>Welcome to the team!</h2>
+          <p>Your profile has been approved. You can now access your dashboard:</p>
+          <p><a href="${dashboardUrl}">Go to my dashboard →</a></p>
+          <p>There you can set your availability and see your assigned classes.</p>
+          <p>— The EnglishKolab team</p>
+        `
+    const text = lang === 'es'
+      ? `¡Bienvenida al equipo!\n\nTu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:\n${dashboardUrl}\n\nAquí podrás configurar tu disponibilidad y ver tus clases asignadas.\n\n— El equipo de EnglishKolab`
+      : `Welcome to the team!\n\nYour profile has been approved. You can now access your dashboard:\n${dashboardUrl}\n\nThere you can set your availability and see your assigned classes.\n\n— The EnglishKolab team`
     fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: EMAIL_FROM,
         to: profile.email,
-        subject: `¡Bienvenida a EnglishKolab, ${profile.full_name?.split(' ')[0] || ''}!`,
-        html: `
-          <h2>¡Bienvenida al equipo!</h2>
-          <p>Tu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:</p>
-          <p><a href="${dashboardUrl}">Acceder a mi dashboard →</a></p>
-          <p>Aquí podrás configurar tu disponibilidad y ver tus clases asignadas.</p>
-          <p>— El equipo de EnglishKolab</p>
-        `,
-        text: `¡Bienvenida al equipo!\n\nTu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:\n${dashboardUrl}\n\nAquí podrás configurar tu disponibilidad y ver tus clases asignadas.\n\n— El equipo de EnglishKolab`,
+        subject,
+        html,
+        text,
       }),
     }).catch(() => {})
   }
@@ -987,7 +1027,7 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
   await assertAdmin()
   const admin = createAdminClient()
 
-  const { data: profile } = await admin.from('profiles').select('full_name, email').eq('id', profileId).single()
+  const { data: profile } = await admin.from('profiles').select('full_name, email, preferred_language').eq('id', profileId).single()
 
   const { error: delError } = await admin.from('teachers').delete().eq('id', teacherId)
   if (delError) throw new Error(delError.message)
@@ -996,20 +1036,36 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
 
   const apiKey = process.env.RESEND_API_KEY
   if (apiKey && apiKey !== 're_placeholder' && profile?.email) {
+    // Send the rejection notice in the applicant's own language (E9 — was ES-only).
+    const lang = profile.preferred_language === 'en' ? 'en' : 'es'
+    const subject = lang === 'es'
+      ? 'Actualización sobre tu solicitud — EnglishKolab'
+      : 'Update on your application — EnglishKolab'
+    const html = lang === 'es'
+      ? `
+          <p>Gracias por tu interés en EnglishKolab.</p>
+          <p>Después de revisar tu perfil, no podemos continuar con tu solicitud en este momento.</p>
+          <p>Si tienes preguntas, contáctanos en <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
+          <p>— El equipo de EnglishKolab</p>
+        `
+      : `
+          <p>Thank you for your interest in EnglishKolab.</p>
+          <p>After reviewing your profile, we're unable to move forward with your application at this time.</p>
+          <p>If you have any questions, contact us at <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
+          <p>— The EnglishKolab team</p>
+        `
+    const text = lang === 'es'
+      ? `Gracias por tu interés en EnglishKolab.\n\nDespués de revisar tu perfil, no podemos continuar con tu solicitud en este momento.\n\nSi tienes preguntas, contáctanos en hola@englishkolab.com.\n\n— El equipo de EnglishKolab`
+      : `Thank you for your interest in EnglishKolab.\n\nAfter reviewing your profile, we're unable to move forward with your application at this time.\n\nIf you have any questions, contact us at hola@englishkolab.com.\n\n— The EnglishKolab team`
     fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: EMAIL_FROM,
         to: profile.email,
-        subject: 'Actualización sobre tu solicitud — EnglishKolab',
-        html: `
-          <p>Gracias por tu interés en EnglishKolab.</p>
-          <p>Después de revisar tu perfil, no podemos continuar con tu solicitud en este momento.</p>
-          <p>Si tienes preguntas, contáctanos en <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
-          <p>— El equipo de EnglishKolab</p>
-        `,
-        text: `Gracias por tu interés en EnglishKolab.\n\nDespués de revisar tu perfil, no podemos continuar con tu solicitud en este momento.\n\nSi tienes preguntas, contáctanos en hola@englishkolab.com.\n\n— El equipo de EnglishKolab`,
+        subject,
+        html,
+        text,
       }),
     }).catch(() => {})
   }
@@ -1115,97 +1171,114 @@ function sendAssignmentEmail(bookingId: string) {
       .from('bookings')
       .select(`
         scheduled_at, type,
-        student:students(profile:profiles(email, full_name)),
-        teacher:teachers(profile:profiles(email, full_name))
+        student:students(profile:profiles(email, full_name, preferred_language)),
+        teacher:teachers(profile:profiles(email, full_name, preferred_language))
       `)
       .eq('id', bookingId)
       .single()
   ).then(({ data }) => {
     if (!data) return
 
-    const pickProfile = (raw: unknown): { email: string | null; full_name: string | null } | null => {
+    // Unwrap the students/teachers → profiles embed, then normalize to an
+    // EmailProfile (handles object-vs-array shape + per-recipient locale).
+    const unwrapProfile = (raw: unknown): unknown => {
       const obj = Array.isArray(raw) ? raw[0] : raw
       if (!obj || typeof obj !== 'object') return null
-      const profileRaw = (obj as { profile: unknown }).profile
-      const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw
-      if (!profile || typeof profile !== 'object') return null
-      const p = profile as { email?: string | null; full_name?: string | null }
-      return { email: p.email ?? null, full_name: p.full_name ?? null }
+      return (obj as { profile: unknown }).profile
     }
+    const student = pickEmailProfile(unwrapProfile(data.student))
+    const teacher = pickEmailProfile(unwrapProfile(data.teacher))
 
-    const student = pickProfile(data.student)
-    const teacher = pickProfile(data.teacher)
-
-    const formatted = new Date(data.scheduled_at).toLocaleString('es-HN', {
-      weekday: 'long', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-      timeZone: 'America/Tegucigalpa',
-    })
-    const salaUrl = `${APP_URL}/es/sala/${bookingId}`
-
-    const studentFirst = student?.full_name?.split(' ')[0] || ''
-    const teacherFirst = teacher?.full_name?.split(' ')[0] || 'tu maestro'
-    const studentLabel = student?.full_name || 'un estudiante'
     const isPlacement = data.type === 'placement_test'
+    const studentFirst = student.name?.split(' ')[0] || ''
+    const teacherFirstRaw = teacher.name?.split(' ')[0] || null
 
-    // Student email
-    if (student?.email) {
-      const subject = isPlacement
-        ? 'Tu llamada de diagnóstico ha sido confirmada — EnglishKolab'
-        : 'Tu clase ha sido confirmada — EnglishKolab'
-      const lead = isPlacement
-        ? `Tu llamada de diagnóstico con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`
-        : `Tu clase con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`
-      const leadText = isPlacement
-        ? `Tu llamada de diagnóstico con ${teacherFirst} está confirmada.`
-        : `Tu clase con ${teacherFirst} está confirmada.`
-      void fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: EMAIL_FROM,
-          to: student.email,
-          subject,
-          html: `
+    // Student email — in the student's language.
+    if (student.email) {
+      const lang = student.lang
+      const formatted = formatSessionTime(data.scheduled_at, lang)
+      const salaUrl = `${APP_URL}/${lang}/sala/${bookingId}`
+      const teacherFirst = teacherFirstRaw || (lang === 'es' ? 'tu maestro' : 'your teacher')
+      const subject = lang === 'es'
+        ? (isPlacement ? 'Tu llamada de diagnóstico ha sido confirmada — EnglishKolab' : 'Tu clase ha sido confirmada — EnglishKolab')
+        : (isPlacement ? 'Your placement call is confirmed — EnglishKolab' : 'Your class is confirmed — EnglishKolab')
+      const lead = lang === 'es'
+        ? (isPlacement
+            ? `Tu llamada de diagnóstico con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`
+            : `Tu clase con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`)
+        : (isPlacement
+            ? `Your placement call with <strong>${escapeHtml(teacherFirst)}</strong> is confirmed.`
+            : `Your class with <strong>${escapeHtml(teacherFirst)}</strong> is confirmed.`)
+      const leadText = lang === 'es'
+        ? (isPlacement ? `Tu llamada de diagnóstico con ${teacherFirst} está confirmada.` : `Tu clase con ${teacherFirst} está confirmada.`)
+        : (isPlacement ? `Your placement call with ${teacherFirst} is confirmed.` : `Your class with ${teacherFirst} is confirmed.`)
+      const html = lang === 'es'
+        ? `
             <p>Hola ${escapeHtml(studentFirst)},</p>
             <p>${lead}</p>
             <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
             <p><a href="${salaUrl}">Unirse al aula</a> (se abre 15 minutos antes).</p>
             <p>— EnglishKolab</p>
-          `,
-          text: `Hola ${studentFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nUnirse al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`,
-        }),
-      }).catch(() => {})
-    }
-
-    // Teacher email — was missing before. Teachers need the booking details
-    // and the sala link to prep and join on time.
-    if (teacher?.email) {
-      const teacherSubject = isPlacement
-        ? 'Nueva llamada de diagnóstico asignada — EnglishKolab'
-        : 'Nueva clase asignada — EnglishKolab'
-      const teacherLead = isPlacement
-        ? `Te asignamos una llamada de diagnóstico con <strong>${escapeHtml(studentLabel)}</strong>.`
-        : `Te asignamos una clase con <strong>${escapeHtml(studentLabel)}</strong>.`
-      const teacherLeadText = isPlacement
-        ? `Te asignamos una llamada de diagnóstico con ${studentLabel}.`
-        : `Te asignamos una clase con ${studentLabel}.`
+          `
+        : `
+            <p>Hi ${escapeHtml(studentFirst)},</p>
+            <p>${lead}</p>
+            <p><strong>When:</strong> ${formatted} (Honduras time).</p>
+            <p><a href="${salaUrl}">Join the classroom</a> (opens 15 minutes early).</p>
+            <p>— EnglishKolab</p>
+          `
+      const text = lang === 'es'
+        ? `Hola ${studentFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nUnirse al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`
+        : `Hi ${studentFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nJoin the classroom (opens 15 minutes early):\n${salaUrl}\n\n— EnglishKolab`
       void fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: EMAIL_FROM,
-          to: teacher.email,
-          subject: teacherSubject,
-          html: `
+        body: JSON.stringify({ from: EMAIL_FROM, to: student.email, subject, html, text }),
+      }).catch(() => {})
+    }
+
+    // Teacher email — in the teacher's language.
+    if (teacher.email) {
+      const lang = teacher.lang
+      const formatted = formatSessionTime(data.scheduled_at, lang)
+      const salaUrl = `${APP_URL}/${lang}/sala/${bookingId}`
+      const teacherFirst = teacherFirstRaw || (lang === 'es' ? 'maestro' : 'teacher')
+      const studentLabel = student.name || (lang === 'es' ? 'un estudiante' : 'a student')
+      const subject = lang === 'es'
+        ? (isPlacement ? 'Nueva llamada de diagnóstico asignada — EnglishKolab' : 'Nueva clase asignada — EnglishKolab')
+        : (isPlacement ? 'New placement call assigned — EnglishKolab' : 'New class assigned — EnglishKolab')
+      const lead = lang === 'es'
+        ? (isPlacement
+            ? `Te asignamos una llamada de diagnóstico con <strong>${escapeHtml(studentLabel)}</strong>.`
+            : `Te asignamos una clase con <strong>${escapeHtml(studentLabel)}</strong>.`)
+        : (isPlacement
+            ? `You've been assigned a placement call with <strong>${escapeHtml(studentLabel)}</strong>.`
+            : `You've been assigned a class with <strong>${escapeHtml(studentLabel)}</strong>.`)
+      const leadText = lang === 'es'
+        ? (isPlacement ? `Te asignamos una llamada de diagnóstico con ${studentLabel}.` : `Te asignamos una clase con ${studentLabel}.`)
+        : (isPlacement ? `You've been assigned a placement call with ${studentLabel}.` : `You've been assigned a class with ${studentLabel}.`)
+      const html = lang === 'es'
+        ? `
             <p>Hola ${escapeHtml(teacherFirst)},</p>
-            <p>${teacherLead}</p>
+            <p>${lead}</p>
             <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
             <p><a href="${salaUrl}">Entrar al aula</a> (se abre 15 minutos antes).</p>
             <p>— EnglishKolab</p>
-          `,
-          text: `Hola ${teacherFirst},\n\n${teacherLeadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nEntrar al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`,
-        }),
+          `
+        : `
+            <p>Hi ${escapeHtml(teacherFirst)},</p>
+            <p>${lead}</p>
+            <p><strong>When:</strong> ${formatted} (Honduras time).</p>
+            <p><a href="${salaUrl}">Enter the classroom</a> (opens 15 minutes early).</p>
+            <p>— EnglishKolab</p>
+          `
+      const text = lang === 'es'
+        ? `Hola ${teacherFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nEntrar al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`
+        : `Hi ${teacherFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nEnter the classroom (opens 15 minutes early):\n${salaUrl}\n\n— EnglishKolab`
+      void fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: EMAIL_FROM, to: teacher.email, subject, html, text }),
       }).catch(() => {})
     }
   }).catch(() => {})

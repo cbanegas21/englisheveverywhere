@@ -494,6 +494,17 @@ export async function studentCancelBooking(bookingId: string, lang: string = 'es
     await admin.rpc('increment_classes', { p_student_id: student.id })
   }
 
+  // Cancel any still-open reschedule request on this booking — the class is gone,
+  // so an admin must not be able to approve a now-orphaned request later (BOOK-04).
+  // The admin approve path also status-guards, so a failure here is non-fatal —
+  // log it for visibility rather than swallowing silently.
+  const { error: rrCancelErr } = await admin
+    .from('reschedule_requests')
+    .update({ status: 'cancelled' })
+    .eq('booking_id', bookingId)
+    .eq('status', 'pending')
+  if (rrCancelErr) console.error('studentCancelBooking: failed to cancel open reschedule requests for', bookingId, rrCancelErr.message)
+
   cancelBookingReminders(bookingId).catch(() => {})
 
   const { data: profile } = await admin
@@ -601,6 +612,18 @@ export async function studentRescheduleBooking(
     })
     .eq('id', bookingId)
   if (updErr) return { error: updErr.message }
+
+  // Cancel any still-open reschedule request on this booking — the student just
+  // moved it to a new time, so a teacher's pending request against the old time
+  // is now stale and must not stay approvable in the admin queue (BOOK-04). Even
+  // if this write fails, approveRescheduleRequest re-checks original_scheduled_at
+  // vs the booking's current time and rejects the stale request; log on failure.
+  const { error: rrCancelErr } = await admin
+    .from('reschedule_requests')
+    .update({ status: 'cancelled' })
+    .eq('booking_id', bookingId)
+    .eq('status', 'pending')
+  if (rrCancelErr) console.error('studentRescheduleBooking: failed to cancel open reschedule requests for', bookingId, rrCancelErr.message)
 
   // Wipe stale reminders. New ones get scheduled when the teacher re-confirms.
   cancelBookingReminders(bookingId).catch(() => {})

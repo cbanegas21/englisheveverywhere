@@ -133,11 +133,21 @@ export async function reschedulePlacementCall(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  // Date validation (same rules as bookPlacementCall) — a direct call could
+  // otherwise persist an Invalid Date or a past/far-future time (DASH-05).
+  const scheduledDate = new Date(newScheduledAt)
+  if (isNaN(scheduledDate.getTime()) || scheduledDate.getTime() < Date.now()) {
+    return { error: lang === 'es' ? 'Fecha inválida o en el pasado.' : 'Invalid or past date.' }
+  }
+  if (scheduledDate.getTime() > Date.now() + 90 * 24 * 60 * 60 * 1000) {
+    return { error: lang === 'es' ? 'Solo puedes agendar hasta 90 días por adelantado.' : 'You can only book up to 90 days in advance.' }
+  }
+
   // Auth validated. Admin client for all DB access (RLS-edge fix).
   const admin = createAdminClient()
 
   const [{ data: student }, { data: profile }] = await Promise.all([
-    admin.from('students').select('id').eq('profile_id', user.id).single(),
+    admin.from('students').select('id, placement_test_done').eq('profile_id', user.id).single(),
     admin.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
@@ -145,13 +155,24 @@ export async function reschedulePlacementCall(
     return { error: lang === 'es' ? 'Perfil no encontrado.' : 'Student profile not found.' }
   }
 
-  // Cancel all existing non-cancelled placement bookings
+  // Don't re-open a finished assessment — once placement_test_done is true, a
+  // direct call to this action would resurrect a completed flow (BOOK-05).
+  if (student.placement_test_done) {
+    return {
+      error: lang === 'es'
+        ? 'Tu evaluación de nivel ya está completa.'
+        : 'Your placement assessment is already complete.',
+    }
+  }
+
+  // Cancel only still-live placement bookings (pending/confirmed) — never flip a
+  // 'completed' placement back to cancelled and erase its terminal state (BOOK-05).
   await admin
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('student_id', student.id)
     .eq('type', 'placement_test')
-    .neq('status', 'cancelled')
+    .in('status', ['pending', 'confirmed'])
 
   // Create new booking
   const { data: booking, error } = await admin

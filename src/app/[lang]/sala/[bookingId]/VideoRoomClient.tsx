@@ -23,6 +23,8 @@ interface Props {
   myName: string
   otherName: string
   status: string
+  teacherIdentity: string | null
+  peerIdentities: string[]
 }
 
 interface RoomData {
@@ -37,6 +39,7 @@ type Phase = 'init' | 'lobby' | 'room' | 'dev' | 'ended' | 'error'
 export default function VideoRoomClient({
   lang, bookingId, scheduledAt, durationMinutes,
   isTeacher, myName, otherName, status,
+  teacherIdentity, peerIdentities,
 }: Props) {
   const tx = videoStrings(lang)
   const [isPendingDev, startDevTransition] = useTransition()
@@ -150,6 +153,8 @@ export default function VideoRoomClient({
               sessionId={roomData.sessionId}
               scheduledAt={scheduledAt}
               durationMinutes={durationMinutes}
+              teacherIdentity={teacherIdentity}
+              peerIdentities={peerIdentities}
               onComplete={handleComplete}
             />
           </LiveKitRoom>

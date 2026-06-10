@@ -45,6 +45,12 @@ interface Props {
   sessionId: string
   scheduledAt: string
   durationMinutes: number
+  // CALL-01: identities the client may trust for data-channel control events.
+  // teacherIdentity is the ONLY legitimate sender of a session-end broadcast;
+  // peerIdentities is the set of known participants (teacher / student /
+  // placement conductor, excluding self) allowed to drive whiteboard + reactions.
+  teacherIdentity: string | null
+  peerIdentities: string[]
   onComplete: (summary?: SessionSummary) => void
 }
 
@@ -60,10 +66,25 @@ export function RoomShell({
   sessionId,
   scheduledAt,
   durationMinutes,
+  teacherIdentity,
+  peerIdentities,
   onComplete,
 }: Props) {
   const tx = videoStrings(lang)
   const connectionState = useConnectionState()
+
+  // CALL-01 gate: drop a control event only when its sender is IDENTIFIABLE and
+  // NOT a known participant — that catches a forged event from an observer or
+  // outsider. A reliable packet whose `msg.from` is momentarily unresolved (a
+  // remoteParticipants map-lookup miss during a (re)connect race — LiveKit still
+  // emits DataReceived with an undefined participant in that window) is given the
+  // benefit of the doubt and honored, since the room itself is participant-bounded
+  // by token. Used for the cosmetic channels (whiteboard/reactions); session-end
+  // is gated more strictly below.
+  const isUntrustedSender = useCallback(
+    (identity: string | undefined) => !!identity && !peerIdentities.includes(identity),
+    [peerIdentities],
+  )
 
   // Live transcript. Runs for the life of the call so the teacher's leave
   // flow can persist a complete transcript — the panel toggle only affects
@@ -96,6 +117,12 @@ export function RoomShell({
   // transitions to the EndedScreen immediately.
   const { send: sendSessionControl } = useDataChannel('session-control', msg => {
     if (isTeacher) return
+    // Only the teacher may end the session. Kept STRICT (exact teacher identity)
+    // even though it means a teacher 'ended' whose sender is briefly unresolved
+    // during a reconnect race is ignored — that case self-heals (LiveKit
+    // empty_timeout → onDisconnected → EndedScreen), whereas honoring an
+    // unidentified sender here would reopen the forged-kick vector CALL-01 closes.
+    if (!teacherIdentity || msg.from?.identity !== teacherIdentity) return
     try {
       const text = new TextDecoder().decode(msg.payload)
       const evt = JSON.parse(text) as { type: 'ended' }
@@ -158,6 +185,8 @@ export function RoomShell({
   // subscribed to the content data channel — so strokes never arrived for
   // the peer. This channel is always subscribed regardless of visibility.
   const { send: sendWhiteboardControl } = useDataChannel('whiteboard-control', msg => {
+    // Drop only a forged board open/close from an identifiable outsider (CALL-01).
+    if (isUntrustedSender(msg.from?.identity)) return
     try {
       const text = new TextDecoder().decode(msg.payload)
       const evt = JSON.parse(text) as { type: 'open' | 'close' }
@@ -194,6 +223,9 @@ export function RoomShell({
   }, [])
 
   const { send: sendReaction } = useDataChannel('reactions', msg => {
+    // Drop only forged emoji spam / a fake remote hand from an identifiable
+    // outsider (CALL-01); honor a legit peer even if briefly unresolved.
+    if (isUntrustedSender(msg.from?.identity)) return
     try {
       const evt = JSON.parse(new TextDecoder().decode(msg.payload)) as
         | { type: 'reaction'; emoji: string }
