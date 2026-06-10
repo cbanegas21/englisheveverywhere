@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, Mail, MessageSquare, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import type { NotificationPreferences as Prefs } from '@/app/actions/profile'
 
@@ -118,9 +118,9 @@ export default function NotificationPreferences({
   // Email = automated (Resend). WhatsApp = an active opt-in; reminders are sent
   // by staff by hand (admin /admin/whatsapp view) until automation lands. SMS is
   // dropped, so it's no longer offered as a channel.
-  const channelDefs: Array<{ key: keyof Required<Prefs>; label: string; Icon: typeof Mail }> = [
-    { key: 'email',    label: tx.email,    Icon: Mail },
-    { key: 'whatsapp', label: tx.whatsapp, Icon: MessageSquare },
+  const channelDefs: Array<{ key: keyof Required<Prefs>; label: string }> = [
+    { key: 'email',    label: tx.email },
+    { key: 'whatsapp', label: tx.whatsapp },
   ]
 
   const timingDefs: Array<{ key: keyof Required<Prefs>; label: string }> = [
@@ -129,73 +129,53 @@ export default function NotificationPreferences({
   ]
 
   // ── Card variant (compact, used in PlacementScheduledScreen) ────
+  // Cálido Editorial, matching the panel variant: tokens only, a red left-rule
+  // instead of an icon chip, crimson/ink pill switches, crimson-tint "coming
+  // soon" chip (no stoplight amber).
   if (!isPanel) {
+    const rowStyle = (active: boolean): React.CSSProperties => ({
+      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+      padding: '10px 12px', borderRadius: 'var(--ek-radius-md)',
+      background: active ? 'var(--ek-red-tint)' : 'var(--ek-card)',
+      border: `1px solid ${active ? 'var(--ek-red-tint-3)' : 'var(--ek-border)'}`,
+      transition: 'background 0.16s ease, border-color 0.16s ease', cursor: 'pointer',
+    })
+    const Switch = ({ active }: { active: boolean }) => (
+      <span style={{ height: 18, width: 32, borderRadius: 999, display: 'flex', alignItems: 'center', flexShrink: 0, padding: 2, background: active ? 'var(--ek-red)' : 'var(--ek-border-mid)', transition: 'background 0.16s ease' }}>
+        <span style={{ height: 14, width: 14, borderRadius: 999, background: 'var(--ek-card)', transition: 'transform 0.16s ease', transform: active ? 'translateX(14px)' : 'translateX(0)' }} />
+      </span>
+    )
+    const rows = [...channelDefs, ...timingDefs]
     return (
-      <div className="rounded-2xl p-5 flex flex-col" style={{ background: '#fff', border: '1px solid #E5E7EB' }}>
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(196,30,58,0.08)' }}>
-              <Bell className="h-5 w-5" style={{ color: '#C41E3A' }} />
-            </div>
+      <div className="rounded-2xl p-5 flex flex-col" style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', fontFamily: 'var(--ek-font-sans)' }}>
+        <div className="flex items-stretch justify-between gap-3 mb-4">
+          <div className="flex items-stretch gap-3">
+            <div style={{ width: 3, background: 'var(--ek-red)', borderRadius: 2, flexShrink: 0 }} />
             <div>
-              <h3 className="text-[14px] font-bold" style={{ color: '#111111' }}>{tx.title}</h3>
-              <p className="text-[11px]" style={{ color: '#9CA3AF' }}>{tx.subCard}</p>
+              <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{tx.title}</div>
+              <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{tx.subCard}</p>
             </div>
           </div>
           {showBadge && (
             <span
-              className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full flex-shrink-0"
-              style={{ background: 'rgba(245,158,11,0.1)', color: '#B45309', border: '1px solid rgba(245,158,11,0.3)' }}
+              className="ek-microlabel self-start flex-shrink-0 px-2 py-1"
+              style={{ fontSize: '9px', letterSpacing: '0.12em', color: 'var(--ek-red)', background: 'var(--ek-red-tint)', border: '1px solid var(--ek-red-tint-3)', borderRadius: 'var(--ek-radius-sm)' }}
             >
               {tx.comingSoon}
             </span>
           )}
         </div>
 
-        <div className="space-y-1.5 mb-3">
-          {channelDefs.map(({ key, label, Icon }) => {
+        <div className="space-y-2">
+          {rows.map(({ key, label }) => {
             const active = prefs[key]
             return (
-              <button
-                key={key}
-                onClick={() => toggle(key)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg transition-all"
-                style={{
-                  background: active ? 'rgba(196,30,58,0.04)' : '#fff',
-                  border: `1px solid ${active ? 'rgba(196,30,58,0.25)' : '#E5E7EB'}`,
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <Icon className="h-3.5 w-3.5" style={{ color: active ? '#C41E3A' : '#9CA3AF' }} />
-                  <span className="text-[12px] font-semibold" style={{ color: active ? '#C41E3A' : '#6B7280' }}>{label}</span>
-                </div>
-                <span
-                  className="h-4 w-7 rounded-full flex items-center transition-all"
-                  style={{ background: active ? '#C41E3A' : '#E5E7EB', padding: '2px' }}
-                >
-                  <span
-                    className="h-3 w-3 rounded-full bg-white transition-transform"
-                    style={{ transform: active ? 'translateX(12px)' : 'translateX(0)' }}
-                  />
-                </span>
+              <button key={key} type="button" onClick={() => toggle(key)} role="switch" aria-checked={active} style={rowStyle(active)}>
+                <span className="text-[12px] font-bold" style={{ color: active ? 'var(--ek-red)' : 'var(--ek-text)' }}>{label}</span>
+                <Switch active={active} />
               </button>
             )
           })}
-        </div>
-
-        <div className="space-y-1.5">
-          {timingDefs.map(({ key, label }) => (
-            <label key={key} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer" style={{ background: '#FAFAFA' }}>
-              <span className="text-[12px]" style={{ color: '#4B5563' }}>{label}</span>
-              <input
-                type="checkbox"
-                checked={prefs[key]}
-                onChange={() => toggle(key)}
-                className="h-4 w-4 rounded"
-                style={{ accentColor: '#C41E3A' }}
-              />
-            </label>
-          ))}
         </div>
       </div>
     )
