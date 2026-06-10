@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { escapeHtml, EMAIL_FROM } from '@/lib/email'
+import { escapeHtml, brandedEmail, EMAIL_FROM } from '@/lib/email'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
 import { checkUserActionLimit } from '@/lib/rateLimit'
 
@@ -311,21 +311,16 @@ function sendPlacementEmails(params: {
       subject: isEs
         ? 'Tu llamada de diagnóstico está confirmada — EnglishKolab'
         : 'Your placement call is confirmed — EnglishKolab',
-      html: isEs
-        ? `
-          <p>Hola ${escapeHtml(params.studentName)},</p>
-          <p>¡Tu llamada de diagnóstico gratuita está confirmada!</p>
-          <p>📅 <strong>Fecha:</strong> ${hnFormatted} (hora de Honduras, CST)</p>
-          <p>Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
-          <p>— El equipo de EnglishKolab</p>
-        `
-        : `
-          <p>Hi ${escapeHtml(params.studentName)},</p>
-          <p>Your free placement call is confirmed!</p>
-          <p>📅 <strong>Date:</strong> ${enFormatted} (Honduras time, CST)</p>
-          <p>We'll reach out through the platform. Questions? Email us at <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
-          <p>— The EnglishKolab team</p>
-        `,
+      html: brandedEmail({
+        heading: isEs ? 'Tu llamada está confirmada' : 'Your placement call is confirmed',
+        bodyHtml: isEs
+          ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">¡Tu llamada de diagnóstico gratuita está confirmada!</p><p style="margin:0;"><strong>Fecha:</strong> ${hnFormatted} (hora de Honduras, CST)</p>`
+          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">Your free placement call is confirmed!</p><p style="margin:0;"><strong>Date:</strong> ${enFormatted} (Honduras time, CST)</p>`,
+        footnote: isEs
+          ? 'Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a hola@englishkolab.com.'
+          : "We'll reach out through the platform. Questions? Email us at hola@englishkolab.com.",
+        lang: isEs ? 'es' : 'en',
+      }),
       text: isEs
         ? [
             `Hola ${params.studentName},`,

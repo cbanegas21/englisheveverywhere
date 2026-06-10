@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { isValidTimeZone } from '@/lib/timezone'
 
 // Localized, user-safe onboarding errors (ONBOARD-06). Raw Supabase/storage
@@ -215,23 +215,15 @@ async function sendTeacherApplicationEmails(params: {
 
   const teacherPendingUrl = `${APP_URL}/${params.lang === 'es' ? 'es' : 'en'}/maestro/pending`
 
-  const teacherHtml = params.lang === 'es'
-    ? `
-      <h2>¡Hola ${escapeHtml(firstName)}!</h2>
-      <p>Recibimos tu solicitud para enseñar en EnglishKolab. Gracias por unirte a nuestra comunidad.</p>
-      <p>Nuestro equipo revisará tu perfil en las próximas 24–48 horas. Recibirás un correo en cuanto tu cuenta sea activada.</p>
-      <p>Mientras tanto, puedes revisar tu solicitud aquí:<br/>
-      <a href="${teacherPendingUrl}">Ver mi solicitud →</a></p>
-      <p>— El equipo de EnglishKolab</p>
-    `
-    : `
-      <h2>Hi ${escapeHtml(firstName)}!</h2>
-      <p>We received your application to teach with EnglishKolab. Thanks for joining our community.</p>
-      <p>Our team will review your profile in the next 24–48 hours. You'll receive an email once your account is activated.</p>
-      <p>In the meantime, you can review your application here:<br/>
-      <a href="${teacherPendingUrl}">View my application →</a></p>
-      <p>— The EnglishKolab team</p>
-    `
+  const teacherHtml = brandedEmail({
+    heading: params.lang === 'es' ? `¡Hola ${escapeHtml(firstName)}!` : `Hi ${escapeHtml(firstName)}!`,
+    bodyHtml: params.lang === 'es'
+      ? '<p style="margin:0 0 12px;">Recibimos tu solicitud para enseñar en EnglishKolab. Gracias por unirte a nuestra comunidad.</p><p style="margin:0;">Nuestro equipo revisará tu perfil en las próximas 24–48 horas. Recibirás un correo en cuanto tu cuenta sea activada.</p>'
+      : "<p style=\"margin:0 0 12px;\">We received your application to teach with EnglishKolab. Thanks for joining our community.</p><p style=\"margin:0;\">Our team will review your profile in the next 24–48 hours. You'll receive an email once your account is activated.</p>",
+    ctaLabel: params.lang === 'es' ? 'Ver mi solicitud' : 'View my application',
+    ctaUrl: teacherPendingUrl,
+    lang: params.lang,
+  })
 
   const teacherText = params.lang === 'es'
     ? `¡Hola ${firstName}!

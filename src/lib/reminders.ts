@@ -18,7 +18,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buildBookingIcs } from '@/lib/ics'
-import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
 
 const RESEND_BASE = 'https://api.resend.com'
 
@@ -124,35 +124,25 @@ function reminderHtml(params: {
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
   const cta = isEs ? 'Ir a la clase' : 'Go to the class'
   const whenLabel = isEs ? 'Cuándo' : 'When'
+  const lateNote = isEs
+    ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.'
+    : 'You can join up to 90 minutes after the scheduled start time.'
 
-  return `
-    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-      <h2 style="color:#111;margin:0 0 8px 0">${heading}</h2>
-      <p style="color:#4B5563;margin:0 0 16px 0">${greeting},</p>
-      <table style="border-collapse:collapse;width:100%;margin:0 0 16px 0">
-        <tr>
-          <td style="padding:4px 0;color:#9CA3AF;font-size:13px">${whenLabel}</td>
-          <td style="padding:4px 0;color:#111;font-weight:600">${scheduled}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 0;color:#9CA3AF;font-size:13px">${isEs ? 'Con' : 'With'}</td>
-          <td style="padding:4px 0;color:#111;font-weight:600">${counterpartName}</td>
-        </tr>
-      </table>
-      <p style="margin:24px 0 0 0">
-        <a href="${roomUrl}"
-           style="background:#C41E3A;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
-          ${cta}
-        </a>
-      </p>
-      <p style="color:#6B7280;font-size:12px;margin:16px 0 0 0">${
-        isEs
-          ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.'
-          : 'You can join up to 90 minutes after the scheduled start time.'
-      }</p>
-      <p style="color:#9CA3AF;font-size:12px;margin-top:32px">${withLine}</p>
-    </div>
+  const bodyHtml = `
+    <p style="margin:0 0 16px;">${greeting},</p>
+    <table style="border-collapse:collapse;width:100%;margin:0;">
+      <tr>
+        <td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">${whenLabel}</td>
+        <td style="padding:4px 0;color:#111111;font-weight:600;">${scheduled}</td>
+      </tr>
+      <tr>
+        <td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">${isEs ? 'Con' : 'With'}</td>
+        <td style="padding:4px 0;color:#111111;font-weight:600;">${counterpartName}</td>
+      </tr>
+    </table>
+    <p style="color:#8C8578;font-size:12px;margin:18px 0 0;">${withLine}</p>
   `
+  return brandedEmail({ heading, bodyHtml, ctaLabel: cta, ctaUrl: roomUrl, footnote: lateNote, lang })
 }
 
 // Plain-text rendering of the reminder email — same copy, no markup. Names are
@@ -233,30 +223,21 @@ function confirmationHtml(params: {
     ? 'Adjuntamos una invitación de calendario — ábrela para agregar la clase a tu calendario y recibir un recordatorio automático.'
     : 'We\'ve attached a calendar invite — open it to add the class to your calendar and get an automatic reminder.'
 
-  return `
-    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-      <h2 style="color:#111;margin:0 0 8px 0">${heading}</h2>
-      <p style="color:#4B5563;margin:0 0 16px 0">${greeting},</p>
-      <table style="border-collapse:collapse;width:100%;margin:0 0 16px 0">
-        <tr>
-          <td style="padding:4px 0;color:#9CA3AF;font-size:13px">${whenLabel}</td>
-          <td style="padding:4px 0;color:#111;font-weight:600">${scheduled}</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 0;color:#9CA3AF;font-size:13px">${withLabel}</td>
-          <td style="padding:4px 0;color:#111;font-weight:600">${counterpartName}</td>
-        </tr>
-      </table>
-      <p style="margin:24px 0 0 0">
-        <a href="${roomUrl}"
-           style="background:#C41E3A;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
-          ${cta}
-        </a>
-      </p>
-      <p style="color:#6B7280;font-size:12px;margin:16px 0 0 0">${calNote}</p>
-      <p style="color:#9CA3AF;font-size:12px;margin-top:32px">${withLine}</p>
-    </div>
+  const bodyHtml = `
+    <p style="margin:0 0 16px;">${greeting},</p>
+    <table style="border-collapse:collapse;width:100%;margin:0;">
+      <tr>
+        <td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">${whenLabel}</td>
+        <td style="padding:4px 0;color:#111111;font-weight:600;">${scheduled}</td>
+      </tr>
+      <tr>
+        <td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">${withLabel}</td>
+        <td style="padding:4px 0;color:#111111;font-weight:600;">${counterpartName}</td>
+      </tr>
+    </table>
+    <p style="color:#8C8578;font-size:12px;margin:18px 0 0;">${withLine}</p>
   `
+  return brandedEmail({ heading, bodyHtml, ctaLabel: cta, ctaUrl: roomUrl, footnote: calNote, lang })
 }
 
 // Plain-text rendering of the confirmation email — same copy, no markup. Names
@@ -444,17 +425,21 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
 
   const studentProfile = pickProfile(booking.student)
   const teacherProfile = pickProfile(booking.teacher)
-  const studentName = studentProfile?.full_name || 'Estudiante'
-  const teacherName = teacherProfile?.full_name || 'Maestro'
+  const studentLang: Lang = studentProfile?.preferred_language ?? 'es'
+  const teacherLang: Lang = teacherProfile?.preferred_language ?? 'es'
+  // Name fallbacks render in the READER's language — an English teacher whose
+  // student has no name should see "Student", not "Estudiante".
+  const studentFb = (l: Lang) => (l === 'es' ? 'Estudiante' : 'Student')
+  const teacherFb = (l: Lang) => (l === 'es' ? 'Maestro' : 'Teacher')
 
   const recipients: Recipient[] = []
   if (studentProfile?.email) {
     recipients.push({
       audience: 'student',
       email: studentProfile.email,
-      recipientName: studentName,
-      counterpartName: teacherName,
-      lang: studentProfile.preferred_language ?? 'es',
+      recipientName: studentProfile.full_name || studentFb(studentLang),
+      counterpartName: teacherProfile?.full_name || teacherFb(studentLang),
+      lang: studentLang,
       timezone: safeZone(studentProfile.timezone),
       prefs: studentProfile.notification_preferences ?? null,
     })
@@ -463,9 +448,9 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
     recipients.push({
       audience: 'teacher',
       email: teacherProfile.email,
-      recipientName: teacherName,
-      counterpartName: studentName,
-      lang: teacherProfile.preferred_language ?? 'es',
+      recipientName: teacherProfile.full_name || teacherFb(teacherLang),
+      counterpartName: studentProfile?.full_name || studentFb(teacherLang),
+      lang: teacherLang,
       timezone: safeZone(teacherProfile.timezone),
       prefs: teacherProfile.notification_preferences ?? null,
     })

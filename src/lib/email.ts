@@ -30,8 +30,14 @@ export function brandedEmail(opts: {
   ctaLabel?: string
   ctaUrl?: string
   footnote?: string
+  // Footer tagline language — defaults to Spanish (the app default). Pass the
+  // recipient's preferred language so an English reader gets the English line.
+  lang?: 'es' | 'en'
 }): string {
-  const { heading, bodyHtml, ctaLabel, ctaUrl, footnote } = opts
+  const { heading, bodyHtml, ctaLabel, ctaUrl, footnote, lang = 'es' } = opts
+  const tagline = lang === 'en'
+    ? 'EnglishKolab — Learn English. At your pace.'
+    : 'EnglishKolab — Aprende inglés. A tu ritmo.'
   const cta =
     ctaLabel && ctaUrl
       ? `<a href="${ctaUrl}" style="display:inline-block;background:#C41E3A;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px;margin:4px 0 0;">${ctaLabel}</a>`
@@ -44,7 +50,7 @@ export function brandedEmail(opts: {
     ${cta}
     ${footnote ? `<p style="font-size:13px;line-height:1.6;color:#8C8578;margin:20px 0 0;">${footnote}</p>` : ''}
     <hr style="border:none;border-top:1px solid #EAE4D6;margin:26px 0 16px;" />
-    <p style="font-size:12px;color:#C4BCAA;margin:0;">EnglishKolab — Aprende inglés. A tu ritmo.</p>
+    <p style="font-size:12px;color:#C4BCAA;margin:0;">${tagline}</p>
   </div>
 </div>`
 }

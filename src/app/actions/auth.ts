@@ -71,6 +71,7 @@ async function sendWelcomeEmail(email: string, fullName: string, lang: string) {
     ctaLabel: isEs ? 'Ir a mi panel' : 'Go to my dashboard',
     ctaUrl: `${APP_URL}/${lang}/dashboard`,
     footnote: isEs ? '¿Dudas? Escríbenos a hola@englishkolab.com' : 'Questions? Email us at hola@englishkolab.com',
+    lang: isEs ? 'es' : 'en',
   })
   const subject = isEs ? '¡Bienvenido a EnglishKolab!' : 'Welcome to EnglishKolab!'
   // Plain-text alternative — HTML-only emails are penalised harder by spam filters.

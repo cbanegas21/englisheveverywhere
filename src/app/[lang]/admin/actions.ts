@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
-import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { isValidTimeZone } from '@/lib/timezone'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
 
@@ -772,19 +772,35 @@ export async function resetStudentPassword(email: string) {
     email,
   })
   if (error) throw new Error(error.message)
-  // Send via Resend
+  // Send via Resend, in the recipient's own language (was ES-agnostic English).
   const apiKey = process.env.RESEND_API_KEY
   if (apiKey && apiKey !== 're_placeholder' && data?.properties?.action_link) {
     const actionLink = data.properties.action_link
+    const { data: prof } = await supabaseAdmin.from('profiles').select('preferred_language').eq('email', email).maybeSingle()
+    const lang: 'es' | 'en' = prof?.preferred_language === 'en' ? 'en' : 'es'
+    const subject = lang === 'es' ? 'Restablece tu contraseña — EnglishKolab' : 'Reset your password — EnglishKolab'
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: EMAIL_FROM,
         to: email,
-        subject: 'Reset your password — EnglishKolab',
-        html: `<p>Click below to reset your password:</p><a href="${actionLink}">Reset password</a>`,
-        text: `Reset your password — EnglishKolab\n\nClick the link below to reset your password:\n${actionLink}\n\n— EnglishKolab`,
+        subject,
+        html: brandedEmail({
+          heading: lang === 'es' ? 'Restablece tu contraseña' : 'Reset your password',
+          bodyHtml: lang === 'es'
+            ? '<p>Recibimos una solicitud para restablecer tu contraseña. Toca el botón para crear una nueva.</p>'
+            : '<p>We received a request to reset your password. Tap the button to create a new one.</p>',
+          ctaLabel: lang === 'es' ? 'Restablecer contraseña' : 'Reset password',
+          ctaUrl: actionLink,
+          footnote: lang === 'es'
+            ? 'Si no solicitaste esto, puedes ignorar este correo.'
+            : "If you didn't request this, you can safely ignore this email.",
+          lang,
+        }),
+        text: lang === 'es'
+          ? `Restablece tu contraseña — EnglishKolab\n\nToca el enlace para crear una nueva contraseña:\n${actionLink}\n\nSi no solicitaste esto, ignora este correo.`
+          : `Reset your password — EnglishKolab\n\nTap the link to create a new password:\n${actionLink}\n\nIf you didn't request this, you can safely ignore this email.`,
       }),
     })
   }
@@ -1061,12 +1077,15 @@ function sendBookingEmails(params: {
     const lineText = p.lang === 'es'
       ? `Tienes una sesión agendada para el ${formatted} (hora de Honduras).`
       : `You have a session scheduled for ${formatted} (Honduras time).`
+    const heading = role === 'student'
+      ? (p.lang === 'es' ? 'Sesión agendada' : 'Session scheduled')
+      : (p.lang === 'es' ? 'Nueva sesión asignada' : 'New session assigned')
     void fetch('https://api.resend.com/emails', {
       method: 'POST', headers,
       body: JSON.stringify({
         from: EMAIL_FROM, to: p.email,
         subject,
-        html: `<p>${greeting},</p><p>${line}</p><p>— EnglishKolab</p>`,
+        html: brandedEmail({ heading, bodyHtml: `<p>${greeting},</p><p>${line}</p>`, lang: p.lang }),
         text: `${greetingText},\n\n${lineText}\n\n— EnglishKolab`,
       }),
     }).catch(() => {})
@@ -1106,21 +1125,15 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
     const subject = lang === 'es'
       ? `¡Bienvenida a EnglishKolab, ${firstName}!`
       : `Welcome to EnglishKolab, ${firstName}!`
-    const html = lang === 'es'
-      ? `
-          <h2>¡Bienvenida al equipo!</h2>
-          <p>Tu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:</p>
-          <p><a href="${dashboardUrl}">Acceder a mi dashboard →</a></p>
-          <p>Aquí podrás configurar tu disponibilidad y ver tus clases asignadas.</p>
-          <p>— El equipo de EnglishKolab</p>
-        `
-      : `
-          <h2>Welcome to the team!</h2>
-          <p>Your profile has been approved. You can now access your dashboard:</p>
-          <p><a href="${dashboardUrl}">Go to my dashboard →</a></p>
-          <p>There you can set your availability and see your assigned classes.</p>
-          <p>— The EnglishKolab team</p>
-        `
+    const html = brandedEmail({
+      heading: lang === 'es' ? '¡Bienvenida al equipo!' : 'Welcome to the team!',
+      bodyHtml: lang === 'es'
+        ? '<p>Tu perfil ha sido aprobado. Ya puedes acceder a tu panel de maestro.</p><p>Ahí podrás configurar tu disponibilidad y ver tus clases asignadas.</p>'
+        : '<p>Your profile has been approved. You can now access your teacher dashboard.</p><p>There you can set your availability and see your assigned classes.</p>',
+      ctaLabel: lang === 'es' ? 'Acceder a mi panel' : 'Go to my dashboard',
+      ctaUrl: dashboardUrl,
+      lang,
+    })
     const text = lang === 'es'
       ? `¡Bienvenida al equipo!\n\nTu perfil ha sido aprobado. Ya puedes acceder a tu dashboard:\n${dashboardUrl}\n\nAquí podrás configurar tu disponibilidad y ver tus clases asignadas.\n\n— El equipo de EnglishKolab`
       : `Welcome to the team!\n\nYour profile has been approved. You can now access your dashboard:\n${dashboardUrl}\n\nThere you can set your availability and see your assigned classes.\n\n— The EnglishKolab team`
@@ -1158,19 +1171,13 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
     const subject = lang === 'es'
       ? 'Actualización sobre tu solicitud — EnglishKolab'
       : 'Update on your application — EnglishKolab'
-    const html = lang === 'es'
-      ? `
-          <p>Gracias por tu interés en EnglishKolab.</p>
-          <p>Después de revisar tu perfil, no podemos continuar con tu solicitud en este momento.</p>
-          <p>Si tienes preguntas, contáctanos en <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
-          <p>— El equipo de EnglishKolab</p>
-        `
-      : `
-          <p>Thank you for your interest in EnglishKolab.</p>
-          <p>After reviewing your profile, we're unable to move forward with your application at this time.</p>
-          <p>If you have any questions, contact us at <a href="mailto:hola@englishkolab.com">hola@englishkolab.com</a>.</p>
-          <p>— The EnglishKolab team</p>
-        `
+    const html = brandedEmail({
+      heading: lang === 'es' ? 'Sobre tu solicitud' : 'About your application',
+      bodyHtml: lang === 'es'
+        ? '<p>Gracias por tu interés en EnglishKolab.</p><p>Después de revisar tu perfil, no podemos continuar con tu solicitud en este momento.</p><p>Si tienes preguntas, escríbenos a <a href="mailto:hola@englishkolab.com" style="color:#C41E3A;">hola@englishkolab.com</a>.</p>'
+        : '<p>Thank you for your interest in EnglishKolab.</p><p>After reviewing your profile, we\'re unable to move forward with your application at this time.</p><p>If you have any questions, contact us at <a href="mailto:hola@englishkolab.com" style="color:#C41E3A;">hola@englishkolab.com</a>.</p>',
+      lang,
+    })
     const text = lang === 'es'
       ? `Gracias por tu interés en EnglishKolab.\n\nDespués de revisar tu perfil, no podemos continuar con tu solicitud en este momento.\n\nSi tienes preguntas, contáctanos en hola@englishkolab.com.\n\n— El equipo de EnglishKolab`
       : `Thank you for your interest in EnglishKolab.\n\nAfter reviewing your profile, we're unable to move forward with your application at this time.\n\nIf you have any questions, contact us at hola@englishkolab.com.\n\n— The EnglishKolab team`
@@ -1329,21 +1336,18 @@ function sendAssignmentEmail(bookingId: string) {
       const leadText = lang === 'es'
         ? (isPlacement ? `Tu llamada de diagnóstico con ${teacherFirst} está confirmada.` : `Tu clase con ${teacherFirst} está confirmada.`)
         : (isPlacement ? `Your placement call with ${teacherFirst} is confirmed.` : `Your class with ${teacherFirst} is confirmed.`)
-      const html = lang === 'es'
-        ? `
-            <p>Hola ${escapeHtml(studentFirst)},</p>
-            <p>${lead}</p>
-            <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
-            <p><a href="${salaUrl}">Unirse al aula</a> (se abre 15 minutos antes).</p>
-            <p>— EnglishKolab</p>
-          `
-        : `
-            <p>Hi ${escapeHtml(studentFirst)},</p>
-            <p>${lead}</p>
-            <p><strong>When:</strong> ${formatted} (Honduras time).</p>
-            <p><a href="${salaUrl}">Join the classroom</a> (opens 15 minutes early).</p>
-            <p>— EnglishKolab</p>
-          `
+      const html = brandedEmail({
+        heading: lang === 'es'
+          ? (isPlacement ? 'Tu llamada está confirmada' : 'Tu clase está confirmada')
+          : (isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'),
+        bodyHtml: lang === 'es'
+          ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(studentFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>`
+          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(studentFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
+        ctaLabel: lang === 'es' ? 'Unirse al aula' : 'Join the classroom',
+        ctaUrl: salaUrl,
+        footnote: lang === 'es' ? 'El aula se abre 15 minutos antes de la hora de inicio.' : 'The classroom opens 15 minutes before the start time.',
+        lang,
+      })
       const text = lang === 'es'
         ? `Hola ${studentFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nUnirse al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`
         : `Hi ${studentFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nJoin the classroom (opens 15 minutes early):\n${salaUrl}\n\n— EnglishKolab`
@@ -1374,21 +1378,18 @@ function sendAssignmentEmail(bookingId: string) {
       const leadText = lang === 'es'
         ? (isPlacement ? `Te asignamos una llamada de diagnóstico con ${studentLabel}.` : `Te asignamos una clase con ${studentLabel}.`)
         : (isPlacement ? `You've been assigned a placement call with ${studentLabel}.` : `You've been assigned a class with ${studentLabel}.`)
-      const html = lang === 'es'
-        ? `
-            <p>Hola ${escapeHtml(teacherFirst)},</p>
-            <p>${lead}</p>
-            <p><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>
-            <p><a href="${salaUrl}">Entrar al aula</a> (se abre 15 minutos antes).</p>
-            <p>— EnglishKolab</p>
-          `
-        : `
-            <p>Hi ${escapeHtml(teacherFirst)},</p>
-            <p>${lead}</p>
-            <p><strong>When:</strong> ${formatted} (Honduras time).</p>
-            <p><a href="${salaUrl}">Enter the classroom</a> (opens 15 minutes early).</p>
-            <p>— EnglishKolab</p>
-          `
+      const html = brandedEmail({
+        heading: lang === 'es'
+          ? (isPlacement ? 'Nueva llamada asignada' : 'Nueva clase asignada')
+          : (isPlacement ? 'New placement call assigned' : 'New class assigned'),
+        bodyHtml: lang === 'es'
+          ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(teacherFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>`
+          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(teacherFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
+        ctaLabel: lang === 'es' ? 'Entrar al aula' : 'Enter the classroom',
+        ctaUrl: salaUrl,
+        footnote: lang === 'es' ? 'El aula se abre 15 minutos antes de la hora de inicio.' : 'The classroom opens 15 minutes before the start time.',
+        lang,
+      })
       const text = lang === 'es'
         ? `Hola ${teacherFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nEntrar al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`
         : `Hi ${teacherFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nEnter the classroom (opens 15 minutes early):\n${salaUrl}\n\n— EnglishKolab`
