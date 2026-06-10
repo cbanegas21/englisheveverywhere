@@ -1,12 +1,33 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isValidTimeZone, getZonedParts, zonedWallTimeToUtc } from '@/lib/timezone'
 import BookingCalendarClient from './BookingCalendarClient'
 import RescheduleRequestsPanel from './RescheduleRequestsPanel'
 
 interface Props {
   params: Promise<{ lang: string }>
   searchParams: Promise<{ weekStart?: string }>
+}
+
+// A calendar day expressed in the admin's profile zone (month 0-indexed). The
+// whole week window is computed from these so day boundaries match the zone the
+// calendar renders in (each admin sees the schedule in their OWN timezone — the
+// AD-03 decision), not the server's UTC. Arithmetic via Date.UTC is exact (UTC
+// has no DST); the conversion to a real instant happens in zonedWallTimeToUtc,
+// which IS DST-aware.
+interface ZDay { year: number; month: number; day: number }
+function pad(n: number) { return String(n).padStart(2, '0') }
+function addDaysZ(d: ZDay, n: number): ZDay {
+  const dt = new Date(Date.UTC(d.year, d.month, d.day + n))
+  return { year: dt.getUTCFullYear(), month: dt.getUTCMonth(), day: dt.getUTCDate() }
+}
+function weekdayOfZ(d: ZDay): number {
+  return new Date(Date.UTC(d.year, d.month, d.day)).getUTCDay() // 0=Sun
+}
+function mondayOfZ(d: ZDay): ZDay {
+  const wd = weekdayOfZ(d)
+  return addDaysZ(d, wd === 0 ? -6 : 1 - wd)
 }
 
 export default async function AdminBookingsPage({ params, searchParams }: Props) {
@@ -18,36 +39,44 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
 
   const admin = createAdminClient()
 
-  // Compute week range (Monday 00:00 UTC → Sunday 23:59 UTC)
+  // The calendar renders in the acting admin's own timezone. Fall back to the
+  // business zone (Honduras) when the profile has none / an invalid value.
+  const { data: prof } = await admin
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .single()
+  const tz = isValidTimeZone(prof?.timezone) ? (prof!.timezone as string) : 'America/Tegucigalpa'
+
+  // Compute the visible week + "today" windows IN the admin's zone, then convert
+  // to absolute UTC instants for the queries. The fetched range equals exactly
+  // the 7 zoned days the grid shows, so client-side bucketing lines up.
   const now = new Date()
+  const nowParts = getZonedParts(now, tz)
+  const todayZ: ZDay = { year: nowParts.year, month: nowParts.month, day: nowParts.day }
 
-  function getMondayOf(d: Date): Date {
-    const day = d.getUTCDay() // 0=Sun
-    const diff = day === 0 ? -6 : 1 - day
-    const monday = new Date(d)
-    monday.setUTCDate(d.getUTCDate() + diff)
-    monday.setUTCHours(0, 0, 0, 0)
-    return monday
+  // ?weekStart is a zoned calendar date (YYYY-MM-DD). Guard a garbage value.
+  let anchor: ZDay = todayZ
+  if (weekStartParam) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStartParam)
+    if (m) {
+      const cand: ZDay = { year: +m[1], month: +m[2] - 1, day: +m[3] }
+      if (!Number.isNaN(new Date(Date.UTC(cand.year, cand.month, cand.day)).getTime())) anchor = cand
+    }
   }
+  const monday = mondayOfZ(anchor)
+  const sunNext = addDaysZ(monday, 7)
+  const tomZ = addDaysZ(todayZ, 1)
 
-  // Guard against a garbage ?weekStart (e.g. ?weekStart=garbage) → Invalid Date →
-  // weekStart.toISOString() throws → 500. Fall back to the current week.
-  const parsedWeek = weekStartParam ? new Date(weekStartParam + 'T00:00:00Z') : null
-  const weekStart = parsedWeek && !Number.isNaN(parsedWeek.getTime())
-    ? parsedWeek
-    : getMondayOf(now)
-  const weekEnd = new Date(weekStart)
-  weekEnd.setUTCDate(weekStart.getUTCDate() + 7)
-
-  const todayStart = new Date(now)
-  todayStart.setUTCHours(0, 0, 0, 0)
-  const todayEnd = new Date(now)
-  todayEnd.setUTCHours(23, 59, 59, 999)
+  const weekStartUtc = zonedWallTimeToUtc(monday.year, monday.month, monday.day, 0, 0, tz)
+  const weekEndUtc = zonedWallTimeToUtc(sunNext.year, sunNext.month, sunNext.day, 0, 0, tz)
+  const todayStartUtc = zonedWallTimeToUtc(todayZ.year, todayZ.month, todayZ.day, 0, 0, tz)
+  const todayEndUtc = zonedWallTimeToUtc(tomZ.year, tomZ.month, tomZ.day, 0, 0, tz)
+  const weekStartStr = `${monday.year}-${pad(monday.month + 1)}-${pad(monday.day)}`
 
   const [
     bookingsResult,
     teachersResult,
-    allStudentsResult,
     availSlotsResult,
     sessionsResult,
     todayCountResult,
@@ -63,8 +92,8 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
         teacher:teachers(id, profile:profiles(full_name)),
         conductor:profiles!conductor_profile_id(full_name)
       `)
-      .gte('scheduled_at', weekStart.toISOString())
-      .lt('scheduled_at', weekEnd.toISOString())
+      .gte('scheduled_at', weekStartUtc.toISOString())
+      .lt('scheduled_at', weekEndUtc.toISOString())
       .neq('status', 'cancelled')
       .order('scheduled_at', { ascending: true }),
 
@@ -75,24 +104,20 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
       .order('created_at', { ascending: true }),
 
     admin
-      .from('students')
-      .select('id, profile:profiles(full_name, email)'),
-
-    admin
       .from('availability_slots')
       .select('teacher_id, day_of_week, start_time, end_time'),
 
     admin
       .from('sessions')
       .select('booking_id, teacher_notes, student_rating')
-      .gte('created_at', weekStart.toISOString())
-      .lt('created_at', weekEnd.toISOString()),
+      .gte('created_at', weekStartUtc.toISOString())
+      .lt('created_at', weekEndUtc.toISOString()),
 
     admin
       .from('bookings')
       .select('id', { count: 'exact', head: true })
-      .gte('scheduled_at', todayStart.toISOString())
-      .lte('scheduled_at', todayEnd.toISOString())
+      .gte('scheduled_at', todayStartUtc.toISOString())
+      .lt('scheduled_at', todayEndUtc.toISOString())
       .neq('status', 'cancelled'),
 
     admin
@@ -105,8 +130,8 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'confirmed')
-      .gte('scheduled_at', weekStart.toISOString())
-      .lt('scheduled_at', weekEnd.toISOString()),
+      .gte('scheduled_at', weekStartUtc.toISOString())
+      .lt('scheduled_at', weekEndUtc.toISOString()),
   ])
 
   type SessionData = { teacher_notes: string | null; student_rating: number | null }
@@ -188,13 +213,6 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     accepting: (t as { accepting_students?: boolean }).accepting_students !== false,
   }))
 
-  type StudentEntry = { id: string; name: string; email: string }
-  const allStudents: StudentEntry[] = (allStudentsResult.data || []).map((s) => ({
-    id: s.id,
-    name: getName((s as { id: string; profile: unknown }).profile) ?? 'Unknown',
-    email: getEmail((s as { id: string; profile: unknown }).profile) ?? '',
-  }))
-
   const { data: allPending } = await admin
     .from('bookings')
     .select(`
@@ -272,17 +290,16 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
       )}
       <BookingCalendarClient
         lang={lang}
-        weekStart={weekStart.toISOString().slice(0, 10)}
+        timezone={tz}
+        weekStart={weekStartStr}
         bookings={bookings}
         teachers={teachers}
-        allStudents={allStudents}
         availSlots={availSlotsResult.data || []}
         pendingBookings={pendingBookings}
         stats={{
           todayCount: todayCountResult.count ?? 0,
           pendingCount: pendingCountResult.count ?? 0,
           weekConfirmed: weekConfirmedResult.count ?? 0,
-          availableSlots: (availSlotsResult.data || []).length,
         }}
       />
     </>
