@@ -173,3 +173,42 @@ export async function createStripeConnectLink(lang: string = 'es') {
     }
   }
 }
+
+// Connect onboarding status for the signed-in teacher's payouts (TE-04). Reads
+// the teacher's OWN stripe_account_id, then asks Stripe whether the account has
+// finished onboarding + can receive payouts. Degrades gracefully: no account →
+// not connected; dev/placeholder keys or a Stripe error → treat as "set up but
+// status unknown" (hasAccount true, flags false) so the UI prompts to finish.
+export async function getTeacherPayoutStatus(): Promise<{
+  hasAccount: boolean
+  payoutsEnabled: boolean
+  detailsSubmitted: boolean
+}> {
+  const NONE = { hasAccount: false, payoutsEnabled: false, detailsSubmitted: false }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NONE
+
+  const { data: teacher } = await supabase
+    .from('teachers')
+    .select('stripe_account_id')
+    .eq('profile_id', user.id)
+    .maybeSingle()
+  const accountId = (teacher as { stripe_account_id?: string | null } | null)?.stripe_account_id
+  if (!accountId) return NONE
+
+  const stripe = getStripe()
+  if (!stripe) return { hasAccount: true, payoutsEnabled: false, detailsSubmitted: false }
+
+  try {
+    const acct = await stripe.accounts.retrieve(accountId)
+    return {
+      hasAccount: true,
+      payoutsEnabled: !!acct.payouts_enabled,
+      detailsSubmitted: !!acct.details_submitted,
+    }
+  } catch (err) {
+    console.error('getTeacherPayoutStatus failed:', err)
+    return { hasAccount: true, payoutsEnabled: false, detailsSubmitted: false }
+  }
+}
