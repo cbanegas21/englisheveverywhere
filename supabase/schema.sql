@@ -283,7 +283,7 @@ alter table public.teachers add constraint teachers_profile_id_fkey foreign key 
 
 alter table public.assignment_submissions add constraint assignment_submissions_score_check CHECK (((score IS NULL) OR (score = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text, 'needs_work'::text, 'good'::text, 'excellent'::text]))));
 alter table public.assignments add constraint assignments_status_check CHECK ((status = ANY (ARRAY['open'::text, 'cancelled'::text])));
-alter table public.auth_attempts add constraint auth_attempts_action_check CHECK ((action = ANY (ARRAY['login'::text, 'signup'::text, 'reset'::text])));
+alter table public.auth_attempts add constraint auth_attempts_action_check CHECK ((action = ANY (ARRAY['login'::text, 'signup'::text, 'reset'::text, 'createBooking'::text, 'bookPlacementCall'::text, 'requestEmailChange'::text])));
 alter table public.availability_slots add constraint availability_slots_day_of_week_check CHECK (((day_of_week >= 0) AND (day_of_week <= 6)));
 alter table public.bookings add constraint bookings_cancellation_reason_check CHECK ((cancellation_reason = ANY (ARRAY['early'::text, 'late'::text, 'no_show_teacher'::text, 'no_show_student'::text, 'teacher_decline'::text, 'admin_refund'::text, 'other'::text])));
 alter table public.bookings add constraint bookings_cancelled_by_check CHECK ((cancelled_by = ANY (ARRAY['student'::text, 'teacher'::text, 'admin'::text, 'system'::text])));

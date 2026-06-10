@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
+import { checkUserActionLimit } from '@/lib/rateLimit'
 
 // Map the raw cancellation_reason enum to a human-readable label for admin
 // notification emails. Keep both languages so the email reads naturally.
@@ -89,6 +90,14 @@ export async function createBooking(formData: FormData) {
   const rawDuration = parseInt(formData.get('duration_minutes') as string, 10)
   const durationMinutes = ALLOWED_DURATIONS.includes(rawDuration) ? rawDuration : 60
   const lang = (formData.get('lang') as string) || 'es'
+
+  // Per-user throttle (DASH-07) — the credit balance already caps total bookings;
+  // this stops scripted hammering of the endpoint. Generous ceiling so a real
+  // burst of legit bookings never trips it.
+  const rl = await checkUserActionLimit(user.id, 'createBooking', 25)
+  if (!rl.ok) {
+    return { error: lang === 'es' ? 'Demasiados intentos. Espera unos minutos.' : 'Too many attempts. Please wait a few minutes.' }
+  }
 
   // ── Date validation + 24-hour advance notice ─────────────────
   const scheduledDate = new Date(scheduledAt)

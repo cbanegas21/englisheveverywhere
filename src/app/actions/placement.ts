@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { escapeHtml, EMAIL_FROM } from '@/lib/email'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
+import { checkUserActionLimit } from '@/lib/rateLimit'
 
 export async function saveSurveyAnswers(
   answers: Record<string, unknown>,
@@ -34,6 +35,13 @@ export async function bookPlacementCall(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
+
+  // Per-user throttle (DASH-07) — a placement call is a once-ish action; cap
+  // rapid repeats to protect the booking/email path from abuse.
+  const rl = await checkUserActionLimit(user.id, 'bookPlacementCall', 5)
+  if (!rl.ok) {
+    return { error: lang === 'es' ? 'Demasiados intentos. Espera unos minutos.' : 'Too many attempts. Please wait a few minutes.' }
+  }
 
   // Date validation — placement skipped this entirely, so a direct call could
   // persist an Invalid Date or a past/far-future time. (Lenient on notice since

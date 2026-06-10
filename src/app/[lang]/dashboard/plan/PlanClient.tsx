@@ -200,7 +200,11 @@ export default function PlanClient({
     if (!plan) return null
     return {
       classesAdded: plan.classes,
-      newTotal: classesRemaining + plan.classes,
+      // Show the REAL balance the server just fetched (this success screen is a
+      // fresh server render after the ?success=1 redirect, so classesRemaining
+      // already reflects the webhook credit). The old `classesRemaining +
+      // plan.classes` DOUBLE-counted once the webhook had credited.
+      newTotal: classesRemaining,
       planName: lang === 'es' ? plan.nameEs : plan.nameEn,
     }
   })

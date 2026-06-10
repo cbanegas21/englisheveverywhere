@@ -28,7 +28,31 @@ export default async function IntakePage({ params }: Props) {
   // Persist intake_done=true so the agendar gate doesn't bounce them right back.
   if (student.survey_answers && Object.keys(student.survey_answers as object).length > 0) {
     const admin = createAdminClient()
-    await admin.from('students').update({ intake_done: true }).eq('id', student.id)
+
+    // ONBOARD-05: best-effort map the placement survey answers into the structured
+    // intake columns so the learning profile isn't left blank when intake is
+    // skipped. Placement and intake use DIFFERENT question ids/values, so only
+    // fields with a clear semantic correspondence are written — ambiguous ones
+    // (placement 'style' speaking/writing, time-of-day availability, study
+    // frequency/pace) stay null rather than storing a guess.
+    const sa = student.survey_answers as Record<string, unknown>
+    const asStr = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+    const firstOf = (v: unknown): string | undefined =>
+      Array.isArray(v) ? (typeof v[0] === 'string' ? v[0] : undefined) : asStr(v)
+
+    const LEVEL_MAP: Record<string, string> = { zero: 'just_starting', beginner: 'just_starting', elementary: 'getting_by', intermediate: 'conversational', advanced: 'advanced' }
+    const SPEAKING_MAP: Record<string, string> = { yes: 'comfortable', a_little: 'depends', not_really: 'nervous', not_at_all: 'nervous' }
+    const STYLE_MAP: Record<string, string> = { listening: 'auditory', reading: 'reading', mixed: 'mixed' }
+    const MOTIVATION_MAP: Record<string, string> = { work: 'work', travel: 'travel', studies: 'study', growth: 'personal', emigrate: 'personal', other: 'just_me' }
+
+    const patch: Record<string, unknown> = { intake_done: true }
+    const lvl = asStr(sa.level); if (lvl && LEVEL_MAP[lvl]) patch.self_rated_level = LEVEL_MAP[lvl]
+    const spk = asStr(sa.speaking); if (spk && SPEAKING_MAP[spk]) patch.speaking_comfort = SPEAKING_MAP[spk]
+    const sty = asStr(sa.style); if (sty && STYLE_MAP[sty]) patch.learning_style = STYLE_MAP[sty]
+    const mot = firstOf(sa.goals); if (mot && MOTIVATION_MAP[mot]) patch.motivation = MOTIVATION_MAP[mot]
+    const notes = asStr(sa.notes); if (notes && notes.trim()) patch.learning_goal = notes.trim().slice(0, 2000)
+
+    await admin.from('students').update(patch).eq('id', student.id)
     redirect(`/${lang}/dashboard/agendar`)
   }
 

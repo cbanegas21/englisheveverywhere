@@ -117,6 +117,48 @@ export async function checkAuthRateLimit(
   return { ok: true }
 }
 
+// Per-USER throttle for authenticated student mutations (DASH-07). Reuses the
+// auth_attempts table (no new table): rows are keyed by the user id in the
+// `email` column + a distinct `action` string, so they never collide with the
+// login lockout query (which filters action='login'). Attempt-based — each call
+// records a row and is blocked once `limit` rows exist in the window. Fails OPEN
+// on a DB error so a blip never blocks a real user.
+export async function checkUserActionLimit(
+  userId: string,
+  action: string,
+  limit: number,
+  windowMinutes = 15,
+): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
+  const h = await headers()
+  const ip = getClientIp(h)
+  const admin = createAdminClient()
+  const windowMs = windowMinutes * 60 * 1000
+  const since = new Date(Date.now() - windowMs).toISOString()
+
+  const { count, error } = await admin
+    .from('auth_attempts')
+    .select('*', { count: 'exact', head: true })
+    .eq('email', userId)
+    .eq('action', action)
+    .gte('attempted_at', since)
+  if (error) {
+    console.error('[rateLimit] user-action query failed (failing open)', error)
+    return { ok: true }
+  }
+  if ((count ?? 0) >= limit) {
+    return { ok: false, retryAfterSeconds: Math.ceil(windowMs / 1000) }
+  }
+
+  await admin
+    .from('auth_attempts')
+    .insert({ ip, action, email: userId, success: true })
+    .then(
+      () => undefined,
+      (err: unknown) => console.error('[rateLimit] user-action insert failed', err),
+    )
+  return { ok: true }
+}
+
 // Record the outcome of a login attempt — one row per attempt, with the real
 // success/failure. Called by signIn after signInWithPassword so the per-email
 // lockout counts failures (success=false) and the per-IP cap counts attempts.

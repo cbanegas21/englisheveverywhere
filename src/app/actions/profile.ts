@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { cancelBookingReminders } from '@/lib/reminders'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 import { isValidTimeZone } from '@/lib/timezone'
+import { checkUserActionLimit } from '@/lib/rateLimit'
 
 export interface NotificationPreferences {
   email?: boolean
@@ -136,6 +137,13 @@ export async function requestEmailChange(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Not authenticated' }
+
+  // Strict per-user throttle (DASH-07) — each call triggers a Supabase
+  // confirmation email; cap to protect the email quota from abuse.
+  const rl = await checkUserActionLimit(user.id, 'requestEmailChange', 3, 60)
+  if (!rl.ok) {
+    return { success: false, error: lang === 'es' ? 'Demasiados intentos. Espera un momento.' : 'Too many attempts. Please wait a moment.' }
+  }
 
   const clean = newEmail.trim().toLowerCase()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {

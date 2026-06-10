@@ -39,6 +39,7 @@ const t = {
     with: 'with',
     classWith: 'Class with',
     mins: 'min',
+    joinWindowHint: 'You can join up to 24 hours before class and stay until 90 minutes after it starts.',
     statusConfirmed: 'Confirmed',
     statusPending: 'Pending',
     statusAwaitingTeacher: 'Assigning',
@@ -112,6 +113,7 @@ const t = {
     with: 'con',
     classWith: 'Clase con',
     mins: 'min',
+    joinWindowHint: 'Puedes entrar hasta 24 horas antes de la clase y permanecer hasta 90 minutos después de que empiece.',
     statusConfirmed: 'Confirmada',
     statusPending: 'Pendiente',
     statusAwaitingTeacher: 'Asignando',
@@ -940,6 +942,11 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                 )
               })}
             </ul>
+          )}
+          {!isEmpty && activeTab === 'upcoming' && (
+            <p style={{ marginTop: 14, fontSize: 11.5, color: 'var(--ek-text-muted)', textAlign: 'center' }}>
+              {tx.joinWindowHint}
+            </p>
           )}
         </section>
       </div>
