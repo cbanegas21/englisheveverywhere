@@ -3,7 +3,6 @@
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { assignAndConfirmBooking, cancelBookingWithRefund, completeBooking, adminRescheduleBooking } from '../actions'
-import BookingAssign from './BookingAssign'
 import { isTeacherAvailableClient } from './availability'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import Drawer from '@/components/dashboard/Drawer'
@@ -36,7 +35,7 @@ interface BookingEntry {
 }
 
 interface TeacherEntry { id: string; name: string; accepting: boolean }
-interface AvailSlot { teacher_id: string; day_of_week: number; start_time: string; end_time: string }
+interface AvailSlot { teacher_id: string; day_of_week: number; start_time: string; end_time: string; is_active?: boolean }
 interface PendingEntry {
   id: string
   student_id: string
@@ -107,6 +106,10 @@ const STR = {
     rescheduleKicker: '↳ Reschedule',
     assignKicker: '↳ Assign',
     dragHint: 'Drag a class to reschedule',
+    // unassigned inbox rail
+    inboxHint: 'Drag onto the calendar to place · click to assign',
+    inboxEmpty: 'No bookings waiting on a teacher.',
+    availabilityOf: (n: string) => `Showing ${n}'s available hours`,
     // teacher filter + legend
     teachers: 'Teachers',
     allTeachers: 'All teachers',
@@ -166,15 +169,6 @@ const STR = {
     statPending: 'Pending Assignment',
     statConfirmed: 'Confirmed This Week',
     statLive: 'Live Now',
-    // pending table
-    pendingAssignments: (n: number) => `Pending Assignments (${n})`,
-    pendingKicker: '↳ Needs a teacher',
-    thStudent: 'Student',
-    thScheduled: 'Scheduled',
-    thType: 'Type',
-    thDuration: 'Duration',
-    thAssign: 'Assign Teacher',
-    noPending: 'No pending assignments. All caught up.',
     minShort: (m: number) => `${m} min`,
     minTight: (m: number) => `${m}min`,
     status: { pending: 'Pending', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' } as Record<string, string>,
@@ -194,6 +188,9 @@ const STR = {
     rescheduleKicker: '↳ Reprogramar',
     assignKicker: '↳ Asignar',
     dragHint: 'Arrastra una clase para reprogramar',
+    inboxHint: 'Arrastra al calendario para ubicar · clic para asignar',
+    inboxEmpty: 'No hay reservas esperando maestro.',
+    availabilityOf: (n: string) => `Mostrando las horas disponibles de ${n}`,
     teachers: 'Maestros',
     allTeachers: 'Todos los maestros',
     legend: 'Estado',
@@ -247,14 +244,6 @@ const STR = {
     statPending: 'Pendientes de asignar',
     statConfirmed: 'Confirmadas esta semana',
     statLive: 'En vivo ahora',
-    pendingAssignments: (n: number) => `Asignaciones pendientes (${n})`,
-    pendingKicker: '↳ Necesita maestro',
-    thStudent: 'Estudiante',
-    thScheduled: 'Programada',
-    thType: 'Tipo',
-    thDuration: 'Duración',
-    thAssign: 'Asignar maestro',
-    noPending: 'No hay asignaciones pendientes. ¡Todo al día!',
     minShort: (m: number) => `${m} min`,
     minTight: (m: number) => `${m}min`,
     status: { pending: 'Pendiente', confirmed: 'Confirmada', completed: 'Completada', cancelled: 'Cancelada' } as Record<string, string>,
@@ -448,6 +437,82 @@ export default function BookingCalendarClient({
   const hours = useMemo(() => Array.from({ length: endHour - startHour }, (_, i) => startHour + i), [startHour, endHour])
   const calHeight = (endHour - startHour) * ROW_HEIGHT
 
+  // ── Availability overlay (shade ONE teacher's stated hours behind the grid) ────
+  // Only when exactly one teacher is selected in the filter — overlapping shades
+  // for several teachers would be noise. availability_slots store Honduras
+  // wall-clock + day_of_week 0=Sun; we materialize each slot occurrence to an
+  // absolute UTC interval, then intersect it with each admin-zoned day column so
+  // the band lands in the viewer's timezone (DST-safe), not Honduras's.
+  const soloTeacher = useMemo<TeacherEntry | null>(
+    () => (selectedTeachers.size === 1 ? teachers.find(t => selectedTeachers.has(t.id)) ?? null : null),
+    [selectedTeachers, teachers],
+  )
+  type Band = { dayIdx: number; topPx: number; heightPx: number }
+  const availBands = useMemo<Band[]>(() => {
+    if (!soloTeacher) return []
+    const slots = availSlots.filter(s => s.teacher_id === soloTeacher.id && s.is_active !== false)
+    if (!slots.length) return []
+    const HN = 'America/Tegucigalpa'
+    // Absolute bounds of the visible week in the admin's zone (± a day of slack
+    // so a slot whose HN day differs from the admin day still gets considered).
+    const sun = addDays(weekDays[6], 1)
+    const winStart = zonedWallTimeToUtc(weekDays[0].year, weekDays[0].month, weekDays[0].day, 0, 0, timezone).getTime()
+    const winEnd = zonedWallTimeToUtc(sun.year, sun.month, sun.day, 0, 0, timezone).getTime()
+    // Enumerate the HN calendar dates spanning that window.
+    const hnDates: ZDay[] = []
+    const sp = getZonedParts(new Date(winStart - 86_400_000), HN)
+    const ep = getZonedParts(new Date(winEnd + 86_400_000), HN)
+    let cur: ZDay = { year: sp.year, month: sp.month, day: sp.day }
+    const endZ: ZDay = { year: ep.year, month: ep.month, day: ep.day }
+    for (let i = 0; i < 14; i++) {
+      hnDates.push(cur)
+      if (sameDay(cur, endZ)) break
+      cur = addDays(cur, 1)
+    }
+    // Materialize each (HN date × matching slot) to an absolute UTC interval.
+    const intervals: { start: number; end: number }[] = []
+    for (const hd of hnDates) {
+      const dow = weekdayOf(hd) // 0=Sun — matches availability_slots.day_of_week
+      for (const s of slots) {
+        if (s.day_of_week !== dow) continue
+        const [sh, sm] = s.start_time.split(':').map(Number)
+        const [eh, em] = s.end_time.split(':').map(Number)
+        const st = zonedWallTimeToUtc(hd.year, hd.month, hd.day, sh, sm || 0, HN).getTime()
+        const en = zonedWallTimeToUtc(hd.year, hd.month, hd.day, eh, em || 0, HN).getTime()
+        if (en > st) intervals.push({ start: st, end: en })
+      }
+    }
+    // Intersect each interval with each admin-day column, clip to the visible hours.
+    const bands: Band[] = []
+    weekDays.forEach((zday, dayIdx) => {
+      const next = addDays(zday, 1)
+      const colStart = zonedWallTimeToUtc(zday.year, zday.month, zday.day, 0, 0, timezone).getTime()
+      const colEnd = zonedWallTimeToUtc(next.year, next.month, next.day, 0, 0, timezone).getTime()
+      for (const iv of intervals) {
+        const s = Math.max(colStart, iv.start)
+        const e = Math.min(colEnd, iv.end)
+        if (s >= e) continue
+        const ps = getZonedParts(new Date(s), timezone)
+        let topHr = ps.hour + ps.minute / 60
+        let botHr: number
+        if (e >= colEnd) botHr = 24
+        else {
+          const pe = getZonedParts(new Date(e), timezone)
+          botHr = pe.hour + pe.minute / 60
+          if (botHr === 0) botHr = 24 // exact midnight reads as next-day 00:00
+        }
+        topHr = Math.max(topHr, startHour)
+        botHr = Math.min(botHr, endHour)
+        if (botHr <= topHr) continue
+        bands.push({ dayIdx, topPx: (topHr - startHour) * ROW_HEIGHT, heightPx: (botHr - topHr) * ROW_HEIGHT })
+      }
+    })
+    return bands
+  }, [soloTeacher, availSlots, weekDays, timezone, startHour, endHour])
+  // Fallback matches --ek-border-mid (warm muted) — a hex literal so the '22'
+  // alpha suffix stays valid CSS (you can't append alpha to a var()).
+  const availTint = soloTeacher ? `${teacherTint.get(soloTeacher.id) ?? '#D4CDB8'}22` : 'transparent'
+
   // Auto-scroll the grid to the business start when the week / hour range changes.
   useEffect(() => {
     if (gridRef.current) gridRef.current.scrollTop = Math.max(0, (BUSINESS_START - startHour)) * ROW_HEIGHT
@@ -571,6 +636,32 @@ export default function BookingCalendarClient({
     attemptReschedule(id, newUtc.toISOString())
   }
 
+  // ── Unassigned inbox rail ─────────────────────────────────────────────────────
+  // Cards reuse the grid's drag machinery: a drag-start arms draggingIdRef, then
+  // the day columns' existing dragover/drop reschedule the booking into the slot.
+  // grabPx=0 so the drop lands at the cursor (the card has no on-grid origin).
+  function onInboxDragStart(e: React.DragEvent, pb: PendingEntry) {
+    dragGrabPx.current = 0
+    draggingIdRef.current = pb.id
+    setDraggingId(pb.id)
+    e.dataTransfer.effectAllowed = 'move'
+    try { e.dataTransfer.setData('text/plain', pb.id) } catch { /* some engines require setData to start a drag */ }
+  }
+  // Open the detail Drawer (where assignment lives) for an inbox card. Prefer the
+  // richer in-week entry if it's already loaded; otherwise synthesize a minimal
+  // pending entry — the missing fields are all assignment-irrelevant for a
+  // teacherless booking and their Drawer rows hide when null.
+  function openInbox(pb: PendingEntry) {
+    const full = bookings.find(x => x.id === pb.id)
+    setSelectedBooking(full ?? {
+      id: pb.id, student_id: pb.student_id, teacher_id: null, conductor_profile_id: null,
+      scheduled_at: pb.scheduled_at, duration_minutes: pb.duration_minutes, status: 'pending',
+      type: pb.type, meeting_notes: null, video_room_url: null,
+      student_name: pb.student_name, student_email: null, student_level: null,
+      teacher_name: null, conductor_name: null, ai_summary: null, student_rating: null,
+    })
+  }
+
   function handleAssignFromDrawer() {
     if (!selectedBooking || !detailAssignTeacher) return
     assignWithAvailabilityGuard(selectedBooking.id, detailAssignTeacher, () => {
@@ -674,6 +765,12 @@ export default function BookingCalendarClient({
                 background: isToday ? 'var(--ek-red-tint)' : 'transparent',
               }}
             >
+              {/* Availability shade (one selected teacher) — painted first so it
+                  sits behind the gridlines + event blocks */}
+              {availBands.filter(bd => bd.dayIdx === dayIdx).map((bd, i) => (
+                <div key={`av${i}`} style={{ position: 'absolute', left: 0, right: 0, top: bd.topPx, height: bd.heightPx, background: availTint, pointerEvents: 'none' }} />
+              ))}
+
               {/* Hour gridlines */}
               {hours.map(h => (
                 <div key={h} style={{ position: 'absolute', top: (h - startHour) * ROW_HEIGHT, left: 0, right: 0, height: 1, background: 'var(--ek-border-soft)' }} />
@@ -990,54 +1087,17 @@ export default function BookingCalendarClient({
         ]} />
       </div>
 
-      {/* Pending assignments — admin's first job, surfaced at top */}
-      <section style={{ marginBottom: 28 }}>
-        <div style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ek-red)', marginBottom: 8 }}>
-          {tx.pendingKicker}
-        </div>
-        <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--ek-text)', margin: '0 0 14px' }}>
-          {tx.pendingAssignments(pendingBookings.length)}
-        </h2>
-        <div style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {[tx.thStudent, tx.thScheduled, tx.thType, tx.thDuration, tx.thAssign].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '11px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', borderBottom: '1px solid var(--ek-border)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {pendingBookings.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--ek-text-muted)', fontSize: 14, fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic' }}>{tx.noPending}</td>
-                </tr>
-              ) : pendingBookings.map(pb => (
-                <tr key={pb.id} style={{ borderBottom: '1px solid var(--ek-border-soft)' }}>
-                  <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--ek-text)' }}>{pb.student_name || '—'}</td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--ek-text-soft)', fontFeatureSettings: '"tnum"' }}>
-                    {new Date(pb.scheduled_at).toLocaleString(DLOC, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: timezone })}
-                  </td>
-                  <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--ek-text-muted)' }}>{typeLabel(pb.type)}</td>
-                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--ek-text-soft)' }}>{pb.duration_minutes ? tx.minShort(pb.duration_minutes) : '—'}</td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <BookingAssign bookingId={pb.id} currentTeacherId={null} teachers={teachers} scheduledAt={pb.scheduled_at} durationMinutes={pb.duration_minutes} availSlots={availSlots} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
-      </section>
-
-      {/* Responsive: stack filter under the calendar on narrow screens; let the
-          week grid scroll horizontally instead of crushing 7 columns. */}
+      {/* Responsive: on narrow screens stack the three columns (calendar first,
+          then the unassigned rail, then the teacher filter) and let the week grid
+          scroll horizontally instead of crushing 7 columns. */}
       <style>{`
-        @media (max-width: 860px) {
-          .ad03-main { flex-direction: column-reverse; }
-          .ad03-filter { width: 100% !important; }
+        @media (max-width: 980px) {
+          .ad03-main { flex-direction: column; }
+          .ad03-filter, .ad03-inbox { width: 100% !important; }
+          .ad03-calendar { order: 1; }
+          .ad03-inbox { order: 2; }
+          .ad03-filter { order: 3; }
+          .ad03-inbox-list { max-height: 320px !important; }
         }
         @media (max-width: 1100px) { .ad03-draghint { display: none; } }
       `}</style>
@@ -1061,6 +1121,13 @@ export default function BookingCalendarClient({
             </label>
           ))}
 
+          {soloTeacher && view !== 'month' && (
+            <div style={{ marginTop: 11, display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 10.5, lineHeight: 1.4, color: 'var(--ek-text-muted)' }}>
+              <span style={{ width: 11, height: 11, borderRadius: 2, background: availTint, border: `1px solid ${teacherTint.get(soloTeacher.id) ?? 'var(--ek-border-mid)'}`, flexShrink: 0, marginTop: 1 }} />
+              <span>{tx.availabilityOf(soloTeacher.name.split(' ')[0])}</span>
+            </div>
+          )}
+
           <div style={{ marginTop: 20, borderTop: '1px solid var(--ek-border)', paddingTop: 16 }}>
             <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 10 }}>{tx.legend}</div>
             {[
@@ -1078,7 +1145,7 @@ export default function BookingCalendarClient({
         </div>
 
         {/* Calendar surface */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="ad03-calendar" style={{ flex: 1, minWidth: 0 }}>
           <div style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)', overflow: 'hidden' }}>
             {/* Nav row */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--ek-border)', gap: 12, flexWrap: 'wrap' }}>
@@ -1109,6 +1176,53 @@ export default function BookingCalendarClient({
             )}
           </div>
         </div>
+
+        {/* Unassigned inbox rail — persistent queue of teacherless pending
+            bookings. Drag a card onto the grid to place it in a slot; click to
+            open the Drawer and assign a teacher. Replaces the old kanban + the
+            top pending-assignments table. */}
+        <section className="ad03-inbox" aria-labelledby="ek-inbox-title" aria-describedby="ek-inbox-hint" style={{ width: 238, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+            <h2 id="ek-inbox-title" className="ek-microlabel" style={{ margin: 0, color: 'var(--ek-red)' }}>{tx.unassigned}</h2>
+            <span style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--ek-text-muted)', fontFeatureSettings: '"tnum"' }}>{pendingBookings.length}</span>
+          </div>
+          <p id="ek-inbox-hint" style={{ margin: '0 0 10px', fontSize: 10.5, lineHeight: 1.45, color: 'var(--ek-text-faint)' }}>{tx.inboxHint}</p>
+          <div className="ad03-inbox-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 560, overflowY: 'auto', paddingRight: 2 }}>
+            {pendingBookings.length === 0 ? (
+              <div style={{ padding: '20px 14px', textAlign: 'center', fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--ek-text-muted)', border: '1px dashed var(--ek-border-mid)', borderRadius: 'var(--ek-radius-md)' }}>
+                {tx.inboxEmpty}
+              </div>
+            ) : pendingBookings.map(pb => (
+              <button
+                key={pb.id}
+                data-ek-inbox={pb.id}
+                draggable
+                onDragStart={(e) => onInboxDragStart(e, pb)}
+                onDragEnd={endDrag}
+                onClick={() => openInbox(pb)}
+                style={{
+                  position: 'relative', textAlign: 'left', cursor: 'grab',
+                  background: 'var(--ek-card)', border: '1px dashed var(--ek-red-tint-3)',
+                  borderRadius: 'var(--ek-radius-md)', padding: '9px 11px 9px 13px',
+                  fontFamily: 'var(--ek-font-sans)', opacity: draggingId === pb.id ? 0.4 : 1,
+                  display: 'flex', flexDirection: 'column', gap: 3,
+                }}
+              >
+                <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--ek-red)', borderRadius: '3px 0 0 3px' }} />
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ek-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {pb.student_name || tx.studentFallback}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--ek-text-soft)', fontFeatureSettings: '"tnum"', textTransform: 'capitalize' }}>
+                  {new Date(pb.scheduled_at).toLocaleString(DLOC, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: timezone })}
+                </span>
+                <span style={{ display: 'flex', gap: 5, fontSize: 10, color: 'var(--ek-text-muted)' }}>
+                  <span>{typeLabel(pb.type)}</span>
+                  {pb.duration_minutes ? <span style={{ fontFeatureSettings: '"tnum"' }}>· {tx.minTight(pb.duration_minutes)}</span> : null}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
 
       {/* Booking detail drawer */}

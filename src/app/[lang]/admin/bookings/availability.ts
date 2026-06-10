@@ -11,6 +11,7 @@ export interface AvailabilitySlot {
   day_of_week: number
   start_time: string // "HH:MM" or "HH:MM:SS"
   end_time: string
+  is_active?: boolean
 }
 
 const DAYS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as const
@@ -39,6 +40,9 @@ export function isTeacherAvailableClient(
 
   return slots.some(s => {
     if (s.teacher_id !== teacherId) return false
+    // Inactive slots don't count — mirrors the server's isTeacherAvailable
+    // (.eq('is_active', true)) and the calendar's availability overlay.
+    if (s.is_active === false) return false
     if (s.day_of_week !== dow) return false
     const [sh, sm] = s.start_time.split(':').map(Number)
     const [eh, em] = s.end_time.split(':').map(Number)

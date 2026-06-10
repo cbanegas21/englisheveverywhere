@@ -118,7 +118,7 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
 
     admin
       .from('availability_slots')
-      .select('teacher_id, day_of_week, start_time, end_time'),
+      .select('teacher_id, day_of_week, start_time, end_time, is_active'),
 
     admin
       .from('sessions')
