@@ -183,6 +183,17 @@ create table public.sessions (
   primary key (id)
 );
 
+create table public.student_purchases (
+  id uuid not null default gen_random_uuid(),
+  student_id uuid not null,
+  plan_key text not null,
+  amount_usd numeric(10,2) not null,
+  classes_added integer not null,
+  stripe_session_id text,
+  created_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
 create table public.students (
   id uuid not null default uuid_generate_v4(),
   profile_id uuid not null,
@@ -259,6 +270,7 @@ alter table public.reschedule_requests add constraint reschedule_requests_bookin
 alter table public.reschedule_requests add constraint reschedule_requests_requested_by_fkey foreign key (requested_by) references public.profiles (id) on delete cascade;
 alter table public.reschedule_requests add constraint reschedule_requests_reviewed_by_fkey foreign key (reviewed_by) references public.profiles (id) on delete set null;
 alter table public.sessions add constraint sessions_booking_id_fkey foreign key (booking_id) references public.bookings (id) on delete cascade;
+alter table public.student_purchases add constraint student_purchases_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
 alter table public.students add constraint students_primary_teacher_id_fkey foreign key (primary_teacher_id) references public.teachers (id);
 alter table public.students add constraint students_profile_id_fkey foreign key (profile_id) references public.profiles (id) on delete cascade;
 alter table public.subscriptions add constraint subscriptions_plan_id_fkey foreign key (plan_id) references public.plans (id);
@@ -299,6 +311,7 @@ alter table public.subscriptions add constraint subscriptions_status_check CHECK
 
 alter table public.assignment_submissions add constraint assignment_submissions_assignment_id_key UNIQUE (assignment_id);
 alter table public.payments add constraint payments_stripe_payment_intent_id_key UNIQUE (stripe_payment_intent_id);
+alter table public.student_purchases add constraint student_purchases_stripe_session_id_key UNIQUE (stripe_session_id);
 alter table public.students add constraint students_profile_id_key UNIQUE (profile_id);
 alter table public.subscriptions add constraint subscriptions_stripe_subscription_id_key UNIQUE (stripe_subscription_id);
 alter table public.teachers add constraint teachers_profile_id_key UNIQUE (profile_id);
@@ -329,6 +342,7 @@ CREATE INDEX profiles_deleted_at_idx ON public.profiles USING btree (deleted_at)
 CREATE INDEX reschedule_requests_booking_idx ON public.reschedule_requests USING btree (booking_id);
 CREATE UNIQUE INDEX reschedule_requests_one_pending_per_booking ON public.reschedule_requests USING btree (booking_id) WHERE (status = 'pending'::text);
 CREATE INDEX reschedule_requests_status_idx ON public.reschedule_requests USING btree (status);
+CREATE INDEX student_purchases_student_id_idx ON public.student_purchases USING btree (student_id, created_at DESC);
 
 -- ============================================================
 -- Row-Level Security
@@ -346,6 +360,7 @@ alter table public.processed_stripe_events enable row level security;
 alter table public.profiles enable row level security;
 alter table public.reschedule_requests enable row level security;
 alter table public.sessions enable row level security;
+alter table public.student_purchases enable row level security;
 alter table public.students enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.teachers enable row level security;
@@ -452,6 +467,7 @@ create policy "Teachers can update sessions" on public.sessions for update using
    FROM (bookings b
      JOIN teachers t ON ((t.id = b.teacher_id)))
   WHERE ((b.id = sessions.booking_id) AND (t.profile_id = auth.uid())))));
+create policy "Students read own purchases" on public.student_purchases for select to authenticated using ((student_id = auth_student_id()));
 create policy "Students can insert own record" on public.students for insert to authenticated with check ((auth.uid() = profile_id));
 create policy "Students can update own record" on public.students for update using ((auth.uid() = profile_id));
 create policy "Students can view own record" on public.students for select using ((auth.uid() = profile_id));

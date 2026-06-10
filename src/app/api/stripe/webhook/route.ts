@@ -158,6 +158,28 @@ export async function POST(req: NextRequest) {
         })
         if (creditErr) {
           processingError = `checkout credit grant failed: ${creditErr.message}`
+        } else {
+          // Record the purchase for the student's billing history / receipts.
+          // Idempotent via unique(stripe_session_id) so a Stripe retry can't
+          // duplicate the receipt. DELIBERATELY non-blocking: the credit already
+          // landed, so we do NOT set processingError here — doing so would release
+          // the idempotency ledger and make Stripe retry, DOUBLE-crediting the
+          // already-granted classes. A failed receipt insert only loses the
+          // history row (logged below), never the classes.
+          const sessionId = (session.object.id as string | undefined) || null
+          // expectedCents is integer USD cents pinned from pricing.ts and already
+          // verified === amount_total; /100 is exact for the whole-dollar plan
+          // prices, and numeric(10,2) rounds to 2dp on insert regardless.
+          const { error: purchaseErr } = await supabase.from('student_purchases').insert({
+            student_id: student.id,
+            plan_key: planKey,
+            amount_usd: expectedCents / 100,
+            classes_added: classes,
+            stripe_session_id: sessionId,
+          })
+          if (purchaseErr && purchaseErr.code !== '23505') {
+            console.error('[stripe webhook] purchase record insert failed:', purchaseErr.message)
+          }
         }
       }
       break

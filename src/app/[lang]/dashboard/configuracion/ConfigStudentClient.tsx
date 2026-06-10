@@ -18,6 +18,15 @@ import {
 } from '@/app/actions/profile'
 import TimezoneSelect from '@/components/TimezoneSelect'
 import NotificationPreferences from '@/components/NotificationPreferences'
+import { planName } from '@/lib/pricing'
+
+export interface PurchaseRow {
+  id: string
+  planKey: string
+  amountUsd: number
+  classesAdded: number
+  createdAt: string
+}
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import Modal from '@/components/dashboard/Modal'
 
@@ -82,6 +91,13 @@ const t = {
     billingSub: 'Manage your plan, invoices and top-ups.',
     goToPlan: 'Go to My Plan',
     billingNote: 'All billing actions live on your plan page.',
+    billingHistory: 'Purchase history',
+    billingEmpty: 'No purchases yet. Your receipts will appear here after you buy a class pack.',
+    colDate: 'Date',
+    colPlan: 'Plan',
+    colAmount: 'Amount',
+    colClasses: 'Classes',
+    viewReceipt: 'Receipt',
 
     // Danger
     dangerHeader: 'Danger Zone',
@@ -156,6 +172,13 @@ const t = {
     billingSub: 'Administra tu plan, facturas y recargas.',
     goToPlan: 'Ir a Mi Plan',
     billingNote: 'Todas las acciones de facturación están en tu plan.',
+    billingHistory: 'Historial de compras',
+    billingEmpty: 'Aún no tienes compras. Tus recibos aparecerán aquí después de comprar un paquete de clases.',
+    colDate: 'Fecha',
+    colPlan: 'Plan',
+    colAmount: 'Monto',
+    colClasses: 'Clases',
+    viewReceipt: 'Recibo',
 
     dangerHeader: 'Zona de peligro',
     dangerSub: 'Estas acciones son permanentes. Procede con cuidado.',
@@ -188,6 +211,7 @@ interface Props {
   preferredLanguage: 'es' | 'en'
   preferredCurrency: string
   notificationPreferences: Prefs
+  purchases: PurchaseRow[]
 }
 
 export default function ConfigStudentClient({
@@ -199,6 +223,7 @@ export default function ConfigStudentClient({
   avatarUrl,
   preferredLanguage,
   notificationPreferences,
+  purchases,
 }: Props) {
   const tx = t[lang]
   const router = useRouter()
@@ -474,7 +499,7 @@ export default function ConfigStudentClient({
                 }}
               />
             )}
-            {tab === 'billing' && <BillingPanel lang={lang} tx={tx} />}
+            {tab === 'billing' && <BillingPanel lang={lang} tx={tx} purchases={purchases} />}
           </section>
         </div>
       </div>
@@ -792,20 +817,74 @@ function AccountPanel({
 // Billing panel (links to /plan)
 // ═══════════════════════════════════════════════════════════════════
 
-function BillingPanel({ lang, tx }: { lang: Locale; tx: typeof t['en'] }) {
+function BillingPanel({ lang, tx, purchases }: { lang: Locale; tx: typeof t['en']; purchases: PurchaseRow[] }) {
+  const loc = lang === 'es' ? 'es-HN' : 'en-US'
+  const fmtUsd = (n: number) =>
+    new Intl.NumberFormat(loc, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(loc, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'America/Tegucigalpa' })
+
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)' }}>
       <PanelHeader kicker={tx.tabBilling} title={tx.billingHeader} subtitle={tx.billingSub} />
 
-      <div className="px-6 py-8 flex flex-col items-start gap-4">
-        <p className="text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{tx.billingNote}</p>
-        <Link
-          href={`/${lang}/dashboard/plan`}
-          className="lk-cfg-btn-red"
-        >
-          {tx.goToPlan}
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+      <div className="px-6 py-6">
+        <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ fontFamily: 'var(--ek-font-mono)', letterSpacing: '0.1em', color: 'var(--ek-text-muted)' }}>
+          {tx.billingHistory}
+        </p>
+
+        {purchases.length === 0 ? (
+          <p className="text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{tx.billingEmpty}</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {[tx.colDate, tx.colPlan, tx.colAmount, tx.colClasses, ''].map((h, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        textAlign: i === 2 || i === 3 ? 'right' : 'left',
+                        padding: '0 0 10px',
+                        fontFamily: 'var(--ek-font-mono)',
+                        fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em',
+                        textTransform: 'uppercase', color: 'var(--ek-text-muted)',
+                        borderBottom: '1px solid var(--ek-border)',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {purchases.map((p) => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--ek-border-soft)' }}>
+                    <td style={{ padding: '12px 0', fontSize: 13, color: 'var(--ek-text)' }}>{fmtDate(p.createdAt)}</td>
+                    <td style={{ padding: '12px 8px 12px 0', fontSize: 13, fontWeight: 600, color: 'var(--ek-text)' }}>{planName(p.planKey, lang)}</td>
+                    <td style={{ padding: '12px 0', fontSize: 13, textAlign: 'right', color: 'var(--ek-text)', fontFamily: 'var(--ek-font-mono)' }}>{fmtUsd(p.amountUsd)}</td>
+                    <td style={{ padding: '12px 0', fontSize: 13, textAlign: 'right', color: 'var(--ek-text-soft)' }}>{p.classesAdded}</td>
+                    <td style={{ padding: '12px 0 12px 16px', textAlign: 'right' }}>
+                      <Link
+                        href={`/${lang}/dashboard/recibo/${p.id}`}
+                        style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ek-red)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                      >
+                        {tx.viewReceipt} →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ marginTop: 22 }}>
+          <Link href={`/${lang}/dashboard/plan`} className="lk-cfg-btn-red">
+            {tx.goToPlan}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     </div>
   )

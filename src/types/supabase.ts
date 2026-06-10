@@ -579,6 +579,44 @@ export type Database = {
           },
         ]
       }
+      student_purchases: {
+        Row: {
+          amount_usd: number
+          classes_added: number
+          created_at: string
+          id: string
+          plan_key: string
+          stripe_session_id: string | null
+          student_id: string
+        }
+        Insert: {
+          amount_usd: number
+          classes_added: number
+          created_at?: string
+          id?: string
+          plan_key: string
+          stripe_session_id?: string | null
+          student_id: string
+        }
+        Update: {
+          amount_usd?: number
+          classes_added?: number
+          created_at?: string
+          id?: string
+          plan_key?: string
+          stripe_session_id?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_purchases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           admin_notes: string | null
