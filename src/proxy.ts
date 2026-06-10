@@ -3,6 +3,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { locales, defaultLocale } from '@/lib/i18n/translations'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 
+// Inactivity session timeout (LIVE-004): no indefinite "stay logged in". An
+// authenticated session is auto-ended after this much inactivity. `ee-seen` is
+// re-armed on every navigation, so active users are never interrupted — only an
+// idle session past the window is signed out. Tune the hours here.
+const SEEN_COOKIE = 'ee-seen'
+const SESSION_IDLE_MS = 3 * 60 * 60 * 1000 // 3 hours
+
 function getLocale(request: NextRequest): string {
   // Respect persisted locale cookie (set when user toggles language).
   // Do NOT fall back to Accept-Language — this app is Spanish-first for Latin America.
@@ -62,13 +69,37 @@ export async function proxy(request: NextRequest) {
   )
   // Do NOT run code between createServerClient and getUser() — @supabase/ssr
   // relies on this call to rotate the refresh token and emit fresh cookies.
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   // Copy the refreshed auth cookies onto any response we return early so a
   // short-circuit redirect can't strip a just-refreshed session.
   const withAuth = (target: NextResponse) => {
     response.cookies.getAll().forEach((cookie) => target.cookies.set(cookie))
     return target
+  }
+
+  // ── Inactivity session timeout (LIVE-004) ────────────────────────────────────
+  // For a logged-in user: if the last seen request is older than the window,
+  // sign them out (clear Supabase + role + marker cookies) and bounce to login.
+  // Otherwise re-arm the marker so continued activity keeps the session alive.
+  if (user) {
+    const lastSeen = Number(request.cookies.get(SEEN_COOKIE)?.value)
+    const now = Date.now()
+    if (Number.isFinite(lastSeen) && now - lastSeen > SESSION_IDLE_MS) {
+      request.nextUrl.pathname = `/${getLocale(request)}/login`
+      request.nextUrl.search = 'timeout=1'
+      const out = NextResponse.redirect(request.nextUrl)
+      for (const c of request.cookies.getAll()) {
+        if (c.name.startsWith('sb-') || c.name === ROLE_COOKIE || c.name === SEEN_COOKIE) {
+          out.cookies.set(c.name, '', { path: '/', maxAge: 0 })
+        }
+      }
+      return out
+    }
+    response.cookies.set(SEEN_COOKIE, String(now), {
+      httpOnly: true, sameSite: 'lax', secure: true, path: '/',
+      maxAge: Math.floor(SESSION_IDLE_MS / 1000),
+    })
   }
 
   // ── Locale prefix ─────────────────────────────────────────────────────────

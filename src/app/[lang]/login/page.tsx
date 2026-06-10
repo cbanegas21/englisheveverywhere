@@ -218,11 +218,6 @@ function LoginForm({ lang }: { lang: Locale }) {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded" style={{ accentColor: 'var(--ek-red)' }} />
-                <span className="text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{tx.keepLogged}</span>
-              </label>
-
               <button
                 type="submit"
                 disabled={isPending}
