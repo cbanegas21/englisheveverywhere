@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { pushOverlay, popOverlay, isTopOverlay } from './overlayStack'
 
 /**
  * One shared, centered, editorial modal for the whole dashboard.
@@ -37,13 +38,16 @@ export default function Modal({
 
   useEffect(() => {
     if (!open) return
+    const id = pushOverlay()
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // Only the top-most overlay reacts, so Esc dismisses one dialog at a time.
+      if (e.key === 'Escape' && isTopOverlay(id)) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => {
+      popOverlay(id)
       document.body.style.overflow = prev
       window.removeEventListener('keydown', onKey)
     }
@@ -67,7 +71,9 @@ export default function Modal({
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 100,
+            // Above Drawer (zIndex 100) so a Modal opened over a Drawer (e.g. the
+            // AD-03 conflict dialog over the booking detail) sits reliably on top.
+            zIndex: 110,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

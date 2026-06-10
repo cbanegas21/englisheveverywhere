@@ -2,14 +2,15 @@
 
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { assignAndConfirmBooking, cancelBookingWithRefund, completeBooking } from '../actions'
+import { assignAndConfirmBooking, cancelBookingWithRefund, completeBooking, adminRescheduleBooking } from '../actions'
 import BookingAssign from './BookingAssign'
 import { isTeacherAvailableClient } from './availability'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import Drawer from '@/components/dashboard/Drawer'
+import Modal from '@/components/dashboard/Modal'
 import { StatLedger } from '@/components/ui/StatLedger'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { getZonedParts } from '@/lib/timezone'
+import { getZonedParts, zonedWallTimeToUtc } from '@/lib/timezone'
 import type { Locale } from '@/lib/i18n/translations'
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -80,10 +81,17 @@ const STR = {
     // toasts / prompts
     assigned: 'Assigned and confirmed',
     assignFailed: 'Assignment failed',
-    assignAnyway: 'Assign anyway?',
     markedComplete: 'Booking marked complete',
     error: 'Error',
     cancelledRefunded: 'Booking cancelled — class credit refunded',
+    moved: 'Booking moved',
+    conflictTitle: 'Heads up',
+    continueAnyway: 'Continue anyway',
+    cancel: 'Cancel',
+    ok: 'OK',
+    rescheduleKicker: '↳ Reschedule',
+    assignKicker: '↳ Assign',
+    dragHint: 'Drag a class to reschedule',
     // teacher filter + legend
     teachers: 'Teachers',
     allTeachers: 'All teachers',
@@ -127,6 +135,8 @@ const STR = {
     confirmCancelBtn: 'Confirm cancel',
     no: 'Keep',
     cancelBooking: 'Cancel booking',
+    reschedule: 'Reschedule',
+    save: 'Save',
     // page header
     kicker: '↳ Admin · Operations',
     bookings: 'Bookings',
@@ -156,10 +166,17 @@ const STR = {
   es: {
     assigned: 'Asignado y confirmado',
     assignFailed: 'Falló la asignación',
-    assignAnyway: '¿Asignar de todos modos?',
     markedComplete: 'Sesión marcada como completada',
     error: 'Error',
     cancelledRefunded: 'Sesión cancelada — crédito de clase reembolsado',
+    moved: 'Reserva movida',
+    conflictTitle: 'Atención',
+    continueAnyway: 'Continuar de todos modos',
+    cancel: 'Cancelar',
+    ok: 'Entendido',
+    rescheduleKicker: '↳ Reprogramar',
+    assignKicker: '↳ Asignar',
+    dragHint: 'Arrastra una clase para reprogramar',
     teachers: 'Maestros',
     allTeachers: 'Todos los maestros',
     legend: 'Estado',
@@ -199,6 +216,8 @@ const STR = {
     confirmCancelBtn: 'Confirmar cancelación',
     no: 'Conservar',
     cancelBooking: 'Cancelar reserva',
+    reschedule: 'Reprogramar',
+    save: 'Guardar',
     kicker: '↳ Admin · Operaciones',
     bookings: 'Reservas',
     thisWeek: 'esta semana',
@@ -247,6 +266,7 @@ function parseZDay(ymd: string): ZDay {
   const [y, m, d] = ymd.split('-').map(Number)
   return { year: y, month: (m || 1) - 1, day: d || 1 }
 }
+const pad2 = (n: number) => String(n).padStart(2, '0')
 // Format a zoned calendar day itself: build as UTC noon + read back in UTC so the
 // rendered weekday/month/day equals the ZDay exactly (no second tz shift).
 function formatZDay(day: ZDay, locale: string, opts: Intl.DateTimeFormatOptions): string {
@@ -277,7 +297,17 @@ export default function BookingCalendarClient({
   const [detailAssignTeacher, setDetailAssignTeacher] = useState('')
   const [showAiSummary, setShowAiSummary] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [conflict, setConflict] = useState<{ kicker: string; message: string; force?: () => void } | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropHint, setDropHint] = useState<{ dayIdx: number; topPx: number; label: string } | null>(null)
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
+  const [rDate, setRDate] = useState('')
+  const [rTime, setRTime] = useState('')
   const gridRef = useRef<HTMLDivElement>(null)
+  const dragGrabPx = useRef(0)
+  // Source of truth for the in-flight drag — a ref so dragover/drop read it
+  // synchronously (not gated on a React re-render landing after dragstart).
+  const draggingIdRef = useRef<string | null>(null)
 
   // Refresh "now" every minute so the live/expired state + countdown stay current.
   useEffect(() => {
@@ -391,28 +421,91 @@ export default function BookingCalendarClient({
   }
   const edgeColor = (b: BookingEntry): string => (b.teacher_id ? teacherTint.get(b.teacher_id) ?? 'var(--ek-border-mid)' : 'var(--ek-red)')
 
-  // ── Assignment (preserves the availability force-override flow) ───────────────
+  // ── Conflict surfacing (shared by assign + reschedule) ───────────────────────
+  // Server guard messages stay English by design (admin-facing) and are matched
+  // here to decide whether the failure is force-overridable (off-hours availability
+  // / primary-teacher continuity) → offer "Continue anyway"; hard invariants get OK.
+  function showConflict(kicker: string, message: string, retry: () => void) {
+    const lower = message.toLowerCase()
+    const forceable = lower.includes('not available') || lower.includes('primary teacher')
+    setConflict({ kicker, message, force: forceable ? retry : undefined })
+  }
+
   function assignWithAvailabilityGuard(bookingId: string, teacherId: string, onSuccess: () => void, force = false) {
     startTransition(async () => {
       try {
         await assignAndConfirmBooking(bookingId, teacherId, { force })
+        setConflict(null)
         showToast(tx.assigned)
         onSuccess()
       } catch (e) {
         const msg = e instanceof Error ? e.message : tx.assignFailed
-        const lower = msg.toLowerCase()
-        const overridable = lower.includes('not available') || lower.includes('primary teacher')
-        if (overridable && !force) {
-          // Interim: a native confirm for the rare off-hours/continuity override.
-          // Phase 2 replaces this with the shared conflict Modal.
-          if (confirm(`${msg}\n\n${tx.assignAnyway}`)) {
-            assignWithAvailabilityGuard(bookingId, teacherId, onSuccess, true)
-            return
-          }
-        }
-        showToast(msg, 'error')
+        showConflict(tx.assignKicker, msg, () => assignWithAvailabilityGuard(bookingId, teacherId, onSuccess, true))
       }
     })
+  }
+
+  // ── Drag-to-reschedule ───────────────────────────────────────────────────────
+  function attemptReschedule(bookingId: string, newIso: string, force = false, onSuccess?: () => void) {
+    startTransition(async () => {
+      try {
+        await adminRescheduleBooking(bookingId, newIso, { force })
+        setConflict(null)
+        showToast(tx.moved)
+        onSuccess?.()
+        router.refresh()
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : tx.error
+        showConflict(tx.rescheduleKicker, msg, () => attemptReschedule(bookingId, newIso, true, onSuccess))
+      }
+    })
+  }
+  function fmtSlotLabel(hour: number, minute: number): string {
+    if (L === 'es') return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+    const ap = hour < 12 ? 'am' : 'pm'
+    const hh = hour % 12 === 0 ? 12 : hour % 12
+    return `${hh}:${String(minute).padStart(2, '0')}${ap}`
+  }
+  // Snap the cursor (minus where in the block it was grabbed) to a 15-min slot,
+  // clamped to the visible hour range. e.currentTarget is the day column.
+  function snapFromEvent(e: React.DragEvent): { hour: number; minute: number; topPx: number; label: string } {
+    const colRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const y = e.clientY - colRect.top - dragGrabPx.current
+    let totalMin = Math.round((startHour * 60 + (y / ROW_HEIGHT) * 60) / 15) * 15
+    totalMin = Math.max(startHour * 60, Math.min(totalMin, endHour * 60 - 15))
+    const hour = Math.floor(totalMin / 60)
+    const minute = totalMin % 60
+    return { hour, minute, topPx: (totalMin / 60 - startHour) * ROW_HEIGHT, label: fmtSlotLabel(hour, minute) }
+  }
+  function endDrag() {
+    draggingIdRef.current = null
+    setDraggingId(null)
+    setDropHint(null)
+  }
+  function onEventDragStart(e: React.DragEvent, b: BookingEntry) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    dragGrabPx.current = e.clientY - rect.top
+    draggingIdRef.current = b.id
+    setDraggingId(b.id)
+    e.dataTransfer.effectAllowed = 'move'
+    try { e.dataTransfer.setData('text/plain', b.id) } catch { /* some engines require setData to start a drag */ }
+  }
+  function onColumnDragOver(e: React.DragEvent, dayIdx: number) {
+    if (!draggingIdRef.current) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const { topPx, label } = snapFromEvent(e)
+    setDropHint({ dayIdx, topPx, label })
+  }
+  function onColumnDrop(e: React.DragEvent, dayIdx: number) {
+    const id = draggingIdRef.current
+    if (!id) return
+    e.preventDefault()
+    const { hour, minute } = snapFromEvent(e)
+    const zday = weekDays[dayIdx]
+    const newUtc = zonedWallTimeToUtc(zday.year, zday.month, zday.day, hour, minute, timezone)
+    endDrag()
+    attemptReschedule(id, newUtc.toISOString())
   }
 
   function handleAssignFromDrawer() {
@@ -456,6 +549,24 @@ export default function BookingCalendarClient({
     setConfirmCancel(false)
     setShowAiSummary(false)
     setDetailAssignTeacher('')
+    setRescheduleOpen(false)
+  }
+  // Non-drag reschedule (Drawer): works on touch + keyboard, where HTML5 drag
+  // never fires. Prefills the booking's current zoned date/time, converts the
+  // edited wall-clock back to UTC in the admin's zone, and runs the same guards.
+  function openReschedule() {
+    if (!selectedBooking) return
+    const p = getZonedParts(new Date(selectedBooking.scheduled_at), timezone)
+    setRDate(`${p.year}-${pad2(p.month + 1)}-${pad2(p.day)}`)
+    setRTime(`${pad2(p.hour)}:${pad2(p.minute)}`)
+    setRescheduleOpen(true)
+  }
+  function saveReschedule() {
+    if (!selectedBooking || !rDate || !rTime) return
+    const [y, m, d] = rDate.split('-').map(Number)
+    const [h, min] = rTime.split(':').map(Number)
+    const iso = zonedWallTimeToUtc(y, (m || 1) - 1, d || 1, h || 0, min || 0, timezone).toISOString()
+    attemptReschedule(selectedBooking.id, iso, false, closeDrawer)
   }
 
   // ── Grid renderer (shared by week + day) ─────────────────────────────────────
@@ -490,6 +601,9 @@ export default function BookingCalendarClient({
           return (
             <div
               key={dayIdx}
+              data-ek-col={dayIdx}
+              onDragOver={(e) => onColumnDragOver(e, dayIdx)}
+              onDrop={(e) => onColumnDrop(e, dayIdx)}
               style={{
                 position: 'relative',
                 height: calHeight,
@@ -501,6 +615,13 @@ export default function BookingCalendarClient({
               {hours.map(h => (
                 <div key={h} style={{ position: 'absolute', top: (h - startHour) * ROW_HEIGHT, left: 0, right: 0, height: 1, background: 'var(--ek-border-soft)' }} />
               ))}
+
+              {/* Drag drop indicator */}
+              {dropHint && dropHint.dayIdx === dayIdx && (
+                <div style={{ position: 'absolute', left: 0, right: 0, top: dropHint.topPx, height: 0, borderTop: '2px solid var(--ek-red)', zIndex: 6, pointerEvents: 'none' }}>
+                  <span style={{ position: 'absolute', top: -8, left: 3, fontFamily: 'var(--ek-font-mono)', fontSize: 9, fontWeight: 700, color: '#fff', background: 'var(--ek-red)', borderRadius: 3, padding: '0 4px' }}>{dropHint.label}</span>
+                </div>
+              )}
 
               {single && dayPlaced.length === 0 && (
                 <div style={{ position: 'absolute', top: 18, left: 0, right: 0, textAlign: 'center', fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', color: 'var(--ek-text-muted)', fontSize: 15 }}>
@@ -516,10 +637,15 @@ export default function BookingCalendarClient({
                 const selected = selectedBooking?.id === b.id
                 const txtColor = eventTextColor(b)
                 const live = isLive(b)
+                const canDrag = b.status === 'pending' || b.status === 'confirmed'
                 return (
                   <button
                     key={b.id}
                     data-ek-event=""
+                    data-ek-id={b.id}
+                    draggable={canDrag}
+                    onDragStart={canDrag ? (e) => onEventDragStart(e, b) : undefined}
+                    onDragEnd={endDrag}
                     onClick={() => setSelectedBooking(b)}
                     style={{
                       position: 'absolute',
@@ -530,7 +656,8 @@ export default function BookingCalendarClient({
                       textAlign: 'left',
                       borderRadius: 'var(--ek-radius-sm)',
                       overflow: 'hidden',
-                      cursor: 'pointer',
+                      cursor: canDrag ? 'grab' : 'pointer',
+                      opacity: draggingId === b.id ? 0.4 : 1,
                       padding: '3px 6px 3px 9px',
                       fontFamily: 'var(--ek-font-sans)',
                       ...eventStyle(b, selected),
@@ -660,6 +787,23 @@ export default function BookingCalendarClient({
         </div>
       )}
       {(b.status === 'pending' || b.status === 'confirmed') && (
+        rescheduleOpen ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)' }}>{tx.reschedule}</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className="ek-input" style={{ flex: 1, borderRadius: 'var(--ek-radius-sm)', padding: '8px 10px', fontSize: 13, color: 'var(--ek-text)', background: 'var(--ek-card)', fontFamily: 'var(--ek-font-sans)' }} />
+              <input type="time" value={rTime} step={900} onChange={(e) => setRTime(e.target.value)} className="ek-input" style={{ width: 116, borderRadius: 'var(--ek-radius-sm)', padding: '8px 10px', fontSize: 13, color: 'var(--ek-text)', background: 'var(--ek-card)', fontFamily: 'var(--ek-font-sans)' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setRescheduleOpen(false)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '10px 0' }}>{tx.cancel}</button>
+              <button onClick={saveReschedule} disabled={isPending || !rDate || !rTime} className="ek-btn ek-btn-primary ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '10px 0', opacity: isPending || !rDate || !rTime ? 0.6 : 1 }}>{tx.save}</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={openReschedule} className="ek-btn ek-btn-ghost ek-btn-square" style={{ justifyContent: 'center', padding: '11px 0' }}>{tx.reschedule}</button>
+        )
+      )}
+      {(b.status === 'pending' || b.status === 'confirmed') && (
         confirmCancel ? (
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleCancel} disabled={isPending} className="ek-btn ek-btn-red ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{tx.confirmCancelBtn}</button>
@@ -764,6 +908,7 @@ export default function BookingCalendarClient({
           .ad03-main { flex-direction: column-reverse; }
           .ad03-filter { width: 100% !important; }
         }
+        @media (max-width: 1100px) { .ad03-draghint { display: none; } }
       `}</style>
 
       {/* Calendar + filter */}
@@ -810,6 +955,7 @@ export default function BookingCalendarClient({
                 <button onClick={() => navigate('prev')} aria-label={tx.prev} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 11px', fontSize: 13 }}>‹</button>
                 <button onClick={goToday} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 14px', fontSize: 12 }}>{tx.today}</button>
                 <button onClick={() => navigate('next')} aria-label={tx.next} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 11px', fontSize: 13 }}>›</button>
+                <span className="ad03-draghint" style={{ marginLeft: 6, fontFamily: 'var(--ek-font-mono)', fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ek-text-faint)' }}>{tx.dragHint}</span>
               </div>
               <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)', letterSpacing: '-0.01em' }}>{weekRangeLabel}</span>
               <button onClick={() => setShowAllHours(v => !v)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ek-red)', background: 'transparent', border: 0, cursor: 'pointer', fontFamily: 'var(--ek-font-sans)', letterSpacing: '0.03em' }}>
@@ -899,6 +1045,28 @@ export default function BookingCalendarClient({
           </div>
         )}
       </Drawer>
+
+      {/* Conflict / override Modal — replaces the old native confirm for both
+          assign and drag-to-reschedule guard failures. */}
+      <Modal
+        open={!!conflict}
+        onClose={() => setConflict(null)}
+        kicker={conflict?.kicker}
+        title={tx.conflictTitle}
+        maxWidth={420}
+        footer={
+          conflict?.force ? (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConflict(null)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{tx.cancel}</button>
+              <button onClick={() => conflict.force?.()} disabled={isPending} className="ek-btn ek-btn-red ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0', opacity: isPending ? 0.6 : 1 }}>{tx.continueAnyway}</button>
+            </div>
+          ) : (
+            <button onClick={() => setConflict(null)} className="ek-btn ek-btn-primary ek-btn-square" style={{ width: '100%', justifyContent: 'center', padding: '11px 0' }}>{tx.ok}</button>
+          )
+        }
+      >
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ek-text-soft)' }}>{conflict?.message}</p>
+      </Modal>
     </div>
   )
 }

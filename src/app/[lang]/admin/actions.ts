@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { isValidTimeZone } from '@/lib/timezone'
+import { studentHasTimeConflict } from '@/lib/bookingConflict'
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 
@@ -419,6 +420,96 @@ export async function rejectRescheduleRequest(
     })
     .eq('id', requestId)
   if (error) throw new Error(error.message)
+
+  revalidatePath('/', 'layout')
+}
+
+// Direct admin reschedule (AD-03 drag-to-reschedule). Admin has the authority to
+// move a booking's time without the teacher request-and-approve flow, so this
+// commits immediately — but it mirrors EVERY guard in approveRescheduleRequest /
+// createAdminBooking so a drag can never persist a state the DB or business rules
+// would reject. Keeps the booking's current status (a student reschedule drops to
+// 'pending' for re-confirmation; an admin move is authoritative and does not).
+export async function adminRescheduleBooking(
+  bookingId: string,
+  newScheduledAt: string,
+  options: { force?: boolean } = {},
+) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const force = options.force ?? false
+
+  const { data: booking } = await admin
+    .from('bookings')
+    .select('student_id, teacher_id, scheduled_at, duration_minutes, type, status')
+    .eq('id', bookingId)
+    .single()
+  if (!booking) throw new Error('Booking not found')
+  // Never move a dead booking (mirrors approveRescheduleRequest C3).
+  if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+    throw new Error('This booking can no longer be rescheduled — it was cancelled or completed.')
+  }
+
+  // Validate + bound the new time (admin window: −24h … +180d, same as createAdminBooking).
+  const when = new Date(newScheduledAt)
+  if (isNaN(when.getTime())) throw new Error('Invalid date/time for the booking.')
+  const nowMs = Date.now()
+  if (when.getTime() < nowMs - 24 * 60 * 60 * 1000) throw new Error('Scheduled time is in the past.')
+  if (when.getTime() > nowMs + 180 * 24 * 60 * 60 * 1000) {
+    throw new Error('Scheduled time is too far in the future (max 180 days).')
+  }
+  // No-op move — nothing to do.
+  if (new Date(booking.scheduled_at).getTime() === when.getTime()) return
+
+  const duration = booking.duration_minutes ?? 60
+
+  // Student interval-overlap (BOOKING-05), excluding the booking being moved.
+  if (await studentHasTimeConflict(admin, booking.student_id, newScheduledAt, duration, bookingId)) {
+    throw new Error('That time overlaps another class for this student. Pick a different time.')
+  }
+
+  if (booking.teacher_id) {
+    // Stated-hours availability: force-overridable, real classes only.
+    if (!force && booking.type === 'class') {
+      const available = await isTeacherAvailable(booking.teacher_id, newScheduledAt, duration)
+      if (!available) {
+        throw new Error(
+          'Teacher is not available at this time. Ask them to add the slot to their availability or retry with force=true.',
+        )
+      }
+    }
+    // Confirmed-slot conflict: hard invariant (also DB-enforced), runs even under force.
+    const conflict = await teacherHasConflict(booking.teacher_id, newScheduledAt, bookingId)
+    if (conflict) {
+      throw new Error('Teacher already has a confirmed class at this time. Pick a different time.')
+    }
+  }
+
+  const { error } = await admin
+    .from('bookings')
+    .update({ scheduled_at: newScheduledAt })
+    .eq('id', bookingId)
+  if (error) {
+    // 23505 = a unique index grabbed the slot first. This can be either the
+    // teacher confirmed-slot index OR the student non-cancelled-slot index (which
+    // also covers a pending booking), so keep the message neutral rather than
+    // claiming a "confirmed" clash that may not be the real cause.
+    if (error.code === '23505') {
+      throw new Error('That time is no longer available — pick a different time.')
+    }
+    throw new Error(error.message)
+  }
+
+  // Re-queue reminders ONLY for a confirmed class that has a teacher — that's the
+  // one shape scheduleBookingReminders has correct copy for (it sends a "class
+  // confirmed" email + T-24h/T-1h class reminders). For a still-pending/teacherless
+  // booking (a false "confirmed" email) or a non-class meeting (wrong copy), wipe
+  // any stale scheduled sends instead, mirroring studentRescheduleBooking.
+  if (booking.status === 'confirmed' && booking.teacher_id && booking.type === 'class') {
+    scheduleBookingReminders(bookingId).catch(() => {})
+  } else {
+    cancelBookingReminders(bookingId).catch(() => {})
+  }
 
   revalidatePath('/', 'layout')
 }

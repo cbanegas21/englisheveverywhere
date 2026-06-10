@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { pushOverlay, popOverlay, isTopOverlay } from './overlayStack'
 
 /**
  * Shared editorial slide-over drawer for the dashboard.
@@ -38,13 +39,17 @@ export default function Drawer({
 
   useEffect(() => {
     if (!open) return
+    const id = pushOverlay()
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // Only the top-most overlay reacts, so a Modal stacked over this Drawer
+      // takes Esc first instead of both closing on a single press.
+      if (e.key === 'Escape' && isTopOverlay(id)) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => {
+      popOverlay(id)
       document.body.style.overflow = prev
       window.removeEventListener('keydown', onKey)
     }
