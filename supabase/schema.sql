@@ -507,10 +507,17 @@ CREATE OR REPLACE FUNCTION public.add_classes_with_plan(p_student_id uuid, p_cou
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
+declare
+  v_rank constant jsonb := '{"spark":1,"drive":2,"ascent":3,"peak":4}'::jsonb;
+  v_new_rank integer := coalesce((v_rank ->> p_plan_key)::integer, 0);
 begin
   update students
   set classes_remaining = classes_remaining + p_count,
-      current_plan = p_plan_key
+      current_plan = case
+        when current_plan is null then p_plan_key
+        when v_new_rank >= coalesce((v_rank ->> current_plan)::integer, 0) then p_plan_key
+        else current_plan
+      end
   where id = p_student_id;
 end;
 $function$
