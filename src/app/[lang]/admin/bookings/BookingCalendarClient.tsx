@@ -46,10 +46,25 @@ interface PendingEntry {
   student_name: string | null
 }
 
+interface MonthBooking {
+  id: string
+  scheduled_at: string
+  status: string
+  type: string
+  teacher_id: string | null
+  student_name: string | null
+}
+
 interface Props {
   lang: string
   timezone: string
   weekStart: string // Monday of the visible week, as a zoned 'YYYY-MM-DD'
+  initialView: 'week' | 'day' | 'month'
+  initialDay: string | null // a zoned 'YYYY-MM-DD' to open in Day view (drill from Month)
+  monthGridStart: string // Monday on/before the 1st of the displayed month
+  monthYear: number
+  monthIndex: number // 0-indexed month of the displayed month
+  monthBookings: MonthBooking[]
   bookings: BookingEntry[]
   teachers: TeacherEntry[]
   availSlots: AvailSlot[]
@@ -144,6 +159,8 @@ const STR = {
     calendarSub: (z: string) => `Calendar · times in your timezone (${z})`,
     viewWeek: 'Week',
     viewDay: 'Day',
+    viewMonth: 'Month',
+    more: (n: number) => `+${n} more`,
     // stats
     statToday: 'Bookings Today',
     statPending: 'Pending Assignment',
@@ -224,6 +241,8 @@ const STR = {
     calendarSub: (z: string) => `Calendario · horas en tu zona (${z})`,
     viewWeek: 'Semana',
     viewDay: 'Día',
+    viewMonth: 'Mes',
+    more: (n: number) => `+${n} más`,
     statToday: 'Reservas de hoy',
     statPending: 'Pendientes de asignar',
     statConfirmed: 'Confirmadas esta semana',
@@ -255,6 +274,10 @@ function addDays(d: ZDay, n: number): ZDay {
 function weekdayOf(d: ZDay): number {
   return new Date(Date.UTC(d.year, d.month, d.day)).getUTCDay()
 }
+function mondayOf(d: ZDay): ZDay {
+  const wd = weekdayOf(d)
+  return addDays(d, wd === 0 ? -6 : 1 - wd)
+}
 function sameDay(a: ZDay, b: ZDay): boolean {
   return a.year === b.year && a.month === b.month && a.day === b.day
 }
@@ -279,6 +302,12 @@ export default function BookingCalendarClient({
   lang,
   timezone,
   weekStart,
+  initialView,
+  initialDay,
+  monthGridStart,
+  monthYear,
+  monthIndex,
+  monthBookings,
   bookings,
   teachers,
   availSlots,
@@ -286,10 +315,17 @@ export default function BookingCalendarClient({
   stats,
 }: Props) {
   const router = useRouter()
-  const [view, setView] = useState<'week' | 'day'>('week')
+  const [view, setView] = useState<'week' | 'day' | 'month'>(initialView)
   const [selectedBooking, setSelectedBooking] = useState<BookingEntry | null>(null)
   const [selectedTeachers, setSelectedTeachers] = useState<Set<string>>(new Set(teachers.map(t => t.id)))
-  const [selectedDay, setSelectedDay] = useState(0)
+  const [selectedDay, setSelectedDay] = useState(() => {
+    // Drill from Month: open the requested day's column within the loaded week.
+    if (!initialDay) return 0
+    const mon = parseZDay(weekStart)
+    const d = parseZDay(initialDay)
+    const idx = Math.round((Date.UTC(d.year, d.month, d.day) - Date.UTC(mon.year, mon.month, mon.day)) / 86400000)
+    return idx >= 0 && idx <= 6 ? idx : 0
+  })
   const [showAllHours, setShowAllHours] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
@@ -350,9 +386,19 @@ export default function BookingCalendarClient({
 
   const navigate = (dir: 'prev' | 'next') => {
     const target = addDays(monday, dir === 'next' ? 7 : -7)
-    router.push(`/${lang}/admin/bookings?weekStart=${target.year}-${String(target.month + 1).padStart(2, '0')}-${String(target.day).padStart(2, '0')}`)
+    router.push(`/${lang}/admin/bookings?weekStart=${target.year}-${pad2(target.month + 1)}-${pad2(target.day)}`)
   }
-  const goToday = () => router.push(`/${lang}/admin/bookings`)
+  const goToday = () => router.push(`/${lang}/admin/bookings${view === 'month' ? '?view=month' : ''}`)
+  const navigateMonth = (dir: 'prev' | 'next') => {
+    const m = monthIndex + (dir === 'next' ? 1 : -1)
+    const y = monthYear + Math.floor(m / 12)
+    const mi = ((m % 12) + 12) % 12
+    router.push(`/${lang}/admin/bookings?weekStart=${y}-${pad2(mi + 1)}-01&view=month`)
+  }
+  const openDayFromMonth = (d: ZDay) => {
+    const mon = mondayOf(d)
+    router.push(`/${lang}/admin/bookings?weekStart=${mon.year}-${pad2(mon.month + 1)}-${pad2(mon.day)}&day=${d.year}-${pad2(d.month + 1)}-${pad2(d.day)}`)
+  }
 
   // ── Booking placement (bucket by zoned day + position by zoned hour) ──────────
   type Placed = { b: BookingEntry; dayIdx: number; hour: number; minute: number }
@@ -366,6 +412,23 @@ export default function BookingCalendarClient({
     }
     return out
   }, [bookings, weekDays, timezone])
+
+  // Month grid: 42 zoned days from the Monday on/before the 1st, each day's
+  // lightweight bookings bucketed by the admin's zoned day.
+  const monthDays = useMemo(() => {
+    const start = parseZDay(monthGridStart)
+    return Array.from({ length: 42 }, (_, i) => addDays(start, i))
+  }, [monthGridStart])
+  const monthByDay = useMemo(() => {
+    const m = new Map<string, MonthBooking[]>()
+    for (const mb of monthBookings) {
+      const p = getZonedParts(new Date(mb.scheduled_at), timezone)
+      const key = `${p.year}-${p.month}-${p.day}`
+      const arr = m.get(key)
+      if (arr) arr.push(mb); else m.set(key, [mb])
+    }
+    return m
+  }, [monthBookings, timezone])
 
   // Hour extent: default business window, EXPANDED so an out-of-hours booking is
   // never hidden. all-hours toggle shows the full 24h.
@@ -740,6 +803,70 @@ export default function BookingCalendarClient({
 
   const cols = view === 'week' ? [0, 1, 2, 3, 4, 5, 6] : [selectedDay]
   const weekRangeLabel = `${formatZDay(weekDays[0], DLOC, { month: 'long', day: 'numeric' })} – ${formatZDay(weekDays[6], DLOC, { month: 'long', day: 'numeric', year: 'numeric' })}`
+  const monthLabelRaw = new Date(Date.UTC(monthYear, monthIndex, 1, 12)).toLocaleDateString(DLOC, { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  const monthLabel = monthLabelRaw.charAt(0).toUpperCase() + monthLabelRaw.slice(1)
+
+  // ── Month grid render ─────────────────────────────────────────────────────────
+  function renderMonth() {
+    return (
+      <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth: 640 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--ek-border-soft)', background: 'var(--ek-paper)' }}>
+          {monthDays.slice(0, 7).map((d, i) => (
+            <div key={i} style={{ padding: '8px 0', textAlign: 'center', fontFamily: 'var(--ek-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ek-text-muted)', borderLeft: i ? '1px solid var(--ek-border-soft)' : 'none' }}>
+              {formatZDay(d, DLOC, { weekday: 'short' })}
+            </div>
+          ))}
+        </div>
+        {Array.from({ length: 6 }, (_, w) => (
+          <div key={w} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: w < 5 ? '1px solid var(--ek-border-soft)' : 'none' }}>
+            {monthDays.slice(w * 7, w * 7 + 7).map((d, i) => {
+              const inMonth = d.month === monthIndex
+              const isToday = sameDay(d, today)
+              const items = (monthByDay.get(`${d.year}-${d.month}-${d.day}`) || []).filter(mb => mb.teacher_id === null || selectedTeachers.has(mb.teacher_id))
+              const unassigned = items.filter(mb => !mb.teacher_id).length
+              return (
+                <button
+                  key={i}
+                  data-ek-monthcell={`${d.year}-${d.month}-${d.day}`}
+                  aria-label={`${formatZDay(d, DLOC, { weekday: 'long', month: 'long', day: 'numeric' })}, ${tx.bookingsCount(items.length)}${unassigned ? `, ${unassigned} ${tx.unassigned}` : ''}`}
+                  onClick={() => openDayFromMonth(d)}
+                  style={{
+                    textAlign: 'left', border: 0, borderLeft: i ? '1px solid var(--ek-border-soft)' : 'none',
+                    background: isToday ? 'var(--ek-red-tint)' : (inMonth ? 'transparent' : 'var(--ek-paper)'),
+                    minHeight: 104, padding: 6, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3,
+                    fontFamily: 'var(--ek-font-sans)', overflow: 'hidden',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{
+                      fontSize: 12, fontWeight: isToday ? 800 : 600, fontFeatureSettings: '"tnum"',
+                      color: isToday ? 'var(--ek-on-dark)' : (inMonth ? 'var(--ek-text)' : 'var(--ek-text-faint)'),
+                      background: isToday ? 'var(--ek-red)' : 'transparent', borderRadius: 999,
+                      minWidth: 20, height: 20, lineHeight: '20px', textAlign: 'center', padding: '0 5px',
+                    }}>{d.day}</span>
+                    {unassigned > 0 && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ek-red)' }} />}
+                  </div>
+                  {items.slice(0, 3).map(mb => {
+                    const tint = mb.teacher_id ? (teacherTint.get(mb.teacher_id) ?? 'var(--ek-border-mid)') : 'var(--ek-red)'
+                    return (
+                      <div key={mb.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: mb.status === 'completed' ? 'var(--ek-text-muted)' : 'var(--ek-text-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ width: 4, height: 12, borderRadius: 1, background: tint, flexShrink: 0 }} />
+                        <span style={{ fontFeatureSettings: '"tnum"', color: 'var(--ek-text-muted)', flexShrink: 0 }}>{timeOf(mb.scheduled_at)}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{mb.student_name?.split(' ')[0] || tx.studentFallback}</span>
+                      </div>
+                    )
+                  })}
+                  {items.length > 3 && <span style={{ fontSize: 9.5, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)' }}>{tx.more(items.length - 3)}</span>}
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+      </div>
+    )
+  }
 
   // ── Drawer (booking detail) ──────────────────────────────────────────────────
   const b = selectedBooking
@@ -844,8 +971,12 @@ export default function BookingCalendarClient({
           <p style={{ fontSize: 13, color: 'var(--ek-text-muted)', margin: '6px 0 0' }}>{tx.calendarSub(zoneLabel)}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setView('week')} style={filterBtn(view === 'week')}>{tx.viewWeek}</button>
-          <button onClick={() => setView('day')} style={filterBtn(view === 'day')}>{tx.viewDay}</button>
+          {/* Week/Day toggles stay instant within a loaded week, but LEAVING month
+              view re-grounds to today's week (the month has no "selected week", so a
+              plain setView would otherwise show the week of the 1st). */}
+          <button onClick={() => (view === 'month' ? router.push(`/${lang}/admin/bookings`) : setView('week'))} style={filterBtn(view === 'week')}>{tx.viewWeek}</button>
+          <button onClick={() => { if (view === 'month') { const t = todayInZone(timezone); router.push(`/${lang}/admin/bookings?day=${t.year}-${pad2(t.month + 1)}-${pad2(t.day)}`) } else setView('day') }} style={filterBtn(view === 'day')}>{tx.viewDay}</button>
+          <button onClick={() => setView('month')} style={filterBtn(view === 'month')}>{tx.viewMonth}</button>
         </div>
       </div>
 
@@ -952,22 +1083,30 @@ export default function BookingCalendarClient({
             {/* Nav row */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--ek-border)', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button onClick={() => navigate('prev')} aria-label={tx.prev} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 11px', fontSize: 13 }}>‹</button>
+                <button onClick={() => (view === 'month' ? navigateMonth('prev') : navigate('prev'))} aria-label={tx.prev} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 11px', fontSize: 13 }}>‹</button>
                 <button onClick={goToday} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 14px', fontSize: 12 }}>{tx.today}</button>
-                <button onClick={() => navigate('next')} aria-label={tx.next} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 11px', fontSize: 13 }}>›</button>
-                <span className="ad03-draghint" style={{ marginLeft: 6, fontFamily: 'var(--ek-font-mono)', fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ek-text-faint)' }}>{tx.dragHint}</span>
+                <button onClick={() => (view === 'month' ? navigateMonth('next') : navigate('next'))} aria-label={tx.next} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 11px', fontSize: 13 }}>›</button>
+                {view !== 'month' && (
+                  <span className="ad03-draghint" style={{ marginLeft: 6, fontFamily: 'var(--ek-font-mono)', fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ek-text-faint)' }}>{tx.dragHint}</span>
+                )}
               </div>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)', letterSpacing: '-0.01em' }}>{weekRangeLabel}</span>
-              <button onClick={() => setShowAllHours(v => !v)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ek-red)', background: 'transparent', border: 0, cursor: 'pointer', fontFamily: 'var(--ek-font-sans)', letterSpacing: '0.03em' }}>
-                {showAllHours ? tx.showBusinessHours : tx.showAllHours}
-              </button>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)', letterSpacing: '-0.01em' }}>{view === 'month' ? monthLabel : weekRangeLabel}</span>
+              {view === 'month' ? (
+                <span style={{ width: 1 }} />
+              ) : (
+                <button onClick={() => setShowAllHours(v => !v)} style={{ fontSize: 11, fontWeight: 700, color: 'var(--ek-red)', background: 'transparent', border: 0, cursor: 'pointer', fontFamily: 'var(--ek-font-sans)', letterSpacing: '0.03em' }}>
+                  {showAllHours ? tx.showBusinessHours : tx.showAllHours}
+                </button>
+              )}
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: cols.length > 1 ? 600 : undefined }}>
-                {renderDayHeaders(cols)}
-                {renderGrid(cols)}
+            {view === 'month' ? renderMonth() : (
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ minWidth: cols.length > 1 ? 600 : undefined }}>
+                  {renderDayHeaders(cols)}
+                  {renderGrid(cols)}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

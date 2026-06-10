@@ -7,7 +7,7 @@ import RescheduleRequestsPanel from './RescheduleRequestsPanel'
 
 interface Props {
   params: Promise<{ lang: string }>
-  searchParams: Promise<{ weekStart?: string }>
+  searchParams: Promise<{ weekStart?: string; view?: string; day?: string }>
 }
 
 // A calendar day expressed in the admin's profile zone (month 0-indexed). The
@@ -32,7 +32,7 @@ function mondayOfZ(d: ZDay): ZDay {
 
 export default async function AdminBookingsPage({ params, searchParams }: Props) {
   const { lang } = await params
-  const { weekStart: weekStartParam } = await searchParams
+  const { weekStart: weekStartParam, view: viewParam, day: dayParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
@@ -74,6 +74,16 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
   const todayEndUtc = zonedWallTimeToUtc(tomZ.year, tomZ.month, tomZ.day, 0, 0, tz)
   const weekStartStr = `${monday.year}-${pad(monday.month + 1)}-${pad(monday.day)}`
 
+  // Month-view window: the 6-week (42-day) grid of the anchor's calendar month,
+  // starting on the Monday on/before the 1st. Always fetched (lightweight) so the
+  // Month toggle is instant; bucketed client-side by the admin's zoned day.
+  const firstOfMonth: ZDay = { year: anchor.year, month: anchor.month, day: 1 }
+  const monthGrid = mondayOfZ(firstOfMonth)
+  const monthGridEnd = addDaysZ(monthGrid, 42)
+  const monthGridStartUtc = zonedWallTimeToUtc(monthGrid.year, monthGrid.month, monthGrid.day, 0, 0, tz)
+  const monthGridEndUtc = zonedWallTimeToUtc(monthGridEnd.year, monthGridEnd.month, monthGridEnd.day, 0, 0, tz)
+  const monthGridStr = `${monthGrid.year}-${pad(monthGrid.month + 1)}-${pad(monthGrid.day)}`
+
   const [
     bookingsResult,
     teachersResult,
@@ -82,6 +92,9 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     todayCountResult,
     pendingCountResult,
     weekConfirmedResult,
+    allPendingResult,
+    reschedResult,
+    monthResult,
   ] = await Promise.all([
     admin
       .from('bookings')
@@ -132,6 +145,41 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
       .eq('status', 'confirmed')
       .gte('scheduled_at', weekStartUtc.toISOString())
       .lt('scheduled_at', weekEndUtc.toISOString()),
+
+    // All unassigned pending bookings (not week-scoped) for the assignment queue.
+    admin
+      .from('bookings')
+      .select(`
+        id, student_id, scheduled_at, duration_minutes, type, status,
+        teacher_id,
+        student:students(profile:profiles(full_name))
+      `)
+      .eq('status', 'pending')
+      .is('teacher_id', null)
+      .order('scheduled_at', { ascending: true }),
+
+    // Pending reschedule requests filed by teachers — admin triages at the top.
+    admin
+      .from('reschedule_requests')
+      .select(`
+        id, booking_id, proposed_scheduled_at, original_scheduled_at, reason, created_at,
+        booking:bookings(
+          id, scheduled_at, duration_minutes, type,
+          student:students(profile:profiles(full_name)),
+          teacher:teachers(profile:profiles(full_name))
+        )
+      `)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true }),
+
+    // Lightweight bookings across the month grid (powers the Month view).
+    admin
+      .from('bookings')
+      .select(`id, scheduled_at, status, type, teacher_id, student:students(profile:profiles(full_name))`)
+      .gte('scheduled_at', monthGridStartUtc.toISOString())
+      .lt('scheduled_at', monthGridEndUtc.toISOString())
+      .neq('status', 'cancelled')
+      .order('scheduled_at', { ascending: true }),
   ])
 
   type SessionData = { teacher_notes: string | null; student_rating: number | null }
@@ -213,30 +261,8 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     accepting: (t as { accepting_students?: boolean }).accepting_students !== false,
   }))
 
-  const { data: allPending } = await admin
-    .from('bookings')
-    .select(`
-      id, student_id, scheduled_at, duration_minutes, type, status,
-      teacher_id,
-      student:students(profile:profiles(full_name))
-    `)
-    .eq('status', 'pending')
-    .is('teacher_id', null)
-    .order('scheduled_at', { ascending: true })
-
-  // Pending reschedule requests filed by teachers — admin triages at the top.
-  const { data: reschedRaw } = await admin
-    .from('reschedule_requests')
-    .select(`
-      id, booking_id, proposed_scheduled_at, original_scheduled_at, reason, created_at,
-      booking:bookings(
-        id, scheduled_at, duration_minutes, type,
-        student:students(profile:profiles(full_name)),
-        teacher:teachers(profile:profiles(full_name))
-      )
-    `)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
+  const allPending = allPendingResult.data
+  const reschedRaw = reschedResult.data
 
   type RescheduleEntry = {
     id: string
@@ -283,6 +309,16 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
     student_name: getName(((b.student as unknown) as { profile: unknown } | null)?.profile),
   }))
 
+  const monthRaw = monthResult.data
+  const monthBookings = (monthRaw ?? []).map((b) => ({
+    id: b.id,
+    scheduled_at: b.scheduled_at,
+    status: b.status,
+    type: b.type,
+    teacher_id: b.teacher_id,
+    student_name: getName(((b.student as unknown) as { profile: unknown } | null)?.profile),
+  }))
+
   return (
     <>
       {rescheduleRequests.length > 0 && (
@@ -292,6 +328,12 @@ export default async function AdminBookingsPage({ params, searchParams }: Props)
         lang={lang}
         timezone={tz}
         weekStart={weekStartStr}
+        initialView={viewParam === 'month' ? 'month' : (dayParam ? 'day' : 'week')}
+        initialDay={dayParam ?? null}
+        monthGridStart={monthGridStr}
+        monthYear={anchor.year}
+        monthIndex={anchor.month}
+        monthBookings={monthBookings}
         bookings={bookings}
         teachers={teachers}
         availSlots={availSlotsResult.data || []}
