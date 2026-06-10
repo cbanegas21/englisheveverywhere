@@ -93,6 +93,16 @@ export async function updateTeacherProfile(data: {
 
   const admin = createAdminClient()
 
+  // Gate on an actual teacher row up front (TEACH-LOW-1). Without it a non-teacher
+  // could call this and at least mutate their own profiles.full_name (the teachers
+  // update below would silently no-op against zero rows).
+  const { data: teacherRow } = await admin
+    .from('teachers')
+    .select('id')
+    .eq('profile_id', user.id)
+    .maybeSingle()
+  if (!teacherRow) return { success: false, error: 'Not a teacher account' }
+
   const { error: profileError } = await admin
     .from('profiles')
     .update({ full_name: data.fullName, updated_at: new Date().toISOString() })

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { escapeHtml, EMAIL_FROM } from '@/lib/email'
+import { studentHasTimeConflict } from '@/lib/bookingConflict'
 
 export async function saveSurveyAnswers(
   answers: Record<string, unknown>,
@@ -75,16 +76,9 @@ export async function bookPlacementCall(
     }
   }
 
-  // Prevent booking at same time as any other booking
-  const { data: timeConflict } = await admin
-    .from('bookings')
-    .select('id')
-    .eq('student_id', student.id)
-    .eq('scheduled_at', scheduledAt)
-    .neq('status', 'cancelled')
-    .maybeSingle()
-
-  if (timeConflict) {
+  // Prevent overlap with any other active booking (interval overlap, not just an
+  // exact-timestamp match). Placement calls are always 60 minutes.
+  if (await studentHasTimeConflict(admin, student.id, scheduledAt, 60)) {
     return {
       error: lang === 'es'
         ? 'Ya tienes una clase agendada para ese horario.'

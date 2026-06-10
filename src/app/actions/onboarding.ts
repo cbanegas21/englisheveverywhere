@@ -81,6 +81,18 @@ const CV_ALLOWED_MIME = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ])
 
+// Magic-byte sniff so a renamed/spoofed file can't slip past the client-supplied
+// MIME check (ONBOARD-04). Accept the three formats CV_ALLOWED_MIME permits:
+//   PDF  → '%PDF-' (scanned in the first 1KB to tolerate a leading BOM/whitespace)
+//   DOCX → ZIP container 'PK\x03\x04'
+//   DOC  → OLE2 compound file (first 4 bytes of the D0 CF 11 E0 A1 B1 1A E1 sig)
+function hasAllowedDocMagic(buf: Buffer): boolean {
+  if (buf.subarray(0, 1024).indexOf(Buffer.from('%PDF-')) !== -1) return true
+  if (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) return true
+  if (buf.length >= 4 && buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0) return true
+  return false
+}
+
 export async function completeTeacherOnboarding(formData: FormData): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -125,6 +137,9 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
   const ext = cvFile.name.toLowerCase().match(/\.(pdf|docx?|doc)$/)?.[0] || '.pdf'
   const storagePath = `${userId}/${Date.now()}${ext}`
   const buffer = Buffer.from(await cvFile.arrayBuffer())
+  // Verify the bytes match an allowed format — the MIME check above trusts the
+  // client-supplied type, which a renamed file can fake (ONBOARD-04).
+  if (!hasAllowedDocMagic(buffer)) return { success: false, error: onb('cvType', preferredLanguage) }
   const { error: uploadErr } = await admin.storage
     .from(CV_BUCKET)
     .upload(storagePath, buffer, {

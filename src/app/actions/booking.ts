@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { studentHasTimeConflict } from '@/lib/bookingConflict'
 
 // Map the raw cancellation_reason enum to a human-readable label for admin
 // notification emails. Keep both languages so the email reads naturally.
@@ -136,16 +137,8 @@ export async function createBooking(formData: FormData) {
   // admin assigns an available teacher to the booking afterward. No teacher
   // pre-assignment is required to book.
 
-  // ── Conflict check ───────────────────────────────────────────
-  const { data: conflicting } = await admin
-    .from('bookings')
-    .select('id')
-    .eq('student_id', student.id)
-    .eq('scheduled_at', scheduledAt)
-    .neq('status', 'cancelled')
-    .maybeSingle()
-
-  if (conflicting) {
+  // ── Conflict check (interval overlap, not exact-timestamp) ───
+  if (await studentHasTimeConflict(admin, student.id, scheduledAt, durationMinutes)) {
     return {
       error: lang === 'es'
         ? 'Ya tienes una clase agendada para ese horario.'
@@ -579,7 +572,7 @@ export async function studentRescheduleBooking(
 
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, scheduled_at, status, type, student_id, teacher_id')
+    .select('id, scheduled_at, duration_minutes, status, type, student_id, teacher_id')
     .eq('id', bookingId)
     .single()
   if (!booking) return { error: 'Booking not found' }
@@ -607,16 +600,10 @@ export async function studentRescheduleBooking(
     }
   }
 
-  // Conflict check against this student's other live bookings.
-  const { data: conflicting } = await admin
-    .from('bookings')
-    .select('id')
-    .eq('student_id', student.id)
-    .eq('scheduled_at', newDate.toISOString())
-    .neq('id', bookingId)
-    .neq('status', 'cancelled')
-    .maybeSingle()
-  if (conflicting) {
+  // Conflict check against this student's OTHER live bookings (interval overlap;
+  // excludeBookingId keeps the booking being moved from conflicting with itself).
+  const reschedDuration = (booking as { duration_minutes?: number | null }).duration_minutes || 60
+  if (await studentHasTimeConflict(admin, student.id, newDate.toISOString(), reschedDuration, bookingId)) {
     return {
       error: lang === 'es'
         ? 'Ya tienes una clase agendada para ese horario.'
