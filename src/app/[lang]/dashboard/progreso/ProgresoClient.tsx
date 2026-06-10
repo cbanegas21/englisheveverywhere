@@ -207,13 +207,13 @@ export default function ProgresoClient({
         title={tx.title}
         sub={tx.subtitle}
         right={
-          <button
+          <Link
+            href={`/${lang}/dashboard/progreso/reporte`}
             className="ek-btn ek-btn-ghost ek-btn-square"
-            style={{ padding: '9px 16px', fontSize: 12 }}
-            disabled
+            style={{ padding: '9px 16px', fontSize: 12, textDecoration: 'none' }}
           >
             {tx.downloadReport}
-          </button>
+          </Link>
         }
       />
 
