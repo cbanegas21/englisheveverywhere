@@ -752,6 +752,53 @@ export type Database = {
           },
         ]
       }
+      teacher_payouts: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          id: string
+          note: string | null
+          paid_at: string | null
+          paid_by: string | null
+          period_end: string
+          status: string
+          teacher_id: string
+          veem_email: string | null
+        }
+        Insert: {
+          amount_usd: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          period_end?: string
+          status?: string
+          teacher_id: string
+          veem_email?: string | null
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          period_end?: string
+          status?: string
+          teacher_id?: string
+          veem_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_payouts_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           accepting_students: boolean

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { computeTeacherAvailable } from '@/lib/teacherEarnings'
 import { isValidTimeZone } from '@/lib/timezone'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
 
@@ -1195,6 +1196,69 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
   }
 
   revalidatePath('/', 'layout')
+}
+
+// ── Teacher payouts (TE-04 phase 2c) ─────────────────────────────────────────
+// Weekly sweep: for every teacher with a Veem email set, snapshot their
+// available (cleared − already-committed) balance into a 'pending' payout the
+// admin then pays out wallet-to-wallet in Veem and marks paid. Min $1 so we
+// don't create dust rows. Idempotent-ish: re-running the same week just finds
+// $0 available (the prior pending payout already counts as committed) and skips.
+export async function runWeeklyPayoutSweep() {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const { data: teachers } = await admin
+    .from('teachers')
+    .select('id, payout_veem_email')
+    .not('payout_veem_email', 'is', null)
+
+  let created = 0
+  let totalUsd = 0
+  const now = new Date().toISOString()
+  for (const t of teachers || []) {
+    const { availableUsd, veemEmail } = await computeTeacherAvailable(admin, t.id)
+    if (availableUsd >= 1 && veemEmail) {
+      const { error } = await admin.from('teacher_payouts').insert({
+        teacher_id: t.id,
+        amount_usd: availableUsd,
+        veem_email: veemEmail,
+        status: 'pending',
+        period_end: now,
+      })
+      if (!error) { created++; totalUsd += availableUsd }
+    }
+  }
+  revalidatePath('/', 'layout')
+  return { created, totalUsd: Math.round(totalUsd * 100) / 100 }
+}
+
+// Admin confirms they sent the money via Veem. Only a 'pending' payout flips —
+// the .eq('status','pending') guard makes a double-click a no-op.
+export async function markTeacherPayoutPaid(payoutId: string, note?: string) {
+  const acting = await assertAdmin()
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('teacher_payouts')
+    .update({ status: 'paid', paid_at: new Date().toISOString(), paid_by: acting.id, note: note?.trim() || null })
+    .eq('id', payoutId)
+    .eq('status', 'pending')
+  if (error) throw new Error(error.message)
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+// Cancel a pending payout — its amount returns to the teacher's available balance.
+export async function cancelTeacherPayout(payoutId: string) {
+  await assertAdmin()
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('teacher_payouts')
+    .update({ status: 'cancelled' })
+    .eq('id', payoutId)
+    .eq('status', 'pending')
+  if (error) throw new Error(error.message)
+  revalidatePath('/', 'layout')
+  return { success: true as const }
 }
 
 export async function bulkAssignTeacher(

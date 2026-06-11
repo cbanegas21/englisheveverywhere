@@ -1,11 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { computeTeacherAvailable, sessionPayoutUsd, isClearedAt } from '@/lib/teacherEarnings'
 import GananciasClient from './GananciasClient'
 import type { Locale } from '@/lib/i18n/translations'
-
-// Earnings clear (become payable) this many days after the class — the hold that
-// absorbs late refunds/no-shows before money is swept out to the teacher's Veem.
-const HOLD_DAYS = 7
 
 interface Props {
   params: Promise<{ lang: string }>
@@ -50,26 +48,15 @@ export default async function GananciasPage({ params }: Props) {
     payments: { teacher_payout_usd: number; status: string; stripe_transfer_id: string | null }[] | null
   }
   const rows = (allSessions as RawSession[] | null) || []
-  const clearMs = Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000
+  const now = Date.now()
 
   const sessions = rows.map(s => {
     const pay = s.payments?.[0]
-    // "Paid out" once a transfer to the teacher has been recorded (Veem sweep,
-    // phase 2c). None are yet, so cleared earnings read as "available".
     const paidOut = !!pay?.stripe_transfer_id
-    // Per-session payout. A payment row only counts as earnings when it actually
-    // settled ('completed') — a refunded/failed payout is $0 so the totals don't
-    // overstate earnings. A legacy completed booking with NO payment row falls
-    // back to hourly-rate math.
-    let payoutUsd: number
-    if (pay) {
-      payoutUsd = pay.status === 'completed' ? (pay.teacher_payout_usd || 0) : 0
-    } else {
-      payoutUsd = Math.round((teacher.hourly_rate || 0) * ((s.duration_minutes || 60) / 60))
-    }
-    // Cleared = past the hold window → counts toward the next payout. Otherwise
-    // it's still "pending" (in hold).
-    const cleared = new Date(s.scheduled_at).getTime() <= clearMs
+    // Per-session payout + hold status via the shared earnings rule (kept in sync
+    // with the admin sweep so the teacher's total = what we'll pay out).
+    const payoutUsd = sessionPayoutUsd(pay, s.duration_minutes, teacher.hourly_rate || 0)
+    const cleared = isClearedAt(s.scheduled_at, now)
     return {
       id: s.id,
       scheduled_at: s.scheduled_at,
@@ -85,9 +72,11 @@ export default async function GananciasPage({ params }: Props) {
 
   const lifetimeEarnedUsd = sessions.reduce((sum, s) => sum + (s.payoutUsd || 0), 0)
   const thisMonthEarnedUsd = thisMonth.reduce((sum, s) => sum + (s.payoutUsd || 0), 0)
-  // Available = cleared (past hold) and not yet swept out. Pending = still in hold.
-  const availableUsd = sessions.filter(s => s.cleared && !s.paidOut).reduce((sum, s) => sum + (s.payoutUsd || 0), 0)
-  const pendingUsd = sessions.filter(s => !s.cleared).reduce((sum, s) => sum + (s.payoutUsd || 0), 0)
+  // Available subtracts amounts already committed to a payout (pending + paid),
+  // so it never double-counts money that's been swept. Canonical math shared
+  // with the admin payout sweep.
+  const admin = createAdminClient()
+  const { availableUsd, pendingHoldUsd: pendingUsd } = await computeTeacherAvailable(admin, teacher.id)
 
   // Next weekly payout = the upcoming Friday (the auto-sweep day). Computed in the
   // business zone so the date the teacher sees is consistent.

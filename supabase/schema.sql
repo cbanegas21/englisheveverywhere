@@ -231,6 +231,20 @@ create table public.subscriptions (
   primary key (id)
 );
 
+create table public.teacher_payouts (
+  id uuid not null default gen_random_uuid(),
+  teacher_id uuid not null,
+  amount_usd numeric(10,2) not null,
+  veem_email text,
+  status text not null default 'pending'::text,
+  period_end timestamp with time zone not null default now(),
+  created_at timestamp with time zone not null default now(),
+  paid_at timestamp with time zone,
+  paid_by uuid,
+  note text,
+  primary key (id)
+);
+
 create table public.teachers (
   id uuid not null default uuid_generate_v4(),
   profile_id uuid not null,
@@ -277,6 +291,7 @@ alter table public.students add constraint students_primary_teacher_id_fkey fore
 alter table public.students add constraint students_profile_id_fkey foreign key (profile_id) references public.profiles (id) on delete cascade;
 alter table public.subscriptions add constraint subscriptions_plan_id_fkey foreign key (plan_id) references public.plans (id);
 alter table public.subscriptions add constraint subscriptions_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
+alter table public.teacher_payouts add constraint teacher_payouts_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
 alter table public.teachers add constraint teachers_profile_id_fkey foreign key (profile_id) references public.profiles (id) on delete cascade;
 
 -- ============================================================
@@ -306,6 +321,8 @@ alter table public.students add constraint students_motivation_check CHECK (((mo
 alter table public.students add constraint students_self_rated_level_check CHECK (((self_rated_level IS NULL) OR (self_rated_level = ANY (ARRAY['just_starting'::text, 'getting_by'::text, 'conversational'::text, 'advanced'::text, 'not_sure'::text]))));
 alter table public.students add constraint students_speaking_comfort_check CHECK (((speaking_comfort IS NULL) OR (speaking_comfort = ANY (ARRAY['nervous'::text, 'depends'::text, 'comfortable'::text]))));
 alter table public.subscriptions add constraint subscriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'cancelled'::text, 'past_due'::text, 'trialing'::text])));
+alter table public.teacher_payouts add constraint teacher_payouts_amount_usd_check CHECK ((amount_usd > (0)::numeric));
+alter table public.teacher_payouts add constraint teacher_payouts_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'paid'::text, 'cancelled'::text])));
 
 -- ============================================================
 -- Unique Constraints
@@ -345,6 +362,8 @@ CREATE INDEX reschedule_requests_booking_idx ON public.reschedule_requests USING
 CREATE UNIQUE INDEX reschedule_requests_one_pending_per_booking ON public.reschedule_requests USING btree (booking_id) WHERE (status = 'pending'::text);
 CREATE INDEX reschedule_requests_status_idx ON public.reschedule_requests USING btree (status);
 CREATE INDEX student_purchases_student_id_idx ON public.student_purchases USING btree (student_id, created_at DESC);
+CREATE INDEX teacher_payouts_status_idx ON public.teacher_payouts USING btree (status);
+CREATE INDEX teacher_payouts_teacher_idx ON public.teacher_payouts USING btree (teacher_id, created_at DESC);
 
 -- ============================================================
 -- Row-Level Security
@@ -365,6 +384,7 @@ alter table public.sessions enable row level security;
 alter table public.student_purchases enable row level security;
 alter table public.students enable row level security;
 alter table public.subscriptions enable row level security;
+alter table public.teacher_payouts enable row level security;
 alter table public.teachers enable row level security;
 
 -- ============================================================
