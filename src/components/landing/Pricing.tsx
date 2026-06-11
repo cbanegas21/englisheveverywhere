@@ -9,9 +9,13 @@ import { PRICING_PLANS } from '@/lib/pricing'
 const t = {
   en: {
     eyebrow: 'Plans',
-    titleLead: 'Pick your pack.',
-    titleAccent: 'Classes never expire.',
-    sub: 'Pay once per pack — buy as many as you like. Your classes stack and never expire. No subscription, no auto-renewal.',
+    titleLead: 'Find the plan',
+    titleAccent: 'built for your goal.',
+    sub: 'Four sizes, one promise: a teacher who’s only yours and classes that never expire. Take the 30-second quiz and we’ll match you.',
+    anchorPrefix: '1-on-1 classes from',
+    findCta: 'Find your ideal plan',
+    findSub: 'Answer 3 quick questions — see your price when you create your account.',
+    riskFree: 'Your first placement call is free.',
     popular: 'most chosen',
     perClass: 'per class',
     classes: 'classes',
@@ -30,7 +34,7 @@ const t = {
       { label: 'Classes never expire', sub: 'Use them at your pace — no deadlines, no pressure.' },
       { label: 'Packs stack, never renew', sub: 'Pay once. Buy another pack only when you want more.' },
     ],
-    cta: 'Choose',
+    cta: 'Start',
     note: '* Classes cancelled with less than 24 hours notice are forfeited.',
     fxNote: (cur: string) =>
       `* Prices shown in ${cur} ≈ USD. Exchange rate updated daily. Charges are always processed in USD.`,
@@ -43,9 +47,13 @@ const t = {
   },
   es: {
     eyebrow: 'Paquetes',
-    titleLead: 'Elige tu paquete.',
-    titleAccent: 'Las clases nunca caducan.',
-    sub: 'Paga una vez por paquete — compra los que quieras. Tus clases se acumulan y nunca caducan. Sin suscripción, sin renovación automática.',
+    titleLead: 'Encuentra el plan',
+    titleAccent: 'hecho para tu meta.',
+    sub: 'Cuatro tamaños, una promesa: un maestro que es solo tuyo y clases que nunca caducan. Responde el test de 30 segundos y te lo armamos.',
+    anchorPrefix: 'Clases 1-a-1 desde',
+    findCta: 'Descubre tu plan ideal',
+    findSub: 'Responde 3 preguntas rápidas — ves tu precio al crear tu cuenta.',
+    riskFree: 'Tu primera llamada de diagnóstico es gratis.',
     popular: 'más elegido',
     perClass: 'por clase',
     classes: 'clases',
@@ -64,7 +72,7 @@ const t = {
       { label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo — sin fechas límite, sin presión.' },
       { label: 'Los paquetes se acumulan, no se renuevan', sub: 'Pagas una vez. Compras otro paquete solo cuando quieras más.' },
     ],
-    cta: 'Elegir',
+    cta: 'Empieza',
     note: '* Las clases canceladas con menos de 24h de aviso se pierden.',
     fxNote: (cur: string) =>
       `* Precios mostrados en ${cur} ≈ USD. Tasa de cambio actualizada diariamente. El cobro siempre se realiza en USD.`,
@@ -86,6 +94,11 @@ export default function Pricing({ lang }: { lang: Locale }) {
   // understating the price ~20x. Show the real USD price (what's actually charged)
   // until the rate arrives, then enrich to the local-currency approximation.
   const fxPending = !isUsd && loading
+  // Soft anchor — show ONLY the lowest per-class equivalent (no pack prices, no
+  // structure, no margin). The best-evidenced lever for converting without a
+  // public price; the real plan prices are revealed after signup.
+  const minPerClass = Math.round(Math.min(...PRICING_PLANS.map(p => p.priceUsd / p.classes)))
+  const anchorDisplay = (isUsd || fxPending) ? `$${minPerClass}` : convert(minPerClass)
 
   return (
     <section
@@ -171,8 +184,6 @@ export default function Pricing({ lang }: { lang: Locale }) {
             const hl = pack.highlight
             const name = lang === 'es' ? pack.nameEs : pack.nameEn
             const desc = tx.tags[pack.key]
-            const perClass = pack.priceUsd / pack.classes
-            const perClassDisplay = (isUsd || fxPending) ? `$${perClass.toFixed(2)}` : convert(perClass)
             return (
               <motion.div
                 key={pack.key}
@@ -261,60 +272,8 @@ export default function Pricing({ lang }: { lang: Locale }) {
                   </span>
                 </div>
 
-                <div
-                  style={{
-                    height: 1,
-                    background: hl ? 'rgba(255,255,255,0.16)' : 'var(--ek-border)',
-                    margin: '28px 0',
-                  }}
-                />
-
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    flexWrap: 'wrap',
-                    columnGap: 8,
-                    rowGap: 2,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--ek-font-mono)',
-                      fontSize: 22,
-                      fontWeight: 700,
-                      letterSpacing: '-0.01em',
-                      lineHeight: 1.1,
-                      color: hl ? '#fff' : 'var(--ek-text)',
-                      fontFeatureSettings: '"tnum"',
-                    }}
-                  >
-                    {fxPending ? `$${pack.priceUsd}` : convert(pack.priceUsd)}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: hl ? 'rgba(255,255,255,0.55)' : 'var(--ek-text-muted)',
-                      fontFamily: 'var(--ek-font-sans)',
-                    }}
-                  >
-                    {tx.priceCaption}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--ek-font-mono)',
-                    fontSize: 11,
-                    letterSpacing: '0.02em',
-                    color: hl ? 'rgba(255,255,255,0.5)' : 'var(--ek-text-muted)',
-                    marginTop: 6,
-                  }}
-                >
-                  ≈ {perClassDisplay} {tx.perClass}
-                </div>
-
                 <Link
-                  href={`/${lang}/registro`}
+                  href={`/${lang}/descubre`}
                   style={{
                     marginTop: 'auto',
                     paddingTop: 28,
@@ -337,12 +296,29 @@ export default function Pricing({ lang }: { lang: Locale }) {
                       textAlign: 'center',
                     }}
                   >
-                    {tx.cta} {name}
+                    {tx.cta}
                   </span>
                 </Link>
               </motion.div>
             )
           })}
+        </div>
+
+        {/* Soft anchor + the single primary CTA → the "find your plan" quiz. Only
+            the lowest per-class number is public; full plan prices are revealed
+            after signup (the gated-pricing funnel). */}
+        <div style={{ marginTop: 'clamp(36px, 5vw, 56px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 13, color: 'var(--ek-text-muted)', letterSpacing: '0.02em' }}>
+            {tx.anchorPrefix} <span style={{ color: 'var(--ek-text)', fontWeight: 700 }}>{anchorDisplay}</span> {tx.perClass}
+          </div>
+          <Link href={`/${lang}/descubre`} style={{ textDecoration: 'none' }}>
+            <span style={{ display: 'inline-block', padding: '15px 34px', background: 'var(--ek-red)', color: '#fff', fontWeight: 700, fontSize: 15, borderRadius: 999, fontFamily: 'var(--ek-font-sans)' }}>
+              {tx.findCta} →
+            </span>
+          </Link>
+          <div style={{ fontSize: 12.5, color: 'var(--ek-text-muted)', lineHeight: 1.55, maxWidth: 400 }}>
+            {tx.findSub}<br /><span style={{ color: 'var(--ek-red)', fontWeight: 600 }}>{tx.riskFree}</span>
+          </div>
         </div>
 
         {/* Shared "Every pack includes" panel — replaces the per-card
