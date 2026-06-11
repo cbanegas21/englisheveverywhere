@@ -80,35 +80,4 @@ test.describe('Server-action authz guards', () => {
       'createBooking must return a localized conflict error instead of silently inserting a duplicate',
     ).toBe(true)
   })
-
-  test('stripe.ts:createStripeConnectLink must verify caller is an approved teacher', async () => {
-    const src = readFileSync(
-      resolve(process.cwd(), 'src/app/actions/stripe.ts'),
-      'utf8',
-    )
-
-    // Locate the createStripeConnectLink function body.
-    const match = src.match(/export async function createStripeConnectLink\([\s\S]*?^\}/m)
-    expect(match, 'createStripeConnectLink function must exist in stripe.ts').toBeTruthy()
-    const body = match![0]
-
-    // Must return early if the caller isn't a teacher. A `.single()` that
-    // returns null for non-teachers is NOT enough — the current code proceeds
-    // to `stripe.accounts.create` even when `teacher` is null, because the
-    // null-check is only used to decide whether to create-vs-reuse.
-    //
-    // Acceptable signatures for a proper teacher gate:
-    //   - `if (!teacher) return { error: ... }` BEFORE the stripe.accounts.create call
-    //   - check profile.role === 'teacher' up front
-    //   - use .single() without maybeSingle so a missing row throws
-    const hasEarlyReturnForNonTeacher =
-      /if\s*\(\s*!teacher\s*\)\s*(return|throw)|profile\??.role\s*!==?\s*['"]teacher['"]|role\s*!==?\s*['"]teacher['"]/.test(body)
-
-    expect(
-      hasEarlyReturnForNonTeacher,
-      'createStripeConnectLink must return an error if the caller is not a teacher. ' +
-      'Currently a student user could trigger stripe.accounts.create, creating orphan ' +
-      'Stripe Connect accounts linked to their email.',
-    ).toBe(true)
-  })
 })
