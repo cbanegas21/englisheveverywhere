@@ -362,6 +362,7 @@ CREATE INDEX reschedule_requests_booking_idx ON public.reschedule_requests USING
 CREATE UNIQUE INDEX reschedule_requests_one_pending_per_booking ON public.reschedule_requests USING btree (booking_id) WHERE (status = 'pending'::text);
 CREATE INDEX reschedule_requests_status_idx ON public.reschedule_requests USING btree (status);
 CREATE INDEX student_purchases_student_id_idx ON public.student_purchases USING btree (student_id, created_at DESC);
+CREATE UNIQUE INDEX teacher_payouts_one_pending_per_teacher ON public.teacher_payouts USING btree (teacher_id) WHERE (status = 'pending'::text);
 CREATE INDEX teacher_payouts_status_idx ON public.teacher_payouts USING btree (status);
 CREATE INDEX teacher_payouts_teacher_idx ON public.teacher_payouts USING btree (teacher_id, created_at DESC);
 

@@ -37,6 +37,7 @@ const STR = {
     thTeacher: 'Teacher', thVeem: 'Veem email', thAmount: 'Amount', thWhen: 'Created', thPaid: 'Paid', thStatus: 'Status', thActions: '',
     markPaid: 'Mark paid', confirm: 'Confirm', cancel: 'Cancel', cancelPayout: 'Cancel',
     sweptToast: (n: number, usd: string) => `${n} payout${n === 1 ? '' : 's'} created (${usd}).`,
+    sweepErr: (n: number) => `${n} payout${n === 1 ? '' : 's'} failed — review and retry.`,
     nothingToast: 'Nothing to sweep — no available balances.',
     paidToast: 'Marked as paid.',
     cancelledToast: 'Payout cancelled.',
@@ -60,6 +61,7 @@ const STR = {
     thTeacher: 'Maestro', thVeem: 'Correo Veem', thAmount: 'Monto', thWhen: 'Creado', thPaid: 'Pagado', thStatus: 'Estado', thActions: '',
     markPaid: 'Marcar pagado', confirm: 'Confirmar', cancel: 'Cancelar', cancelPayout: 'Cancelar',
     sweptToast: (n: number, usd: string) => `${n} pago${n === 1 ? '' : 's'} creado${n === 1 ? '' : 's'} (${usd}).`,
+    sweepErr: (n: number) => `${n} pago${n === 1 ? '' : 's'} fallaron — revisa y reintenta.`,
     nothingToast: 'Nada que barrer — sin saldos disponibles.',
     paidToast: 'Marcado como pagado.',
     cancelledToast: 'Pago cancelado.',
@@ -88,7 +90,8 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
     startTransition(async () => {
       try {
         const res = await runWeeklyPayoutSweep()
-        flash(res.created > 0 ? tx.sweptToast(res.created, usd(res.totalUsd)) : tx.nothingToast)
+        if (res.errors && res.errors.length > 0) flash(tx.sweepErr(res.errors.length))
+        else flash(res.created > 0 ? tx.sweptToast(res.created, usd(res.totalUsd)) : tx.nothingToast)
         router.refresh()
       } catch { flash(tx.error) }
     })

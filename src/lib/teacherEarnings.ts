@@ -25,6 +25,7 @@ export interface TeacherAvailable {
   clearedUsd: number        // all earnings past the hold
   pendingHoldUsd: number    // earnings still inside the hold window
   committedUsd: number      // sum of pending + paid payouts (already swept/owed)
+  hasPendingPayout: boolean // a payout is already queued + unpaid for this teacher
   veemEmail: string | null
 }
 
@@ -58,11 +59,13 @@ export async function computeTeacherAvailable(
 
   const { data: payouts } = await admin
     .from('teacher_payouts')
-    .select('amount_usd')
+    .select('amount_usd, status')
     .eq('teacher_id', teacherId)
     .in('status', ['pending', 'paid'])
-  const committedUsd = (payouts || []).reduce((s, p) => s + Number((p as { amount_usd: number }).amount_usd || 0), 0)
+  const rowsP = (payouts || []) as { amount_usd: number; status: string }[]
+  const committedUsd = rowsP.reduce((s, p) => s + Number(p.amount_usd || 0), 0)
+  const hasPendingPayout = rowsP.some(p => p.status === 'pending')
 
   const availableUsd = Math.max(0, Math.round((clearedUsd - committedUsd) * 100) / 100)
-  return { availableUsd, clearedUsd, pendingHoldUsd, committedUsd, veemEmail: teacher?.payout_veem_email ?? null }
+  return { availableUsd, clearedUsd, pendingHoldUsd, committedUsd, hasPendingPayout, veemEmail: teacher?.payout_veem_email ?? null }
 }

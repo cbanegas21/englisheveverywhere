@@ -114,8 +114,9 @@ const t = {
 }
 
 function formatUsd(amount: number, lang: Locale): string {
+  // Show exact cents — the teacher's "available" must match what they get paid.
   return new Intl.NumberFormat(lang === 'es' ? 'es-HN' : 'en-US', {
-    style: 'currency', currency: 'USD', maximumFractionDigits: 0,
+    style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(amount)
 }
 

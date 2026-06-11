@@ -49,8 +49,10 @@ export default async function AdminPayoutsPage({ params }: Props) {
 
   const ready: { teacherId: string; name: string | null; veemEmail: string | null; availableUsd: number }[] = []
   for (const t of teachers || []) {
-    const { availableUsd, veemEmail } = await computeTeacherAvailable(admin, t.id as string)
-    if (availableUsd >= 1) ready.push({ teacherId: t.id as string, name: getName(t.profile), veemEmail, availableUsd })
+    const { availableUsd, veemEmail, hasPendingPayout } = await computeTeacherAvailable(admin, t.id as string)
+    // Exclude teachers with an unpaid payout already queued — the sweep skips them
+    // too (one pending per teacher), so the preview matches what the sweep creates.
+    if (availableUsd >= 1 && !hasPendingPayout) ready.push({ teacherId: t.id as string, name: getName(t.profile), veemEmail, availableUsd })
   }
   ready.sort((a, b) => b.availableUsd - a.availableUsd)
 

@@ -1207,42 +1207,59 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
 export async function runWeeklyPayoutSweep() {
   await assertAdmin()
   const admin = createAdminClient()
+  // Only ACTIVE teachers with a Veem email — matches the admin "ready" preview.
   const { data: teachers } = await admin
     .from('teachers')
     .select('id, payout_veem_email')
     .not('payout_veem_email', 'is', null)
+    .eq('is_active', true)
 
   let created = 0
   let totalUsd = 0
+  let skipped = 0
+  const errors: string[] = []
   const now = new Date().toISOString()
   for (const t of teachers || []) {
-    const { availableUsd, veemEmail } = await computeTeacherAvailable(admin, t.id)
-    if (availableUsd >= 1 && veemEmail) {
-      const { error } = await admin.from('teacher_payouts').insert({
-        teacher_id: t.id,
-        amount_usd: availableUsd,
-        veem_email: veemEmail,
-        status: 'pending',
-        period_end: now,
-      })
-      if (!error) { created++; totalUsd += availableUsd }
+    const { availableUsd, veemEmail, hasPendingPayout } = await computeTeacherAvailable(admin, t.id)
+    // Skip if the email was cleared mid-sweep, an unpaid payout is already queued
+    // (resolve it first — one pending per teacher), or there's nothing to pay.
+    if (!veemEmail || hasPendingPayout) { skipped++; continue }
+    if (availableUsd < 1) continue
+    const { error } = await admin.from('teacher_payouts').insert({
+      teacher_id: t.id,
+      amount_usd: availableUsd,
+      veem_email: veemEmail,
+      status: 'pending',
+      period_end: now,
+    })
+    if (error) {
+      // 23505 = the one-pending-per-teacher unique index — a concurrent sweep beat
+      // us to it. Benign: skip. Any other error is surfaced to the admin.
+      if (error.code === '23505') { skipped++; continue }
+      errors.push(error.message)
+      continue
     }
+    created++
+    totalUsd += availableUsd
   }
   revalidatePath('/', 'layout')
-  return { created, totalUsd: Math.round(totalUsd * 100) / 100 }
+  return { created, totalUsd: Math.round(totalUsd * 100) / 100, skipped, errors }
 }
 
-// Admin confirms they sent the money via Veem. Only a 'pending' payout flips —
-// the .eq('status','pending') guard makes a double-click a no-op.
+// Admin confirms they sent the money via Veem. Only a 'pending' payout flips; the
+// .select() row-count guard surfaces a no-op (already paid / stale click) instead
+// of silently succeeding.
 export async function markTeacherPayoutPaid(payoutId: string, note?: string) {
   const acting = await assertAdmin()
   const admin = createAdminClient()
-  const { error } = await admin
+  const { data, error } = await admin
     .from('teacher_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString(), paid_by: acting.id, note: note?.trim() || null })
     .eq('id', payoutId)
     .eq('status', 'pending')
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error('Payout not found or already processed.')
   revalidatePath('/', 'layout')
   return { success: true as const }
 }
@@ -1251,12 +1268,14 @@ export async function markTeacherPayoutPaid(payoutId: string, note?: string) {
 export async function cancelTeacherPayout(payoutId: string) {
   await assertAdmin()
   const admin = createAdminClient()
-  const { error } = await admin
+  const { data, error } = await admin
     .from('teacher_payouts')
     .update({ status: 'cancelled' })
     .eq('id', payoutId)
     .eq('status', 'pending')
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error('Payout not found or already processed.')
   revalidatePath('/', 'layout')
   return { success: true as const }
 }
