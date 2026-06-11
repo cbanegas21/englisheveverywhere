@@ -248,6 +248,8 @@ create table public.teachers (
   cv_uploaded_at timestamp with time zone,
   cv_original_filename text,
   accepting_students boolean not null default true,
+  payout_veem_email text,
+  payout_setup_at timestamp with time zone,
   primary key (id)
 );
 

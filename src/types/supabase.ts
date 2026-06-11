@@ -765,6 +765,8 @@ export type Database = {
           hourly_rate: number
           id: string
           is_active: boolean | null
+          payout_setup_at: string | null
+          payout_veem_email: string | null
           profile_id: string
           rating: number | null
           specializations: string[] | null
@@ -783,6 +785,8 @@ export type Database = {
           hourly_rate?: number
           id?: string
           is_active?: boolean | null
+          payout_setup_at?: string | null
+          payout_veem_email?: string | null
           profile_id: string
           rating?: number | null
           specializations?: string[] | null
@@ -801,6 +805,8 @@ export type Database = {
           hourly_rate?: number
           id?: string
           is_active?: boolean | null
+          payout_setup_at?: string | null
+          payout_veem_email?: string | null
           profile_id?: string
           rating?: number | null
           specializations?: string[] | null
