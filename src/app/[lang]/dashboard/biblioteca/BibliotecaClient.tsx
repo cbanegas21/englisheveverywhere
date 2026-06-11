@@ -20,12 +20,18 @@ interface Props {
   lang: Locale
   books: Book[]
   variant?: 'student' | 'teacher'
+  // Coming-soon mode: the library is not enabled yet (the plan is in-platform
+  // interactive books, not downloads). Renders a placeholder, no book list.
+  comingSoon?: boolean
 }
 
 const t = {
   en: {
     title: 'Library',
     subtitle: 'Curriculum books and reading materials · view-only',
+    soonKicker: 'Coming soon',
+    soonTitle: 'An interactive library, in the works',
+    soonBody: 'We’re building our own books to read and work through right inside the platform — interactive, not downloads. It’ll open up here soon.',
     empty: 'No books available yet.',
     emptySub: 'The EnglishKolab team is curating the library. Books will appear here.',
     read: 'Open →',
@@ -47,6 +53,9 @@ const t = {
   es: {
     title: 'Biblioteca',
     subtitle: 'Libros y materiales de lectura · solo lectura',
+    soonKicker: 'Próximamente',
+    soonTitle: 'Una biblioteca interactiva, en camino',
+    soonBody: 'Estamos creando nuestros propios libros para leer y trabajar dentro de la plataforma — interactivos, no para descargar. Se abrirá aquí muy pronto.',
     empty: 'Todavía no hay libros disponibles.',
     emptySub: 'El equipo de EnglishKolab está organizando la biblioteca. Los libros aparecerán aquí.',
     read: 'Abrir →',
@@ -80,7 +89,7 @@ function fmtDate(iso: string, lang: Locale) {
   })
 }
 
-export default function BibliotecaClient({ lang, books }: Props) {
+export default function BibliotecaClient({ lang, books, comingSoon }: Props) {
   const tx = t[lang]
   const accent = 'var(--ek-red)'
   const [openBook, setOpenBook] = useState<Book | null>(null)
@@ -125,6 +134,26 @@ export default function BibliotecaClient({ lang, books }: Props) {
     setOpenBook(null)
     setSignedUrl(null)
     setError('')
+  }
+
+  // Coming-soon placeholder — no book list, no open/download. Editorial card
+  // (red left-rule + mono kicker), matching the house style.
+  if (comingSoon) {
+    return (
+      <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+        <DashTopBar title={tx.title} sub={tx.subtitle} />
+        <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 18, maxWidth: 560, background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)', padding: '28px 30px' }}>
+            <div style={{ width: 3, background: 'var(--ek-red)', borderRadius: 2, flexShrink: 0 }} />
+            <div>
+              <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{tx.soonKicker}</div>
+              <h2 style={{ fontFamily: 'var(--ek-font-sans)', fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--ek-text)', margin: '8px 0 0' }}>{tx.soonTitle}</h2>
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ek-text-soft)', margin: '10px 0 0', maxWidth: 460 }}>{tx.soonBody}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

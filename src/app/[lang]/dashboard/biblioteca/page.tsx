@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import BibliotecaClient from './BibliotecaClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -12,12 +11,8 @@ export default async function BibliotecaPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
-  const admin = createAdminClient()
-  const { data: books } = await admin
-    .from('library_books')
-    .select('id, title, description, level, created_at')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-
-  return <BibliotecaClient lang={lang as Locale} books={books || []} />
+  // Library is COMING SOON — the catalog is not loaded or exposed yet. The plan
+  // is in-platform interactive books (not downloads); see actions/library.ts
+  // (LIBRARY_ENABLED) which also hard-gates signed-URL minting.
+  return <BibliotecaClient lang={lang as Locale} books={[]} comingSoon />
 }

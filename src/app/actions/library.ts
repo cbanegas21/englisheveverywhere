@@ -122,9 +122,16 @@ export async function deleteBook(bookId: string) {
   return { success: true as const }
 }
 
+// Library is COMING SOON — the plan is in-platform INTERACTIVE books (not file
+// downloads), so books must not be openable/downloadable yet. Hard-gate here
+// (defense-in-depth) so a signed URL can't be minted even by a direct call.
+// Flip LIBRARY_ENABLED to true when the real feature ships.
+const LIBRARY_ENABLED: boolean = false
+
 // Any authenticated user can request a signed URL for an active book.
 // Returned URL is valid for 15 min and scoped to the underlying object.
 export async function getBookSignedUrl(bookId: string) {
+  if (!LIBRARY_ENABLED) return { error: 'The library is coming soon.' }
   const ctx = await requireAuthed()
   if ('error' in ctx) return { error: ctx.error }
   const { admin } = ctx
