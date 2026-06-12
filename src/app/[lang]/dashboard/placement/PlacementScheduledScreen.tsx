@@ -200,8 +200,12 @@ function buildIcsDataUrl(iso: string, lang: Locale): string {
     'VERSION:2.0',
     'PRODID:-//EnglishKolab//Diagnostic//EN',
     'BEGIN:VEVENT',
-    `UID:${Date.now()}@englishkolab`,
-    `DTSTAMP:${fmt(new Date())}`,
+    // UID + DTSTAMP MUST be deterministic: this string is rendered into the
+    // download link's href at render time, so Date.now()/new Date() here differ
+    // between the server render and client hydration → React #418 (attribute
+    // mismatch). Derive both from the stable scheduled start.
+    `UID:placement-${fmt(start)}@englishkolab`,
+    `DTSTAMP:${fmt(start)}`,
     `DTSTART:${fmt(start)}`,
     `DTEND:${fmt(end)}`,
     `SUMMARY:${title}`,
