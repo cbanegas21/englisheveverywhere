@@ -26,6 +26,23 @@ async function assertAdmin() {
   return user
 }
 
+// Admin booking mutations RETURN a structured result instead of throwing: a
+// production build redacts THROWN server-action messages (the client only sees a
+// generic "An error occurred in the Server Components render" + digest), which hid
+// our friendly guard messages AND broke the force-retry flow. Returning the
+// message keeps it intact; `forceable` marks the guards an admin may override.
+export type BookingActionResult =
+  | { ok: true; bookingId?: string }
+  | { ok: false; error: string; forceable?: boolean }
+const FORCEABLE_RE = /not available|primary teacher/i
+function toBookingError(e: unknown): { ok: false; error: string; forceable?: boolean } {
+  // Re-throw Next's control-flow signals (redirect / notFound) — never swallow them.
+  const digest = (e as { digest?: unknown } | null)?.digest
+  if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest === 'NEXT_NOT_FOUND')) throw e
+  const error = e instanceof Error ? e.message : 'Algo salió mal. Inténtalo de nuevo.'
+  return { ok: false, error, forceable: FORCEABLE_RE.test(error) }
+}
+
 // ── Teacher actions ───────────────────────────────────────────────────────────
 
 // Signed URL for a teacher's uploaded CV. 10-min TTL is enough for admin
@@ -125,7 +142,8 @@ export async function assignAndConfirmBooking(
   bookingId: string,
   teacherId: string,
   options: { force?: boolean } = {},
-) {
+): Promise<BookingActionResult> {
+  try {
   await assertAdmin()
   const admin = createAdminClient()
   const force = options.force ?? false
@@ -215,6 +233,10 @@ export async function assignAndConfirmBooking(
   scheduleBookingReminders(bookingId).catch(() => {})
 
   revalidatePath('/', 'layout')
+  return { ok: true }
+  } catch (e) {
+    return toBookingError(e)
+  }
 }
 
 // Throws if the teacher has paused new-student intake (accepting_students=false)
@@ -469,7 +491,8 @@ export async function adminRescheduleBooking(
   bookingId: string,
   newScheduledAt: string,
   options: { force?: boolean } = {},
-) {
+): Promise<BookingActionResult> {
+  try {
   await assertAdmin()
   const admin = createAdminClient()
   const force = options.force ?? false
@@ -494,7 +517,7 @@ export async function adminRescheduleBooking(
     throw new Error('Scheduled time is too far in the future (max 180 days).')
   }
   // No-op move — nothing to do.
-  if (new Date(booking.scheduled_at).getTime() === when.getTime()) return
+  if (new Date(booking.scheduled_at).getTime() === when.getTime()) return { ok: true }
 
   const duration = booking.duration_minutes ?? 60
 
@@ -547,6 +570,10 @@ export async function adminRescheduleBooking(
   }
 
   revalidatePath('/', 'layout')
+  return { ok: true }
+  } catch (e) {
+    return toBookingError(e)
+  }
 }
 
 // Small helper: gate-then-client so the two reschedule actions don't repeat.
@@ -1021,7 +1048,8 @@ export async function createAdminBooking(
   durationMinutes: number,
   notes: string,
   options: { force?: boolean } = {},
-) {
+): Promise<BookingActionResult> {
+  try {
   await assertAdmin()
   const admin = createAdminClient()
 
@@ -1132,7 +1160,10 @@ export async function createAdminBooking(
   sendBookingEmails({ studentId, teacherId, scheduledAt, type, bookingId: booking.id })
 
   revalidatePath('/', 'layout')
-  return { success: true, bookingId: booking.id }
+  return { ok: true, bookingId: booking.id }
+  } catch (e) {
+    return toBookingError(e)
+  }
 }
 
 // ── Shared helpers for admin notification emails (E8) ─────────────────────────

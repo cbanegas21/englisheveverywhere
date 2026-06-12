@@ -602,22 +602,26 @@ export default function BookingCalendarClient({
   // Server guard messages stay English by design (admin-facing) and are matched
   // here to decide whether the failure is force-overridable (off-hours availability
   // / primary-teacher continuity) → offer "Continue anyway"; hard invariants get OK.
-  function showConflict(kicker: string, message: string, retry: () => void) {
-    const lower = message.toLowerCase()
-    const forceable = lower.includes('not available') || lower.includes('primary teacher')
-    setConflict({ kicker, message, force: forceable ? retry : undefined })
+  // The action now decides whether a failure is force-overridable and returns it,
+  // so the caller passes the retry callback only when forceable. (Server-action
+  // throws are redacted in prod, which used to break the old string match here.)
+  function showConflict(kicker: string, message: string, retry?: () => void) {
+    setConflict({ kicker, message, force: retry })
   }
 
   function assignWithAvailabilityGuard(bookingId: string, teacherId: string, onSuccess: () => void, force = false) {
     startTransition(async () => {
       try {
-        await assignAndConfirmBooking(bookingId, teacherId, { force })
+        const res = await assignAndConfirmBooking(bookingId, teacherId, { force })
+        if (res && !res.ok) {
+          showConflict(tx.assignKicker, res.error, res.forceable ? () => assignWithAvailabilityGuard(bookingId, teacherId, onSuccess, true) : undefined)
+          return
+        }
         setConflict(null)
         showToast(tx.assigned)
         onSuccess()
       } catch (e) {
-        const msg = e instanceof Error ? e.message : tx.assignFailed
-        showConflict(tx.assignKicker, msg, () => assignWithAvailabilityGuard(bookingId, teacherId, onSuccess, true))
+        showConflict(tx.assignKicker, e instanceof Error ? e.message : tx.assignFailed, undefined)
       }
     })
   }
@@ -626,14 +630,17 @@ export default function BookingCalendarClient({
   function attemptReschedule(bookingId: string, newIso: string, force = false, onSuccess?: () => void) {
     startTransition(async () => {
       try {
-        await adminRescheduleBooking(bookingId, newIso, { force })
+        const res = await adminRescheduleBooking(bookingId, newIso, { force })
+        if (res && !res.ok) {
+          showConflict(tx.rescheduleKicker, res.error, res.forceable ? () => attemptReschedule(bookingId, newIso, true, onSuccess) : undefined)
+          return
+        }
         setConflict(null)
         showToast(tx.moved)
         onSuccess?.()
         router.refresh()
       } catch (e) {
-        const msg = e instanceof Error ? e.message : tx.error
-        showConflict(tx.rescheduleKicker, msg, () => attemptReschedule(bookingId, newIso, true, onSuccess))
+        showConflict(tx.rescheduleKicker, e instanceof Error ? e.message : tx.error, undefined)
       }
     })
   }
@@ -805,18 +812,20 @@ export default function BookingCalendarClient({
     if (!cStudent || !createIso) return
     startTransition(async () => {
       try {
-        await createAdminBooking(cStudent, cTeacher || null, createIso, cType, cDuration, cNotes, { force })
+        const res = await createAdminBooking(cStudent, cTeacher || null, createIso, cType, cDuration, cNotes, { force })
+        if (res && !res.ok) {
+          // availability + primary-teacher continuity are force-overridable; hard
+          // guards (paused teacher, slot taken, no credits, out-of-bounds) are not.
+          setCForceable(!!res.forceable && !force)
+          setCError(res.error)
+          return
+        }
         showToast(tx.created)
         closeCreate()
         router.refresh()
       } catch (e) {
-        const msg = e instanceof Error ? e.message : tx.error
-        // Same forceable set as assign/reschedule — availability + primary-teacher
-        // continuity instruct "retry with force=true". Hard guards (paused teacher,
-        // slot taken, no credits, out-of-bounds) never carry it → no override offered.
-        const forceable = msg.toLowerCase().includes('force=true')
-        setCForceable(forceable && !force)
-        setCError(msg)
+        setCForceable(false)
+        setCError(e instanceof Error ? e.message : tx.error)
       }
     })
   }
