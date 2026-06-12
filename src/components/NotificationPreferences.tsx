@@ -38,6 +38,7 @@ const T = {
     whatsapp: 'WhatsApp',
     before24h: '24 hours before',
     before1h: '1 hour before',
+    autoNote: 'Email reminders are automatic. WhatsApp is optional — our team sends those by hand for now.',
     save: 'Save preferences',
     saving: '…',
     saved: 'Saved',
@@ -55,6 +56,7 @@ const T = {
     whatsapp: 'WhatsApp',
     before24h: '24 horas antes',
     before1h: '1 hora antes',
+    autoNote: 'Los recordatorios por correo son automáticos. WhatsApp es opcional — por ahora los envía nuestro equipo a mano.',
     save: 'Guardar preferencias',
     saving: '…',
     saved: 'Guardado',
@@ -84,15 +86,36 @@ export default function NotificationPreferences({
   const [error, setError] = useState('')
 
   const isPanel = variant === 'panel'
-  const showBadge = showComingSoon ?? !isPanel
+  // Email reminders are LIVE (Resend), so we no longer flag the whole card as
+  // "coming soon" — that was misleading. The autoNote footnote explains the
+  // email-automatic / WhatsApp-manual split instead. (showComingSoon kept as an
+  // explicit opt-in for any caller that still wants the chip.)
+  const showBadge = showComingSoon ?? false
 
   function toggle<K extends keyof Required<Prefs>>(key: K) {
     const next = { ...prefs, [key]: !prefs[key] }
     setPrefs(next)
     setSaved(false)
     setError('')
+    // Card variant auto-saves on every toggle (no Save button). Await it so the
+    // header can flash a "Saved" confirmation and surface any error.
     if (!isPanel && onSave) {
-      void onSave(next)
+      setSaving(true)
+      void (async () => {
+        try {
+          const res = await onSave(next)
+          if (res && !res.success) {
+            setError(res.error || tx.saveError)
+          } else {
+            setSaved(true)
+            setTimeout(() => setSaved(false), 2000)
+          }
+        } catch {
+          setError(tx.saveError)
+        } finally {
+          setSaving(false)
+        }
+      })()
     }
   }
 
@@ -156,6 +179,22 @@ export default function NotificationPreferences({
               <p className="text-[12px] mt-0.5" style={{ color: 'var(--ek-text-soft)' }}>{tx.subCard}</p>
             </div>
           </div>
+          {onSave && (saving || saved) && (
+            <span
+              className="ek-microlabel self-start flex-shrink-0 inline-flex items-center gap-1 px-2 py-1"
+              style={{
+                fontSize: '9px',
+                letterSpacing: '0.12em',
+                color: saved ? 'var(--ek-success-text)' : 'var(--ek-text-muted)',
+                background: saved ? 'var(--ek-success-bg)' : 'transparent',
+                border: `1px solid ${saved ? 'var(--ek-success-border)' : 'transparent'}`,
+                borderRadius: 'var(--ek-radius-sm)',
+              }}
+            >
+              {saved && <CheckCircle2 className="h-3 w-3" />}
+              {saved ? tx.saved : tx.saving}
+            </span>
+          )}
           {showBadge && (
             <span
               className="ek-microlabel self-start flex-shrink-0 px-2 py-1"
@@ -177,6 +216,11 @@ export default function NotificationPreferences({
             )
           })}
         </div>
+
+        <p className="text-[11px] mt-3" style={{ color: 'var(--ek-text-muted)', lineHeight: 1.45 }}>
+          {tx.autoNote}
+        </p>
+        {error && <p className="text-[11px] mt-1.5" style={{ color: 'var(--ek-red)' }}>{error}</p>}
       </div>
     )
   }
@@ -313,6 +357,10 @@ export default function NotificationPreferences({
           </div>
         </section>
       </div>
+
+      <p className="px-6 pb-4 text-[11.5px]" style={{ color: 'var(--ek-text-muted)', lineHeight: 1.45 }}>
+        {tx.autoNote}
+      </p>
 
       {onSave && (
         <div

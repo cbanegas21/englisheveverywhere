@@ -389,3 +389,120 @@ export async function savePreferredCurrency(code: string): Promise<{ success: bo
   if (error) return { success: false, error: error.message }
   return { success: true }
 }
+
+// ── Profile picture (avatar) upload ──────────────────────────────────────────
+// Stored in the public `avatars` bucket at `{user.id}/{uuid}.{ext}`. The bucket
+// is created lazily on first upload (idempotent). Uploaded via the admin client
+// after a server-side magic-byte check, so a spoofed Content-Type can't smuggle
+// a non-image through. The resulting public URL passes updateStudentProfile's
+// same-origin `/storage/` allow-check.
+const AVATAR_BUCKET = 'avatars'
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024
+
+function detectImage(buf: Buffer): { contentType: string; ext: string } | null {
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+    return { contentType: 'image/png', ext: 'png' }
+  }
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return { contentType: 'image/jpeg', ext: 'jpg' }
+  }
+  if (buf.length >= 4 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) {
+    return { contentType: 'image/gif', ext: 'gif' }
+  }
+  if (
+    buf.length >= 12 &&
+    buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buf.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return { contentType: 'image/webp', ext: 'webp' }
+  }
+  return null
+}
+
+async function ensureAvatarBucket(admin: ReturnType<typeof createAdminClient>) {
+  try {
+    const { data } = await admin.storage.getBucket(AVATAR_BUCKET)
+    if (!data) {
+      await admin.storage.createBucket(AVATAR_BUCKET, {
+        public: true,
+        fileSizeLimit: AVATAR_MAX_BYTES,
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+      })
+    }
+  } catch {
+    // Best-effort: a race or an already-exists error is harmless — the upload
+    // below will succeed, or surface its own error.
+  }
+}
+
+async function purgeAvatars(admin: ReturnType<typeof createAdminClient>, userId: string) {
+  try {
+    const { data: existing } = await admin.storage.from(AVATAR_BUCKET).list(userId)
+    if (existing && existing.length) {
+      await admin.storage.from(AVATAR_BUCKET).remove(existing.map((o) => `${userId}/${o.name}`))
+    }
+  } catch {
+    // non-fatal
+  }
+}
+
+export async function uploadStudentAvatar(
+  formData: FormData,
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
+
+  // Reuse the existing allowlisted rate-limit action (avoids a migration; the
+  // auth_attempts.action CHECK constraint would silently drop an unknown action).
+  const rl = await checkUserActionLimit(user.id, 'updateStudentProfile', 30)
+  if (!rl.ok) return { success: false, error: 'Too many attempts. Please wait a few minutes.' }
+
+  const file = formData.get('file') as File | null
+  if (!file || file.size === 0) return { success: false, error: 'No file provided' }
+  if (file.size > AVATAR_MAX_BYTES) return { success: false, error: 'Image is too large (max 2 MB).' }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const kind = detectImage(buffer)
+  if (!kind) return { success: false, error: 'Unsupported image — use PNG, JPG, GIF or WEBP.' }
+
+  const admin = createAdminClient()
+  await ensureAvatarBucket(admin)
+  // Drop any previous avatar(s) so old files don't accumulate.
+  await purgeAvatars(admin, user.id)
+
+  const path = `${user.id}/${randomUUID()}.${kind.ext}`
+  const { error: upErr } = await admin.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, buffer, { contentType: kind.contentType, upsert: false })
+  if (upErr) return { success: false, error: upErr.message }
+
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const url = `${base}/storage/v1/object/public/${AVATAR_BUCKET}/${path}`
+
+  const { error: updErr } = await admin
+    .from('profiles')
+    .update({ avatar_url: url, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+  if (updErr) return { success: false, error: updErr.message }
+
+  revalidatePath('/', 'layout')
+  return { success: true, url }
+}
+
+export async function removeStudentAvatar(): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+  await purgeAvatars(admin, user.id)
+  const { error } = await admin
+    .from('profiles')
+    .update({ avatar_url: null, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}

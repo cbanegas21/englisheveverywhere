@@ -792,7 +792,7 @@ export default function PlanClient({
                   <div>
                     <div
                       style={{
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: 700,
                         color: 'var(--ek-text)',
                         lineHeight: 1.3,
@@ -800,14 +800,15 @@ export default function PlanClient({
                     >
                       {f.label}
                     </div>
+                    {/* Was 11.5px serif-italic muted — barely legible. Now plain
+                        sans, larger, higher-contrast (readable for every age). */}
                     <div
                       style={{
-                        fontSize: 11.5,
-                        color: 'var(--ek-text-muted)',
-                        marginTop: 2,
-                        lineHeight: 1.45,
-                        fontFamily: 'var(--ek-font-serif)',
-                        fontStyle: 'italic',
+                        fontSize: 13,
+                        color: 'var(--ek-text-soft)',
+                        marginTop: 3,
+                        lineHeight: 1.5,
+                        fontWeight: 500,
                       }}
                     >
                       {f.sub}
@@ -1071,8 +1072,8 @@ export default function PlanClient({
                     style={{ width: 3, alignSelf: 'stretch', minHeight: 16, background: accent, opacity: 0.7, borderRadius: 2, flexShrink: 0 }}
                   />
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>{f.label}</div>
-                    <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 1 }}>{f.sub}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ek-text)' }}>{f.label}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--ek-text-soft)', marginTop: 2, lineHeight: 1.45 }}>{f.sub}</div>
                   </div>
                 </li>
               ))}

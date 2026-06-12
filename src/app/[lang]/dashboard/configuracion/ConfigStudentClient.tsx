@@ -8,12 +8,15 @@ import {
   CheckCircle2,
   Phone,
   ArrowRight,
+  Upload,
 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import {
   updateStudentProfile,
   requestEmailChange,
   deleteMyAccount,
+  uploadStudentAvatar,
+  removeStudentAvatar,
   type NotificationPreferences as Prefs,
 } from '@/app/actions/profile'
 import TimezoneSelect from '@/components/TimezoneSelect'
@@ -30,8 +33,9 @@ export interface PurchaseRow {
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import Modal from '@/components/dashboard/Modal'
 
-// TODO (Phase 4): wire avatar upload to Supabase Storage `avatars/{user.id}`
-// bucket (create bucket + policies if missing).
+// Avatar upload is wired to Supabase Storage (public `avatars` bucket, created
+// lazily on first upload) via uploadStudentAvatar/removeStudentAvatar in
+// src/app/actions/profile.ts. Validation (type/size/magic-bytes) is server-side.
 
 type TabKey = 'profile' | 'account' | 'notifications' | 'billing'
 
@@ -54,10 +58,13 @@ const t = {
     profileHeader: 'Profile',
     profileSub: 'This is how other people see you on the platform.',
     avatar: 'Profile picture',
-    avatarHint: 'PNG, JPG or GIF — max 2MB.',
+    avatarHint: 'PNG, JPG, GIF or WEBP — max 2 MB.',
     avatarUpload: 'Upload image',
+    avatarChange: 'Change photo',
     avatarRemove: 'Remove',
-    avatarSoon: 'Coming soon',
+    avatarUploading: 'Uploading…',
+    avatarTooLarge: 'Image is too large (max 2 MB).',
+    avatarBadType: 'Use a PNG, JPG, GIF or WEBP image.',
     fullName: 'Full name',
     fullNamePh: 'Enter your full name',
     phone: 'Phone number',
@@ -137,10 +144,13 @@ const t = {
     profileHeader: 'Perfil',
     profileSub: 'Así te ven los demás en la plataforma.',
     avatar: 'Foto de perfil',
-    avatarHint: 'PNG, JPG o GIF — máximo 2MB.',
+    avatarHint: 'PNG, JPG, GIF o WEBP — máximo 2 MB.',
     avatarUpload: 'Subir imagen',
+    avatarChange: 'Cambiar foto',
     avatarRemove: 'Quitar',
-    avatarSoon: 'Próximamente',
+    avatarUploading: 'Subiendo…',
+    avatarTooLarge: 'La imagen es muy grande (máx 2 MB).',
+    avatarBadType: 'Usa una imagen PNG, JPG, GIF o WEBP.',
     fullName: 'Nombre completo',
     fullNamePh: 'Ingresa tu nombre completo',
     phone: 'Número de teléfono',
@@ -531,11 +541,56 @@ function ProfilePanel({
 }) {
   const [name, setName] = useState(initialFullName)
   const [phone, setPhone] = useState(initialPhone)
-  const [avatarUrl] = useState(initialAvatarUrl)
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const [avatarErr, setAvatarErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarErr('')
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarErr(tx.avatarTooLarge)
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+    if (!/^image\/(png|jpe?g|gif|webp)$/.test(file.type)) {
+      setAvatarErr(tx.avatarBadType)
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+    setAvatarBusy(true)
+    try {
+      const fd = new FormData()
+      fd.set('file', file)
+      const res = await uploadStudentAvatar(fd)
+      if (res.success && res.url) setAvatarUrl(res.url)
+      else setAvatarErr(res.error || tx.saveError)
+    } catch {
+      setAvatarErr(tx.saveError)
+    } finally {
+      setAvatarBusy(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarBusy(true)
+    setAvatarErr('')
+    try {
+      const res = await removeStudentAvatar()
+      if (res.success) setAvatarUrl('')
+      else setAvatarErr(res.error || tx.saveError)
+    } catch {
+      setAvatarErr(tx.saveError)
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
 
   const [newEmail, setNewEmail] = useState(email)
   const [emailSaving, setEmailSaving] = useState(false)
@@ -620,26 +675,30 @@ function ProfilePanel({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/gif,image/webp"
                 className="hidden"
-                // TODO (Phase 4): upload to Supabase Storage, persist URL.
-                onChange={() => { /* placeholder */ }}
+                onChange={handleAvatarFile}
               />
               <button
-                disabled
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-bold cursor-not-allowed"
-                style={{ background: 'var(--ek-paper-warm)', color: 'var(--ek-text-faint)', border: '1px solid var(--ek-border)' }}
-                title={tx.avatarSoon}
+                onClick={() => fileRef.current?.click()}
+                disabled={avatarBusy}
+                className="lk-cfg-btn-ghost"
+                style={{ opacity: avatarBusy ? 0.6 : 1, cursor: avatarBusy ? 'wait' : 'pointer' }}
               >
-                {tx.avatarUpload}
+                <Upload className="h-3.5 w-3.5" />
+                {avatarBusy ? tx.avatarUploading : avatarUrl ? tx.avatarChange : tx.avatarUpload}
               </button>
-              <span
-                className="ek-microlabel"
-                style={{ color: 'var(--ek-text-muted)' }}
-              >
-                {tx.avatarSoon}
-              </span>
+              {avatarUrl && !avatarBusy && (
+                <button
+                  onClick={handleAvatarRemove}
+                  className="text-[12px] font-bold"
+                  style={{ color: 'var(--ek-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                >
+                  {tx.avatarRemove}
+                </button>
+              )}
             </div>
+            {avatarErr && <p className="text-[12px] mt-2" style={{ color: 'var(--ek-red)' }}>{avatarErr}</p>}
           </div>
         </div>
 

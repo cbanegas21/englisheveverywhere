@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 import { createBooking } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 import { getZonedParts, zonedWallTimeToUtc } from '@/lib/timezone'
@@ -133,9 +133,12 @@ function todayInZone(tz: string): ZonedDay {
   return { year: p.year, month: p.month, day: p.day }
 }
 function getWeekDays(weekOffset: number, tz: string): ZonedDay[] {
+  // Rolling 7-day window that ALWAYS starts on today (offset 0): opening the
+  // scheduler on a Friday shows Fri → next Thu, instead of a fixed Sun–Sat grid
+  // whose already-past days (Sun–Thu) render as a blank, unusable column.
   const today = todayInZone(tz)
-  const sunday = addDays(today, -weekdayOf(today) + weekOffset * 7)
-  return Array.from({ length: 7 }, (_, i) => addDays(sunday, i))
+  const start = addDays(today, weekOffset * 7)
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i))
 }
 // Format the calendar day itself: build it as UTC noon and read back in UTC so the
 // rendered weekday/month/day equals the ZonedDay exactly (no second tz shift).
@@ -740,6 +743,33 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
               i
             </span>
             {tx.infoBanner}
+          </div>
+
+          {/* Hours-range toggle — surfaced ABOVE the grid (not only at the
+              bottom) so early-morning slots are reachable without scrolling
+              past the whole calendar first. */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button
+              onClick={() => setShowAllHours((v) => !v)}
+              className="ek-chip-toggle"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '8px 14px',
+                borderRadius: 8,
+                border: `1px solid ${showAllHours ? 'var(--ek-red-tint-3)' : 'var(--ek-border-mid)'}`,
+                background: showAllHours ? 'var(--ek-red-tint)' : 'var(--ek-card)',
+                color: showAllHours ? 'var(--ek-red)' : 'var(--ek-text-soft)',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'var(--ek-font-sans)',
+              }}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              {showAllHours ? tx.showBusinessHours : tx.showAllHours}
+            </button>
           </div>
 
           {/* Calendar */}

@@ -291,8 +291,20 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
         return name.includes(q) || (b.type === 'placement_test' && 'placement diagnostic'.includes(q))
       })
     }
+    if (activeTab === 'upcoming') {
+      // The diagnostic/placement call is the logical first step in a student's
+      // journey, so it always sorts to the TOP of upcoming — ahead of regular
+      // classes — regardless of its scheduled time. Remaining classes follow by
+      // soonest first. (Copy, don't mutate the prop array.)
+      list = [...list].sort((a, b) => {
+        const ap = a.type === 'placement_test' ? 0 : 1
+        const bp = b.type === 'placement_test' ? 0 : 1
+        if (ap !== bp) return ap - bp
+        return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+      })
+    }
     return list
-  }, [bookings, search])
+  }, [bookings, search, activeTab])
 
   const isEmpty = filteredBookings.length === 0
   const [nowSnapshotMs] = useState(() => Date.now())

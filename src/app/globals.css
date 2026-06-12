@@ -22,11 +22,14 @@
   --ek-red-tint-2:   rgba(196,30,58,0.08);
   --ek-red-tint-3:   rgba(196,30,58,0.18);
 
-  /* Text on cream */
+  /* Text on cream.
+     --ek-text-muted was #8C8578 (~3.2:1 on paper — below WCAG AA, hard to read,
+     esp. for older eyes). Darkened to ~4.8:1 so small muted body/sub text is
+     legible app-wide while still reading clearly as a secondary tone. */
   --ek-text:         #111111;
   --ek-text-soft:    #5C5648;
-  --ek-text-muted:   #8C8578;
-  --ek-text-faint:   #C4BCAA;
+  --ek-text-muted:   #6E6857;
+  --ek-text-faint:   #B4AB97;
 
   /* Text on dark hero */
   --ek-on-dark:           #F4EFE6;

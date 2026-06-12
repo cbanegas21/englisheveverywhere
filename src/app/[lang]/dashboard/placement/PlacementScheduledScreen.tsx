@@ -10,6 +10,7 @@ import { DashTopBar } from '@/components/ui/DashTopBar'
 import { StatLedger } from '@/components/ui/StatLedger'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import NotificationPreferences from '@/components/NotificationPreferences'
+import { updateStudentProfile, type NotificationPreferences as Prefs } from '@/app/actions/profile'
 
 interface Props {
   lang: Locale
@@ -19,6 +20,7 @@ interface Props {
   isPast?: boolean
   placementDone?: boolean
   conductorName?: string | null
+  notificationPreferences?: Prefs
 }
 
 const T = {
@@ -48,6 +50,7 @@ const T = {
     calendarCardSub: 'Download .ics or add to Google Calendar.',
     googleCalendar: 'Add to Google Calendar',
     downloadIcs: 'Download .ics file',
+    icsHint: 'An .ics file adds this call to Apple Calendar, Outlook, or any calendar app — just open it once it downloads.',
     remindersTitle: 'Reminders',
     remindersSub: "We'll nudge you before the call.",
     remindersSoon: 'Coming soon',
@@ -80,7 +83,7 @@ const T = {
         a: "Reach out through the platform. We'll help you pick another time.",
       },
     ],
-    joinNote: "Join 15 minutes before your scheduled time — we're ready early.",
+    joinNote: "You can join up to 24 hours before your call — a waiting room holds you with a live countdown until it's time, and you can stay up to 90 minutes after it starts.",
     honduras: 'Your local time',
     daysLeft: (d: number) => `${d} day${d !== 1 ? 's' : ''}`,
     hoursLeft: (h: number) => `${h} hour${h !== 1 ? 's' : ''}`,
@@ -112,6 +115,7 @@ const T = {
     calendarCardSub: 'Descarga .ics o agrega a Google Calendar.',
     googleCalendar: 'Agregar a Google Calendar',
     downloadIcs: 'Descargar archivo .ics',
+    icsHint: 'Un archivo .ics agrega esta llamada a Apple Calendar, Outlook o cualquier app de calendario — solo ábrelo cuando se descargue.',
     remindersTitle: 'Recordatorios',
     remindersSub: 'Te avisamos antes de la llamada.',
     remindersSoon: 'Próximamente',
@@ -144,7 +148,7 @@ const T = {
         a: 'Contáctanos por la plataforma. Te ayudamos a elegir otra hora.',
       },
     ],
-    joinNote: 'Únete 15 minutos antes de tu hora — estamos listos antes.',
+    joinNote: 'Puedes entrar hasta 24 horas antes de tu llamada — una sala de espera te recibe con una cuenta regresiva hasta la hora, y puedes quedarte hasta 90 minutos después de que empiece.',
     honduras: 'Tu hora local',
     daysLeft: (d: number) => `${d} día${d !== 1 ? 's' : ''}`,
     hoursLeft: (h: number) => `${h} hora${h !== 1 ? 's' : ''}`,
@@ -256,6 +260,7 @@ function Countdown({ scheduledAt, lang }: { scheduledAt: string; lang: Locale })
 
 export default function PlacementScheduledScreen({
   lang, bookingId, scheduledAt, timezone, isPast, placementDone, conductorName,
+  notificationPreferences,
 }: Props) {
   const tx = T[lang]
   const isEs = lang === 'es'
@@ -308,8 +313,8 @@ export default function PlacementScheduledScreen({
     .lk-ps-prep li {
       padding-left: 14px;
       border-left: 3px solid var(--ek-red);
-      font-size: 13px;
-      line-height: 1.55;
+      font-size: 14.5px;
+      line-height: 1.6;
       color: var(--ek-text-soft);
     }
   `
@@ -564,12 +569,21 @@ export default function PlacementScheduledScreen({
                   <Download className="h-3.5 w-3.5" />
                   {tx.downloadIcs}
                 </a>
+                <p className="text-[11.5px] mt-1" style={{ color: 'var(--ek-text-muted)', lineHeight: 1.45 }}>
+                  {tx.icsHint}
+                </p>
               </div>
             ) : null}
           </div>
 
-          {/* Reminders stub — see components/NotificationPreferences.tsx for the panel variant used in Settings. */}
-          <NotificationPreferences lang={lang} variant="card" />
+          {/* Reminders — auto-saves the student's preference on toggle (email is
+              live via Resend; WhatsApp is opt-in/manual). Panel variant lives in Settings. */}
+          <NotificationPreferences
+            lang={lang}
+            variant="card"
+            initialValues={notificationPreferences}
+            onSave={async (next) => await updateStudentProfile({ notificationPreferences: next })}
+          />
 
           {/* Prep checklist — 3px red hairline left-rule rows, no icon-in-square */}
           <div
@@ -579,7 +593,7 @@ export default function PlacementScheduledScreen({
             <div className="flex gap-3 mb-4" style={{ alignSelf: 'stretch' }}>
               <span style={{ width: 3, alignSelf: 'stretch', background: 'var(--ek-red)', flexShrink: 0 }} />
               <div>
-                <h3 className="text-[14px] font-bold" style={{ color: 'var(--ek-text)' }}>{tx.prepTitle}</h3>
+                <h3 className="text-[15px] font-bold" style={{ color: 'var(--ek-text)' }}>{tx.prepTitle}</h3>
               </div>
             </div>
             <ul className="lk-ps-prep mt-1">

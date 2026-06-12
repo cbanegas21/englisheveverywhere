@@ -76,7 +76,12 @@ export default function JoinSessionButton({
   const href = `/${lang}/sala/${bookingId}`
 
   if (now < openAt) {
-    const label = tx.startsIn(formatCountdown(openAt - now, lang))
+    // Count down to the CLASS START (scheduledMs), not to openAt. Counting to
+    // openAt made this read "Starts in 20h" while the placement hero's own
+    // countdown read "In 1 day 20h" for the same call — two numbers, 24h apart,
+    // side by side. The room link still only activates at openAt; the label just
+    // reflects time-until-class so both countdowns always agree.
+    const label = tx.startsIn(formatCountdown(scheduledMs - now, lang))
     return renderDisabled(label, variant, className)
   }
 

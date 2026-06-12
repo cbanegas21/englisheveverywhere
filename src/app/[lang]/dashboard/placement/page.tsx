@@ -63,13 +63,16 @@ export default async function PlacementPage({ params, searchParams }: Props) {
   // Phase D: prefer profiles.timezone (user-editable) over auth metadata.
   const { data: profileRow } = await supabase
     .from('profiles')
-    .select('timezone')
+    .select('timezone, notification_preferences')
     .eq('id', user.id)
     .maybeSingle()
   const timezone =
     (profileRow as { timezone?: string | null } | null)?.timezone ||
     (user.user_metadata?.timezone as string) ||
     'America/Tegucigalpa'
+  const notificationPreferences =
+    (profileRow as { notification_preferences?: Record<string, boolean> | null } | null)
+      ?.notification_preferences ?? undefined
   // "Past" means the live window is closed. Placement calls are 60 min, and
   // the video room stays joinable for 90 min after the scheduled end (matches
   // getRoomAccess late cap in src/app/actions/video.ts). Without this grace,
@@ -106,6 +109,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
         isPast={isPast}
         placementDone={!!student.placement_test_done}
         conductorName={conductorName}
+        notificationPreferences={notificationPreferences}
       />
     )
   }

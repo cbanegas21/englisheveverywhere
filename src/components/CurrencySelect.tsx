@@ -95,9 +95,17 @@ export default function CurrencySelect({
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
       const menuWidth = Math.max(rect.width, 280)
+      // Position:fixed (viewport coords, no scroll offset). Two reasons:
+      //  1) a fixed element doesn't extend the document height, so opening the
+      //     menu never makes the page's vertical scrollbar appear — which was
+      //     what shifted the centered layout sideways ("page jumps left").
+      //  2) clamp horizontally so the menu never overflows the viewport edge.
+      const vw = document.documentElement.clientWidth
+      const maxLeft = vw - menuWidth - 8
+      const left = Math.max(8, Math.min(rect.left, maxLeft))
       setDropdownPos({
-        top: rect.bottom + window.scrollY + 6,
-        left: rect.left + window.scrollX,
+        top: rect.bottom + 6,
+        left,
         width: menuWidth,
       })
     }
@@ -188,7 +196,7 @@ export default function CurrencySelect({
         <div
           ref={portalRef}
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: dropdownPos.top,
             left: dropdownPos.left,
             width: dropdownPos.width,
