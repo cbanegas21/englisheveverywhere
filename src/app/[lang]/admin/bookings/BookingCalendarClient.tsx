@@ -734,8 +734,10 @@ export default function BookingCalendarClient({
         showToast(tx.markedComplete)
         setSelectedBooking(null)
         router.refresh()
-      } catch (e) {
-        showToast(e instanceof Error ? e.message : tx.error, 'error')
+      } catch {
+        // completeBooking/cancelBookingWithRefund still throw; prod redacts the
+        // message → show the friendly generic instead of the scary crash text.
+        showToast(tx.error, 'error')
       }
     })
   }
@@ -748,8 +750,10 @@ export default function BookingCalendarClient({
         setSelectedBooking(null)
         setConfirmCancel(false)
         router.refresh()
-      } catch (e) {
-        showToast(e instanceof Error ? e.message : tx.error, 'error')
+      } catch {
+        // completeBooking/cancelBookingWithRefund still throw; prod redacts the
+        // message → show the friendly generic instead of the scary crash text.
+        showToast(tx.error, 'error')
       }
     })
   }

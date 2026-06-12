@@ -342,8 +342,9 @@ export default function StudentProfileClient({ student, lang }: Props) {
         await fn()
         showToast(successMsg)
         router.refresh()
-      } catch (e) {
-        showToast(e instanceof Error ? e.message : t.genericError, 'error')
+      } catch {
+        // Thrown server-action messages are redacted in prod → show friendly generic.
+        showToast(t.genericError, 'error')
       }
     })
   }

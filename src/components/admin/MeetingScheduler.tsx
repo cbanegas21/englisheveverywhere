@@ -265,7 +265,7 @@ export default function MeetingScheduler({
   function submitBooking(scheduledAt: string, force = false) {
     startTransition(async () => {
       try {
-        await createAdminBooking(
+        const res = await createAdminBooking(
           selStudentId,
           selTeacherId || null,
           scheduledAt,
@@ -274,21 +274,23 @@ export default function MeetingScheduler({
           notes,
           { force },
         )
-        onSuccess()
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : t.errCreate
-        // Force-overridable guards (primary-teacher continuity, teacher
-        // availability) all instruct the admin to "retry with force=true" — let
-        // them override after confirming. Hard invariants (slot conflicts, paused
-        // teacher) never carry that phrase, so they correctly fall through to the
-        // error display with no override offered.
-        if (msg.toLowerCase().includes('force=true') && !force) {
-          if (confirm(`${msg}\n\n${t.assignAnyway}`)) {
+        // createAdminBooking now RETURNS { ok, error, forceable } (it used to
+        // throw — prod redacted the thrown message). Read the result: a thrown
+        // error here would no longer carry the real message.
+        if (res && !res.ok) {
+          // Force-overridable guards (primary-teacher continuity, teacher
+          // availability) → offer override after confirming. Hard invariants
+          // (slot conflicts, paused teacher) aren't forceable.
+          if (res.forceable && !force && confirm(`${res.error}\n\n${t.assignAnyway}`)) {
             submitBooking(scheduledAt, true)
             return
           }
+          setError(res.error)
+          return
         }
-        setError(msg)
+        onSuccess()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t.errCreate)
       }
     })
   }

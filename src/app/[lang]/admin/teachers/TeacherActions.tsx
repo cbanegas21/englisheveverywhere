@@ -62,8 +62,9 @@ export function ApproveRejectButtons({
       try {
         await approveTeacherWithEmail(teacherId, profileId)
         setDone('approved')
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t.error)
+      } catch {
+        // Thrown server-action messages are redacted in prod → show friendly generic.
+        setError(t.error)
       }
     })
   }
@@ -75,8 +76,9 @@ export function ApproveRejectButtons({
       try {
         await rejectTeacherWithEmail(teacherId, profileId)
         setDone('rejected')
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t.error)
+      } catch {
+        // Thrown server-action messages are redacted in prod → show friendly generic.
+        setError(t.error)
       }
     })
   }
@@ -150,8 +152,9 @@ export function RateEditor({
         await setTeacherRate(teacherId, parsed)
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t.error)
+      } catch {
+        // Thrown server-action messages are redacted in prod → show friendly generic.
+        setError(t.error)
       }
     })
   }
@@ -211,8 +214,9 @@ export function ActiveToggle({
       try {
         await toggleTeacherActive(teacherId, next)
         setActive(next)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t.error)
+      } catch {
+        // Thrown server-action messages are redacted in prod → show friendly generic.
+        setError(t.error)
       }
     })
   }

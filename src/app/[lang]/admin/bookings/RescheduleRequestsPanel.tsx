@@ -108,12 +108,14 @@ export default function RescheduleRequestsPanel({ lang, requests }: Props) {
         }
         close()
         router.refresh()
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : tx.errorGeneric
-        setErr(msg)
-        // Availability guards instruct "retry with force=true" — offer the
-        // override. Slot conflicts (a hard DB invariant) never carry that phrase.
-        setCanForce(actingOn.mode === 'approve' && !force && msg.toLowerCase().includes('force=true'))
+      } catch {
+        // Server-action throws are REDACTED in a prod build (digest only), so the
+        // old `e.message` showed the scary generic crash text and the force-retry
+        // string-match never fired. Show the friendly fallback instead. (Restoring
+        // the specific message + force here needs these two actions converted to a
+        // structured return like the calendar — deferred; low-frequency flow.)
+        setErr(tx.errorGeneric)
+        setCanForce(false)
       }
     })
   }

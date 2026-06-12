@@ -276,8 +276,9 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         await fn()
         showToast(successMsg)
         router.refresh()
-      } catch (e) {
-        showToast(e instanceof Error ? e.message : t.error, 'error')
+      } catch {
+        // Thrown server-action messages are redacted in prod → show friendly generic.
+        showToast(t.error, 'error')
       }
     })
   }
