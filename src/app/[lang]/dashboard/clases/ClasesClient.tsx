@@ -189,9 +189,13 @@ function formatDate(iso: string, lang: Locale, timeZone: string) {
 }
 
 function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
+  // Normalize the am/pm separator. Node and Chrome ship different ICU versions,
+  // so toLocaleTimeString emits a plain space ("a. m.") on the (Node) server but
+  // a no-break space (U+00A0) in the browser — an invisible text mismatch that
+  // trips a React #418 hydration error. Collapse both to a plain space.
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
     hour: '2-digit', minute: '2-digit', timeZone,
-  })
+  }).replace(/[  ]/g, ' ')
 }
 
 function dayInTz(iso: string, timeZone: string): string {

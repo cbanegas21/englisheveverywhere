@@ -164,10 +164,12 @@ function formatDate(iso: string, lang: Locale, timezone: string) {
 }
 
 function formatTime(iso: string, lang: Locale, timezone: string) {
+  // Normalize the am/pm separator (Node ICU emits a plain space, Chrome a
+  // U+00A0 no-break space) so SSR and client hydration match — avoids #418.
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
     timeZone: timezone || 'America/Tegucigalpa',
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
-  })
+  }).replace(/[  ]/g, ' ')
 }
 
 function buildGoogleCalendarUrl(iso: string, lang: Locale): string {

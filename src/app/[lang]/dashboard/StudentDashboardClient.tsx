@@ -194,11 +194,13 @@ function formatDate(iso: string, lang: Locale, timeZone: string) {
 }
 
 function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
+  // Normalize the am/pm separator (Node ICU emits a plain space, Chrome a
+  // U+00A0 no-break space) so SSR and client hydration match — avoids #418.
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
     timeZone,
-  })
+  }).replace(/[  ]/g, ' ')
 }
 
 function dayInTz(iso: string, timeZone: string): string {
