@@ -164,19 +164,19 @@ interface Props {
 
 function fmtDate(iso: string, lang: Locale) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-    weekday: 'long', month: 'short', day: 'numeric',
+    timeZone: 'America/Tegucigalpa', weekday: 'long', month: 'short', day: 'numeric',
   })
 }
 
 function fmtTime(iso: string, lang: 'es' | 'en') {
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
-    hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit',
   })
 }
 
 function monthShort(iso: string, lang: Locale): string {
   return new Date(iso)
-    .toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { month: 'short' })
+    .toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', month: 'short' })
     .toUpperCase()
     .replace(/\./g, '')
 }
@@ -222,11 +222,11 @@ export default function ProgresoClient({
         {!placementTestDone && (() => {
           const placementDate = placementBooking
             ? new Date(placementBooking.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-                weekday: 'long', month: 'long', day: 'numeric',
+                timeZone: 'America/Tegucigalpa', weekday: 'long', month: 'long', day: 'numeric',
               })
             : null
           const placementTime = placementBooking
-            ? new Date(placementBooking.scheduled_at).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+            ? new Date(placementBooking.scheduled_at).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' })
             : null
 
           if (placementBooking) {

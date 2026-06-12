@@ -133,15 +133,36 @@ export async function proxy(request: NextRequest) {
     (wantsTeacher && role !== 'teacher') ||
     (wantsStudent && role !== 'student')
 
-  if (mismatch) {
-    const home = ROLE_HOME[role]
-    if (home) {
-      const target = `/${lang}/${home}`
-      if (target !== pathname) {
-        request.nextUrl.pathname = target
-        return withAuth(NextResponse.redirect(request.nextUrl))
+  if (mismatch && user) {
+    // The cookie can be STALE — e.g. an admin changed this user's role mid-session.
+    // Acting on a stale cookie here ping-pongs with the layout guard (which reads
+    // the DB role as canonical) → ERR_TOO_MANY_REDIRECTS. So on a mismatch ONLY
+    // (rare) we verify against the DB and refresh the cookie before deciding; the
+    // common no-mismatch fast path stays DB-read-free.
+    const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const realRole = prof?.role
+    if (realRole && realRole !== role) {
+      response.cookies.set(ROLE_COOKIE, realRole, {
+        path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production', httpOnly: true,
+      })
+    }
+    const effectiveRole = realRole || role
+    const stillMismatch =
+      (wantsAdmin && effectiveRole !== 'admin') ||
+      (wantsTeacher && effectiveRole !== 'teacher') ||
+      (wantsStudent && effectiveRole !== 'student')
+    if (stillMismatch) {
+      const home = ROLE_HOME[effectiveRole]
+      if (home) {
+        const target = `/${lang}/${home}`
+        if (target !== pathname) {
+          request.nextUrl.pathname = target
+          return withAuth(NextResponse.redirect(request.nextUrl))
+        }
       }
     }
+    // Real role allows this area (cookie was stale) → fall through with it refreshed.
   }
 
   return response

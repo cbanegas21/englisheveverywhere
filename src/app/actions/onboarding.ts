@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { isValidTimeZone } from '@/lib/timezone'
+import { checkUserActionLimit } from '@/lib/rateLimit'
 
 // Localized, user-safe onboarding errors (ONBOARD-06). Raw Supabase/storage
 // error strings are logged server-side and never reflected to the user; the
@@ -100,6 +101,13 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
   // Parse the locale before the auth check so even the earliest error localizes.
   const preferredLanguage = ((formData.get('preferredLanguage') as string | null) || 'es') as 'es' | 'en'
   if (!user || user.id !== userId) return { success: false, error: onb('notAuth', preferredLanguage) }
+
+  // Throttle — onboarding is a once-ish action; this caps repeated calls that each
+  // re-upload a fresh CV to storage (cost/orphaned-file abuse).
+  const rl = await checkUserActionLimit(user.id, 'teacherOnboarding', 5, 60)
+  if (!rl.ok) {
+    return { success: false, error: preferredLanguage === 'es' ? 'Demasiados intentos. Espera unos minutos.' : 'Too many attempts. Please wait a few minutes.' }
+  }
 
   const timezone = (formData.get('timezone') as string | null) || ''
   const bio = (formData.get('bio') as string | null) || ''

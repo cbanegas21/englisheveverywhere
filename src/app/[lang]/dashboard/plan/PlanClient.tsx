@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { CreditCard, ChevronDown } from 'lucide-react'
@@ -184,10 +185,16 @@ export default function PlanClient({
 }: Props) {
   const tx = T[lang]
   const accent = 'var(--ek-red)'
-  const { currency, changeCurrency, convert } = useCurrency({
+  const { currency, changeCurrency, convert, loading } = useCurrency({
     initialCurrency,
     onPersist: async (code) => { await savePreferredCurrency(code) },
   })
+  const router = useRouter()
+  // Until FX rates load, convert() falls back to a 1:1 rate, which renders a
+  // non-USD price at the USD magnitude (understating ~20x). Show the USD price
+  // until rates arrive — mirrors the landing Pricing.tsx fxPending guard.
+  const fxPending = currency !== 'USD' && loading
+  const price = (usd: number) => fxPending ? `$${Number.isInteger(usd) ? usd : usd.toFixed(2)}` : convert(usd)
   const [isPending, startTransition] = useTransition()
   const [selectedPlan, setSelectedPlan] = useState<(typeof PRICING_PLANS)[number] | null>(null)
   const [pendingPlan, setPendingPlan] = useState<(typeof PRICING_PLANS)[number] | null>(null)
@@ -216,6 +223,17 @@ export default function PlanClient({
     const id = setInterval(() => forceRender((n) => n + 1), 1500)
     return () => clearInterval(id)
   }, [])
+
+  // After a successful checkout, the Stripe webhook credits classes asynchronously
+  // and the success redirect can arrive first — so the freshly-rendered balance can
+  // still be the pre-credit value. Pull the updated balance a few times (bounded)
+  // so the success screen reflects the credit instead of a stale snapshot.
+  useEffect(() => {
+    if (!purchaseResult) return
+    let n = 0
+    const id = setInterval(() => { n += 1; router.refresh(); if (n >= 5) clearInterval(id) }, 2000)
+    return () => clearInterval(id)
+  }, [purchaseResult, router])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -266,6 +284,7 @@ export default function PlanClient({
 
   const renewalFormatted = renewalDate
     ? new Date(renewalDate).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+        timeZone: 'America/Tegucigalpa',
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -349,7 +368,7 @@ export default function PlanClient({
                     fontFeatureSettings: '"tnum"',
                   }}
                 >
-                  {purchaseResult.newTotal}
+                  {classesRemaining}
                 </div>
                 <div
                   style={{
@@ -668,7 +687,7 @@ export default function PlanClient({
                           fontFeatureSettings: '"tnum"',
                         }}
                       >
-                        {convert(plan.priceUsd)}
+                        {price(plan.priceUsd)}
                       </span>
                       <span style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginLeft: 4 }}>
                         {tx.perMonth}
@@ -682,7 +701,7 @@ export default function PlanClient({
                         fontFeatureSettings: '"tnum"',
                       }}
                     >
-                      ≈ {convert(perClass)} {tx.perClassEach}
+                      ≈ {price(perClass)} {tx.perClassEach}
                     </div>
 
                     <button
@@ -1026,10 +1045,10 @@ export default function PlanClient({
                   fontFeatureSettings: '"tnum"',
                 }}
               >
-                {convert(selectedPlan.priceUsd)}
+                {price(selectedPlan.priceUsd)}
               </span>
               <span style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>
-                {lang === 'es' ? 'pago único' : 'one payment'} · ≈ {convert(selectedPlan.priceUsd / selectedPlan.classes)} {tx.perClassEach}
+                {lang === 'es' ? 'pago único' : 'one payment'} · ≈ {price(selectedPlan.priceUsd / selectedPlan.classes)} {tx.perClassEach}
               </span>
             </div>
 

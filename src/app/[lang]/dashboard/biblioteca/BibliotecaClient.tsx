@@ -84,6 +84,7 @@ const ALL_FILTER = '__all__'
 
 function fmtDate(iso: string, lang: Locale) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+    timeZone: 'America/Tegucigalpa',
     month: 'short',
     day: 'numeric',
   })

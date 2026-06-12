@@ -5,6 +5,15 @@ import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 import { PRICING_PLANS } from '@/lib/pricing'
 
+// Lowercase a phrase for natural mid-sentence use BUT keep all-caps tokens
+// (acronyms) intact — otherwise "An exam (TOEFL, IELTS…)" became "...(toefl, ielts…)".
+function naturalLower(s: string): string {
+  return s
+    .split(' ')
+    .map((w) => (/[A-Z]{2,}/.test(w) ? w : w.toLowerCase()))
+    .join(' ')
+}
+
 const T = {
   es: {
     kicker: '↳ Descubre tu plan',
@@ -19,7 +28,7 @@ const T = {
     ],
     building: 'Armando tu plan ideal…',
     resultKicker: '↳ Tu plan ideal',
-    resultLead: (goal: string, freq: string) => `Para ${goal.toLowerCase()}, con ${freq.toLowerCase()}, este es el plan que te lleva ahí más rápido:`,
+    resultLead: (goal: string, freq: string) => `Para ${naturalLower(goal)}, con ${naturalLower(freq)}, este es el plan que te lleva ahí más rápido:`,
     classes: 'clases',
     resultBody: '1 a 1 con tu propio maestro, en vivo por video. Las clases nunca caducan — avanzas a tu ritmo.',
     bullets: ['Tu propio maestro, solo para ti', 'Clases de 60 minutos en vivo', 'Las clases nunca caducan'],
@@ -41,7 +50,7 @@ const T = {
     ],
     building: 'Building your ideal plan…',
     resultKicker: '↳ Your ideal plan',
-    resultLead: (goal: string, freq: string) => `For ${goal.toLowerCase()}, at ${freq.toLowerCase()}, this is the plan that gets you there fastest:`,
+    resultLead: (goal: string, freq: string) => `For ${naturalLower(goal)}, at ${naturalLower(freq)}, this is the plan that gets you there fastest:`,
     classes: 'classes',
     resultBody: '1-on-1 with your own teacher, live on video. Classes never expire — you move at your own pace.',
     bullets: ['Your own teacher, just for you', '60-minute live classes', 'Classes never expire'],

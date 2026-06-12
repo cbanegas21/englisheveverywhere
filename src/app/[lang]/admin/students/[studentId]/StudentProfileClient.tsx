@@ -434,7 +434,7 @@ export default function StudentProfileClient({ student, lang }: Props) {
             {student.profile?.email || t.dash}
           </p>
           <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: 6 }}>
-            {t.memberSince} {new Date(student.created_at).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' })}
+            {t.memberSince} {new Date(student.created_at).toLocaleDateString(dateLocale, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
 
@@ -688,10 +688,10 @@ export default function StudentProfileClient({ student, lang }: Props) {
                 return (
                   <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                     <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
-                      {new Date(b.scheduled_at).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(b.scheduled_at).toLocaleDateString(dateLocale, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
                       {' '}
                       <span style={{ color: '#9CA3AF', fontSize: 12 }}>
-                        {new Date(b.scheduled_at).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(b.scheduled_at).toLocaleTimeString(dateLocale, { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', textTransform: 'capitalize' }}>

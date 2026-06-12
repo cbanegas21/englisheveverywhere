@@ -370,6 +370,7 @@ export default function StudentDashboardClient({
                   : false
               const formattedDate = placementScheduledAt
                 ? new Date(placementScheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                    timeZone: 'America/Tegucigalpa',
                     weekday: 'long',
                     month: 'long',
                     day: 'numeric',

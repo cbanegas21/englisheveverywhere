@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { AccessToken } from 'livekit-server-sdk'
+import { checkUserActionLimit } from '@/lib/rateLimit'
 
 export interface SessionSummary {
   covered: string[]
@@ -29,6 +30,9 @@ export async function transcribeAudioChunk(
   const bookingId = formData.get('bookingId') as string | null
   const audio = formData.get('audio')
   if (!bookingId || !(audio instanceof File)) return { error: 'bad-request' }
+  // Cap the upload — a chunk is a few seconds of webm (tens of KB). A multi-MB
+  // body is misuse; reject it before spending Deepgram credit (video-6).
+  if (audio.size > 2_000_000) return { error: 'too-large' }
 
   // Service-role read (RLS-bypassing): admins / admin-conductors aren't in the
   // bookings SELECT policies, so a user-scoped read would strand a conductor on
@@ -49,6 +53,13 @@ export async function transcribeAudioChunk(
     user.id === (booking.student as any)?.profile_id ||
     user.id === (booking as any).conductor_profile_id
   if (!isParticipant && !isAdmin) return { error: 'unauthorized' }
+
+  // Throttle per user — stops a participant looping the endpoint to drain
+  // Deepgram credit. Generous ceiling so a real 60-min class never trips it (video-6).
+  // ~10 chunks/min per user (6s slices) = ~150 per rolling 15-min window; 300 is
+  // 2x that headroom so a real class never trips it while a loop is capped (video-6).
+  const rl = await checkUserActionLimit(user.id, 'transcribe', 300)
+  if (!rl.ok) return { error: 'rate-limited' }
 
   try {
     const buf = Buffer.from(await audio.arrayBuffer())
@@ -585,6 +596,12 @@ export async function extractLiveVocab(
     user.id === (booking.student as any)?.profile_id ||
     user.id === (booking as any).conductor_profile_id
   if (!isParticipant && !isAdmin) return []
+
+  // Throttle per user — caps runaway loops draining Anthropic credit. Fires every
+  // ~30s in a real class (~2/min = ~30 per rolling 15-min window), so 60 is 2x
+  // headroom — a real class never trips it (video-6).
+  const rl = await checkUserActionLimit(user.id, 'extractVocab', 60)
+  if (!rl.ok) return []
 
   const lang = options.lang || 'es'
   const known = (options.alreadyKnown || []).slice(0, 60).join(', ')

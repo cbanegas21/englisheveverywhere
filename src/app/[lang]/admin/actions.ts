@@ -314,7 +314,7 @@ export async function approveRescheduleRequest(
   // is NOT force-overridable.
   const { data: booking } = await admin
     .from('bookings')
-    .select('teacher_id, duration_minutes, type, status, scheduled_at')
+    .select('teacher_id, student_id, duration_minutes, type, status, scheduled_at')
     .eq('id', request.booking_id)
     .single()
 
@@ -362,6 +362,22 @@ export async function approveRescheduleRequest(
     if (conflict) {
       throw new Error('Teacher already has a confirmed class at the proposed time. Pick a different time.')
     }
+  }
+
+  // Also re-check the STUDENT's other live bookings for an interval overlap — the
+  // teacher checks above don't cover a clash with the student's other classes
+  // (reschedule-1). excludeBookingId keeps the booking being moved from self-conflicting.
+  if (
+    booking.student_id &&
+    (await studentHasTimeConflict(
+      admin,
+      booking.student_id,
+      request.proposed_scheduled_at,
+      booking.duration_minutes ?? 60,
+      request.booking_id,
+    ))
+  ) {
+    throw new Error('The student already has another class at the proposed time. Pick a different time.')
   }
 
   // Move the booking to the proposed time first; only record the approval if
@@ -653,7 +669,10 @@ export async function adminUpdateStudentProfile(
     if (!isValidTimeZone(fields.timezone)) throw new Error('Invalid timezone')
     profileFields.timezone = fields.timezone
   }
-  if (fields.preferred_language !== undefined) profileFields.preferred_language = fields.preferred_language
+  // Truthy (not just !== undefined): the student detail form can submit an empty
+  // string when the field wasn't loaded, which would otherwise WIPE the student's
+  // saved language (breaking their email/UI locale). Empty = leave unchanged.
+  if (fields.preferred_language) profileFields.preferred_language = fields.preferred_language
   if (fields.learning_goal !== undefined) studentFields.learning_goal = fields.learning_goal
   if (fields.work_description !== undefined) studentFields.work_description = fields.work_description
   if (fields.learning_style !== undefined) studentFields.learning_style = fields.learning_style
@@ -687,7 +706,7 @@ export async function completeBooking(bookingId: string) {
 
   const { data: booking, error: fetchError } = await admin
     .from('bookings')
-    .select('student_id, type, status')
+    .select('student_id, teacher_id, duration_minutes, type, status')
     .eq('id', bookingId)
     .single()
   if (fetchError || !booking) throw new Error('Booking not found')
@@ -719,6 +738,30 @@ export async function completeBooking(bookingId: string) {
       .from('students')
       .update({ placement_test_done: true, placement_scheduled: false })
       .eq('id', booking.student_id)
+  } else if (booking.type === 'class' && booking.teacher_id) {
+    // Mirror completeSession: pay the teacher + bump their session count when a
+    // class is completed by the admin — the manual fallback for when the in-room
+    // completeSession never fired (e.g. the teacher's browser dropped). The status
+    // flip above is gated so this runs at most once; the payment insert is
+    // idempotent via the unique payments.booking_id constraint, and whichever path
+    // (in-room vs admin) wins the status flip is the only one that bumps the count.
+    const { data: teacher } = await admin
+      .from('teachers')
+      .select('id, hourly_rate, total_sessions')
+      .eq('id', booking.teacher_id)
+      .single()
+    if (teacher) {
+      await admin.from('teachers').update({ total_sessions: (teacher.total_sessions || 0) + 1 }).eq('id', teacher.id)
+      const { data: existingPayment } = await admin.from('payments').select('id').eq('booking_id', bookingId).maybeSingle()
+      if (!existingPayment) {
+        const rate = Math.round((teacher.hourly_rate || 0) * ((booking.duration_minutes || 60) / 60))
+        const { error: payErr } = await admin.from('payments').insert({
+          booking_id: bookingId, student_id: booking.student_id, teacher_id: teacher.id,
+          amount_usd: rate, teacher_payout_usd: rate, platform_fee_usd: 0, status: 'completed',
+        })
+        if (payErr && payErr.code !== '23505') console.error('[completeBooking] payment insert error:', payErr.message)
+      }
+    }
   }
 
   revalidatePath('/', 'layout')
@@ -742,10 +785,16 @@ export async function cancelBookingWithRefund(bookingId: string) {
     .in('status', ['pending', 'confirmed'])
     .select('id')
   if (error) throw new Error(error.message)
-  if (cancelledRows && cancelledRows.length > 0 && booking?.type === 'class') {
-    // Atomic SQL increment — a read-then-update loses concurrent refunds
-    // under load. increment_classes is SECURITY DEFINER (migration 012).
-    await admin.rpc('increment_classes', { p_student_id: booking.student_id })
+  if (cancelledRows && cancelledRows.length > 0) {
+    if (booking?.type === 'class') {
+      // Atomic SQL increment — a read-then-update loses concurrent refunds
+      // under load. increment_classes is SECURITY DEFINER (migration 012).
+      await admin.rpc('increment_classes', { p_student_id: booking.student_id })
+    } else if (booking?.type === 'placement_test') {
+      // Clear the placement flag — otherwise the student is stranded on a blank
+      // "scheduled" placement screen with a now-cancelled booking and can't re-book.
+      await admin.from('students').update({ placement_scheduled: false }).eq('id', booking.student_id)
+    }
   }
 
   cancelBookingReminders(bookingId).catch(() => {})
@@ -902,8 +951,44 @@ export async function saveTeacherAdminNotes(teacherId: string, notes: string) {
 export async function deleteTeacher(teacherId: string, profileId: string) {
   await assertAdmin()
   const admin = createAdminClient()
+
+  // Refund + cancel the teacher's live (pending/confirmed) CLASS bookings FIRST —
+  // otherwise the bookings ON DELETE CASCADE silently removes students' upcoming
+  // classes without returning their credits. (Placements cost no credit.)
+  const { data: liveBookings } = await admin
+    .from('bookings')
+    .select('id, student_id, type')
+    .eq('teacher_id', teacherId)
+    .in('status', ['pending', 'confirmed'])
+  for (const b of liveBookings || []) {
+    const { data: flipped } = await admin
+      .from('bookings').update({ status: 'cancelled' })
+      .eq('id', b.id).in('status', ['pending', 'confirmed']).select('id')
+    if (flipped && flipped.length && b.type === 'class') {
+      await admin.rpc('increment_classes', { p_student_id: b.student_id })
+    }
+    cancelBookingReminders(b.id).catch(() => {})
+  }
+
+  // If the teacher has any payment history, a hard delete violates the
+  // (no-cascade) payments_teacher_id_fkey and throws a raw Postgres error. Preserve
+  // the financial record — soft-delete (deactivate + downgrade role) instead.
+  const { count: payCount } = await admin
+    .from('payments').select('id', { count: 'exact', head: true }).eq('teacher_id', teacherId)
+  if ((payCount ?? 0) > 0) {
+    await admin.from('teachers').update({ is_active: false }).eq('id', teacherId)
+    await admin.from('profiles').update({ role: 'student' }).eq('id', profileId)
+    revalidatePath('/', 'layout')
+    return
+  }
+
+  // No payment history → safe to hard delete (live bookings already cancelled +
+  // refunded; any remaining cancelled rows cascade harmlessly). Fall back to a
+  // soft-delete if an unexpected FK still blocks it, rather than leaking a raw error.
   const { error } = await admin.from('teachers').delete().eq('id', teacherId)
-  if (error) throw new Error(error.message)
+  if (error) {
+    await admin.from('teachers').update({ is_active: false }).eq('id', teacherId)
+  }
   await admin.from('profiles').update({ role: 'student' }).eq('id', profileId)
   revalidatePath('/', 'layout')
 }
@@ -975,6 +1060,16 @@ export async function createAdminBooking(
     if (conflict) {
       throw new Error('Teacher already has a confirmed class at this time. Pick a different time.')
     }
+  }
+
+  // Guard the STUDENT's calendar too — no interval overlap with another live
+  // class/placement of the same student (createbooking-overlap-1). Only the
+  // student-facing types occupy the student's slot; internal meetings don't.
+  if (
+    (type === 'class' || type === 'placement_test') &&
+    (await studentHasTimeConflict(admin, studentId, scheduledAt, durationMinutes ?? 60))
+  ) {
+    throw new Error('The student already has a class at this time. Pick a different time.')
   }
 
   // A class booking consumes one student credit (same as a self-served booking)
@@ -1081,13 +1176,18 @@ function sendBookingEmails(params: {
     const heading = role === 'student'
       ? (p.lang === 'es' ? 'Sesión agendada' : 'Session scheduled')
       : (p.lang === 'es' ? 'Nueva sesión asignada' : 'New session assigned')
+    // Joinable types get a classroom link so the email isn't a dead-end (matches
+    // the self-served booking + assignment emails). Internal meetings don't.
+    const joinable = params.type === 'class' || params.type === 'placement_test'
+    const salaUrl = `${APP_URL}/${p.lang}/sala/${params.bookingId}`
+    const ctaLabel = p.lang === 'es' ? 'Entrar al aula' : 'Join the classroom'
     void fetch('https://api.resend.com/emails', {
       method: 'POST', headers,
       body: JSON.stringify({
         from: EMAIL_FROM, to: p.email,
         subject,
-        html: brandedEmail({ heading, bodyHtml: `<p>${greeting},</p><p>${line}</p>`, lang: p.lang }),
-        text: `${greetingText},\n\n${lineText}\n\n— EnglishKolab`,
+        html: brandedEmail({ heading, bodyHtml: `<p>${greeting},</p><p>${line}</p>`, lang: p.lang, ...(joinable ? { ctaLabel, ctaUrl: salaUrl } : {}) }),
+        text: `${greetingText},\n\n${lineText}${joinable ? `\n\n${ctaLabel}: ${salaUrl}` : ''}\n\n— EnglishKolab`,
       }),
     }).catch(() => {})
   }

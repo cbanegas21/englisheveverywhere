@@ -332,7 +332,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
           </p>
           <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{teacher.profile?.email || '—'}</p>
           <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>
-            {t.memberSince} {new Date(teacher.created_at).toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+            {t.memberSince} {new Date(teacher.created_at).toLocaleDateString(t.locale, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
           <div style={{ marginTop: 10 }}>
             <span style={{
@@ -654,7 +654,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: '#6B7280', whiteSpace: 'nowrap' }}>
                       {s.nextClassDate
-                        ? new Date(s.nextClassDate).toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })
+                        ? new Date(s.nextClassDate).toLocaleDateString(t.locale, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })
                         : '—'}
                     </td>
                   </tr>
@@ -704,7 +704,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                   {completed.map(b => (
                     <tr key={b.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }}>
-                        {new Date(b.scheduled_at).toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(b.scheduled_at).toLocaleDateString(t.locale, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#374151' }}>{b.studentName || '—'}</td>
                       <td style={{ padding: '11px 14px', fontSize: 13, color: '#6B7280' }}>
@@ -776,7 +776,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                 </p>
                 <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
                   {teacher.cv_uploaded_at
-                    ? `${t.uploaded} ${new Date(teacher.cv_uploaded_at).toLocaleDateString(t.locale)}`
+                    ? `${t.uploaded} ${new Date(teacher.cv_uploaded_at).toLocaleDateString(t.locale, { timeZone: 'America/Tegucigalpa' })}`
                     : t.uploaded}
                 </p>
               </div>

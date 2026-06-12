@@ -116,7 +116,7 @@ interface Props { lang: Locale; assignments: Assignment[] }
 
 function formatDate(iso: string, lang: Locale) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-    month: 'short', day: 'numeric',
+    timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric',
   })
 }
 

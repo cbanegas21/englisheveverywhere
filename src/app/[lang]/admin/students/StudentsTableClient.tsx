@@ -318,6 +318,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
                     {/* Joined */}
                     <td className="py-3.5 text-[12px] whitespace-nowrap" style={{ color: 'var(--ek-text-muted)' }}>
                       {new Date(s.created_at).toLocaleDateString(dateLocale, {
+                        timeZone: 'America/Tegucigalpa',
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',

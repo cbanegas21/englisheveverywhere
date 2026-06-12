@@ -22,6 +22,26 @@ function cancelReasonLabel(reason: string, lang: string): string {
   return lang === 'es' ? entry.es : entry.en
 }
 
+// Map a Postgres/Supabase error from a booking mutation to a SAFE, localized
+// message. A 23505 unique-violation means the slot is already taken; anything
+// else is logged server-side and returned as a generic retry message so no raw
+// DB string (constraint names, internal detail) ever reaches the UI (money-1).
+function bookingActionErrorMsg(
+  error: { code?: string; message: string },
+  lang: string,
+  ctx: string,
+): string {
+  if (error.code === '23505' || /duplicate key/i.test(error.message)) {
+    return lang === 'es'
+      ? 'Ya tienes una clase agendada para ese horario.'
+      : 'You already have a class booked for that time slot.'
+  }
+  console.error(`${ctx} failed:`, error.message)
+  return lang === 'es'
+    ? 'No se pudo completar la acción. Inténtalo de nuevo.'
+    : 'Could not complete the action. Please try again.'
+}
+
 async function sendAdminBookingEmail(params: {
   bookingId: string
   studentName: string
@@ -252,7 +272,7 @@ export async function confirmBooking(bookingId: string, lang: string = 'es') {
     .eq('status', 'pending')
     .select('id')
 
-  if (error) return { error: error.message }
+  if (error) return { error: bookingActionErrorMsg(error, lang, 'confirmBooking') }
   if (!confirmed || confirmed.length === 0) {
     return { error: lang === 'es' ? 'Esta reserva ya no se puede confirmar.' : 'This booking can no longer be confirmed.' }
   }
@@ -293,7 +313,7 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
     .in('status', ['pending', 'confirmed'])
     .select('student_id')
 
-  if (error) return { error: error.message }
+  if (error) return { error: bookingActionErrorMsg(error, lang, 'declineBooking') }
   if (!declined || declined.length === 0) {
     return { error: lang === 'es' ? 'Esta reserva ya no se puede rechazar.' : 'This booking can no longer be declined.' }
   }
@@ -508,7 +528,7 @@ export async function studentCancelBooking(bookingId: string, lang: string = 'es
     .eq('student_id', student.id)
     .in('status', ['pending', 'confirmed'])
     .select('id')
-  if (updErr) return { error: updErr.message }
+  if (updErr) return { error: bookingActionErrorMsg(updErr, lang, 'studentCancelBooking') }
   if (!cancelledRows || cancelledRows.length === 0) {
     return { error: lang === 'es' ? 'Esta clase ya no se puede cancelar.' : 'This class can no longer be cancelled.' }
   }
@@ -623,14 +643,23 @@ export async function studentRescheduleBooking(
   // Move the booking. Status drops back to 'pending' so the teacher (if one
   // was already assigned) re-confirms — the original confirmation was for the
   // old time and shouldn't carry over silently.
-  const { error: updErr } = await admin
+  // Status-gated move: only a still-live booking can be rescheduled, and the
+  // write itself re-asserts the status — so a class completed/cancelled between
+  // the read above and this write can't be resurrected to 'pending' (money-2).
+  const { data: movedRows, error: updErr } = await admin
     .from('bookings')
     .update({
       scheduled_at: newDate.toISOString(),
       status: 'pending',
     })
     .eq('id', bookingId)
-  if (updErr) return { error: updErr.message }
+    .eq('student_id', student.id)
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
+  if (updErr) return { error: bookingActionErrorMsg(updErr, lang, 'studentRescheduleBooking') }
+  if (!movedRows || movedRows.length === 0) {
+    return { error: lang === 'es' ? 'Esta clase ya no se puede reagendar.' : 'This class can no longer be rescheduled.' }
+  }
 
   // Cancel any still-open reschedule request on this booking — the student just
   // moved it to a new time, so a teacher's pending request against the old time
@@ -723,7 +752,7 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
     .eq('student_id', student.id)
     .in('status', ['pending', 'confirmed'])
     .select('id')
-  if (updErr) return { error: updErr.message }
+  if (updErr) return { error: bookingActionErrorMsg(updErr, lang, 'reportTeacherNoShow') }
   if (!noShowRows || noShowRows.length === 0) {
     return { error: lang === 'es' ? 'Esta clase ya está cerrada.' : 'This class is already closed.' }
   }
@@ -812,7 +841,7 @@ export async function saveAvailabilitySlots(
   }))
 
   const { error } = await admin.from('availability_slots').insert(toInsert)
-  if (error) return { error: error.message }
+  if (error) return { error: bookingActionErrorMsg(error, lang, 'saveAvailabilitySlots') }
 
   revalidatePath('/', 'layout')
   return { success: true }

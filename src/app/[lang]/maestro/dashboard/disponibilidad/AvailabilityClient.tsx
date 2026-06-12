@@ -36,7 +36,7 @@ interface Props {
 const t = {
   en: {
     title: 'Set your availability',
-    subtitle: 'Define your weekly recurring availability. Students will be able to book within these windows.',
+    subtitle: 'Define your weekly recurring availability (shown in Honduras time, CST). Students will be able to book within these windows.',
     addSlot: 'Add time slot',
     save: 'Save availability',
     saving: 'Saving...',
@@ -71,7 +71,7 @@ const t = {
   },
   es: {
     title: 'Configura tu disponibilidad',
-    subtitle: 'Define tus horarios semanales recurrentes. Los estudiantes podrán reservar dentro de estas ventanas.',
+    subtitle: 'Define tus horarios semanales recurrentes (en hora de Honduras, CST). Los estudiantes podrán reservar dentro de estas ventanas.',
     addSlot: 'Agregar horario',
     save: 'Guardar disponibilidad',
     saving: 'Guardando...',

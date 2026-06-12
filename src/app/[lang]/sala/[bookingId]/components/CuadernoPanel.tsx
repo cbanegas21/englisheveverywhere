@@ -306,7 +306,7 @@ export function CuadernoPanel({
                         ? tx.justNow
                         : new Date(entry.timestamp).toLocaleTimeString(
                             lang === 'es' ? 'es-HN' : 'en-US',
-                            { hour: '2-digit', minute: '2-digit' }
+                            { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' }
                           )}
                     </span>
                   </div>
@@ -478,7 +478,7 @@ function TranscriptRow({
 }) {
   const time = new Date(line.timestamp).toLocaleTimeString(
     lang === 'es' ? 'es-HN' : 'en-US',
-    { hour: '2-digit', minute: '2-digit' }
+    { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' }
   )
   return (
     <div style={{ opacity: isFinal ? 1 : 0.6 }}>

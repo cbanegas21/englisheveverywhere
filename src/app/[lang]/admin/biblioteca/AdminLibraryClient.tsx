@@ -24,6 +24,7 @@ const t = {
   en: {
     title: 'Library',
     subtitle: 'Upload and manage the book catalog.',
+    kicker: '↳ Admin · Curriculum',
     upload: 'Upload book',
     uploading: 'Uploading…',
     fileLabel: 'PDF file',
@@ -45,6 +46,7 @@ const t = {
   es: {
     title: 'Biblioteca',
     subtitle: 'Sube y gestiona el catálogo de libros.',
+    kicker: '↳ Admin · Currículo',
     upload: 'Subir libro',
     uploading: 'Subiendo…',
     fileLabel: 'Archivo PDF',
@@ -67,7 +69,7 @@ const t = {
 
 function formatDate(iso: string, lang: Locale) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
+    timeZone: 'America/Tegucigalpa', year: 'numeric', month: 'short', day: 'numeric',
   })
 }
 
@@ -144,7 +146,7 @@ export default function AdminLibraryClient({ lang, books }: Props) {
             marginBottom: 6,
           }}
         >
-          ↳ Admin · Curriculum
+          {tx.kicker}
         </div>
         <h1
           style={{

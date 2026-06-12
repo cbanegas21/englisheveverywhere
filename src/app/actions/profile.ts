@@ -32,6 +32,11 @@ export async function updateStudentProfile(data: {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return { success: false, error: 'Not authenticated' }
 
+  // Per-user throttle (DASH-07) — caps scripted hammering of the profile mutation.
+  // Generous ceiling so a real user adjusting settings never trips it.
+  const rl = await checkUserActionLimit(user.id, 'updateStudentProfile', 30)
+  if (!rl.ok) return { success: false, error: 'Too many attempts. Please wait a few minutes.' }
+
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }
@@ -104,9 +109,18 @@ export async function updateTeacherProfile(data: {
     .maybeSingle()
   if (!teacherRow) return { success: false, error: 'Not a teacher account' }
 
+  // Validate/sanitize free text (written via the RLS-bypassing admin client and
+  // later shown to admins/students + interpolated into emails). Mirrors the
+  // student-side guards: cap length, reject markup, bound the arrays.
+  const name = (data.fullName || '').trim()
+  if (name.length === 0) return { success: false, error: 'Name is required' }
+  if (name.length > 120) return { success: false, error: 'Name is too long' }
+  if (/[<>]/.test(name)) return { success: false, error: 'Name contains invalid characters' }
+  const bio = (data.bio || '').slice(0, 2000)
+
   const { error: profileError } = await admin
     .from('profiles')
-    .update({ full_name: data.fullName, updated_at: new Date().toISOString() })
+    .update({ full_name: name, updated_at: new Date().toISOString() })
     .eq('id', user.id)
 
   if (profileError) return { success: false, error: profileError.message }
@@ -115,10 +129,12 @@ export async function updateTeacherProfile(data: {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+    .slice(0, 20)
+    .map((s) => s.slice(0, 100))
 
   const { error: teacherError } = await admin
     .from('teachers')
-    .update({ bio: data.bio, specializations: specs })
+    .update({ bio, specializations: specs })
     .eq('profile_id', user.id)
 
   if (teacherError) return { success: false, error: teacherError.message }

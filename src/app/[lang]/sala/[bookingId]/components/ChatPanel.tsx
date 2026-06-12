@@ -87,7 +87,7 @@ export function ChatPanel({ lang, show, onClose, chatMessages, send, isSending, 
                       )}
                       <p className="text-[13px] leading-snug whitespace-pre-wrap break-words">{msg.message}</p>
                       <p className="text-[10px] mt-0.5 opacity-70">
-                        {new Date(msg.timestamp).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(msg.timestamp).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>

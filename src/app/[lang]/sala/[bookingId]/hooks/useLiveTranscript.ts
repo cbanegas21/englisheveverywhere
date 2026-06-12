@@ -73,6 +73,9 @@ export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) 
   lpRef.current = localParticipant
   const meRef = useRef({ identity: localParticipant.identity, name: localParticipant.name || 'Speaker' })
   meRef.current = { identity: localParticipant.identity, name: localParticipant.name || 'Speaker' }
+  // Monotonic counter so every line gets a locally-generated unique id — never
+  // trust a peer-supplied id (React-key collisions) (video-4).
+  const lineSeqRef = useRef(0)
 
   const applyLine = useCallback((line: TranscriptLine) => {
     if (line.isFinal) {
@@ -96,18 +99,22 @@ export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) 
   const { send } = useDataChannel('transcript', msg => {
     try {
       const text = new TextDecoder().decode(msg.payload)
-      const raw = JSON.parse(text) as TranscriptLine
+      const raw = JSON.parse(text) as Partial<TranscriptLine>
       if (!raw || typeof raw.text !== 'string') return
-      // Attribute the line to the AUTHENTICATED sender (msg.from), not the
-      // payload's claimed identity/name — a peer could otherwise spoof the other
-      // speaker's words in the rendered + persisted transcript. Fall back to the
-      // payload only when msg.from is momentarily unresolved (reconnect race), and
-      // cap the text length to bound a malicious/runaway payload (CALL-03).
+      // Build the line from VALIDATED primitives only — a peer controls the whole
+      // payload. Attribute to the AUTHENTICATED sender (msg.from), not the claimed
+      // identity/name (anti-spoof). Never trust raw.id (React-key collisions),
+      // raw.timestamp (a NaN/string makes `new Date(ts).toISOString()` throw in
+      // snapshot()), or raw.isFinal — regenerate/coerce all three (CALL-03 / video-4).
+      const identity = msg.from?.identity ?? (typeof raw.identity === 'string' ? raw.identity : 'peer')
+      const ts = typeof raw.timestamp === 'number' && Number.isFinite(raw.timestamp) ? raw.timestamp : Date.now()
       const line: TranscriptLine = {
-        ...raw,
-        identity: msg.from?.identity ?? raw.identity,
-        name: msg.from?.name || raw.name || 'Speaker',
+        id: `${identity}-${ts}-${lineSeqRef.current++}`,
+        identity,
+        name: msg.from?.name || (typeof raw.name === 'string' ? raw.name : '') || 'Speaker',
         text: raw.text.slice(0, MAX_LINE_CHARS),
+        timestamp: ts,
+        isFinal: Boolean(raw.isFinal),
       }
       applyLineRef.current(line)
     } catch { /* ignore malformed */ }
@@ -136,7 +143,7 @@ export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) 
     let sr: SR | null = null
 
     const lineFrom = (text: string, isFinal: boolean): TranscriptLine => ({
-      id: `${meRef.current.identity}-${Date.now()}`,
+      id: `${meRef.current.identity}-${Date.now()}-${lineSeqRef.current++}`,
       identity: meRef.current.identity,
       name: meRef.current.name,
       text: text.slice(0, MAX_LINE_CHARS),
@@ -263,7 +270,11 @@ export function useLiveTranscript({ enabled, bookingId, lang = 'en-US' }: Args) 
   const snapshot = useCallback(() => {
     const sorted = [...finals].sort((a, b) => a.timestamp - b.timestamp)
     return sorted
-      .map(l => `[${new Date(l.timestamp).toISOString()}] ${l.name}: ${l.text.trim()}`)
+      .map(l => {
+        // Defensive: a non-finite timestamp would make new Date(...).toISOString() throw.
+        const t = Number.isFinite(l.timestamp) ? new Date(l.timestamp) : new Date()
+        return `[${t.toISOString()}] ${l.name}: ${l.text.trim()}`
+      })
       .join('\n')
   }, [finals])
 

@@ -318,7 +318,9 @@ async function sendConfirmationEmail(params: {
         attachments: [{
           filename: 'clase-englishkolab.ics',
           content: params.icsBase64,
-          content_type: 'text/calendar',
+          // Explicit charset so accented names/summaries don't mojibake on strict
+          // calendar clients; method=REQUEST marks it as an invite (email-ics-charset-1).
+          content_type: 'text/calendar; charset=utf-8; method=REQUEST',
         }],
       }),
     })

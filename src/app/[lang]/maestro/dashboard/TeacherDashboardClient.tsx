@@ -96,8 +96,15 @@ const t = {
   },
 }
 
-function getGreeting(lang: Locale) {
-  const h = new Date().getHours()
+// Time-of-day greeting. `new Date().getHours()` reads the runtime's local hour,
+// which differs between the server (UTC) and the browser — so rendering it
+// directly mismatched SSR vs client and threw React hydration error #418. The
+// component seeds a deterministic default for SSR/first paint, then swaps in the
+// real greeting after mount (see the mounted effect below), so there is never a
+// server/client mismatch.
+function getGreeting(lang: Locale, timeZone: string) {
+  const hourStr = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone }).format(new Date())
+  const h = Number(hourStr) % 24
   const tx = t[lang]
   if (h < 12) return tx.greeting
   if (h < 18) return tx.greetingAfternoon
@@ -193,6 +200,13 @@ export default function TeacherDashboardClient({
     const id = setInterval(() => setNowTick(Date.now()), 60_000)
     return () => { clearTimeout(tt); clearInterval(id) }
   }, [])
+
+  // Time-of-day greeting. Seeded with the deterministic default so SSR and the
+  // first client render are identical (no hydration mismatch), then swapped to
+  // the real time-of-day greeting after mount.
+  const [greeting, setGreeting] = useState(tx.greeting)
+  useEffect(() => { setGreeting(getGreeting(lang, timezone)) }, [lang, timezone])
+
   const [isPending, startTransition] = useTransition()
 
   // Teacher's "accepting new students" preference. Decoupled from is_active
@@ -221,7 +235,7 @@ export default function TeacherDashboardClient({
       <DashTopBar
         title={
           <span>
-            {getGreeting(lang)}, {firstName}
+            {greeting}, {firstName}
             {' — '}
             <TitleFlourish>{tx.subtitle.replace(/\.$/, '')}</TitleFlourish>
           </span>

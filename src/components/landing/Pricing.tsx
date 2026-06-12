@@ -153,7 +153,11 @@ export default function Pricing({ lang }: { lang: Locale }) {
           </p>
         </div>
 
-        {!isUsd && (
+        {/* Gate on !fxPending too: on a returning non-USD visitor's first client
+            render FX is still loading (fxPending true) and SSR defaulted to USD, so
+            without this the note appears only on the client → React #418 hydration
+            mismatch. Once rates load it renders normally. */}
+        {!isUsd && !fxPending && (
           <p
             style={{
               textAlign: 'center',

@@ -23,18 +23,35 @@ export function NotesPanel({ lang, sessionId, show, onClose, bottomInset }: Prop
   const [notes, setNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(true)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Track the latest value + dirty state in refs so the unmount cleanup can flush
+  // unsaved edits — clicking "End Class" unmounts this panel before the 1.5s
+  // debounce fires, which otherwise silently drops the last-typed notes (shared
+  // with the student after class).
+  const latestRef = useRef('')
+  const dirtyRef = useRef(false)
+  const sessionIdRef = useRef(sessionId)
+  sessionIdRef.current = sessionId
 
   useEffect(() => {
-    return () => clearTimeout(saveTimeoutRef.current)
+    return () => {
+      clearTimeout(saveTimeoutRef.current)
+      if (dirtyRef.current && sessionIdRef.current) {
+        // Best-effort final save — the request is sent even as the panel unmounts.
+        void saveSessionNotes(sessionIdRef.current, latestRef.current).catch(() => {})
+      }
+    }
   }, [])
 
   function handleNotesChange(value: string) {
     setNotes(value)
     setNotesSaved(false)
+    latestRef.current = value
+    dirtyRef.current = true
     clearTimeout(saveTimeoutRef.current)
     if (!sessionId) return
     saveTimeoutRef.current = setTimeout(async () => {
       await saveSessionNotes(sessionId, value)
+      dirtyRef.current = false
       setNotesSaved(true)
     }, 1500)
   }

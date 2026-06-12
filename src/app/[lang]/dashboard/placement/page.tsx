@@ -82,8 +82,10 @@ export default async function PlacementPage({ params, searchParams }: Props) {
 
   // Call booked or already completed
   if (student.placement_scheduled || student.placement_test_done) {
-    // If booking is in the past and student wants to reschedule — show the scheduling flow
-    if (isPast && reschedule === '1') {
+    // If booking is in the past and student wants to reschedule — show the scheduling flow.
+    // Never offer reschedule once placement is DONE: the assessment is finished, the
+    // server action rejects it, and the student would dead-end on an error (placement-ui-1).
+    if (isPast && reschedule === '1' && !student.placement_test_done) {
       return (
         <PlacementClient
           lang={lang as Locale}
@@ -102,6 +104,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
         scheduledAt={existingBooking?.scheduled_at || null}
         timezone={timezone}
         isPast={isPast}
+        placementDone={!!student.placement_test_done}
         conductorName={conductorName}
       />
     )

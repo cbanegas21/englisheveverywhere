@@ -235,7 +235,7 @@ export default function GananciasClient({
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--ek-border-soft)' }}>
                         <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text)' }}>
-                          {new Date(s.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {new Date(s.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
                         <td className="py-3.5 text-[13px] font-medium" style={{ color: 'var(--ek-text)' }}>{s.student?.profile?.full_name?.split(' ')[0] || '—'}</td>
                         <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{s.duration_minutes}{tx.mins}</td>

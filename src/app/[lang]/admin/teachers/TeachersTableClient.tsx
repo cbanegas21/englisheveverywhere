@@ -343,7 +343,7 @@ export default function TeachersTableClient({ teachers, lang }: Props) {
                     {teacher.activeStudentCount}
                   </td>
                   <td className="py-3.5 pr-4 text-[12px]" style={{ color: 'var(--ek-text-muted)', whiteSpace: 'nowrap' }}>
-                    {new Date(teacher.created_at).toLocaleDateString(t.locale, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(teacher.created_at).toLocaleDateString(t.locale, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                   <td className="py-3.5" onClick={e => e.stopPropagation()}>
                     <ActiveToggle teacherId={teacher.id} initialActive={teacher.is_active} lang={(lang as Lang) === 'en' ? 'en' : 'es'} />

@@ -129,7 +129,7 @@ function groupByStudent(bookings: Booking[]): StudentSummary[] {
 
 function formatDate(iso: string, lang: Locale) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
+    timeZone: 'America/Tegucigalpa', year: 'numeric', month: 'short', day: 'numeric',
   })
 }
 

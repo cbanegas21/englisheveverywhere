@@ -79,7 +79,7 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
 
   const DLOC = lang === 'es' ? 'es-HN' : 'en-US'
   const usd = (n: number) => new Intl.NumberFormat(DLOC, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n)
-  const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString(DLOC, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+  const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString(DLOC, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' }) : '—'
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500) }
 
   const pending = payouts.filter(p => p.status === 'pending')

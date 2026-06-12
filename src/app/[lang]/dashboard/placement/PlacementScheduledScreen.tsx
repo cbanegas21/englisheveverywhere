@@ -17,6 +17,7 @@ interface Props {
   scheduledAt: string | null
   timezone: string
   isPast?: boolean
+  placementDone?: boolean
   conductorName?: string | null
 }
 
@@ -29,6 +30,10 @@ const T = {
       `Your diagnostic call was scheduled for ${date} at ${time} but that time has passed. You can reschedule to continue.`,
     rescheduleBtn: 'Reschedule call',
     backDashBtn: 'Back to dashboard',
+    doneKicker: 'Complete',
+    doneTitle: 'Your placement is complete',
+    doneBody: "You've finished your diagnostic — your English level is set. Jump into your classes whenever you're ready.",
+    viewProgressBtn: 'View my progress',
     scheduledBadge: 'Scheduled',
     withLabel: 'With',
     conductorPending: 'Host will be assigned soon',
@@ -89,6 +94,10 @@ const T = {
       `Tu llamada diagnóstica estaba programada para el ${date} a las ${time} pero ya pasó. Puedes reagendarla para continuar.`,
     rescheduleBtn: 'Reagendar llamada',
     backDashBtn: 'Volver al dashboard',
+    doneKicker: 'Completada',
+    doneTitle: 'Tu evaluación está completa',
+    doneBody: 'Completaste tu llamada diagnóstica — tu nivel de inglés ya está definido. Empieza tus clases cuando quieras.',
+    viewProgressBtn: 'Ver mi progreso',
     scheduledBadge: 'Agendada',
     withLabel: 'Con',
     conductorPending: 'Asignaremos un anfitrión pronto',
@@ -246,7 +255,7 @@ function Countdown({ scheduledAt, lang }: { scheduledAt: string; lang: Locale })
 }
 
 export default function PlacementScheduledScreen({
-  lang, bookingId, scheduledAt, timezone, isPast, conductorName,
+  lang, bookingId, scheduledAt, timezone, isPast, placementDone, conductorName,
 }: Props) {
   const tx = T[lang]
   const isEs = lang === 'es'
@@ -305,7 +314,63 @@ export default function PlacementScheduledScreen({
     }
   `
 
-  // ── Past state ─────────────────────────────────────────────────
+  // ── Completed state ────────────────────────────────────────────
+  // Placement is finished and the level is set — there is nothing to reschedule.
+  // Showing a "Reschedule call" CTA here dead-ends on a server error, so a done
+  // student gets a calm "complete" view that points forward instead (placement-ui-1).
+  if (placementDone) {
+    return (
+      <div className="min-h-full" style={{ background: 'var(--ek-paper)', fontFamily: 'var(--ek-font-sans)' }}>
+        <style>{styles}</style>
+        <DashTopBar title={tx.title} sub={tx.subtitle} />
+
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-10">
+          <div className="max-w-[600px] mx-auto">
+            <div
+              className="overflow-hidden"
+              style={{
+                background: 'var(--ek-card)',
+                border: '1px solid var(--ek-border)',
+                borderRadius: 'var(--ek-radius-lg)',
+              }}
+            >
+              <div className="px-8 py-10" style={{ background: 'var(--ek-ink)' }}>
+                <div className="ek-microlabel" style={{ color: 'var(--ek-red-light)', marginBottom: 12 }}>
+                  {tx.doneKicker}
+                </div>
+                <h2 className="text-[24px] font-black leading-tight" style={{ color: '#fff', letterSpacing: '-0.02em' }}>
+                  {tx.doneTitle}
+                </h2>
+              </div>
+              <div className="p-8 space-y-5">
+                <p className="text-[14px] leading-relaxed" style={{ color: 'var(--ek-text-soft)' }}>
+                  {tx.doneBody}
+                </p>
+                <div className="flex flex-col gap-2.5">
+                  <Link
+                    href={`/${lang}/dashboard/progreso`}
+                    className="lk-ps-btn-red flex items-center justify-center gap-2 w-full py-3 font-bold text-[13px]"
+                    style={{ borderRadius: 'var(--ek-radius-md)' }}
+                  >
+                    {tx.viewProgressBtn}
+                  </Link>
+                  <Link
+                    href={`/${lang}/dashboard`}
+                    className="lk-ps-btn-ghost flex items-center justify-center gap-2 w-full py-3 font-medium text-[13px]"
+                    style={{ borderRadius: 'var(--ek-radius-md)' }}
+                  >
+                    {tx.backDashBtn}
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Past state (call time passed, not yet completed) ───────────
   if (isPast) {
     return (
       <div className="min-h-full" style={{ background: 'var(--ek-paper)', fontFamily: 'var(--ek-font-sans)' }}>

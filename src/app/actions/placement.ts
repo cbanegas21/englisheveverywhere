@@ -167,6 +167,29 @@ export async function reschedulePlacementCall(
     }
   }
 
+  // Find the current live placement (if any) so the overlap check can exclude it
+  // — otherwise moving to a time that overlaps the very booking being replaced
+  // would falsely self-conflict.
+  const { data: livePlacements } = await admin
+    .from('bookings')
+    .select('id')
+    .eq('student_id', student.id)
+    .eq('type', 'placement_test')
+    .in('status', ['pending', 'confirmed'])
+  const excludePlacementId = livePlacements?.[0]?.id
+
+  // Ensure the new time doesn't overlap any OTHER live booking (e.g. a scheduled
+  // class) — the same interval-overlap guard bookPlacementCall/createBooking use.
+  // Checked BEFORE cancelling so a conflict never strands the student's call
+  // (placement-resched-2).
+  if (await studentHasTimeConflict(admin, student.id, newScheduledAt, 60, excludePlacementId)) {
+    return {
+      error: lang === 'es'
+        ? 'Ya tienes una clase agendada para ese horario.'
+        : 'You already have a class booked for that time slot.',
+    }
+  }
+
   // Cancel only still-live placement bookings (pending/confirmed) — never flip a
   // 'completed' placement back to cancelled and erase its terminal state (BOOK-05).
   await admin

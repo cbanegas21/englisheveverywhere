@@ -24,6 +24,7 @@ const t = {
     noAccount: "Don't have an account?",
     register: 'Sign up',
     errorDefault: 'Invalid email or password.',
+    errorCallback: "We couldn't complete sign-in. The link may have expired — please try logging in again.",
     successReset: 'Check your inbox for a recovery email.',
     keepLogged: 'Keep me logged in',
     or: 'or continue with',
@@ -45,6 +46,7 @@ const t = {
     noAccount: '¿No tienes cuenta?',
     register: 'Regístrate',
     errorDefault: 'Correo o contraseña inválidos.',
+    errorCallback: 'No pudimos completar el inicio de sesión. El enlace puede haber expirado — inténtalo de nuevo.',
     successReset: 'Revisa tu bandeja de entrada para recuperar tu contraseña.',
     keepLogged: 'Mantenerme conectado',
     or: 'o continúa con',
@@ -165,7 +167,13 @@ function LoginForm({ lang }: { lang: Locale }) {
 
             {errorMsg && (
               <div className="mb-4 rounded-lg px-4 py-3 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}>
-                {/(invalid login credentials|invalid email or password|email not confirmed)/i.test(errorMsg) ? tx.errorDefault : errorMsg}
+                {/(invalid login credentials|invalid email or password|email not confirmed)/i.test(errorMsg)
+                  ? tx.errorDefault
+                  : errorMsg === 'auth_callback_failed'
+                    ? tx.errorCallback
+                    /* signIn passes already-localized friendly messages (e.g. lockout) — render as-is.
+                       auth_callback_failed is the only raw token the app emits, mapped just above. */
+                    : errorMsg}
               </div>
             )}
             {successMsg === 'reset' && (
