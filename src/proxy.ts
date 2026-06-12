@@ -31,12 +31,19 @@ const ROLE_HOME: Record<string, string> = {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Skip Next.js internals and static files (also excluded by `matcher` below —
-  // cheap guard so we never run the auth refresh for assets).
+  // Skip Next.js internals, static files, and the root metadata routes. The
+  // metadata image routes (opengraph-image / apple-icon / twitter-image) have NO
+  // file extension, so without this the locale guard below would redirect them to
+  // /es/... and break the favicon + social-share previews. (Dotted ones —
+  // icon.svg, robots.txt, sitemap.xml, manifest.webmanifest — are caught by the
+  // `.` check.)
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.includes('.')
+    pathname.includes('.') ||
+    pathname === '/opengraph-image' ||
+    pathname === '/twitter-image' ||
+    pathname === '/apple-icon'
   ) {
     return NextResponse.next()
   }

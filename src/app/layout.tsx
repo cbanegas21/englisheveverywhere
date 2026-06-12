@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import 'flag-icons/css/flag-icons.min.css'
@@ -25,11 +25,39 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 })
 
+const SITE_URL = 'https://englishkolab.com'
+
 export const metadata: Metadata = {
-  title: 'EnglishKolab — Aprende inglés. Cuando quieras. Donde quieras. A tu ritmo.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'EnglishKolab — Aprende inglés. Cuando quieras. Donde quieras. A tu ritmo.',
+    template: '%s · EnglishKolab',
+  },
   description:
     'Aprende inglés en vivo y 1 a 1 con maestros certificados. Cuando quieras. Donde quieras. A tu ritmo.',
   keywords: 'clases de inglés, inglés online, aprender inglés, EnglishKolab, Latinoamérica',
+  applicationName: 'EnglishKolab',
+  alternates: { canonical: '/' },
+  // og:image, the favicon and the apple-touch icon are auto-wired by Next from
+  // app/opengraph-image.tsx, app/icon.svg and app/apple-icon.tsx.
+  openGraph: {
+    type: 'website',
+    siteName: 'EnglishKolab',
+    url: SITE_URL,
+    title: 'EnglishKolab — Aprende inglés a tu ritmo',
+    description: 'Clases de inglés en vivo, 1 a 1, con maestros certificados. Tú eliges la hora — y las clases nunca expiran.',
+    locale: 'es_HN',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'EnglishKolab — Aprende inglés a tu ritmo',
+    description: 'Clases de inglés en vivo, 1 a 1, con maestros certificados. Tú eliges la hora.',
+  },
+}
+
+export const viewport: Viewport = {
+  // Mobile browser chrome matches the cream page background.
+  themeColor: '#F4EFE6',
 }
 
 export default function RootLayout({
