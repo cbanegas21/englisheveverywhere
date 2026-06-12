@@ -355,7 +355,10 @@ export default function BookingCalendarClient({
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [detailAssignTeacher, setDetailAssignTeacher] = useState('')
   const [showAiSummary, setShowAiSummary] = useState(false)
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  // Seed 0 so the server render and first client render match — Date.now() at
+  // render differs by network latency and trips React #418. The effect below
+  // sets the real value immediately on mount.
+  const [nowMs, setNowMs] = useState(0)
   const [conflict, setConflict] = useState<{ kicker: string; message: string; force?: () => void } | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropHint, setDropHint] = useState<{ dayIdx: number; topPx: number; label: string } | null>(null)
@@ -381,6 +384,7 @@ export default function BookingCalendarClient({
 
   // Refresh "now" every minute so the live/expired state + countdown stay current.
   useEffect(() => {
+    setNowMs(Date.now())
     const id = setInterval(() => setNowMs(Date.now()), 60_000)
     return () => clearInterval(id)
   }, [])
@@ -396,7 +400,7 @@ export default function BookingCalendarClient({
     return h === 0 ? '12am' : h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`
   }
   function timeOf(iso: string): string {
-    return new Date(iso).toLocaleTimeString(DLOC, { hour: '2-digit', minute: '2-digit', timeZone: timezone })
+    return new Date(iso).toLocaleTimeString(DLOC, { hour: '2-digit', minute: '2-digit', timeZone: timezone }).replace(/[  ]/g, ' ')
   }
   const typeLabel = (type: string) => tx.types[type] ?? type.replace(/_/g, ' ')
   const statusLabel = (status: string) => tx.status[status] ?? status
@@ -1320,7 +1324,7 @@ export default function BookingCalendarClient({
                   {pb.student_name || tx.studentFallback}
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--ek-text-soft)', fontFeatureSettings: '"tnum"', textTransform: 'capitalize' }}>
-                  {new Date(pb.scheduled_at).toLocaleString(DLOC, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: timezone })}
+                  {new Date(pb.scheduled_at).toLocaleString(DLOC, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: timezone }).replace(/[  ]/g, ' ')}
                 </span>
                 <span style={{ display: 'flex', gap: 5, fontSize: 10, color: 'var(--ek-text-muted)' }}>
                   <span>{typeLabel(pb.type)}</span>
@@ -1372,7 +1376,7 @@ export default function BookingCalendarClient({
 
             <DetailRow label={tx.scheduled}>
               <span style={{ fontWeight: 600, color: 'var(--ek-text)', textTransform: 'capitalize' }}>
-                {new Date(b.scheduled_at).toLocaleString(DLOC, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: timezone })}
+                {new Date(b.scheduled_at).toLocaleString(DLOC, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: timezone }).replace(/[  ]/g, ' ')}
               </span>
               <div style={{ fontSize: 11, color: 'var(--ek-text-muted)', marginTop: 2 }}>{tx.yourZone(zoneLabel)}</div>
             </DetailRow>

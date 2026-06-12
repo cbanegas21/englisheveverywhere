@@ -169,9 +169,11 @@ function fmtDate(iso: string, lang: Locale) {
 }
 
 function fmtTime(iso: string, lang: 'es' | 'en') {
+  // Normalize am/pm whitespace (Node ICU plain space vs Chrome U+00A0) so SSR and
+  // client hydration produce byte-identical strings — avoids React #418.
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
     timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit',
-  })
+  }).replace(/[  ]/g, ' ')
 }
 
 function monthShort(iso: string, lang: Locale): string {
@@ -226,7 +228,7 @@ export default function ProgresoClient({
               })
             : null
           const placementTime = placementBooking
-            ? new Date(placementBooking.scheduled_at).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' })
+            ? new Date(placementBooking.scheduled_at).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' }).replace(/[  ]/g, ' ')
             : null
 
           if (placementBooking) {
