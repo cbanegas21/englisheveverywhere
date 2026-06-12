@@ -16,9 +16,18 @@ export default async function GananciasPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
+  // Only select columns the `authenticated` role is actually granted. The Veem
+  // payout columns (payout_veem_email / payout_setup_at) were added by migration
+  // 038 WITHOUT a column-level SELECT grant to authenticated — and this table uses
+  // column-level grants, so they're not auto-covered. Including them made the
+  // WHOLE query fail with 42501 (permission denied) → teacher=null → this page
+  // redirected to /onboarding → onboarding bounced the (already-onboarded) teacher
+  // to /maestro/dashboard. i.e. the earnings page silently kicked the teacher home.
+  // The Veem email is read below via computeTeacherAvailable (admin/service client,
+  // which bypasses the grant), so we don't need those columns here.
   const { data: teacher } = await supabase
     .from('teachers')
-    .select('id, total_sessions, hourly_rate, payout_veem_email, payout_setup_at')
+    .select('id, total_sessions, hourly_rate')
     .eq('profile_id', user.id)
     .single()
 
@@ -76,7 +85,7 @@ export default async function GananciasPage({ params }: Props) {
   // so it never double-counts money that's been swept. Canonical math shared
   // with the admin payout sweep.
   const admin = createAdminClient()
-  const { availableUsd, pendingHoldUsd: pendingUsd } = await computeTeacherAvailable(admin, teacher.id)
+  const { availableUsd, pendingHoldUsd: pendingUsd, veemEmail } = await computeTeacherAvailable(admin, teacher.id)
 
   // Next weekly payout = the upcoming Friday (the auto-sweep day). Computed in the
   // business zone so the date the teacher sees is consistent.
@@ -101,7 +110,7 @@ export default async function GananciasPage({ params }: Props) {
       availableUsd={availableUsd}
       pendingUsd={pendingUsd}
       nextPayoutLabel={nextPayoutLabel}
-      veemEmail={teacher.payout_veem_email ?? null}
+      veemEmail={veemEmail}
       sessions={displaySessions}
     />
   )
