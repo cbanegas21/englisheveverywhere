@@ -6,6 +6,7 @@ import { getRoomAccess, completeSession } from '@/app/actions/video'
 import type { SessionSummary } from '@/app/actions/video'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from './i18n'
+import type { RoomErrorCode } from './i18n'
 import { VIDEO_THEME } from './theme'
 import { Lobby } from './components/Lobby'
 import { RoomShell } from './components/RoomShell'
@@ -46,17 +47,18 @@ export default function VideoRoomClient({
 
   const [phase, setPhase] = useState<Phase>('init')
   const [roomData, setRoomData] = useState<RoomData | null>(null)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  // Stable error code from getRoomAccess; ErrorScreen maps it to localized prose.
+  const [errorCode, setErrorCode] = useState<RoomErrorCode | null>(null)
   const [summaryData, setSummaryData] = useState<SessionSummary | null>(null)
 
   const dashboardPath = isTeacher ? `/${lang}/maestro/dashboard` : `/${lang}/dashboard`
 
   const init = useCallback(async () => {
     setPhase('init')
-    setErrorMsg(null)
+    setErrorCode(null)
     const result = await getRoomAccess(bookingId)
     if ('error' in result) {
-      setErrorMsg(result.error)
+      setErrorCode(result.error)
       setPhase('error')
       return
     }
@@ -105,7 +107,7 @@ export default function VideoRoomClient({
   }
 
   return (
-    <div className="flex min-h-screen flex-col" style={{ background: VIDEO_THEME.stage }}>
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden" style={{ background: VIDEO_THEME.stage }}>
       <div className="flex-1 relative">
         {phase === 'init' && <ConnectingScreen message={tx.connecting} />}
 
@@ -119,7 +121,7 @@ export default function VideoRoomClient({
         )}
 
         {phase === 'error' && (
-          <ErrorScreen lang={lang} errorMsg={errorMsg} onRetry={init} />
+          <ErrorScreen lang={lang} errorCode={errorCode} onRetry={init} />
         )}
 
         {phase === 'dev' && (

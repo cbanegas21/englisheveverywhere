@@ -28,7 +28,9 @@ export async function saveIntake(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: itk('notAuth', lang) }
 
-  const learning_goal = (formData.get('learning_goal') as string)?.trim() || null
+  // Cap the free-text goal — it's written to the DB and rendered back; an
+  // unbounded blob is abuse/misuse (matches the 2000-char bound used elsewhere).
+  const learning_goal = ((formData.get('learning_goal') as string)?.trim() || '').slice(0, 2000) || null
   const learning_style = (formData.get('learning_style') as string | null) || null
   const self_rated_level = (formData.get('self_rated_level') as string | null) || null
   const motivation = (formData.get('motivation') as string | null) || null

@@ -434,7 +434,7 @@ export default function PlanClient({
         }
       />
 
-      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ padding: '28px clamp(16px, 4vw, 36px)', maxWidth: 1280, margin: '0 auto' }}>
         {/* Current plan hero */}
         {currentPlanDef ? (
           <DarkHeroCard
@@ -446,10 +446,8 @@ export default function PlanClient({
             style={{ marginBottom: 32 }}
           >
             <div
+              className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 sm:gap-8"
               style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr auto',
-                gap: 32,
                 alignItems: 'center',
               }}
             >
@@ -469,7 +467,7 @@ export default function PlanClient({
                 <h2
                   style={{
                     margin: 0,
-                    fontSize: 'clamp(2.5rem, 4vw, 3rem)',
+                    fontSize: 'clamp(2rem, 8vw, 3rem)',
                     fontWeight: 800,
                     letterSpacing: '-0.035em',
                     lineHeight: 1,
@@ -520,7 +518,7 @@ export default function PlanClient({
                   borderRadius: 12,
                   padding: '20px 28px',
                   textAlign: 'center',
-                  minWidth: 200,
+                  minWidth: 0,
                 }}
               >
                 <div
@@ -822,7 +820,7 @@ export default function PlanClient({
         </div>
 
         {/* Billing + FAQ */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 20 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-5">
           <section
             style={{
               background: 'var(--ek-card)',

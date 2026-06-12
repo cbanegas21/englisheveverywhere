@@ -217,7 +217,7 @@ export default function ProgresoClient({
         }
       />
 
-      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ padding: '28px clamp(16px, 4vw, 36px)', maxWidth: 1280, margin: '0 auto' }}>
         {/* Placement banner if not done */}
         {!placementTestDone && (() => {
           const placementDate = placementBooking
@@ -342,7 +342,7 @@ export default function ProgresoClient({
             background: 'var(--ek-card)',
             border: '1px solid var(--ek-border)',
             borderRadius: 16,
-            padding: '32px 36px',
+            padding: '24px clamp(16px, 4vw, 36px)',
             marginBottom: 24,
             display: 'grid',
             gridTemplateColumns: '1fr auto',
@@ -385,7 +385,7 @@ export default function ProgresoClient({
               <h2
                 style={{
                   margin: 0,
-                  fontSize: 56,
+                  fontSize: 'clamp(40px, 12vw, 56px)',
                   fontWeight: 800,
                   letterSpacing: '-0.035em',
                   color: 'var(--ek-text)',
@@ -475,11 +475,8 @@ export default function ProgresoClient({
 
         {/* 2-column: timeline + plan/profile */}
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)',
-            gap: 20,
-          }}
+          className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"
+          style={{ gap: 20 }}
         >
           {/* Timeline */}
           <section

@@ -36,7 +36,7 @@ export default async function AdminLayout({ children, params }: Props) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header
-          className="flex items-center justify-between flex-shrink-0 px-4 py-3 md:px-7 md:py-[14px]"
+          className="hidden md:flex items-center justify-between flex-shrink-0 px-4 py-3 md:px-7 md:py-[14px]"
           style={{
             background: 'var(--ek-card)',
             borderBottom: '1px solid var(--ek-border)',
@@ -44,7 +44,7 @@ export default async function AdminLayout({ children, params }: Props) {
           }}
         >
           <div />
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <AdminLangToggle lang={lang} />
             <div
               style={{
@@ -84,7 +84,7 @@ export default async function AdminLayout({ children, params }: Props) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 min-w-0 p-4 md:p-8">
+        <main className="flex-1 min-w-0 p-4 md:p-8 overflow-x-hidden">
           {children}
         </main>
       </div>

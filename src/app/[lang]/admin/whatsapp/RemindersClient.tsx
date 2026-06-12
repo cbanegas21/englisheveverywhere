@@ -177,18 +177,18 @@ export default function RemindersClient({ lang, reminders, windowDays, appUrl, n
             {r.wants24h && <span className="ek-wa-badge">{t.w24}</span>}
             {r.wants1h && <span className="ek-wa-badge">{t.w1}</span>}
           </div>
-          <div style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 10.5, color: 'var(--ek-text-muted)', lineHeight: 1.5 }}>
+          <div style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 12, color: 'var(--ek-text-muted)', lineHeight: 1.5 }}>
             {r.wants24h && <div>{t.sendBy} {fmtSendBy(r.scheduledAt, 24 * 3_600_000, loc)}</div>}
             {r.wants1h && <div>{t.sendBy} {fmtSendBy(r.scheduledAt, 3_600_000, loc)}</div>}
           </div>
         </div>
 
         {/* Phone + actions */}
-        <div style={{ minWidth: 190, textAlign: 'right' }}>
+        <div className="ek-wa-actions" style={{ minWidth: 190 }}>
           {phoneOk ? (
             <>
               <div style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 12, color: 'var(--ek-text-soft)', marginBottom: 6 }}>{r.phone}</div>
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <div className="ek-wa-btn-row" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <a
                   className="ek-wa-send"
                   href={`https://wa.me/${digitsOnly(r.phone!)}?text=${encodeURIComponent(buildMessage(r))}`}
@@ -203,7 +203,7 @@ export default function RemindersClient({ lang, reminders, windowDays, appUrl, n
               </div>
             </>
           ) : (
-            <div style={{ textAlign: 'right' }}>
+            <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-red)' }}>{t.noPhone}</div>
               <div style={{ fontSize: 11, color: 'var(--ek-text-muted)', marginTop: 2 }}>{t.noPhoneHint}</div>
             </div>
@@ -229,14 +229,17 @@ export default function RemindersClient({ lang, reminders, windowDays, appUrl, n
           border: 1px solid var(--ek-border);
         }
         .ek-wa-send {
-          display: inline-flex; align-items: center; padding: 7px 14px;
+          display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px;
+          min-height: 40px;
           border-radius: var(--ek-radius-sm); background: var(--ek-red); color: #fff;
           font-size: 12.5px; font-weight: 700; text-decoration: none;
           border: 1px solid var(--ek-red); transition: background 0.15s ease;
         }
         .ek-wa-send:hover { background: var(--ek-red-hover); }
         .ek-wa-copy {
-          padding: 7px 12px; border-radius: var(--ek-radius-sm);
+          display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px;
+          min-height: 40px;
+          border-radius: var(--ek-radius-sm);
           background: var(--ek-card); color: var(--ek-text-soft);
           font-size: 12.5px; font-weight: 600; cursor: pointer;
           border: 1px solid var(--ek-border); transition: border-color 0.15s ease, color 0.15s ease;
@@ -244,6 +247,17 @@ export default function RemindersClient({ lang, reminders, windowDays, appUrl, n
         .ek-wa-copy:hover { border-color: var(--ek-border-mid); color: var(--ek-text); }
         .ek-wa-section-head {
           display: flex; align-items: baseline; gap: 10px; margin: 28px 0 12px;
+        }
+        /* Right-align the phone/actions block on desktop (was inline; moved here so the
+           phone breakpoint can override it cleanly) */
+        .ek-wa-actions { text-align: right; }
+        .ek-wa-btn-row { justify-content: flex-end; }
+        @media (max-width: 640px) {
+          .ek-wa-row { flex-direction: column; align-items: stretch; gap: 10px; }
+          .ek-wa-row > div { min-width: 0 !important; }
+          .ek-wa-actions { text-align: left; }
+          .ek-wa-btn-row { justify-content: flex-start; }
+          .ek-wa-send, .ek-wa-copy { flex: 1; }
         }
       `}</style>
 

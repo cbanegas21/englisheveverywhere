@@ -44,12 +44,20 @@ const STYLES = `
   color: var(--ek-text);
   margin-top: 14px;
   font-feature-settings: 'tnum' 1;
+  overflow-wrap: anywhere;
 }
 .lk-statledger .lk-stat-sub { font-size: 12px; color: var(--ek-text-muted); margin-top: 10px; }
 @media (max-width: 720px) {
   .lk-statledger { grid-template-columns: 1fr 1fr; }
   .lk-statledger .lk-stat:nth-child(odd) { border-left: none; }
   .lk-statledger .lk-stat:nth-child(n+3) { border-top: 1px solid var(--ek-border); }
+  .lk-statledger .lk-stat { padding: 16px 14px 18px; }
+  .lk-statledger .lk-stat-value { font-size: clamp(20px, 6.5vw, 28px); }
+}
+@media (max-width: 430px) {
+  .lk-statledger { grid-template-columns: 1fr; }
+  .lk-statledger .lk-stat { border-left: none; }
+  .lk-statledger .lk-stat:not(:first-child) { border-top: 1px solid var(--ek-border); }
 }
 `
 

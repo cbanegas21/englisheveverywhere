@@ -44,6 +44,11 @@ const SIZES: Record<SelfViewSize, { w: number; h: number }> = {
   lg: { w: 232, h: 148 },
 }
 
+// On phones the tile is clamped to 'sm', but two 128px PiPs (self + remote)
+// bracketing the centered control cluster is tight on a 390px stage. Use an
+// even smaller step when compact so the tiles never crowd the controls.
+const COMPACT_DIMS = { w: 96, h: 62 }
+
 // Resting position resolved from the corner, offset by any open right-side
 // panel + the control-bar height. Lives in the React style prop; drag is a
 // transform translate (see useSelfViewPosition) so the two never collide.
@@ -85,7 +90,7 @@ export function LocalSelfView({
   onPointerMove,
   onPointerUp,
 }: Props) {
-  const dims = SIZES[size]
+  const dims = isCompact ? COMPACT_DIMS : SIZES[size]
   return (
     <div
       className={`group absolute rounded-xl overflow-hidden shadow-xl ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}

@@ -86,6 +86,11 @@ export async function POST(req: NextRequest) {
   // would leave a paying customer with no credits AND no retry path (the next
   // retry would short-circuit as duplicate).
   let processingError: string | null = null
+  // Per-charge refund idempotency guard (separate from the per-EVENT ledger): a
+  // second distinct full-refund event for the SAME charge must not subtract the
+  // pack credits twice. Tracked as a sentinel row in the same ledger table. Held
+  // in a var so it can be released alongside the event claim if processing fails.
+  let refundGuardId: string | null = null
 
   switch (event.type) {
     case 'checkout.session.completed': {
@@ -199,6 +204,20 @@ export async function POST(req: NextRequest) {
       // Only reverse credits on full refund — partial refunds (e.g. a
       // goodwill credit) leave the class pack intact.
       if (isFullRefund) {
+        // Claim this charge's refund before reversing credits — a second distinct
+        // full-refund event for the same charge then hits 23505 and is skipped.
+        const chargeId = charge.object.id as string | undefined
+        if (chargeId) {
+          const { error: guardErr } = await supabase
+            .from('processed_stripe_events')
+            .insert({ id: `refund-${chargeId}`, event_type: 'refund-guard' })
+          if (guardErr) {
+            if (guardErr.code === '23505') break // already reversed this charge — don't double-subtract
+            processingError = `refund guard insert failed: ${guardErr.message}`
+            break
+          }
+          refundGuardId = `refund-${chargeId}`
+        }
         const meta = (charge.object.metadata as Record<string, string> | null) ?? {}
         const userId = meta.user_id
         const planKey = meta.plan_key
@@ -260,6 +279,10 @@ export async function POST(req: NextRequest) {
       .from('processed_stripe_events')
       .delete()
       .eq('id', event.id)
+    // Release the per-charge refund guard too, so the retry can re-apply the reversal.
+    if (refundGuardId) {
+      await supabase.from('processed_stripe_events').delete().eq('id', refundGuardId)
+    }
     return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
   }
 

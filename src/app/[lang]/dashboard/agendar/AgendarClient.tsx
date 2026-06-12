@@ -421,7 +421,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
         }
         .lk-agendar-slot {
           width: 100%;
-          height: 38px;
+          height: 44px;
           background: var(--ek-red-tint);
           color: var(--ek-red);
           border-radius: 4px;
@@ -429,7 +429,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 600;
           cursor: pointer;
           transition: background 0.15s ease;
@@ -437,6 +437,18 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
         }
         .lk-agendar-slot:hover {
           background: var(--ek-red-tint-2);
+        }
+        .lk-agendar-cell {
+          height: 44px;
+        }
+        @media (min-width: 640px) {
+          .lk-agendar-slot {
+            height: 38px;
+            font-size: 10px;
+          }
+          .lk-agendar-cell {
+            height: 38px;
+          }
         }
       `}</style>
       <DashTopBar
@@ -469,7 +481,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
       <div
         className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]"
         style={{
-          padding: '28px 36px',
+          padding: '28px clamp(16px, 4vw, 36px)',
           maxWidth: 1280,
           margin: '0 auto',
           gap: 24,
@@ -739,11 +751,14 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
               overflow: 'hidden',
             }}
           >
+            {/* Horizontal scroller — keeps each day column usable on phones */}
+            <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 'max(100%, 420px)' }}>
             {/* Day headers */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '60px repeat(7, 1fr)',
+                gridTemplateColumns: '48px repeat(7, minmax(46px, 1fr))',
                 background: 'var(--ek-paper)',
                 borderBottom: '1px solid var(--ek-border-soft)',
               }}
@@ -793,7 +808,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                   key={hour}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '60px repeat(7, 1fr)',
+                    gridTemplateColumns: '48px repeat(7, minmax(46px, 1fr))',
                     borderBottom: '1px solid var(--ek-paper)',
                   }}
                 >
@@ -832,8 +847,8 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                       >
                         {isBooked ? (
                           <div
+                            className="lk-agendar-cell"
                             style={{
-                              height: 38,
                               background: 'var(--ek-paper-deep)',
                               borderRadius: 4,
                               display: 'flex',
@@ -848,8 +863,8 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                           </div>
                         ) : isUnavailable ? (
                           <div
+                            className="lk-agendar-cell"
                             style={{
-                              height: 38,
                               background: 'var(--ek-paper)',
                               borderRadius: 4,
                               cursor: 'not-allowed',
@@ -858,9 +873,9 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                         ) : isSelected ? (
                           <button
                             onClick={() => selectSlot({ hour, scheduledAt })}
+                            className="lk-agendar-cell"
                             style={{
                               width: '100%',
-                              height: 38,
                               background: 'var(--ek-ink)',
                               color: 'var(--ek-on-dark)',
                               borderRadius: 4,
@@ -890,6 +905,8 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                   })}
                 </div>
               ))}
+            </div>
+            </div>
             </div>
 
             {/* Toggle hours */}

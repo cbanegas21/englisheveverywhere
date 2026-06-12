@@ -154,7 +154,7 @@ export default function GananciasClient({
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto space-y-8">
+      <div className="px-4 sm:px-8 py-6 max-w-4xl mx-auto space-y-8">
         {/* Payout setup / status — Veem */}
         <section style={{ background: 'var(--ek-card)', border: '1px solid var(--ek-border)', borderRadius: 'var(--ek-radius-lg)', padding: '20px 22px' }}>
           <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{tx.payoutsTitle}</div>
@@ -183,7 +183,7 @@ export default function GananciasClient({
                 <input
                   type="email" value={email} placeholder={tx.veemEmailPlaceholder}
                   onChange={e => { setEmail(e.target.value); setError('') }}
-                  disabled={isPending} className="ek-input" style={{ ...inputStyle, flex: 1, minWidth: 200 }}
+                  disabled={isPending} className="ek-input" style={{ ...inputStyle, flex: 1, minWidth: 0 }}
                 />
                 <button onClick={save} disabled={isPending || !email.trim()} className="ek-btn ek-btn-primary ek-btn-square" style={{ flexShrink: 0, padding: '10px 20px', fontSize: 13, opacity: (isPending || !email.trim()) ? 0.6 : 1 }}>
                   {isPending ? tx.saving : tx.save}
@@ -220,7 +220,7 @@ export default function GananciasClient({
             <p className="text-[15px] italic py-10" style={{ fontFamily: 'var(--ek-font-serif)', color: 'var(--ek-text-muted)' }}>{tx.noSessions}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 480 }}>
                 <thead>
                   <tr>
                     {[tx.date, tx.student, tx.duration, tx.payout, tx.status].map(h => (
@@ -234,13 +234,13 @@ export default function GananciasClient({
                     const statusColor = s.paidOut ? 'var(--ek-text-muted)' : s.cleared ? 'var(--ek-text)' : 'var(--ek-text-muted)'
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--ek-border-soft)' }}>
-                        <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text)' }}>
+                        <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text)', whiteSpace: 'nowrap' }}>
                           {new Date(s.scheduled_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
                         <td className="py-3.5 text-[13px] font-medium" style={{ color: 'var(--ek-text)' }}>{s.student?.profile?.full_name?.split(' ')[0] || '—'}</td>
                         <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{s.duration_minutes}{tx.mins}</td>
-                        <td className="py-3.5 text-[13px] font-bold" style={{ color: 'var(--ek-red)', fontFeatureSettings: '"tnum"' }}>{formatUsd(s.payoutUsd, lang)}</td>
-                        <td className="py-3.5 text-[12px]" style={{ color: statusColor, fontFamily: 'var(--ek-font-mono)' }}>{statusLabel}</td>
+                        <td className="py-3.5 text-[13px] font-bold" style={{ color: 'var(--ek-red)', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }}>{formatUsd(s.payoutUsd, lang)}</td>
+                        <td className="py-3.5 text-[12px]" style={{ color: statusColor, fontFamily: 'var(--ek-font-mono)', whiteSpace: 'nowrap' }}>{statusLabel}</td>
                       </tr>
                     )
                   })}

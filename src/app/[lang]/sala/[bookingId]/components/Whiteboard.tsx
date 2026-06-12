@@ -93,13 +93,25 @@ export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
           className="absolute inset-0"
           style={{ background: VIDEO_THEME.stage, zIndex: Z.whiteboard }}
         >
-          <div className="absolute inset-0 pt-14">
+          <div className="ek-wb-tldraw absolute inset-0 pt-14">
             <Tldraw
               persistenceKey={persistenceKey}
               onMount={onMount}
               inferDarkMode
             />
           </div>
+          {/* Constrain tldraw's desktop-first chrome on phones so the toolbar /
+              style panel don't collide with the app's top bar or overflow a
+              390px stage. Scoped to this overlay only. */}
+          <style>{`
+            @media (max-width: 640px) {
+              .ek-wb-tldraw .tlui-layout__top { top: 3.5rem; }
+              .ek-wb-tldraw .tlui-style-panel { max-width: calc(100vw - 16px); }
+              .ek-wb-tldraw .tlui-style-panel__wrapper { max-width: calc(100vw - 16px); }
+              .ek-wb-tldraw .tlui-toolbar { max-width: 100vw; }
+              .ek-wb-tldraw .tlui-toolbar__inner { max-width: 100vw; overflow-x: auto; }
+            }
+          `}</style>
           <div
             className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-2.5 z-10"
             style={{ background: 'rgba(0,0,0,0.75)', borderBottom: `1px solid ${VIDEO_THEME.border}` }}

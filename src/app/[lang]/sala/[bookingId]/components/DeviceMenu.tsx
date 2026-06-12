@@ -51,7 +51,7 @@ export function DeviceMenu({ lang, show, onClose }: Props) {
             transition={{ duration: 0.18, ease: 'easeOut' }}
             role="dialog"
             aria-label={tx.deviceSettings}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 w-[340px] max-h-[60vh] overflow-y-auto rounded-2xl shadow-2xl"
+            className="absolute bottom-24 left-2 right-2 mx-auto w-auto max-w-[340px] max-h-[60vh] overflow-y-auto rounded-2xl shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[340px]"
             style={{
               zIndex: Z.deviceMenu,
               background: 'rgba(18,20,24,0.98)',

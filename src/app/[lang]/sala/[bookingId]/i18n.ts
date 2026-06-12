@@ -1,5 +1,21 @@
 import type { Locale } from '@/lib/i18n/translations'
 
+// Stable error codes returned by getRoomAccess (actions/video.ts). Kept in sync
+// with the RoomAccessError union there. `errorFallback` covers any unmapped or
+// connection-layer error so the Spanish UI never falls back to raw English prose.
+export type RoomErrorCode =
+  | 'not-authenticated'
+  | 'not-found'
+  | 'not-authorized'
+  | 'cancelled'
+  | 'completed'
+  | 'invalid-time'
+  | 'expired'
+  | 'init-failed'
+  | 'token-failed'
+
+type ErrorMessages = Record<RoomErrorCode, string> & { errorFallback: string }
+
 type Strings = {
   connecting: string; joining: string; reconnecting: string; leaving: string
   waitingOther: string; sessionWith: string; timeRemaining: string
@@ -19,6 +35,7 @@ type Strings = {
   whiteboard: string; whiteboardTitle: string; whiteboardClose: string; whiteboardLoading: string
   whiteboardZoomIn: string; whiteboardZoomOut: string; whiteboardRecenter: string
   transcript: string; transcriptTitle: string; transcriptClose: string; transcriptEmpty: string; transcriptUnsupported: string; transcriptListening: string
+  errorMessages: ErrorMessages
 }
 
 export const VIDEO_T: Record<Locale, Strings> = {
@@ -95,6 +112,19 @@ export const VIDEO_T: Record<Locale, Strings> = {
     transcriptEmpty: 'No speech detected yet. Start talking to see captions.',
     transcriptUnsupported: "Live transcript doesn't work in this browser. Use Chrome or Edge.",
     transcriptListening: 'Listening…',
+
+    errorMessages: {
+      'not-authenticated': 'Please sign in to join this class.',
+      'not-found': "We couldn't find this session.",
+      'not-authorized': "You don't have access to this session.",
+      'cancelled': 'This session has been cancelled.',
+      'completed': 'This session has already ended.',
+      'invalid-time': 'This session has an invalid scheduled time. Contact support.',
+      'expired': 'This session has expired and can no longer be joined.',
+      'init-failed': "We couldn't start the session. Please try again.",
+      'token-failed': "We couldn't connect you to the room. Please try again.",
+      errorFallback: "We couldn't connect to your session. Please try again.",
+    },
   },
   es: {
     connecting: 'Conectando a tu sesión...',
@@ -169,6 +199,19 @@ export const VIDEO_T: Record<Locale, Strings> = {
     transcriptEmpty: 'Aún no se detecta voz. Comienza a hablar para ver los subtítulos.',
     transcriptUnsupported: 'La transcripción en vivo no está disponible en este navegador. Usa Chrome o Edge.',
     transcriptListening: 'Escuchando…',
+
+    errorMessages: {
+      'not-authenticated': 'Inicia sesión para entrar a esta clase.',
+      'not-found': 'No encontramos esta sesión.',
+      'not-authorized': 'No tienes acceso a esta sesión.',
+      'cancelled': 'Esta sesión fue cancelada.',
+      'completed': 'Esta sesión ya finalizó.',
+      'invalid-time': 'Esta sesión tiene una hora inválida. Contacta a soporte.',
+      'expired': 'Esta sesión expiró y ya no se puede ingresar.',
+      'init-failed': 'No pudimos iniciar la sesión. Inténtalo de nuevo.',
+      'token-failed': 'No pudimos conectarte a la sala. Inténtalo de nuevo.',
+      errorFallback: 'No pudimos conectarte a tu sesión. Inténtalo de nuevo.',
+    },
   },
 }
 

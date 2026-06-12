@@ -70,8 +70,8 @@ const t = {
     },
     placementPastBanner: {
       title: 'Your diagnostic call has passed',
-      sub: (date: string) => `It was scheduled for ${date}. Contact us to reschedule.`,
-      cta: 'Contact us',
+      sub: (date: string) => `It was scheduled for ${date}. Reschedule to pick a new time.`,
+      cta: 'Reschedule',
     },
     upgrade: 'Get more classes',
     noClassesBanner: "You've used all your classes. Get a new pack to keep learning.",
@@ -139,8 +139,8 @@ const t = {
     },
     placementPastBanner: {
       title: 'Tu llamada diagnóstica ya pasó',
-      sub: (date: string) => `Estaba agendada para el ${date}. Contáctanos para reagendar.`,
-      cta: 'Contactar',
+      sub: (date: string) => `Estaba agendada para el ${date}. Reagenda para elegir un nuevo horario.`,
+      cta: 'Reagendar',
     },
     upgrade: 'Obtener más clases',
     noClassesBanner: 'Ya tomaste todas tus clases. Obtén un nuevo pack para seguir aprendiendo.',
@@ -307,6 +307,39 @@ export default function StudentDashboardClient({
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <style>{`
+        .ek-hero-grid {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 32px;
+          align-items: center;
+        }
+        .ek-hero-meta { gap: 28px; }
+        .ek-upcoming-row {
+          display: grid;
+          grid-template-columns: 64px 1fr auto;
+          gap: 16px;
+          align-items: center;
+        }
+        @media (max-width: 640px) {
+          .ek-hero-grid { grid-template-columns: 1fr; gap: 18px; }
+          .ek-hero-meta { gap: 16px; }
+        }
+        @media (max-width: 480px) {
+          .ek-upcoming-row {
+            grid-template-columns: 56px 1fr;
+            gap: 12px;
+          }
+          .ek-upcoming-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            align-items: center;
+          }
+        }
+      `}</style>
       <DashTopBar
         title={
           <span>
@@ -384,7 +417,7 @@ export default function StudentDashboardClient({
                     title={tx.placementPastBanner.title}
                     sub={tx.placementPastBanner.sub(formattedDate)}
                     cta={tx.placementPastBanner.cta}
-                    href="mailto:hola@englishkolab.com"
+                    href={`/${lang}/dashboard/placement?reschedule=1`}
                   />
                 )
               }
@@ -504,14 +537,7 @@ export default function StudentDashboardClient({
               ghostSize={220}
               padding="28px 32px"
             >
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto',
-                  gap: 32,
-                  alignItems: 'center',
-                }}
-              >
+              <div className="ek-hero-grid">
                 <div>
                   <div
                     style={{
@@ -542,9 +568,9 @@ export default function StudentDashboardClient({
                     {formatDate(nextHero.date, lang, timezone)}, {formatTime(nextHero.date, lang, timezone)}
                   </h2>
                   <div
+                    className="ek-hero-meta"
                     style={{
                       display: 'flex',
-                      gap: 28,
                       marginTop: 18,
                       alignItems: 'center',
                       flexWrap: 'wrap',
@@ -775,11 +801,8 @@ export default function StudentDashboardClient({
                   return (
                     <li
                       key={booking.id}
+                      className="ek-upcoming-row"
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: '64px 1fr auto auto',
-                        gap: 16,
-                        alignItems: 'center',
                         padding: '18px 22px',
                         borderBottom: '1px solid var(--ek-border-soft)',
                       }}
@@ -850,34 +873,39 @@ export default function StudentDashboardClient({
                         </div>
                       </div>
 
-                      <StatusBadge
-                        variant={
-                          isLive
-                            ? 'cancelled' /* red live */
-                            : booking.status === 'confirmed'
-                              ? 'confirmed'
-                              : awaitingTeacher
-                                ? 'pending'
-                                : 'neutral'
-                        }
+                      <div
+                        className="ek-upcoming-actions"
+                        style={{ display: 'flex', alignItems: 'center', gap: 12 }}
                       >
-                        {isLive
-                          ? tx.statusLive
-                          : booking.status === 'confirmed'
-                            ? tx.statusConfirmed
-                            : awaitingTeacher
-                              ? tx.statusAwaitingTeacher
-                              : tx.statusPending}
-                      </StatusBadge>
+                        <StatusBadge
+                          variant={
+                            isLive
+                              ? 'cancelled' /* red live */
+                              : booking.status === 'confirmed'
+                                ? 'confirmed'
+                                : awaitingTeacher
+                                  ? 'pending'
+                                  : 'neutral'
+                          }
+                        >
+                          {isLive
+                            ? tx.statusLive
+                            : booking.status === 'confirmed'
+                              ? tx.statusConfirmed
+                              : awaitingTeacher
+                                ? tx.statusAwaitingTeacher
+                                : tx.statusPending}
+                        </StatusBadge>
 
-                      {!awaitingTeacher && (
-                        <JoinSessionButton
-                          lang={lang}
-                          bookingId={booking.id}
-                          scheduledAt={booking.scheduled_at}
-                          variant="compact"
-                        />
-                      )}
+                        {!awaitingTeacher && (
+                          <JoinSessionButton
+                            lang={lang}
+                            bookingId={booking.id}
+                            scheduledAt={booking.scheduled_at}
+                            variant="compact"
+                          />
+                        )}
+                      </div>
                     </li>
                   )
                 })}

@@ -15,6 +15,16 @@ export async function saveSurveyAnswers(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  // Bound the payload — it's a short fixed survey; reject an oversized blob so a
+  // direct call can't write unbounded JSON to the student row.
+  try {
+    if (!answers || typeof answers !== 'object' || JSON.stringify(answers).length > 10000) {
+      return { error: lang === 'es' ? 'Respuestas inválidas.' : 'Invalid answers.' }
+    }
+  } catch {
+    return { error: lang === 'es' ? 'Respuestas inválidas.' : 'Invalid answers.' }
+  }
+
   // Auth validated. Use admin client for writes (RLS-edge fix).
   const admin = createAdminClient()
   const { error } = await admin
@@ -22,7 +32,10 @@ export async function saveSurveyAnswers(
     .update({ survey_answers: answers })
     .eq('profile_id', user.id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    console.error('saveSurveyAnswers failed:', error.message)
+    return { error: lang === 'es' ? 'No se pudo guardar. Inténtalo de nuevo.' : 'Could not save. Please try again.' }
+  }
 
   revalidatePath('/', 'layout')
   return { success: true }
@@ -58,12 +71,17 @@ export async function bookPlacementCall(
   const admin = createAdminClient()
 
   const [{ data: student }, { data: profile }] = await Promise.all([
-    admin.from('students').select('id').eq('profile_id', user.id).single(),
+    admin.from('students').select('id, placement_test_done').eq('profile_id', user.id).single(),
     admin.from('profiles').select('full_name').eq('id', user.id).single(),
   ])
 
   if (!student) {
     return { error: lang === 'es' ? 'Perfil no encontrado.' : 'Student profile not found.' }
+  }
+  // Don't re-open a finished assessment — a direct call after placement is done
+  // would resurrect the flow and re-set placement_scheduled (mirror reschedulePlacementCall).
+  if (student.placement_test_done) {
+    return { error: lang === 'es' ? 'Tu evaluación de nivel ya está completa.' : 'Your placement assessment is already complete.' }
   }
 
   // Prevent double-booking
@@ -107,7 +125,10 @@ export async function bookPlacementCall(
     .select()
     .single()
 
-  if (error) return { error: error.message }
+  if (error) {
+    console.error('bookPlacementCall insert failed:', error.message)
+    return { error: lang === 'es' ? 'No se pudo agendar. Inténtalo de nuevo.' : 'Could not schedule. Please try again.' }
+  }
 
   // Mark placement call as scheduled (not yet completed)
   await admin
@@ -213,7 +234,10 @@ export async function reschedulePlacementCall(
     .select()
     .single()
 
-  if (error) return { error: error.message }
+  if (error) {
+    console.error('reschedulePlacementCall insert failed:', error.message)
+    return { error: lang === 'es' ? 'No se pudo agendar. Inténtalo de nuevo.' : 'Could not schedule. Please try again.' }
+  }
 
   // Keep placement_scheduled = true
   await admin
@@ -390,10 +414,13 @@ export async function teacherSetStudentLevel(studentId: string, level: string) {
 
   const { data: teacher } = await admin
     .from('teachers')
-    .select('id')
+    .select('id, is_active')
     .eq('profile_id', user.id)
     .single()
   if (!teacher?.id) return { error: 'Teacher record not found' }
+  // A deactivated/un-approved teacher must not mutate student data, even via a
+  // historical booking relationship (mirrors the requireTeacher is_active gate).
+  if (!teacher.is_active) return { error: 'Teacher account is not active' }
 
   // Must have at least one booking with this student (any status except
   // cancelled). Otherwise the teacher isn't supposed to see the student.

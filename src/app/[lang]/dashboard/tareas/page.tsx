@@ -43,7 +43,9 @@ export default async function StudentTareasPage({ params }: Props) {
       due_at: a.due_at,
       status: a.status,
       created_at: a.created_at,
-      teacher_name: a.teacher?.profile?.full_name || 'Teacher',
+      // Localized fallback so ES students never see hardcoded English (mirrors
+      // the BROWSE-01 fix in maestros/page.tsx).
+      teacher_name: a.teacher?.profile?.full_name || (lang === 'es' ? 'Maestro' : 'Teacher'),
       submission: sub
         ? {
             id: sub.id,

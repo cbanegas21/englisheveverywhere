@@ -47,7 +47,8 @@ export async function updateStudentProfile(data: {
     const name = (data.fullName || '').trim()
     if (name.length === 0) return { success: false, error: 'Name is required' }
     if (name.length > 120) return { success: false, error: 'Name is too long' }
-    if (/[<>]/.test(name)) return { success: false, error: 'Name contains invalid characters' }
+    // Reject markup AND CR/LF (the latter is an email-subject header-injection surface).
+    if (/[<>\r\n]/.test(name)) return { success: false, error: 'Name contains invalid characters' }
     patch.full_name = name
   }
   if (data.timezone !== undefined) {
@@ -64,7 +65,20 @@ export async function updateStudentProfile(data: {
       patch.phone = phone
     }
   }
-  if (data.avatarUrl !== undefined)            patch.avatar_url = data.avatarUrl
+  if (data.avatarUrl !== undefined) {
+    // Avatar is rendered as <img src>. Only accept null or a same-origin Supabase
+    // Storage https URL — never a client-supplied javascript:/data:/arbitrary URL.
+    if (data.avatarUrl === null) {
+      patch.avatar_url = null
+    } else {
+      const url = String(data.avatarUrl)
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+      if (url.length > 512 || !base || !url.startsWith(`${base}/storage/`)) {
+        return { success: false, error: 'Invalid avatar URL' }
+      }
+      patch.avatar_url = url
+    }
+  }
   if (data.preferredLanguage !== undefined)    patch.preferred_language = data.preferredLanguage
   if (data.preferredCurrency !== undefined) {
     const code = data.preferredCurrency.toUpperCase()
@@ -181,7 +195,17 @@ export async function requestEmailChange(
   // normal Supabase Auth templates (not the admin client — admin updates
   // would skip the confirmation step).
   const { error } = await supabase.auth.updateUser({ email: clean })
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    // Never reflect the raw Supabase string (untranslated + email-existence
+    // enumeration). Log server-side, return one generic localized message.
+    console.error('requestEmailChange failed:', error.message)
+    return {
+      success: false,
+      error: lang === 'es'
+        ? 'No pudimos cambiar tu correo. Prueba con otro o inténtalo más tarde.'
+        : "We couldn't change your email. Try a different one or try again later.",
+    }
+  }
 
   return {
     success: true,
@@ -278,9 +302,20 @@ export async function deleteMyAccount(
   //    assignment queries; classes_remaining=0 prevents any residual booking
   //    path from firing against a deleted account.
   if (teacher) {
+    // Purge the CV (full résumé — PII) from storage too, then clear its pointers.
+    // Best-effort: a storage hiccup must not block the account deletion (GDPR).
+    const { data: tRow } = await admin
+      .from('teachers')
+      .select('cv_storage_path')
+      .eq('id', teacher.id)
+      .single()
+    const cvPath = (tRow as { cv_storage_path?: string | null } | null)?.cv_storage_path
+    if (cvPath) {
+      try { await admin.storage.from('teacher-docs').remove([cvPath]) } catch { /* non-fatal */ }
+    }
     await admin
       .from('teachers')
-      .update({ is_active: false })
+      .update({ is_active: false, cv_storage_path: null, cv_original_filename: null })
       .eq('id', teacher.id)
   }
   if (student) {

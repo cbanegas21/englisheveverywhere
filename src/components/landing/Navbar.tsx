@@ -198,8 +198,17 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
 
         {/* Mobile hamburger */}
         <button
-          className="lg:hidden p-2"
-          style={{ color: 'var(--ek-text)', background: 'transparent', border: 0 }}
+          className="lg:hidden p-2 -mr-2"
+          style={{
+            color: 'var(--ek-text)',
+            background: 'transparent',
+            border: 0,
+            minWidth: 44,
+            minHeight: 44,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
         >

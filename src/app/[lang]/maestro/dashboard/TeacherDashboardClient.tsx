@@ -309,7 +309,7 @@ export default function TeacherDashboardClient({
         }
       />
 
-      <div className="px-8 py-6 max-w-5xl mx-auto space-y-7">
+      <div className="px-4 sm:px-8 py-6 max-w-5xl mx-auto space-y-7">
 
         {/* Specializations — squared hairline chips, no pills */}
         {specializations.length > 0 && (

@@ -26,7 +26,7 @@ const t = {
     errorDefault: 'Invalid email or password.',
     errorCallback: "We couldn't complete sign-in. The link may have expired — please try logging in again.",
     successReset: 'Check your inbox for a recovery email.',
-    keepLogged: 'Keep me logged in',
+    timeoutNotice: 'You were signed out due to inactivity. Please log in again.',
     or: 'or continue with',
     continueGoogle: 'Continue with Google',
     continueMicrosoft: 'Continue with Microsoft',
@@ -48,7 +48,7 @@ const t = {
     errorDefault: 'Correo o contraseña inválidos.',
     errorCallback: 'No pudimos completar el inicio de sesión. El enlace puede haber expirado — inténtalo de nuevo.',
     successReset: 'Revisa tu bandeja de entrada para recuperar tu contraseña.',
-    keepLogged: 'Mantenerme conectado',
+    timeoutNotice: 'Tu sesión se cerró por inactividad. Inicia sesión de nuevo.',
     or: 'o continúa con',
     continueGoogle: 'Continuar con Google',
     continueMicrosoft: 'Continuar con Microsoft',
@@ -84,6 +84,7 @@ function LoginForm({ lang }: { lang: Locale }) {
   const tx: Tx = t[lang]
   const errorMsg = searchParams.get('error')
   const successMsg = searchParams.get('success')
+  const timedOut = searchParams.get('timeout') === '1'
 
   // Send an already-authenticated visitor to their role home instead of showing
   // the login form again (LIVE-003). A logged-out user (incl. right after
@@ -144,7 +145,7 @@ function LoginForm({ lang }: { lang: Locale }) {
       <AuthBrandPanel lang={lang} />
 
       <div className="relative flex flex-col min-h-screen">
-        <header className="flex items-center justify-between" style={{ padding: '20px 26px' }}>
+        <header className="flex flex-wrap items-center justify-between gap-y-1 px-4 py-4 sm:px-6">
           <Link href={`/${lang}`} aria-label="EnglishKolab">
             <Logo size={26} />
           </Link>
@@ -165,6 +166,11 @@ function LoginForm({ lang }: { lang: Locale }) {
               </h1>
             </div>
 
+            {timedOut && !errorMsg && (
+              <div className="mb-4 rounded-lg px-4 py-3 text-[13px]" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8' }}>
+                {tx.timeoutNotice}
+              </div>
+            )}
             {errorMsg && (
               <div className="mb-4 rounded-lg px-4 py-3 text-[13px]" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626' }}>
                 {/(invalid login credentials|invalid email or password|email not confirmed)/i.test(errorMsg)
@@ -208,7 +214,7 @@ function LoginForm({ lang }: { lang: Locale }) {
                     required
                     minLength={8}
                     placeholder={tx.passwordPlaceholder}
-                    style={{ ...inputBase, paddingRight: 40 }}
+                    style={{ ...inputBase, paddingRight: 44 }}
                     onFocus={onFocusRing}
                     onBlur={onBlurRing}
                   />
@@ -216,8 +222,8 @@ function LoginForm({ lang }: { lang: Locale }) {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? (lang === 'es' ? 'Ocultar contraseña' : 'Hide password') : (lang === 'es' ? 'Mostrar contraseña' : 'Show password')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                    style={{ color: 'var(--ek-text-muted)' }}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors"
+                    style={{ color: 'var(--ek-text-muted)', width: 40, height: 40 }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--ek-text)')}
                     onMouseLeave={e => (e.currentTarget.style.color = 'var(--ek-text-muted)')}
                   >
@@ -245,7 +251,7 @@ function LoginForm({ lang }: { lang: Locale }) {
               </Link>
             </p>
 
-            <p className="mt-4 text-center text-[11px]" style={{ color: 'var(--ek-text-faint)' }}>
+            <p className="mt-4 text-center text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>
               {tx.adminPrompt}
               <Link
                 href={`/${lang}/admin`}

@@ -2,6 +2,7 @@
 
 import { Suspense, use, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -15,6 +16,8 @@ const t = {
     verifying: 'Verifying your reset link…',
     errorSession: 'Invalid or expired reset link. Please request a new one.',
     errorShort: 'Password must be at least 8 characters.',
+    errorUpdate: 'We could not update your password. Please try again.',
+    requestNewLink: 'Request a new link',
   },
   es: {
     title: 'Nueva contraseña',
@@ -25,6 +28,8 @@ const t = {
     verifying: 'Verificando tu enlace…',
     errorSession: 'Enlace inválido o expirado. Solicita uno nuevo.',
     errorShort: 'La contraseña debe tener al menos 8 caracteres.',
+    errorUpdate: 'No pudimos actualizar tu contraseña. Intenta de nuevo.',
+    requestNewLink: 'Solicitar un nuevo enlace',
   },
 }
 
@@ -118,8 +123,11 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
     setStatus('loading')
     const { error } = await supabase.auth.updateUser({ password })
     if (error) {
+      // Never surface the raw Supabase message (untranslated + info-leaking).
+      // Map to a localized generic and log the real error server-side-ish.
+      console.error('[new-password] updateUser failed:', error.message)
       setStatus('error')
-      setMessage(error.message)
+      setMessage(tx.errorUpdate)
     } else {
       setStatus('success')
       setMessage(tx.success)
@@ -160,7 +168,16 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
         </h1>
 
         {!sessionReady && status === 'error' && (
-          <p className="text-[13px] mb-4 text-red-600">{message}</p>
+          <div className="mb-4">
+            <p className="text-[13px] text-red-600">{message}</p>
+            <Link
+              href={`/${lang}/login/reset`}
+              className="mt-2 inline-block text-[13px] font-semibold underline underline-offset-2"
+              style={{ color: 'var(--ek-red)' }}
+            >
+              {tx.requestNewLink}
+            </Link>
+          </div>
         )}
 
         {!sessionReady && status !== 'error' && (

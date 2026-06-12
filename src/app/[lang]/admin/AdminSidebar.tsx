@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { EKMark } from '@/components/ui/EKMark'
+import AdminLangToggle from './AdminLangToggle'
 
 interface Props { lang: string }
 
@@ -190,13 +191,18 @@ export default function AdminSidebar({ lang }: Props) {
             EnglishKolab
           </span>
         </Link>
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex', color: text }}
-          aria-label={mobileOpen ? labels.closeMenu : labels.openMenu}
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Lang toggle stays reachable on mobile — the desktop top bar (its other
+              render site) is hidden below md. */}
+          <AdminLangToggle lang={lang} />
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex', color: text }}
+            aria-label={mobileOpen ? labels.closeMenu : labels.openMenu}
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}

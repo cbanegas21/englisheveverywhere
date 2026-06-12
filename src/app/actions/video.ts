@@ -41,7 +41,7 @@ export async function transcribeAudioChunk(
   const adminClient = createAdminClient()
   const { data: booking } = await adminClient
     .from('bookings')
-    .select('id, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
+    .select('id, status, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
     .eq('id', bookingId)
     .single()
   if (!booking) return { error: 'unauthorized' }
@@ -53,6 +53,9 @@ export async function transcribeAudioChunk(
     user.id === (booking.student as any)?.profile_id ||
     user.id === (booking as any).conductor_profile_id
   if (!isParticipant && !isAdmin) return { error: 'unauthorized' }
+  // Only an active (pending/confirmed) session may spend transcription credit —
+  // not a cancelled/completed booking the participant could loop over.
+  if ((booking as { status?: string }).status !== 'pending' && (booking as { status?: string }).status !== 'confirmed') return { error: 'not-active' }
 
   // Throttle per user — stops a participant looping the endpoint to drain
   // Deepgram credit. Generous ceiling so a real 60-min class never trips it (video-6).
@@ -81,12 +84,26 @@ export async function transcribeAudioChunk(
   }
 }
 
+// Stable, locale-independent error codes returned by getRoomAccess. The client
+// (ErrorScreen) maps these to localized prose via the sala i18n dictionary so the
+// Spanish UI never shows hardcoded English. Do NOT return prose from here.
+export type RoomAccessError =
+  | 'not-authenticated'
+  | 'not-found'
+  | 'not-authorized'
+  | 'cancelled'
+  | 'completed'
+  | 'invalid-time'
+  | 'expired'
+  | 'init-failed'
+  | 'token-failed'
+
 export async function getRoomAccess(bookingId: string): Promise<
-  { url: string; token: string; sessionId: string; isDevMode: boolean } | { error: string }
+  { url: string; token: string; sessionId: string; isDevMode: boolean } | { error: RoomAccessError }
 > {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { error: 'not-authenticated' }
 
   // Service-role read (RLS-bypassing): admins / admin-conductors aren't in the
   // bookings SELECT policies, so a user-scoped read returns null and strands
@@ -103,7 +120,7 @@ export async function getRoomAccess(bookingId: string): Promise<
     .eq('id', bookingId)
     .single()
 
-  if (!booking) return { error: 'Booking not found' }
+  if (!booking) return { error: 'not-found' }
 
   const teacherProfileId = (booking.teacher as any)?.profile_id
   const studentProfileId = (booking.student as any)?.profile_id
@@ -125,18 +142,18 @@ export async function getRoomAccess(bookingId: string): Promise<
     user.id === conductorProfileId
 
   if (!isParticipant && !isAdmin) {
-    return { error: 'Not authorized for this booking' }
+    return { error: 'not-authorized' }
   }
 
   if (booking.status === 'cancelled') {
-    return { error: 'This session has been cancelled' }
+    return { error: 'cancelled' }
   }
 
   // A completed booking's room must not re-open — completeSession is terminal
   // (it pays the teacher + writes the summary). The client shows EndedScreen, but
   // a direct action call would otherwise mint a fresh token for a finished class.
   if (booking.status === 'completed') {
-    return { error: 'This session has already ended.' }
+    return { error: 'completed' }
   }
 
   const apiKey = process.env.LIVEKIT_API_KEY
@@ -153,12 +170,12 @@ export async function getRoomAccess(bookingId: string): Promise<
     // Guard a malformed scheduled_at — NaN arithmetic would make closeAt NaN and
     // `now > NaN` false, leaving the room joinable forever.
     if (isNaN(scheduled)) {
-      return { error: 'This session has an invalid time.' }
+      return { error: 'invalid-time' }
     }
     const durationMs = (booking.duration_minutes ?? 60) * 60 * 1000
     const closeAt = scheduled + durationMs + 90 * 60 * 1000
     if (now > closeAt) {
-      return { error: 'This session has expired.' }
+      return { error: 'expired' }
     }
   }
 
@@ -180,7 +197,7 @@ export async function getRoomAccess(bookingId: string): Promise<
       .single()
 
     if (sessionError || !newSession) {
-      return { error: 'Failed to initialize session record' }
+      return { error: 'init-failed' }
     }
     sessionId = newSession.id
   }
@@ -224,7 +241,7 @@ export async function getRoomAccess(bookingId: string): Promise<
     const token = await at.toJwt()
     return { url: wsUrl, token, sessionId, isDevMode: false }
   } catch {
-    return { error: 'Failed to generate room access token' }
+    return { error: 'token-failed' }
   }
 }
 
@@ -242,13 +259,17 @@ export async function saveSessionNotes(sessionId: string, notes: string): Promis
     .from('sessions')
     .select(`
       id,
-      booking:bookings(teacher:teachers(profile_id))
+      booking:bookings(status, teacher:teachers(profile_id))
     `)
     .eq('id', sessionId)
     .single()
 
   const teacherProfileId = (sessionRow?.booking as any)?.teacher?.profile_id
   if (!teacherProfileId || teacherProfileId !== user.id) return { success: false }
+  // Don't allow writes once the booking is terminal — the session is paid-out,
+  // notes/transcript shouldn't change after the fact (server-action-authz).
+  const bStatus = (sessionRow?.booking as any)?.status
+  if (bStatus && bStatus !== 'pending' && bStatus !== 'confirmed') return { success: false }
 
   const { error } = await adminClient
     .from('sessions')
@@ -483,13 +504,17 @@ export async function saveSessionTranscript(
     .from('sessions')
     .select(`
       id,
-      booking:bookings(teacher:teachers(profile_id))
+      booking:bookings(status, teacher:teachers(profile_id))
     `)
     .eq('id', sessionId)
     .single()
 
   const teacherProfileId = (sessionRow?.booking as any)?.teacher?.profile_id
   if (!teacherProfileId || teacherProfileId !== user.id) return { success: false }
+  // Don't allow writes once the booking is terminal — the session is paid-out,
+  // notes/transcript shouldn't change after the fact (server-action-authz).
+  const bStatus = (sessionRow?.booking as any)?.status
+  if (bStatus && bStatus !== 'pending' && bStatus !== 'confirmed') return { success: false }
 
   const { error } = await adminClient
     .from('sessions')
@@ -584,7 +609,7 @@ export async function extractLiveVocab(
   const adminClient = createAdminClient()
   const { data: booking } = await adminClient
     .from('bookings')
-    .select('id, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
+    .select('id, status, conductor_profile_id, teacher:teachers(profile_id), student:students(profile_id)')
     .eq('id', bookingId)
     .single()
   if (!booking) return []
@@ -596,6 +621,8 @@ export async function extractLiveVocab(
     user.id === (booking.student as any)?.profile_id ||
     user.id === (booking as any).conductor_profile_id
   if (!isParticipant && !isAdmin) return []
+  // Only an active session may spend AI credit — not a cancelled/completed booking.
+  if ((booking as { status?: string }).status !== 'pending' && (booking as { status?: string }).status !== 'confirmed') return []
 
   // Throttle per user — caps runaway loops draining Anthropic credit. Fires every
   // ~30s in a real class (~2/min = ~30 per rolling 15-min window), so 60 is 2x

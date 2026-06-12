@@ -186,7 +186,7 @@ export default async function AdminOverviewPage({ params }: Props) {
       <section>
         <SectionHeader title={t.recentBookings} />
         <div style={{ overflowX: 'auto' }}>
-          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+          <table className="w-full" style={{ minWidth: 480, borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {[t.student, t.teacher, t.scheduled, t.status].map(h => (

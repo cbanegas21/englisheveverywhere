@@ -109,6 +109,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'kern' 1, 'liga' 1;
+  /* Defensive clamp: cap the document at viewport width so a single overlooked
+     wide element can never trigger a full-page horizontal scroll on phones.
+     Intentional scroll containers manage their own overflow-x. */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Scrollbar — warm to match new palette */

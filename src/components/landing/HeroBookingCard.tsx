@@ -46,11 +46,14 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
   const list = slots[lang]
 
   const label = lang === 'es' ? 'Ahora mismo' : 'Right now'
-  const live = lang === 'es' ? 'En vivo' : 'Live'
-  const next = lang === 'es' ? 'Próximas horas' : 'Next hours'
+  const next = lang === 'es' ? 'Horarios típicos' : 'Typical hours'
   const arrow = lang === 'es' ? 'Reserva una clase' : 'Book a class'
   const note = lang === 'es' ? 'Solo 24 h de anticipación' : 'Only 24 h notice'
   const reserve = lang === 'es' ? 'Reservar' : 'Book'
+  // These slots are illustrative, not a live feed — label them honestly so the
+  // card never reads as fabricated real-time availability.
+  const sample = lang === 'es' ? 'ejemplo' : 'sample'
+  const pick = lang === 'es' ? 'Tú eliges →' : 'You pick →'
 
   return (
     <Link
@@ -95,17 +98,6 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
           transition: background 0.2s ease, gap 0.2s ease;
         }
         .lk-bcard-link:hover .lk-bcard-cta { background: var(--ek-red); gap: 11px; }
-        .lk-bcard-pulse {
-          width: 7px; height: 7px; border-radius: 50%;
-          background: var(--ek-red);
-          box-shadow: 0 0 0 0 rgba(196,30,58,0.5);
-          animation: lk-bcard-pulse 2s ease-out infinite;
-        }
-        @keyframes lk-bcard-pulse {
-          0%   { box-shadow: 0 0 0 0 rgba(196,30,58,0.45); }
-          70%  { box-shadow: 0 0 0 7px rgba(196,30,58,0); }
-          100% { box-shadow: 0 0 0 0 rgba(196,30,58,0); }
-        }
         @media (max-width: 1023px) {
           .lk-bcard { padding: 22px; }
         }
@@ -116,7 +108,6 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
         }
         @media (prefers-reduced-motion: reduce) {
           .lk-bcard, .lk-bcard-link:hover .lk-bcard, .lk-bcard-cta { transition: none; }
-          .lk-bcard-pulse { animation: none; }
         }
       `}</style>
 
@@ -144,7 +135,6 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
                 letterSpacing: '0.12em',
               }}
             >
-              <span className="lk-bcard-pulse" aria-hidden />
               {label}
             </div>
             <div
@@ -173,18 +163,20 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
             >
               {next}
             </div>
-            {/* Quiet typographic cue replacing the ornamental equalizer bars */}
+            {/* Honest 'sample' tag — these are illustrative slots, not a live
+                availability feed. Mirrors HorasGrid's 'ejemplo · sample' cue. */}
             <div
               style={{
                 fontFamily: 'var(--ek-font-mono)',
-                fontSize: 13,
+                fontSize: 10,
                 marginTop: 9,
                 fontWeight: 500,
-                letterSpacing: '-0.01em',
-                color: 'var(--ek-text)',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--ek-text-faint)',
               }}
             >
-              <span style={{ color: 'var(--ek-red)' }}>{lang === 'es' ? 'Disponibles' : 'Available'}</span>
+              {sample}
             </div>
           </div>
         </div>
@@ -218,7 +210,10 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
               <div
                 key={i}
                 className="lk-bcard-slot"
+                tabIndex={0}
                 onMouseEnter={() => setHover(i)}
+                onFocus={() => setHover(i)}
+                onClick={() => setHover(i)}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '90px 1fr auto',
@@ -263,7 +258,7 @@ export default function HeroBookingCard({ lang }: { lang: Locale }) {
                     fontStyle: 'italic',
                   }}
                 >
-                  {active ? `${live} →` : s.note}
+                  {active ? pick : s.note}
                 </span>
               </div>
             )

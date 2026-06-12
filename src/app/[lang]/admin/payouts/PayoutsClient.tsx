@@ -35,7 +35,7 @@ const STR = {
     historyTitle: 'History',
     historyEmpty: 'No payouts yet.',
     thTeacher: 'Teacher', thVeem: 'Veem email', thAmount: 'Amount', thWhen: 'Created', thPaid: 'Paid', thStatus: 'Status', thActions: '',
-    markPaid: 'Mark paid', confirm: 'Confirm', cancel: 'Cancel', cancelPayout: 'Cancel',
+    markPaid: 'Mark paid', confirm: 'Confirm', cancel: 'Cancel', cancelPayout: 'Cancel', confirmCancel: 'Cancel payout?', keep: 'Keep',
     sweptToast: (n: number, usd: string) => `${n} payout${n === 1 ? '' : 's'} created (${usd}).`,
     sweepErr: (n: number) => `${n} payout${n === 1 ? '' : 's'} failed — review and retry.`,
     nothingToast: 'Nothing to sweep — no available balances.',
@@ -59,7 +59,7 @@ const STR = {
     historyTitle: 'Historial',
     historyEmpty: 'Aún no hay pagos.',
     thTeacher: 'Maestro', thVeem: 'Correo Veem', thAmount: 'Monto', thWhen: 'Creado', thPaid: 'Pagado', thStatus: 'Estado', thActions: '',
-    markPaid: 'Marcar pagado', confirm: 'Confirmar', cancel: 'Cancelar', cancelPayout: 'Cancelar',
+    markPaid: 'Marcar pagado', confirm: 'Confirmar', cancel: 'Cancelar', cancelPayout: 'Cancelar', confirmCancel: '¿Cancelar pago?', keep: 'Mantener',
     sweptToast: (n: number, usd: string) => `${n} pago${n === 1 ? '' : 's'} creado${n === 1 ? '' : 's'} (${usd}).`,
     sweepErr: (n: number) => `${n} pago${n === 1 ? '' : 's'} fallaron — revisa y reintenta.`,
     nothingToast: 'Nada que barrer — sin saldos disponibles.',
@@ -76,6 +76,7 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
 
   const DLOC = lang === 'es' ? 'es-HN' : 'en-US'
   const usd = (n: number) => new Intl.NumberFormat(DLOC, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n)
@@ -104,7 +105,7 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
   }
   function cancel(id: string) {
     startTransition(async () => {
-      try { await cancelTeacherPayout(id); flash(tx.cancelledToast); router.refresh() }
+      try { await cancelTeacherPayout(id); setConfirmCancelId(null); flash(tx.cancelledToast); router.refresh() }
       catch { flash(tx.error) }
     })
   }
@@ -156,7 +157,8 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--ek-text)', margin: '0 0 4px' }}>{tx.pendingTitle}</h2>
         <p style={{ fontSize: 12.5, color: 'var(--ek-text-muted)', margin: '0 0 12px' }}>{tx.pendingHint}</p>
-        <div style={card}>
+        {/* Desktop / tablet: horizontally-scrollable table */}
+        <div className="hidden sm:block" style={card}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
               <thead><tr>{[tx.thTeacher, tx.thVeem, tx.thAmount, tx.thWhen, tx.thActions].map((h, i) => <th key={i} style={th}>{h}</th>)}</tr></thead>
@@ -172,13 +174,19 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>
                       {confirmId === p.id ? (
                         <span style={{ display: 'inline-flex', gap: 6 }}>
-                          <button onClick={() => markPaid(p.id)} disabled={isPending} className="ek-btn ek-btn-primary ek-btn-square" style={{ padding: '6px 12px', fontSize: 12 }}>{tx.confirm}</button>
-                          <button onClick={() => setConfirmId(null)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 12px', fontSize: 12 }}>{tx.cancel}</button>
+                          <button onClick={() => markPaid(p.id)} disabled={isPending} className="ek-btn ek-btn-primary ek-btn-square" style={{ padding: '10px 14px', minHeight: 40, fontSize: 12 }}>{tx.confirm}</button>
+                          <button onClick={() => setConfirmId(null)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '10px 14px', minHeight: 40, fontSize: 12 }}>{tx.cancel}</button>
+                        </span>
+                      ) : confirmCancelId === p.id ? (
+                        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginRight: 2 }}>{tx.confirmCancel}</span>
+                          <button onClick={() => cancel(p.id)} disabled={isPending} className="ek-btn ek-btn-square" style={{ padding: '10px 14px', minHeight: 40, fontSize: 12, background: 'var(--ek-red)', color: '#fff' }}>{tx.cancelPayout}</button>
+                          <button onClick={() => setConfirmCancelId(null)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '10px 14px', minHeight: 40, fontSize: 12 }}>{tx.keep}</button>
                         </span>
                       ) : (
                         <span style={{ display: 'inline-flex', gap: 6 }}>
-                          <button onClick={() => setConfirmId(p.id)} className="ek-btn ek-btn-primary ek-btn-square" style={{ padding: '6px 12px', fontSize: 12 }}>{tx.markPaid}</button>
-                          <button onClick={() => cancel(p.id)} disabled={isPending} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '6px 12px', fontSize: 12, color: 'var(--ek-text-muted)' }}>{tx.cancelPayout}</button>
+                          <button onClick={() => { setConfirmCancelId(null); setConfirmId(p.id) }} className="ek-btn ek-btn-primary ek-btn-square" style={{ padding: '10px 14px', minHeight: 40, fontSize: 12 }}>{tx.markPaid}</button>
+                          <button onClick={() => { setConfirmId(null); setConfirmCancelId(p.id) }} className="ek-btn ek-btn-ghost ek-btn-square" style={{ padding: '10px 14px', minHeight: 40, fontSize: 12, color: 'var(--ek-text-muted)' }}>{tx.cancelPayout}</button>
                         </span>
                       )}
                     </td>
@@ -187,6 +195,43 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Phone: stacked cards so the primary Mark-paid action is never hidden off-screen */}
+        <div className="sm:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {pending.length === 0 ? (
+            <div style={{ ...card, padding: '24px 18px', textAlign: 'center', color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', fontSize: 13 }}>{tx.pendingEmpty}</div>
+          ) : pending.map(p => (
+            <div key={p.id} style={{ ...card, padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)' }}>{p.teacherName || '—'}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-red)', fontFeatureSettings: '"tnum"' }}>{usd(p.amountUsd)}</span>
+              </div>
+              <div style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 12, color: 'var(--ek-text-soft)', marginTop: 4, overflowWrap: 'anywhere' }}>{p.veemEmail || '—'}</div>
+              <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 2 }}>{fmtDate(p.createdAt)}</div>
+              {confirmCancelId === p.id && (
+                <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 12 }}>{tx.confirmCancel}</div>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                {confirmId === p.id ? (
+                  <>
+                    <button onClick={() => markPaid(p.id)} disabled={isPending} className="ek-btn ek-btn-primary ek-btn-square" style={{ flex: 1, padding: '12px 14px', minHeight: 44, fontSize: 13, justifyContent: 'center' }}>{tx.confirm}</button>
+                    <button onClick={() => setConfirmId(null)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, padding: '12px 14px', minHeight: 44, fontSize: 13, justifyContent: 'center' }}>{tx.cancel}</button>
+                  </>
+                ) : confirmCancelId === p.id ? (
+                  <>
+                    <button onClick={() => cancel(p.id)} disabled={isPending} className="ek-btn ek-btn-square" style={{ flex: 1, padding: '12px 14px', minHeight: 44, fontSize: 13, justifyContent: 'center', background: 'var(--ek-red)', color: '#fff' }}>{tx.cancelPayout}</button>
+                    <button onClick={() => setConfirmCancelId(null)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, padding: '12px 14px', minHeight: 44, fontSize: 13, justifyContent: 'center' }}>{tx.keep}</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => { setConfirmCancelId(null); setConfirmId(p.id) }} className="ek-btn ek-btn-primary ek-btn-square" style={{ flex: 1, padding: '12px 14px', minHeight: 44, fontSize: 13, justifyContent: 'center' }}>{tx.markPaid}</button>
+                    <button onClick={() => { setConfirmId(null); setConfirmCancelId(p.id) }} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, padding: '12px 14px', minHeight: 44, fontSize: 13, justifyContent: 'center', color: 'var(--ek-text-muted)' }}>{tx.cancelPayout}</button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 

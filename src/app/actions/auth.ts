@@ -91,7 +91,15 @@ export async function signUp(formData: FormData) {
   const lastName = ((formData.get('last_name') as string) || '').trim()
   const phone = ((formData.get('phone') as string) || '').trim()
   // Compose the stored display name; fall back to a legacy full_name field.
-  const fullName = [firstName, lastName].filter(Boolean).join(' ') || ((formData.get('full_name') as string) || '')
+  // Sanitize at the source — it's persisted to profiles, shown to admins, and
+  // interpolated into email subjects/bodies: strip CR/LF (header-injection) and
+  // angle brackets (markup/XSS), collapse whitespace, and cap length (mirrors
+  // updateStudentProfile). Defense-in-depth for every downstream email helper.
+  const fullName = ([firstName, lastName].filter(Boolean).join(' ') || ((formData.get('full_name') as string) || ''))
+    .replace(/[\r\n<>]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120)
   // SECURITY: never trust the client-supplied role. Coerce to the only two
   // self-service roles — anything else (notably 'admin') falls back to 'student'.
   // This is the app-layer half of the signup privilege-escalation fix; hardening

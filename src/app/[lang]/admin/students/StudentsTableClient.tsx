@@ -130,6 +130,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
   const selectStyle: React.CSSProperties = {
     fontSize: '13px',
     padding: '7px 12px',
+    minHeight: 44,
     borderRadius: 'var(--ek-radius-md)',
     border: '1px solid var(--ek-border-mid)',
     background: 'var(--ek-card)',
@@ -150,6 +151,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
           style={{
             fontSize: '13px',
             padding: '7px 12px',
+            minHeight: 44,
             borderRadius: 'var(--ek-radius-md)',
             border: '1px solid var(--ek-border-mid)',
             background: 'var(--ek-card)',
@@ -191,7 +193,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
         <table className="w-full" style={{ minWidth: '900px', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {[t.headers.name, t.headers.email, t.headers.plan, t.headers.classesLeft, t.headers.scheduled, t.headers.completed, t.headers.level, t.headers.teacher, t.headers.placement, t.headers.joined].map((h) => (
+              {[t.headers.name, t.headers.email, t.headers.plan, t.headers.classesLeft, t.headers.scheduled, t.headers.completed, t.headers.level, t.headers.teacher, t.headers.placement, t.headers.joined].map((h, i) => (
                 <th
                   key={h}
                   className="text-left py-2.5 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
@@ -200,6 +202,7 @@ export default function StudentsTableClient({ students, lang }: Props) {
                     fontFamily: 'var(--ek-font-mono)',
                     letterSpacing: '0.1em',
                     borderBottom: '1px solid var(--ek-border)',
+                    ...(i === 0 ? { position: 'sticky', left: 0, zIndex: 2, background: 'var(--ek-card)', paddingRight: 20 } : null),
                   }}
                 >
                   {h}
@@ -236,8 +239,8 @@ export default function StudentsTableClient({ students, lang }: Props) {
                     onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--ek-red-tint)' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = '' }}
                   >
-                    {/* Name */}
-                    <td className="py-3.5 pr-5">
+                    {/* Name — sticky so it stays visible while the row scrolls horizontally on phones */}
+                    <td className="py-3.5 pr-5" style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--ek-card)' }}>
                       <div className="flex items-center gap-2.5">
                         <div
                           className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
@@ -317,12 +320,15 @@ export default function StudentsTableClient({ students, lang }: Props) {
 
                     {/* Joined */}
                     <td className="py-3.5 text-[12px] whitespace-nowrap" style={{ color: 'var(--ek-text-muted)' }}>
-                      {new Date(s.created_at).toLocaleDateString(dateLocale, {
-                        timeZone: 'America/Tegucigalpa',
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
+                      <span className="inline-flex items-center gap-2">
+                        {new Date(s.created_at).toLocaleDateString(dateLocale, {
+                          timeZone: 'America/Tegucigalpa',
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                        <span aria-hidden="true" style={{ color: 'var(--ek-text-faint)', fontSize: 15, lineHeight: 1 }}>›</span>
+                      </span>
                     </td>
                   </tr>
                 )

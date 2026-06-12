@@ -60,7 +60,7 @@ export function ChatPanel({ lang, show, onClose, chatMessages, send, isSending, 
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
-          className="absolute top-0 right-0 z-30 w-[360px] flex flex-col"
+          className="absolute top-0 right-0 left-0 z-30 w-full max-w-full flex flex-col sm:left-auto sm:w-[360px]"
           style={{ bottom: bottomInset, background: VIDEO_THEME.panelGlass, backdropFilter: 'blur(12px)', borderLeft: `1px solid ${VIDEO_THEME.border}` }}
         >
           <PanelHeader title={tx.chatTitle} onClose={onClose} closeLabel={tx.chatClose} />

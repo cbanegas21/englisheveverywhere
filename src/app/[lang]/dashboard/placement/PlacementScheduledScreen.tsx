@@ -159,8 +159,8 @@ function formatDate(iso: string, lang: Locale, timezone: string) {
   })
 }
 
-function formatTime(iso: string, timezone: string) {
-  return new Date(iso).toLocaleTimeString('en-US', {
+function formatTime(iso: string, lang: Locale, timezone: string) {
+  return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
     timeZone: timezone || 'America/Tegucigalpa',
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
   })
@@ -260,7 +260,7 @@ export default function PlacementScheduledScreen({
   const tx = T[lang]
   const isEs = lang === 'es'
   const date = scheduledAt ? formatDate(scheduledAt, lang, timezone) : null
-  const time = scheduledAt ? formatTime(scheduledAt, timezone) : null
+  const time = scheduledAt ? formatTime(scheduledAt, lang, timezone) : null
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
   // ── Scoped styles — replaces inline onMouseEnter/onMouseLeave handlers

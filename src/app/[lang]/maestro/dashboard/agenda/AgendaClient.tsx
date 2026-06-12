@@ -398,7 +398,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
         }
       />
 
-      <div className="px-8 py-6 max-w-5xl mx-auto">
+      <div className="px-4 sm:px-8 py-6 max-w-5xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
           {/* Pending requests */}
@@ -470,7 +470,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                             <button
                               onClick={() => handleConfirm(booking.id)}
                               disabled={loadingId === booking.id || isPending}
-                              className="ek-red-btn flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[11px] disabled:opacity-50"
+                              className="ek-red-btn flex flex-1 sm:flex-initial items-center justify-center gap-1.5 px-3.5 py-2.5 rounded font-semibold text-[12px] disabled:opacity-50"
                               style={{ background: 'var(--ek-red)', color: '#fff' }}
                             >
                               {loadingId === booking.id && (
@@ -481,7 +481,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                             <button
                               onClick={() => handleDecline(booking.id)}
                               disabled={loadingId === booking.id || isPending}
-                              className="ek-outline-btn ek-link-danger flex items-center gap-1.5 px-3 py-1.5 rounded font-semibold text-[11px] disabled:opacity-50"
+                              className="ek-outline-btn ek-link-danger flex flex-1 sm:flex-initial items-center justify-center gap-1.5 px-3.5 py-2.5 rounded font-semibold text-[12px] disabled:opacity-50"
                               style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-soft)', background: 'var(--ek-paper)' }}
                             >
                               {tx.decline}
@@ -523,14 +523,14 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                         className="py-4"
                         style={{ borderBottom: '1px solid var(--ek-border-soft)' }}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <div
                             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded font-bold text-[12px]"
                             style={{ background: 'var(--ek-paper-deep)', color: 'var(--ek-text-soft)' }}
                           >
                             {getInitials(booking.student?.profile?.full_name)}
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-[140px]">
                             <div className="flex items-center gap-2 flex-wrap">
                               <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--ek-text)' }}>
                                 {booking.student?.profile?.full_name || 'Student'}
@@ -550,7 +550,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                             {canJoin && (
                               <Link
                                 href={`/${lang}/sala/${booking.id}`}
-                                className="ek-red-btn flex items-center gap-1 px-2.5 py-1.5 rounded font-semibold text-[10px]"
+                                className="ek-red-btn flex items-center gap-1 px-2.5 py-2 rounded font-semibold text-[11px]"
                                 style={{ background: 'var(--ek-red)', color: '#fff' }}
                               >
                                 <Video className="h-3 w-3" />
@@ -564,7 +564,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                             <button
                               onClick={() => handleCancelReschedule(booking.reschedule_request!.id, booking.id)}
                               disabled={isPending || booking.reschedule_request!.id === 'pending'}
-                              className="ek-outline-btn ek-link-danger flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px] disabled:opacity-50"
+                              className="ek-outline-btn ek-link-danger flex items-center gap-1 px-2.5 py-2 rounded font-semibold text-[11px] disabled:opacity-50"
                               style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-muted)', background: 'var(--ek-card)' }}
                             >
                               {tx.rescheduleCancel}
@@ -572,7 +572,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                           ) : (
                             <button
                               onClick={() => openReschedule(booking)}
-                              className="ek-quickrow flex items-center gap-1 px-2 py-1 rounded font-semibold text-[10px]"
+                              className="ek-quickrow flex items-center gap-1 px-2.5 py-2 rounded font-semibold text-[11px]"
                               style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-soft)', background: 'var(--ek-card)' }}
                             >
                               {tx.reschedule}
@@ -617,7 +617,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
       >
         <p className="text-[12px] mb-4" style={{ color: 'var(--ek-text-muted)' }}>{tx.rescheduleSubtitle}</p>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--ek-text-soft)' }}>{tx.rescheduleNewDate}</label>
               <input

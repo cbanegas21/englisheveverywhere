@@ -237,7 +237,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             </div>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: dimSoft,
                 marginTop: 2,
                 whiteSpace: 'nowrap',
@@ -261,7 +261,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             padding: '6px 10px',
             marginBottom: 1,
             borderRadius: 6,
-            fontSize: 11.5,
+            fontSize: 12,
             opacity: switching ? 0.5 : 1,
             background: 'transparent',
             border: 0,
@@ -289,7 +289,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             padding: '6px 10px',
             marginBottom: 1,
             borderRadius: 6,
-            fontSize: 11.5,
+            fontSize: 12,
             textDecoration: 'none',
             fontFamily: 'var(--ek-font-sans)',
           }}
@@ -308,7 +308,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
               width: '100%',
               padding: '6px 10px',
               borderRadius: 6,
-              fontSize: 11.5,
+              fontSize: 12,
               background: 'transparent',
               border: 0,
               cursor: 'pointer',
@@ -349,7 +349,11 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
           onClick={() => setMobileOpen(!mobileOpen)}
           className="ek-side-foot"
           style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex' }}
-          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          aria-label={
+            lang === 'es'
+              ? mobileOpen ? 'Cerrar menú' : 'Abrir menú'
+              : mobileOpen ? 'Close menu' : 'Open menu'
+          }
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>

@@ -533,10 +533,17 @@ export async function studentCancelBooking(bookingId: string, lang: string = 'es
     return { error: lang === 'es' ? 'Esta clase ya no se puede cancelar.' : 'This class can no longer be cancelled.' }
   }
 
-  // Refund credit only if cancelled with ≥24h notice — matches the pricing
-  // copy ("classes cancelled with less than 24-hour notice are forfeited").
-  if (!isLate) {
-    await admin.rpc('increment_classes', { p_student_id: student.id })
+  // Refund a credit ONLY for a paid class cancelled with ≥24h notice (the pricing
+  // copy: "classes cancelled with less than 24-hour notice are forfeited"). A
+  // placement is free — refunding it would mint a class credit from nothing — and
+  // a cancelled placement must clear placement_scheduled so the student can re-book
+  // instead of being stranded on a blank scheduled screen.
+  if (booking.type === 'class') {
+    if (!isLate) {
+      await admin.rpc('increment_classes', { p_student_id: student.id })
+    }
+  } else if (booking.type === 'placement_test') {
+    await admin.from('students').update({ placement_scheduled: false }).eq('id', student.id)
   }
 
   // Cancel any still-open reschedule request on this booking — the class is gone,
@@ -760,6 +767,10 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
   const refundIssued = booking.type === 'class'
   if (refundIssued) {
     await admin.rpc('increment_classes', { p_student_id: student.id })
+  } else if (booking.type === 'placement_test') {
+    // A no-showed placement must clear placement_scheduled so the student can
+    // re-book instead of being stranded on a blank scheduled screen.
+    await admin.from('students').update({ placement_scheduled: false }).eq('id', student.id)
   }
 
   cancelBookingReminders(bookingId).catch(() => {})

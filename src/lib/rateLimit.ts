@@ -135,6 +135,17 @@ export async function checkUserActionLimit(
   const windowMs = windowMinutes * 60 * 1000
   const since = new Date(Date.now() - windowMs).toISOString()
 
+  // Insert FIRST, then count — so concurrent callers each count the others' rows
+  // and the limit can't be bypassed by a race (the old count-then-insert let two
+  // requests both read count<limit and both insert). Fail open on insert error so
+  // a DB blip never blocks a real user.
+  const { error: insErr } = await admin
+    .from('auth_attempts')
+    .insert({ ip, action, email: userId, success: true })
+  if (insErr) {
+    console.error('[rateLimit] user-action insert failed (failing open)', insErr)
+    return { ok: true }
+  }
   const { count, error } = await admin
     .from('auth_attempts')
     .select('*', { count: 'exact', head: true })
@@ -142,20 +153,13 @@ export async function checkUserActionLimit(
     .eq('action', action)
     .gte('attempted_at', since)
   if (error) {
-    console.error('[rateLimit] user-action query failed (failing open)', error)
+    console.error('[rateLimit] user-action count failed (failing open)', error)
     return { ok: true }
   }
-  if ((count ?? 0) >= limit) {
+  // This call's own row is counted, so reject once the window EXCEEDS the limit.
+  if ((count ?? 0) > limit) {
     return { ok: false, retryAfterSeconds: Math.ceil(windowMs / 1000) }
   }
-
-  await admin
-    .from('auth_attempts')
-    .insert({ ip, action, email: userId, success: true })
-    .then(
-      () => undefined,
-      (err: unknown) => console.error('[rateLimit] user-action insert failed', err),
-    )
   return { ok: true }
 }
 

@@ -42,7 +42,6 @@ const t = {
     confirmPlaceholder: 'Repeat your password',
     passwordMismatch: 'Passwords do not match.',
     phoneInvalid: 'Please enter a valid phone number.',
-    remember: 'Remember me',
     submit: 'Create account',
     loading: 'Creating account…',
     terms: 'By creating an account you agree to our',
@@ -86,7 +85,6 @@ const t = {
     confirmPlaceholder: 'Repite tu contraseña',
     passwordMismatch: 'Las contraseñas no coinciden.',
     phoneInvalid: 'Ingresa un número de teléfono válido.',
-    remember: 'Recuérdame',
     submit: 'Crear cuenta',
     loading: 'Creando cuenta…',
     terms: 'Al crear una cuenta aceptas nuestros',
@@ -133,7 +131,7 @@ function Shell({ lang, tx, children }: { lang: Locale; tx: Tx; children: React.R
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[1.05fr_1fr]" style={{ background: 'var(--ek-paper)' }}>
       <AuthBrandPanel lang={lang} />
       <div className="relative flex flex-col min-h-screen">
-        <header className="flex items-center justify-between" style={{ padding: '20px 26px' }}>
+        <header className="flex flex-wrap items-center justify-between gap-y-1 px-4 py-4 sm:px-6">
           <Link href={`/${lang}`} aria-label="EnglishKolab">
             <Logo size={26} />
           </Link>
@@ -302,7 +300,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
           </div>
           <button
             onClick={() => setStep('role')}
-            className="text-[12px] rounded-md px-2.5 py-1 mt-1 transition-colors flex-shrink-0"
+            className="text-[12px] rounded-md px-3 py-2 mt-1 transition-colors flex-shrink-0"
             style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-muted)' }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--ek-text)'; e.currentTarget.style.borderColor = 'var(--ek-text)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--ek-text-muted)'; e.currentTarget.style.borderColor = 'var(--ek-border)' }}
@@ -318,14 +316,14 @@ function RegistroContent({ lang }: { lang: Locale }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.firstName}</label>
-              <input type="text" name="first_name" required placeholder={tx.firstNamePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+              <input type="text" name="first_name" required maxLength={60} placeholder={tx.firstNamePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
             </div>
             <div>
               <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.lastName}</label>
-              <input type="text" name="last_name" required placeholder={tx.lastNamePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
+              <input type="text" name="last_name" required maxLength={60} placeholder={tx.lastNamePlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
             </div>
           </div>
           <div>
@@ -363,7 +361,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
                 required
                 minLength={8}
                 placeholder={tx.passwordPlaceholder}
-                style={{ ...inputBase, paddingRight: 40 }}
+                style={{ ...inputBase, paddingRight: 44 }}
                 onFocus={onFocusRing}
                 onBlur={onBlurRing}
               />
@@ -371,8 +369,8 @@ function RegistroContent({ lang }: { lang: Locale }) {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? (lang === 'es' ? 'Ocultar contraseña' : 'Hide password') : (lang === 'es' ? 'Mostrar contraseña' : 'Show password')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                style={{ color: 'var(--ek-text-muted)' }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center transition-colors"
+                style={{ color: 'var(--ek-text-muted)', width: 40, height: 40 }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--ek-text)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--ek-text-muted)')}
               >
@@ -385,11 +383,6 @@ function RegistroContent({ lang }: { lang: Locale }) {
             <input type={showPassword ? 'text' : 'password'} name="confirm_password" required minLength={8} placeholder={tx.confirmPlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" defaultChecked className="w-4 h-4 rounded" style={{ accentColor: 'var(--ek-red)' }} />
-            <span className="text-[13px]" style={{ color: 'var(--ek-text-soft)' }}>{tx.remember}</span>
-          </label>
-
           <button
             type="submit"
             disabled={isPending}
@@ -401,7 +394,7 @@ function RegistroContent({ lang }: { lang: Locale }) {
             {isPending ? tx.loading : tx.submit}
           </button>
 
-          <p className="text-[11px] leading-relaxed text-center" style={{ color: 'var(--ek-text-muted)' }}>
+          <p className="text-[12px] leading-relaxed text-center" style={{ color: 'var(--ek-text-muted)' }}>
             {tx.terms}{' '}
             <a href={`/${lang}/terms`} className="underline" style={{ color: 'var(--ek-text-soft)' }}>{tx.termsLink}</a>{' '}
             {tx.and}{' '}

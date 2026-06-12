@@ -76,8 +76,8 @@ const t = {
     actionNoShow: 'Report teacher no-show',
     cancelTitleEarly: 'Cancel this class?',
     cancelTitleLate: 'Cancel within 24 hours?',
-    cancelBodyEarly: 'You will get your class credit back. Are you sure?',
-    cancelBodyLate: 'This class starts in less than 24 hours. Per our policy, the credit is forfeited and will not be refunded.',
+    cancelBodyEarly: 'Your class credit returns to your balance, ready for any future class — credits never expire. Are you sure?',
+    cancelBodyLate: 'This class starts in less than 24 hours. Per our policy this class credit is forfeited — your teacher already held this time for you, so it can\'t be returned to your balance.',
     cancelConfirm: 'Yes, cancel',
     cancelGoBack: 'Keep the class',
     kickerCancel: 'Manage class',
@@ -150,8 +150,8 @@ const t = {
     actionNoShow: 'Reportar inasistencia del maestro',
     cancelTitleEarly: '¿Cancelar esta clase?',
     cancelTitleLate: '¿Cancelar dentro de 24 horas?',
-    cancelBodyEarly: 'Te devolveremos el crédito de tu clase. ¿Confirmas?',
-    cancelBodyLate: 'Esta clase empieza en menos de 24 horas. Según nuestra política, el crédito se pierde y no se reembolsará.',
+    cancelBodyEarly: 'El crédito de tu clase vuelve a tu saldo, listo para cualquier clase futura — los créditos nunca expiran. ¿Confirmas?',
+    cancelBodyLate: 'Esta clase empieza en menos de 24 horas. Según nuestra política se pierde este crédito de clase — tu maestro ya reservó este horario para ti, así que no puede volver a tu saldo.',
     cancelConfirm: 'Sí, cancelar',
     cancelGoBack: 'Mantener la clase',
     kickerCancel: 'Gestionar clase',
@@ -373,7 +373,19 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
         }
       />
 
-      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+      <style>{`
+        @media (max-width: 520px) {
+          .lk-clases-upcoming-row { grid-template-columns: 56px 1fr !important; gap: 10px !important; }
+          .lk-clases-upcoming-row > .lk-clases-actions {
+            grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center;
+            gap: 8px; margin-top: 4px;
+          }
+          .lk-clases-completed-row { grid-template-columns: 56px 1fr !important; gap: 12px !important; }
+          .lk-clases-completed-row > .lk-clases-cuaderno { grid-column: 1 / -1; }
+          .lk-clases-completed-row > .lk-clases-cuaderno > button { width: 100%; }
+        }
+      `}</style>
+      <div style={{ padding: '28px clamp(16px, 4vw, 36px)', maxWidth: 1280, margin: '0 auto' }}>
         {/* Tabs + search */}
         <div
           style={{
@@ -554,6 +566,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                     <li
                       key={booking.id}
                       ref={(el) => { bookingRefs.current[booking.id] = el }}
+                      className="lk-clases-completed-row"
                       style={{
                         display: 'grid',
                         gridTemplateColumns: '70px 1fr 110px',
@@ -689,7 +702,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div className="lk-clases-cuaderno" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <button
                           onClick={() => openSummary(booking.id)}
                           style={{
@@ -716,9 +729,10 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                   <li
                     key={booking.id}
                     ref={(el) => { bookingRefs.current[booking.id] = el }}
+                    className="lk-clases-upcoming-row"
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '70px 1fr auto auto auto',
+                      gridTemplateColumns: '70px 1fr auto',
                       gap: 16,
                       alignItems: 'center',
                       padding: '18px 22px',
@@ -791,6 +805,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                       </div>
                     </div>
 
+                    <div className="lk-clases-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <StatusBadge
                       variant={
                         isLive
@@ -849,7 +864,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                                   top: '100%',
                                   marginTop: 4,
                                   zIndex: 30,
-                                  width: 220,
+                                  width: 'min(220px, calc(100vw - 32px))',
                                   background: 'var(--ek-card)',
                                   border: '1px solid var(--ek-border)',
                                   borderRadius: 8,
@@ -938,6 +953,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                         variant="compact"
                       />
                     )}
+                    </div>
                   </li>
                 )
               })}

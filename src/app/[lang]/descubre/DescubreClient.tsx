@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { Locale } from '@/lib/i18n/translations'
 import { PRICING_PLANS } from '@/lib/pricing'
 
@@ -18,17 +19,18 @@ const T = {
   es: {
     kicker: '↳ Descubre tu plan',
     title: 'Tu plan ideal en 30 segundos.',
-    sub: 'Responde 3 preguntas y te decimos exactamente cuántas clases necesitas para lograr tu meta.',
+    sub: 'Responde 3 preguntas y te recomendamos un paquete según el ritmo que te imaginas.',
     step: (n: number, total: number) => `Paso ${n} de ${total}`,
     back: 'Atrás',
+    langLabel: 'Idioma',
     questions: [
       { q: '¿Cuál es tu nivel de inglés hoy?', opts: ['Principiante', 'Intermedio', 'Avanzado', 'No estoy seguro/a'] },
       { q: '¿Para qué quieres el inglés?', opts: ['Mi trabajo o mi carrera', 'Viajar', 'Hablar con confianza', 'Un examen (TOEFL, IELTS…)'] },
       { q: '¿Cuántas clases por semana te imaginas?', opts: ['1–2 por semana', '3 por semana', '4 por semana', 'Casi todos los días'] },
     ],
     building: 'Armando tu plan ideal…',
-    resultKicker: '↳ Tu plan ideal',
-    resultLead: (goal: string, freq: string) => `Para ${naturalLower(goal)}, con ${naturalLower(freq)}, este es el plan que te lleva ahí más rápido:`,
+    resultKicker: '↳ Tu plan recomendado',
+    resultLead: (freq: string) => `Para ${naturalLower(freq)}, este es el paquete que mejor te queda:`,
     classes: 'clases',
     resultBody: '1 a 1 con tu propio maestro, en vivo por video. Las clases nunca caducan — avanzas a tu ritmo.',
     bullets: ['Tu propio maestro, solo para ti', 'Clases de 60 minutos en vivo', 'Las clases nunca caducan'],
@@ -40,17 +42,18 @@ const T = {
   en: {
     kicker: '↳ Find your plan',
     title: 'Your ideal plan in 30 seconds.',
-    sub: 'Answer 3 questions and we’ll tell you exactly how many classes you need to reach your goal.',
+    sub: 'Answer 3 questions and we’ll recommend a pack based on the pace you picture.',
     step: (n: number, total: number) => `Step ${n} of ${total}`,
     back: 'Back',
+    langLabel: 'Language',
     questions: [
       { q: 'What’s your English level today?', opts: ['Beginner', 'Intermediate', 'Advanced', 'Not sure'] },
       { q: 'What do you want English for?', opts: ['My job or career', 'Travel', 'Speaking with confidence', 'An exam (TOEFL, IELTS…)'] },
       { q: 'How many classes a week do you picture?', opts: ['1–2 a week', '3 a week', '4 a week', 'Almost every day'] },
     ],
     building: 'Building your ideal plan…',
-    resultKicker: '↳ Your ideal plan',
-    resultLead: (goal: string, freq: string) => `For ${naturalLower(goal)}, at ${naturalLower(freq)}, this is the plan that gets you there fastest:`,
+    resultKicker: '↳ Your recommended plan',
+    resultLead: (freq: string) => `For ${naturalLower(freq)}, this is the pack that fits you best:`,
     classes: 'classes',
     resultBody: '1-on-1 with your own teacher, live on video. Classes never expire — you move at your own pace.',
     bullets: ['Your own teacher, just for you', '60-minute live classes', 'Classes never expire'],
@@ -63,11 +66,24 @@ const T = {
 
 export default function DescubreClient({ lang }: { lang: Locale }) {
   const tx = T[lang === 'es' ? 'es' : 'en']
+  const router = useRouter()
+  const other: Locale = lang === 'en' ? 'es' : 'en'
   const [answers, setAnswers] = useState<number[]>([])
   const [phase, setPhase] = useState<'quiz' | 'building' | 'result'>('quiz')
 
   const step = answers.length // 0..3
   const total = tx.questions.length
+
+  // ES/EN toggle — mirrors the Navbar pattern so a user who lands on the
+  // wrong-locale quiz can switch without leaving. Persist locale prefs the
+  // same way the Navbar does so the rest of the app stays in sync.
+  function switchLocale() {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ee-locale', other)
+      document.cookie = `ee-locale=${other}; path=/; max-age=31536000; SameSite=Lax`
+    }
+    router.push(`/${other}/descubre`)
+  }
 
   function pick(optIdx: number) {
     const next = [...answers, optIdx]
@@ -89,7 +105,6 @@ export default function DescubreClient({ lang }: { lang: Locale }) {
   // 4→Ascenso, daily→Cumbre. PRICING_PLANS is ordered small→large.
   const plan = PRICING_PLANS[Math.min(answers[2] ?? 0, PRICING_PLANS.length - 1)]
   const planName = lang === 'es' ? plan.nameEs : plan.nameEn
-  const goalLabel = tx.questions[1].opts[answers[1] ?? 0] ?? ''
   const freqLabel = tx.questions[2].opts[answers[2] ?? 0] ?? ''
 
   return (
@@ -116,9 +131,37 @@ export default function DescubreClient({ lang }: { lang: Locale }) {
         <Link href={`/${lang}`} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 1, fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em', color: 'var(--ek-text)' }}>
           English<span style={{ color: 'var(--ek-red)' }}>Kolab</span>
         </Link>
-        {step > 0 && phase === 'quiz' && (
-          <button onClick={back} style={{ background: 'none', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', fontSize: 13, fontWeight: 600 }}>← {tx.back}</button>
-        )}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {step > 0 && phase === 'quiz' && (
+            <button onClick={back} style={{ background: 'none', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', fontSize: 13, fontWeight: 600, padding: '8px 10px', margin: '-8px 0', minHeight: 40, display: 'inline-flex', alignItems: 'center' }}>← {tx.back}</button>
+          )}
+          {/* ES/EN toggle — reuses the Navbar's pill pattern so a user on the
+              wrong locale can switch without leaving the quiz. */}
+          <button
+            onClick={switchLocale}
+            aria-label={`${tx.langLabel}: ${other.toUpperCase()}`}
+            style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, border: '1px solid var(--ek-border-mid)', overflow: 'hidden', background: 'transparent', cursor: 'pointer' }}
+          >
+            {(['es', 'en'] as const).map((l) => (
+              <span
+                key={l}
+                style={{
+                  display: 'inline-block',
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  background: lang === l ? 'var(--ek-ink)' : 'transparent',
+                  color: lang === l ? '#fff' : 'var(--ek-text-muted)',
+                  fontFamily: 'var(--ek-font-mono)',
+                }}
+              >
+                {l}
+              </span>
+            ))}
+          </button>
+        </div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8px 22px 60px' }}>
@@ -165,7 +208,7 @@ export default function DescubreClient({ lang }: { lang: Locale }) {
           {phase === 'result' && (
             <div className="ek-q-fade">
               <div className="ek-microlabel" style={{ color: 'var(--ek-red)' }}>{tx.resultKicker}</div>
-              <p style={{ fontSize: 15, color: 'var(--ek-text-soft)', lineHeight: 1.5, margin: '10px 0 14px' }}>{tx.resultLead(goalLabel, freqLabel)}</p>
+              <p style={{ fontSize: 15, color: 'var(--ek-text-soft)', lineHeight: 1.5, margin: '10px 0 14px' }}>{tx.resultLead(freqLabel)}</p>
 
               <div style={{ background: 'var(--ek-ink)', color: '#fff', borderRadius: 'var(--ek-radius-lg)', padding: '26px 26px 24px' }}>
                 <div style={{ fontSize: 'clamp(2rem, 6vw, 2.6rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1 }}>{planName}</div>

@@ -162,6 +162,27 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      <style>{`
+        .ek-task-card {
+          display: grid;
+          grid-template-columns: 1fr auto auto;
+          gap: 16px;
+          align-items: center;
+        }
+        @media (max-width: 480px) {
+          .ek-task-card {
+            grid-template-columns: 1fr;
+            align-items: stretch;
+          }
+          .ek-task-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+          }
+        }
+      `}</style>
       <DashTopBar
         title={tx.title}
         sub={tx.subtitle}
@@ -183,7 +204,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
         }
       />
 
-      <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ padding: '28px clamp(16px, 4vw, 36px)', maxWidth: 1280, margin: '0 auto' }}>
         {/* Philosophy quote — editorial: quiet 3px red hairline left-rule, no icon chip */}
         <div
           style={{
@@ -361,6 +382,7 @@ function TaskCard({
   return (
     <button
       onClick={onOpen}
+      className="ek-task-card"
       style={{
         background: 'var(--ek-card)',
         border: '1px solid var(--ek-border)',
@@ -369,10 +391,6 @@ function TaskCard({
         textAlign: 'left',
         cursor: 'pointer',
         fontFamily: 'var(--ek-font-sans)',
-        display: 'grid',
-        gridTemplateColumns: '1fr auto auto',
-        gap: 16,
-        alignItems: 'center',
       }}
     >
       <div style={{ minWidth: 0 }}>
@@ -399,20 +417,25 @@ function TaskCard({
           </span>
         </div>
       </div>
-      <StatusBadge variant={variant}>{label}</StatusBadge>
-      <span
-        style={{
-          fontSize: 12,
-          fontWeight: 700,
-          padding: '8px 14px',
-          borderRadius: 6,
-          background: hasSubmission ? 'var(--ek-paper)' : 'var(--ek-ink)',
-          color: hasSubmission ? 'var(--ek-text)' : '#fff',
-          border: hasSubmission ? '1px solid var(--ek-border-mid)' : 0,
-        }}
+      <div
+        className="ek-task-actions"
+        style={{ display: 'flex', alignItems: 'center', gap: 16 }}
       >
-        {hasSubmission ? tx.view : tx.start}
-      </span>
+        <StatusBadge variant={variant}>{label}</StatusBadge>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            padding: '8px 14px',
+            borderRadius: 6,
+            background: hasSubmission ? 'var(--ek-paper)' : 'var(--ek-ink)',
+            color: hasSubmission ? 'var(--ek-text)' : '#fff',
+            border: hasSubmission ? '1px solid var(--ek-border-mid)' : 0,
+          }}
+        >
+          {hasSubmission ? tx.view : tx.start}
+        </span>
+      </div>
     </button>
   )
 }

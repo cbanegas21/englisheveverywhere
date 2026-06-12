@@ -64,7 +64,7 @@ export function NotesPanel({ lang, sessionId, show, onClose, bottomInset }: Prop
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-          className="fixed right-0 top-0 w-80 z-30 flex flex-col"
+          className="fixed right-0 left-0 top-0 w-full z-30 flex flex-col sm:left-auto sm:w-80"
           style={{
             bottom: bottomInset,
             background: VIDEO_THEME.panelGlass,

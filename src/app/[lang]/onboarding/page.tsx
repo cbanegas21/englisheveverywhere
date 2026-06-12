@@ -25,7 +25,17 @@ export default async function OnboardingPage({ params }: OnboardingPageProps) {
     .eq('id', user.id)
     .single()
 
-  const role = (profile?.role || user.user_metadata?.role || 'student') as 'student' | 'teacher'
+  const role = (profile?.role || user.user_metadata?.role || 'student') as
+    | 'student'
+    | 'teacher'
+    | 'admin'
+
+  // Admins (and any non-student/non-teacher role) have no onboarding flow —
+  // send them to their role home before OnboardingClient mis-treats them as a
+  // student and dead-ends them on a localized error. Mirrors auth/callback.
+  if (role === 'admin') {
+    redirect(`/${lang}/admin`)
+  }
 
   // If already onboarded, route to the correct destination
   if (role === 'teacher') {

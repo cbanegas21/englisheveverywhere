@@ -62,8 +62,9 @@ export function ReactionsPopover({
             transition={{ duration: 0.18, ease: 'easeOut' }}
             role="dialog"
             aria-label={tx.reactions}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 rounded-2xl shadow-2xl px-3 py-3"
+            className="absolute left-1/2 -translate-x-1/2 rounded-2xl shadow-2xl px-3 py-3"
             style={{
+              bottom: 'calc(7rem + env(safe-area-inset-bottom))',
               zIndex: Z.deviceMenu,
               background: 'rgba(18,20,24,0.98)',
               border: `1px solid ${VIDEO_THEME.border}`,

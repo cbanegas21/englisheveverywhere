@@ -825,7 +825,7 @@ export default function BookingCalendarClient({
         ref={gridRef}
         style={{
           display: 'grid',
-          gridTemplateColumns: `52px repeat(${cols.length}, minmax(0, 1fr))`,
+          gridTemplateColumns: `52px repeat(${cols.length}, minmax(${cols.length > 1 ? 84 : 0}px, 1fr))`,
           overflowY: 'auto',
           maxHeight: 620,
         }}
@@ -954,7 +954,7 @@ export default function BookingCalendarClient({
   // Calendar surface header: week range + day-column labels.
   function renderDayHeaders(cols: number[]) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: `52px repeat(${cols.length}, minmax(0, 1fr))`, borderBottom: '1px solid var(--ek-border-soft)', background: 'var(--ek-paper)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `52px repeat(${cols.length}, minmax(${cols.length > 1 ? 84 : 0}px, 1fr))`, borderBottom: '1px solid var(--ek-border-soft)', background: 'var(--ek-paper)' }}>
         <div />
         {cols.map((dayIdx) => {
           const zday = weekDays[dayIdx]
@@ -1014,7 +1014,7 @@ export default function BookingCalendarClient({
   function renderMonth() {
     return (
       <div style={{ overflowX: 'auto' }}>
-      <div style={{ minWidth: 640 }}>
+      <div style={{ minWidth: 700 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--ek-border-soft)', background: 'var(--ek-paper)' }}>
           {monthDays.slice(0, 7).map((d, i) => (
             <div key={i} style={{ padding: '8px 0', textAlign: 'center', fontFamily: 'var(--ek-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ek-text-muted)', borderLeft: i ? '1px solid var(--ek-border-soft)' : 'none' }}>
@@ -1054,14 +1054,14 @@ export default function BookingCalendarClient({
                   {items.slice(0, 3).map(mb => {
                     const tint = mb.teacher_id ? (teacherTint.get(mb.teacher_id) ?? 'var(--ek-border-mid)') : 'var(--ek-red)'
                     return (
-                      <div key={mb.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: mb.status === 'completed' ? 'var(--ek-text-muted)' : 'var(--ek-text-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div key={mb.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: mb.status === 'completed' ? 'var(--ek-text-muted)' : 'var(--ek-text-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         <span style={{ width: 4, height: 12, borderRadius: 1, background: tint, flexShrink: 0 }} />
                         <span style={{ fontFeatureSettings: '"tnum"', color: 'var(--ek-text-muted)', flexShrink: 0 }}>{timeOf(mb.scheduled_at)}</span>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{mb.student_name?.split(' ')[0] || tx.studentFallback}</span>
                       </div>
                     )
                   })}
-                  {items.length > 3 && <span style={{ fontSize: 9.5, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)' }}>{tx.more(items.length - 3)}</span>}
+                  {items.length > 3 && <span style={{ fontSize: 11, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)' }}>{tx.more(items.length - 3)}</span>}
                 </button>
               )
             })}
@@ -1123,7 +1123,7 @@ export default function BookingCalendarClient({
             <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)' }}>{tx.reschedule}</div>
             <div style={{ display: 'flex', gap: 6 }}>
               <input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} className="ek-input" style={{ flex: 1, borderRadius: 'var(--ek-radius-sm)', padding: '8px 10px', fontSize: 13, color: 'var(--ek-text)', background: 'var(--ek-card)', fontFamily: 'var(--ek-font-sans)' }} />
-              <input type="time" value={rTime} step={900} onChange={(e) => setRTime(e.target.value)} className="ek-input" style={{ width: 116, borderRadius: 'var(--ek-radius-sm)', padding: '8px 10px', fontSize: 13, color: 'var(--ek-text)', background: 'var(--ek-card)', fontFamily: 'var(--ek-font-sans)' }} />
+              <input type="time" value={rTime} step={900} onChange={(e) => setRTime(e.target.value)} className="ek-input" style={{ width: 'auto', minWidth: 96, flexShrink: 1, borderRadius: 'var(--ek-radius-sm)', padding: '8px 10px', fontSize: 13, color: 'var(--ek-text)', background: 'var(--ek-card)', fontFamily: 'var(--ek-font-sans)' }} />
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => setRescheduleOpen(false)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '10px 0' }}>{tx.cancel}</button>
@@ -1212,7 +1212,7 @@ export default function BookingCalendarClient({
       {/* Calendar + filter */}
       <div className="ad03-main" style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
         {/* Teacher filter / legend */}
-        <div className="ad03-filter" style={{ width: 184, flexShrink: 0 }}>
+        <div className="ad03-filter" style={{ width: 184, maxWidth: '100%', flexShrink: 0 }}>
           <div className="ek-microlabel" style={{ color: 'var(--ek-text-muted)', marginBottom: 10 }}>{tx.teachers}</div>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 9, cursor: 'pointer', fontSize: 12.5, color: 'var(--ek-text)' }}>
             <input type="checkbox" checked={selectedTeachers.size === teachers.length}
@@ -1275,7 +1275,7 @@ export default function BookingCalendarClient({
             </div>
             {view === 'month' ? renderMonth() : (
               <div style={{ overflowX: 'auto' }}>
-                <div style={{ minWidth: cols.length > 1 ? 600 : undefined }}>
+                <div style={{ minWidth: cols.length > 1 ? cols.length * 84 + 52 : undefined }}>
                   {renderDayHeaders(cols)}
                   {renderGrid(cols)}
                 </div>
@@ -1288,7 +1288,7 @@ export default function BookingCalendarClient({
             bookings. Drag a card onto the grid to place it in a slot; click to
             open the Drawer and assign a teacher. Replaces the old kanban + the
             top pending-assignments table. */}
-        <section className="ad03-inbox" aria-labelledby="ek-inbox-title" aria-describedby="ek-inbox-hint" style={{ width: 238, flexShrink: 0 }}>
+        <section className="ad03-inbox" aria-labelledby="ek-inbox-title" aria-describedby="ek-inbox-hint" style={{ width: 238, maxWidth: '100%', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
             <h2 id="ek-inbox-title" className="ek-microlabel" style={{ margin: 0, color: 'var(--ek-red)' }}>{tx.unassigned}</h2>
             <span style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--ek-text-muted)', fontFeatureSettings: '"tnum"' }}>{pendingBookings.length}</span>

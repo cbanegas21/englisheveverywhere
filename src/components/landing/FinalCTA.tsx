@@ -1,8 +1,26 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
+
+// Per-role home. Mirrors the role-redirect map in actions/auth.ts (signIn):
+// teacher → /maestro/dashboard, admin → /admin, student → /dashboard.
+const ROLE_HOME: Record<string, string> = {
+  admin: '/admin',
+  teacher: '/maestro/dashboard',
+  student: '/dashboard',
+}
+
+// Read the (unsigned, UX-only) ee-role fast-path cookie on the client. The
+// page passes isLoggedIn as a boolean; we read the role here so a logged-in
+// teacher/admin isn't linked to student-only routes. Falls back to null.
+function readRoleCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const m = document.cookie.match(/(?:^|;\s*)ee-role=([^;]+)/)
+  return m ? decodeURIComponent(m[1]) : null
+}
 
 const t = {
   en: {
@@ -17,6 +35,7 @@ const t = {
     ctaNote: 'New here? Start with a free discovery class — meet a real teacher, find your level. No card needed.',
     ctaDashboard: 'Go to my Dashboard',
     ctaBook: 'Book your next class',
+    ctaPanel: 'Go to my panel',
   },
   es: {
     eyebrow: 'Empieza hoy',
@@ -30,11 +49,23 @@ const t = {
     ctaNote: '¿Nuevo por aquí? Empieza con una clase de descubrimiento gratis — conoce a un maestro de verdad y descubre tu nivel. Sin tarjeta.',
     ctaDashboard: 'Ir a mi Dashboard',
     ctaBook: 'Agenda tu próxima clase',
+    ctaPanel: 'Ir a mi panel',
   },
 }
 
 export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; isLoggedIn?: boolean }) {
   const tx = t[lang]
+
+  // Resolve the logged-in user's role on the client (the cookie isn't available
+  // at SSR for this static marketing page). Start null so the first paint is
+  // role-neutral, then enrich after mount — avoids a hydration mismatch.
+  const [role, setRole] = useState<string | null>(null)
+  useEffect(() => {
+    if (isLoggedIn) setRole(readRoleCookie())
+  }, [isLoggedIn])
+
+  const isStudent = role === 'student'
+  const dashHref = `/${lang}${ROLE_HOME[role ?? ''] ?? '/dashboard'}`
 
   return (
     <section
@@ -136,23 +167,26 @@ export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; i
             {isLoggedIn ? (
               <>
                 <Link
-                  href={`/${lang}/dashboard`}
+                  href={dashHref}
                   className="ek-btn ek-btn--lg lk-finalcta-btn"
                   style={{
                     background: 'var(--ek-red)',
                     color: '#fff',
                   }}
                 >
-                  {tx.ctaDashboard} →
+                  {isStudent ? tx.ctaDashboard : tx.ctaPanel} →
                 </Link>
-                {/* Restrained secondary so the logged-in row isn't one
-                    stranded pill — a quiet text link, not a second loud CTA. */}
-                <Link
-                  href={`/${lang}/dashboard/agendar`}
-                  className="lk-finalcta-textlink"
-                >
-                  {tx.ctaBook} →
-                </Link>
+                {/* "Book a class" is a student-only action — teachers/admins
+                    don't book classes, so only students get the secondary
+                    booking link. Quiet text link, not a second loud CTA. */}
+                {isStudent && (
+                  <Link
+                    href={`/${lang}/dashboard/agendar`}
+                    className="lk-finalcta-textlink"
+                  >
+                    {tx.ctaBook} →
+                  </Link>
+                )}
               </>
             ) : (
               <>
@@ -166,8 +200,11 @@ export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; i
                 >
                   {tx.cta} →
                 </Link>
+                {/* No ?intent=discovery — the signup flow never reads it, so the
+                    param promised a discovery path that didn't exist. Dropped
+                    so the CTA is honestly just sign-up. */}
                 <Link
-                  href={`/${lang}/registro?intent=discovery`}
+                  href={`/${lang}/registro`}
                   className="ek-btn ek-btn--lg ek-btn-ghost--on-dark lk-finalcta-btn"
                 >
                   {tx.ctaGhost}

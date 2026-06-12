@@ -251,7 +251,10 @@ export default function ConfigStudentClient({
           letter-spacing: 0.08em;
           text-transform: uppercase;
           flex-shrink: 0;
-          padding: 8px 14px;
+          padding: 10px 14px;
+          min-height: 40px;
+          display: inline-flex;
+          align-items: center;
           border-radius: var(--ek-radius-sm);
           border: 1px solid var(--ek-border);
           background: var(--ek-card);
@@ -653,8 +656,8 @@ function ProfilePanel({
 
         {/* Email (editable — triggers Supabase confirmation flow) */}
         <Field label={tx.email} hint={tx.emailHint}>
-          <div className="flex items-stretch gap-2">
-            <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-stretch gap-2">
+            <div className="flex-1 min-w-[200px]">
               <Input
                 value={newEmail}
                 onChange={(v) => { setNewEmail(v); setEmailErr(''); setEmailMsg('') }}

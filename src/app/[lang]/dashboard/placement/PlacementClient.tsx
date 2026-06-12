@@ -595,7 +595,7 @@ export default function PlacementClient({
             {tx.scheduleKicker} · {tx.timezone}{tzOffset ? ` (${tzOffset})` : ''}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 280px) minmax(0, 1fr)', gap: 16 }}>
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
             {/* Day picker */}
             <div
               style={{
@@ -821,7 +821,7 @@ export default function PlacementClient({
     >
       <div
         style={{
-          padding: '20px 36px',
+          padding: '20px clamp(16px, 4vw, 36px)',
           background: 'var(--ek-card)',
           borderBottom: '1px solid var(--ek-border)',
         }}
@@ -843,7 +843,7 @@ export default function PlacementClient({
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px, 4vw, 32px)' }}>
         <div style={{ width: '100%', maxWidth: 560 }}>
           <AnimatePresence mode="wait" custom={dir}>
             <motion.div
@@ -963,7 +963,7 @@ export default function PlacementClient({
 
       <div
         style={{
-          padding: '20px 36px',
+          padding: '20px clamp(16px, 4vw, 36px)',
           background: 'var(--ek-card)',
           borderTop: '1px solid var(--ek-border)',
           display: 'flex',

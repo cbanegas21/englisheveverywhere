@@ -42,6 +42,11 @@ export async function GET(
 
       const role = profile?.role || user?.user_metadata?.role || 'student'
 
+      // Admins go straight to the admin home — never the student onboarding flow.
+      if (role === 'admin') {
+        return NextResponse.redirect(`${origin}/${lang}/admin`)
+      }
+
       if (role === 'teacher') {
         const { data: teacher } = await supabase
           .from('teachers')
@@ -55,6 +60,8 @@ export async function GET(
           }
           return NextResponse.redirect(`${origin}/${lang}/maestro/dashboard`)
         }
+        // Teacher account without a teachers row yet → pending, not student onboarding.
+        return NextResponse.redirect(`${origin}/${lang}/maestro/pending`)
       } else {
         const { data: student } = await supabase
           .from('students')

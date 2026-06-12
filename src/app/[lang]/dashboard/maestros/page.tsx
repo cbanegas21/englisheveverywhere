@@ -122,7 +122,7 @@ function EmptyStateCard({
         background: 'var(--ek-card)',
         border: '1px solid var(--ek-border)',
         borderRadius: 16,
-        padding: 40,
+        padding: 'clamp(24px, 6vw, 40px)',
         textAlign: 'center',
         fontFamily: 'var(--ek-font-sans)',
       }}
@@ -298,7 +298,7 @@ export default async function MiMaestroPage({ params }: Props) {
           sub={tx.subtitle}
         />
 
-        <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ padding: '28px clamp(16px, 4vw, 36px)', maxWidth: 1280, margin: '0 auto' }}>
           {!placementDone && !placementScheduledAt && (
             <EmptyStateCard
               kicker={tx.placementTitle.toUpperCase()}
@@ -347,13 +347,7 @@ export default async function MiMaestroPage({ params }: Props) {
           )}
 
           {placementDone && level && teacher && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)',
-                gap: 20,
-              }}
-            >
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-5">
               {/* Teacher profile dark hero */}
               <DarkHeroCard
                 ghost={getInitials(teacher.profile?.full_name)}
@@ -520,7 +514,7 @@ export default async function MiMaestroPage({ params }: Props) {
     return (
       <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
         <DashTopBar title={tx.title} />
-        <div style={{ padding: '28px 36px', maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ padding: '28px clamp(16px, 4vw, 36px)', maxWidth: 1280, margin: '0 auto' }}>
           <EmptyStateCard
             title={tx.errorMsg}
             body=""

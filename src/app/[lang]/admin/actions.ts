@@ -70,6 +70,16 @@ export async function rejectTeacher(teacherId: string, profileId: string) {
   await assertAdmin()
   const admin = createAdminClient()
 
+  // Capture the CV path BEFORE the row is gone — otherwise the PII résumé is
+  // orphaned in the private 'teacher-docs' bucket forever once the teacher row
+  // (and with it cv_storage_path) is deleted.
+  const { data: teacherRow } = await admin
+    .from('teachers')
+    .select('cv_storage_path')
+    .eq('id', teacherId)
+    .single()
+  const cvPath = teacherRow?.cv_storage_path ?? null
+
   // Delete teacher record first (FK cascade removes availability_slots)
   const { error: delError } = await admin
     .from('teachers')
@@ -77,6 +87,14 @@ export async function rejectTeacher(teacherId: string, profileId: string) {
     .eq('id', teacherId)
 
   if (delError) throw new Error(delError.message)
+
+  // Best-effort purge of the applicant's CV from storage (log-but-don't-fail,
+  // mirroring deleteBook in library.ts). A failed object delete only orphans a
+  // file; it must not block the rejection.
+  if (cvPath) {
+    const { error: rmErr } = await admin.storage.from('teacher-docs').remove([cvPath])
+    if (rmErr) console.error('rejectTeacher: failed to remove CV from storage', cvPath, rmErr.message)
+  }
 
   // Downgrade profile back to student so they can re-register
   const { error: profileError } = await admin
@@ -1154,6 +1172,12 @@ function sendBookingEmails(params: {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey || apiKey === 're_placeholder') return
 
+  // Only the student-facing types (a real class or a placement assessment) should
+  // notify the student/teacher. Internal meetings (teacher_interview / admin_checkin)
+  // are admin-scheduled coordination — the generic "session scheduled" copy frames
+  // them wrong for the recipient, so suppress the notification entirely for those.
+  if (params.type !== 'class' && params.type !== 'placement_test') return
+
   const admin = createAdminClient()
   const headers: Record<string, string> = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
 
@@ -1260,8 +1284,17 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
 
   const { data: profile } = await admin.from('profiles').select('full_name, email, preferred_language').eq('id', profileId).single()
 
+  // Capture the CV path BEFORE deleting the row so the PII résumé can be purged
+  // from the private teacher-docs bucket (best-effort — never block the rejection).
+  const { data: teacherRow } = await admin.from('teachers').select('cv_storage_path').eq('id', teacherId).single()
+  const cvPath = (teacherRow as { cv_storage_path?: string | null } | null)?.cv_storage_path ?? null
+
   const { error: delError } = await admin.from('teachers').delete().eq('id', teacherId)
   if (delError) throw new Error(delError.message)
+
+  if (cvPath) {
+    try { await admin.storage.from('teacher-docs').remove([cvPath]) } catch { /* non-fatal — orphaned file only */ }
+  }
 
   await admin.from('profiles').update({ role: 'student' }).eq('id', profileId)
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { ApproveRejectButtons, ActiveToggle, RateEditor } from './TeacherActions'
@@ -113,6 +114,7 @@ export default function TeachersTableClient({ teachers, lang }: Props) {
   const selectStyle: React.CSSProperties = {
     fontSize: '13px',
     padding: '8px 12px',
+    minHeight: 44,
     borderRadius: 'var(--ek-radius-md)',
     border: '1px solid var(--ek-border-mid)',
     background: 'var(--ek-card)',
@@ -133,7 +135,7 @@ export default function TeachersTableClient({ teachers, lang }: Props) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-[13px] outline-none"
-            style={{ border: '1px solid var(--ek-border-mid)', borderRadius: 'var(--ek-radius-md)', background: 'var(--ek-card)', color: 'var(--ek-text)' }}
+            style={{ border: '1px solid var(--ek-border-mid)', borderRadius: 'var(--ek-radius-md)', background: 'var(--ek-card)', color: 'var(--ek-text)', minHeight: 44 }}
           />
         </div>
         <select
@@ -259,7 +261,7 @@ export default function TeachersTableClient({ teachers, lang }: Props) {
           </h2>
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 860 }}>
             <thead>
               <tr>
                 {[t.cols.teacher, t.cols.specializations, t.cols.certifications, t.cols.rate, t.cols.rating, t.cols.sessions, t.cols.students, t.cols.joined, t.cols.status].map(h => (
@@ -287,25 +289,30 @@ export default function TeachersTableClient({ teachers, lang }: Props) {
               ) : filteredActive.map(teacher => (
                 <tr
                   key={teacher.id}
-                  className="cursor-pointer transition-colors"
+                  className="transition-colors"
                   style={{ borderBottom: '1px solid var(--ek-border-soft)' }}
-                  onClick={() => router.push(`/${lang}/admin/teachers/${teacher.id}`)}
                   onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--ek-red-tint)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = '' }}
                 >
                   <td className="py-3.5 pr-4">
-                    <div className="flex items-center gap-3">
+                    {/* Name is the explicit navigation affordance — the row no longer
+                        navigates on tap so horizontal scrolling can't trigger it on phones */}
+                    <Link
+                      href={`/${lang}/admin/teachers/${teacher.id}`}
+                      className="flex items-center gap-3 group"
+                      style={{ textDecoration: 'none' }}
+                    >
                       <div
                         className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
                         style={{ background: 'var(--ek-red)', color: 'var(--ek-on-dark)' }}
                       >
                         {(teacher.full_name || '?').charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="text-[13px] font-medium" style={{ color: 'var(--ek-text)' }}>{teacher.full_name || t.unknown}</p>
-                        <p className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>{teacher.email}</p>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium group-hover:underline" style={{ color: 'var(--ek-text)' }}>{teacher.full_name || t.unknown}</p>
+                        <p className="text-[11px] truncate" style={{ color: 'var(--ek-text-muted)' }}>{teacher.email}</p>
                       </div>
-                    </div>
+                    </Link>
                   </td>
                   <td className="py-3.5 pr-4">
                     <div className="flex flex-wrap gap-x-2 gap-y-1">

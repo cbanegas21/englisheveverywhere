@@ -36,7 +36,7 @@ interface Props {
 const t = {
   en: {
     title: 'Set your availability',
-    subtitle: 'Define your weekly recurring availability (shown in Honduras time, CST). Students will be able to book within these windows.',
+    subtitle: 'Tell the team when you can be assigned classes each week (in Honduras time, CST). Students don’t book these slots directly — our team uses them to schedule your classes.',
     addSlot: 'Add time slot',
     save: 'Save availability',
     saving: 'Saving...',
@@ -52,10 +52,16 @@ const t = {
     invalidSlot: 'End time must be after start time.',
     invalidPresent: 'Fix the highlighted rows before saving.',
     tipKicker: 'How it works',
-    tipBody: 'Students see these slots and can book any open window. Booked slots are locked until the session is complete.',
+    tipBody: 'These hours tell the team when you’re available to be assigned classes (in Honduras time, CST). Students don’t book your slots directly — our team schedules your classes within the windows you set here.',
     weeklySummary: 'Weekly summary',
     noSlotsConfigured: 'No slots configured.',
     slots: (n: number) => (n === 1 ? 'slot' : 'slots'),
+    overlapError: 'Some windows on the same day overlap or repeat. Remove or merge them before saving.',
+    clearConfirmKicker: 'Clear availability',
+    clearConfirmTitle: 'Clear all your availability?',
+    clearConfirmBody: 'This clears all your availability — the team won’t be able to assign you classes until you add hours again. Continue?',
+    clearConfirmCta: 'Yes, clear it',
+    clearConfirmCancel: 'Cancel',
     mySlots: 'My time slots',
     bulkAdd: 'Bulk add',
     bulkTitle: 'Add availability for multiple days',
@@ -71,7 +77,7 @@ const t = {
   },
   es: {
     title: 'Configura tu disponibilidad',
-    subtitle: 'Define tus horarios semanales recurrentes (en hora de Honduras, CST). Los estudiantes podrán reservar dentro de estas ventanas.',
+    subtitle: 'Indícale al equipo cuándo puedes recibir clases asignadas cada semana (en hora de Honduras, CST). Los estudiantes no reservan estos horarios directamente — nuestro equipo los usa para asignarte tus clases.',
     addSlot: 'Agregar horario',
     save: 'Guardar disponibilidad',
     saving: 'Guardando...',
@@ -87,10 +93,16 @@ const t = {
     invalidSlot: 'La hora de fin debe ser después del inicio.',
     invalidPresent: 'Corrige los horarios marcados antes de guardar.',
     tipKicker: 'Cómo funciona',
-    tipBody: 'Los estudiantes ven estos horarios y pueden reservar cualquier ventana disponible. Los horarios reservados se bloquean hasta completar la sesión.',
+    tipBody: 'Estas horas le indican al equipo cuándo estás disponible para recibir clases asignadas (en hora de Honduras, CST). Los estudiantes no reservan tus horarios directamente — nuestro equipo programa tus clases dentro de las ventanas que defines aquí.',
     weeklySummary: 'Resumen semanal',
     noSlotsConfigured: 'Sin horarios configurados.',
     slots: (n: number) => (n === 1 ? 'horario' : 'horarios'),
+    overlapError: 'Algunas ventanas del mismo día se traslapan o se repiten. Elimínalas o combínalas antes de guardar.',
+    clearConfirmKicker: 'Borrar disponibilidad',
+    clearConfirmTitle: '¿Borrar toda tu disponibilidad?',
+    clearConfirmBody: 'Esto borra toda tu disponibilidad — el equipo no podrá asignarte clases hasta que vuelvas a agregar horarios. ¿Continuar?',
+    clearConfirmCta: 'Sí, borrar',
+    clearConfirmCancel: 'Cancelar',
     mySlots: 'Mis horarios',
     bulkAdd: 'Agregar en grupo',
     bulkTitle: 'Agregar disponibilidad en varios días',
@@ -144,6 +156,8 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
     existingSlots.map((s) => ({ ...s, start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5), _key: makeKey() })),
   )
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+  const [saveErrorKind, setSaveErrorKind] = useState<'generic' | 'overlap'>('generic')
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkDays, setBulkDays] = useState<Set<number>>(new Set([1, 2, 3, 4, 5]))
@@ -152,6 +166,22 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
   const [bulkError, setBulkError] = useState('')
 
   const hasInvalid = slots.some((s) => s.end_time <= s.start_time)
+
+  // Overlap/duplicate detection: two windows on the SAME day that share any
+  // minute (identical rows included) would inflate the weekly count and create
+  // ambiguous assignment windows. Compare per-day sorted intervals.
+  const hasOverlap = (() => {
+    for (let day = 0; day < 7; day++) {
+      const dayIntervals = slots
+        .filter((s) => s.day_of_week === day && s.end_time > s.start_time)
+        .sort((a, b) => (a.start_time < b.start_time ? -1 : a.start_time > b.start_time ? 1 : 0))
+      for (let i = 1; i < dayIntervals.length; i++) {
+        // sorted by start: overlap iff this start is before the previous end
+        if (dayIntervals[i].start_time < dayIntervals[i - 1].end_time) return true
+      }
+    }
+    return false
+  })()
 
   function addSlot() {
     setSlots((prev) => [...prev, { _key: makeKey(), day_of_week: 1, start_time: '09:00', end_time: '10:00' }])
@@ -203,12 +233,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
     setSaveStatus('idle')
   }
 
-  function handleSave() {
-    setSaveStatus('idle')
-    if (hasInvalid) {
-      setSaveStatus('error')
-      return
-    }
+  function doSave() {
     const toSave = slots.map((s) => ({
       day_of_week: s.day_of_week,
       start_time: s.start_time,
@@ -218,6 +243,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
     startTransition(async () => {
       const result = await saveAvailabilitySlots(toSave, lang)
       if (result?.error) {
+        setSaveErrorKind('generic')
         setSaveStatus('error')
       } else {
         setSaveStatus('saved')
@@ -225,11 +251,36 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
     })
   }
 
+  function handleSave() {
+    setSaveStatus('idle')
+    if (hasInvalid) {
+      setSaveErrorKind('generic')
+      setSaveStatus('error')
+      return
+    }
+    if (hasOverlap) {
+      setSaveErrorKind('overlap')
+      setSaveStatus('error')
+      return
+    }
+    // Saving zero slots wipes ALL availability — require explicit confirmation.
+    if (slots.length === 0) {
+      setClearConfirmOpen(true)
+      return
+    }
+    doSave()
+  }
+
+  function handleConfirmClear() {
+    setClearConfirmOpen(false)
+    doSave()
+  }
+
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto">
+      <div className="px-4 sm:px-8 py-6 max-w-4xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Slots editor */}
           <div
@@ -244,13 +295,13 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
               <SectionHeader
                 title={tx.mySlots}
                 right={
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => {
                         setBulkError('')
                         setBulkOpen(true)
                       }}
-                      className="ek-quickrow px-3 py-1.5 font-semibold text-[12px]"
+                      className="ek-quickrow px-3 py-1.5 font-semibold text-[12px] whitespace-nowrap"
                       style={{
                         border: '1px solid var(--ek-border)',
                         color: 'var(--ek-text)',
@@ -262,7 +313,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                     </button>
                     <button
                       onClick={addSlot}
-                      className="ek-quickrow px-3 py-1.5 font-semibold text-[12px]"
+                      className="ek-quickrow px-3 py-1.5 font-semibold text-[12px] whitespace-nowrap"
                       style={{
                         border: '1px solid var(--ek-border)',
                         color: 'var(--ek-text)',
@@ -332,7 +383,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                           </div>
 
                           {/* Start time */}
-                          <div className="w-28 flex-shrink-0">
+                          <div className="w-full sm:w-28 flex-shrink-0">
                             <label style={labelStyle}>{tx.startTime}</label>
                             <select
                               className="ek-input"
@@ -349,7 +400,7 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                           </div>
 
                           {/* End time */}
-                          <div className="w-28 flex-shrink-0">
+                          <div className="w-full sm:w-28 flex-shrink-0">
                             <label style={labelStyle}>{tx.endTime}</label>
                             <select
                               className="ek-input"
@@ -452,7 +503,11 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
                     className="text-[12px] font-semibold"
                     style={{ color: 'var(--ek-red)' }}
                   >
-                    {hasInvalid ? tx.invalidPresent : tx.error}
+                    {hasInvalid
+                      ? tx.invalidPresent
+                      : saveErrorKind === 'overlap'
+                        ? tx.overlapError
+                        : tx.error}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -717,6 +772,48 @@ export default function AvailabilityClient({ lang, existingSlots }: Props) {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Clear-all confirmation — saving with zero slots wipes availability */}
+      <Modal
+        open={clearConfirmOpen}
+        onClose={() => setClearConfirmOpen(false)}
+        kicker={tx.clearConfirmKicker}
+        title={tx.clearConfirmTitle}
+        footer={
+          <div className="flex gap-3">
+            <button
+              onClick={() => setClearConfirmOpen(false)}
+              className="ek-outline-btn flex-1 py-3 font-medium text-[13px]"
+              style={{
+                border: '1px solid var(--ek-border)',
+                color: 'var(--ek-text-soft)',
+                background: 'var(--ek-paper)',
+                borderRadius: 'var(--ek-radius-xs)',
+                cursor: 'pointer',
+              }}
+            >
+              {tx.clearConfirmCancel}
+            </button>
+            <button
+              onClick={handleConfirmClear}
+              className="ek-red-btn flex-1 flex items-center justify-center gap-2 py-3 font-bold text-[13px]"
+              style={{
+                background: 'var(--ek-red)',
+                color: '#fff',
+                border: 0,
+                borderRadius: 'var(--ek-radius-xs)',
+                cursor: 'pointer',
+              }}
+            >
+              {tx.clearConfirmCta}
+            </button>
+          </div>
+        }
+      >
+        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--ek-text-soft)', margin: 0 }}>
+          {tx.clearConfirmBody}
+        </p>
       </Modal>
     </div>
   )

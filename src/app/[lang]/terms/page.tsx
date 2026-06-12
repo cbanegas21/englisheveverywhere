@@ -33,17 +33,19 @@ const t = {
         ],
       },
       {
-        heading: '4. Refunds',
+        heading: '4. Credits and refunds',
         body: [
-          'Classes that have not been taken may be refunded within 14 days of purchase, minus any classes already scheduled or completed. Classes completed with a Teacher are non-refundable.',
-          'If a Teacher fails to attend a scheduled class, the class credit is returned to your account and you may re-book. Persistent service failures on our side may be refunded at our discretion. Contact us at the email below.',
+          'We do not offer monetary refunds. Plans are sold as class credits, and your class credits never expire — they remain in your account until you use them, no matter how long that takes.',
+          'Because credits never expire, there is no need for a cash refund: a class you do not use is not lost, it simply waits in your balance for whenever you are ready. Completed classes are consumed and cannot be returned.',
+          'If a Teacher fails to attend a scheduled class, the class credit is returned to your (non-expiring) balance and you may re-book. Contact us at the email below if a class did not take place as expected.',
         ],
       },
       {
         heading: '5. Booking, cancellation, no-show',
         body: [
-          'Classes must be booked at least 24 hours in advance. Cancellations by Students made at least 24 hours before the class restore the class credit. Cancellations made less than 24 hours before, or no-shows, forfeit the credit.',
-          'If a Teacher cancels, the credit is restored and you may re-book with any available Teacher.',
+          'Classes must be booked at least 24 hours in advance. When a Student cancels at least 24 hours before the class, the class credit is returned to your (non-expiring) balance and can be used for any future class.',
+          'Cancellations made less than 24 hours before the class, and no-shows, forfeit that class credit — the Teacher reserved that time for you and it can no longer be reassigned. No monetary refund is issued in any case.',
+          'If a Teacher cancels, the credit is returned to your balance and you may re-book with any available Teacher.',
         ],
       },
       {
@@ -123,17 +125,19 @@ const t = {
         ],
       },
       {
-        heading: '4. Reembolsos',
+        heading: '4. Créditos y reembolsos',
         body: [
-          'Las clases que no hayan sido tomadas pueden reembolsarse dentro de los 14 días posteriores a la compra, menos las clases ya agendadas o completadas. Las clases completadas con un Maestro no son reembolsables.',
-          'Si un Maestro no asiste a una clase agendada, el crédito se devuelve a tu cuenta y puedes reagendar. Las fallas persistentes del Servicio de nuestro lado podrán ser reembolsadas a nuestra discreción. Contáctanos al correo indicado abajo.',
+          'No ofrecemos reembolsos en efectivo. Los planes se venden como créditos de clase, y tus créditos de clase nunca expiran: permanecen en tu cuenta hasta que los uses, sin importar cuánto tiempo pase.',
+          'Como los créditos nunca expiran, no hace falta un reembolso en dinero: una clase que no uses no se pierde, simplemente queda en tu saldo para cuando estés listo. Las clases completadas se consumen y no pueden devolverse.',
+          'Si un Maestro no asiste a una clase agendada, el crédito de la clase se devuelve a tu saldo (que no expira) y puedes reagendar. Contáctanos al correo indicado abajo si una clase no se realizó como se esperaba.',
         ],
       },
       {
         heading: '5. Reserva, cancelación, inasistencia',
         body: [
-          'Las clases deben reservarse con al menos 24 horas de anticipación. Las cancelaciones hechas por Estudiantes con al menos 24 horas de anticipación restauran el crédito. Las cancelaciones con menos de 24 horas o las inasistencias resultan en la pérdida del crédito.',
-          'Si un Maestro cancela, el crédito se restaura y puedes reagendar con cualquier Maestro disponible.',
+          'Las clases deben reservarse con al menos 24 horas de anticipación. Cuando un Estudiante cancela con al menos 24 horas de anticipación, el crédito de la clase se devuelve a tu saldo (que no expira) y puede usarse para cualquier clase futura.',
+          'Las cancelaciones con menos de 24 horas de anticipación y las inasistencias resultan en la pérdida de ese crédito de clase: el Maestro reservó ese tiempo para ti y ya no puede reasignarse. En ningún caso se emite un reembolso en efectivo.',
+          'Si un Maestro cancela, el crédito se devuelve a tu saldo y puedes reagendar con cualquier Maestro disponible.',
         ],
       },
       {
