@@ -60,9 +60,14 @@ export default function JoinSessionButton({
   className,
 }: Props) {
   const scheduledMs = useMemo(() => new Date(scheduledAt).getTime(), [scheduledAt])
-  const [now, setNow] = useState<number>(() => Date.now())
+  // Seed null (not Date.now()): the server render time and the client hydration
+  // time differ by network latency, and seeding Date.now() at render makes the
+  // countdown text differ between the two → React #418 on production. Compute the
+  // real time only after mount, so SSR and first client render are identical.
+  const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {
+    setNow(Date.now())
     // Tick every 30s — fine-grained enough for a minute-precision countdown
     // without causing excess re-renders.
     const id = setInterval(() => setNow(Date.now()), 30_000)
@@ -74,6 +79,11 @@ export default function JoinSessionButton({
   const tx = T[lang]
 
   const href = `/${lang}/sala/${bookingId}`
+
+  // First paint (pre-hydration): stable disabled placeholder, no time-derived text.
+  if (now === null) {
+    return renderDisabled(tx.join, variant, className)
+  }
 
   if (now < openAt) {
     // Count down to the CLASS START (scheduledMs), not to openAt. Counting to

@@ -532,8 +532,11 @@ export default function StudentDashboardClient({
         {/* Next class dark hero — only when a booking exists */}
         {nextHero && (
           <div style={{ marginBottom: 24 }}>
+            {/* Gate the countdown ghost behind the post-mount `now` so the server
+                render and first client render match — countdownText() calls
+                Date.now(), which differs by network latency and trips React #418. */}
             <DarkHeroCard
-              ghost={countdownText(nextHero.date, lang) ?? ''}
+              ghost={now !== null ? (countdownText(nextHero.date, lang) ?? '') : ''}
               ghostSize={220}
               padding="28px 32px"
             >

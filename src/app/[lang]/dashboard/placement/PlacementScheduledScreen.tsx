@@ -215,12 +215,20 @@ function buildIcsDataUrl(iso: string, lang: Locale): string {
 function Countdown({ scheduledAt, lang }: { scheduledAt: string; lang: Locale }) {
   const tx = T[lang]
   const targetMs = useMemo(() => new Date(scheduledAt).getTime(), [scheduledAt])
-  const [now, setNow] = useState(() => Date.now())
+  // Seed null so SSR and first client render match — seeding Date.now() at render
+  // makes the countdown differ by network latency between server/client → #418.
+  const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {
+    setNow(Date.now())
     const id = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(id)
   }, [])
+
+  // Pre-hydration placeholder — stable text, no time math.
+  if (now === null) {
+    return <span>{tx.countdownPrefix} —</span>
+  }
 
   const diff = targetMs - now
   const endedMs = targetMs + 90 * 60 * 1000
