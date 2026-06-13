@@ -18,6 +18,9 @@ interface Props {
   existingBookings: string[]
   /** Canonical display zone (profiles.timezone) — the grid is built in this zone. */
   timezone: string
+  /** Server-authoritative clock (ms) — anchors the rolling week + slot gating so
+   *  SSR and client hydration agree (no new Date()-in-render #418). */
+  serverNowMs: number
 }
 
 const ALL_HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -128,15 +131,16 @@ function weekdayOf(d: ZonedDay): number {
 function sameDay(a: ZonedDay, b: ZonedDay): boolean {
   return a.year === b.year && a.month === b.month && a.day === b.day
 }
-function todayInZone(tz: string): ZonedDay {
-  const p = getZonedParts(new Date(), tz)
+function todayInZone(tz: string, nowMs: number): ZonedDay {
+  const p = getZonedParts(new Date(nowMs), tz)
   return { year: p.year, month: p.month, day: p.day }
 }
-function getWeekDays(weekOffset: number, tz: string): ZonedDay[] {
+function getWeekDays(weekOffset: number, tz: string, nowMs: number): ZonedDay[] {
   // Rolling 7-day window that ALWAYS starts on today (offset 0): opening the
   // scheduler on a Friday shows Fri → next Thu, instead of a fixed Sun–Sat grid
   // whose already-past days (Sun–Thu) render as a blank, unusable column.
-  const today = todayInZone(tz)
+  // nowMs is the server-authoritative clock (hydration-safe; see serverNowMs).
+  const today = todayInZone(tz, nowMs)
   const start = addDays(today, weekOffset * 7)
   return Array.from({ length: 7 }, (_, i) => addDays(start, i))
 }
@@ -169,7 +173,7 @@ interface LastWeekSuggestion {
   displayDate: string
 }
 
-export default function AgendarClient({ lang, classesRemaining, existingBookings, timezone }: Props) {
+export default function AgendarClient({ lang, classesRemaining, existingBookings, timezone, serverNowMs }: Props) {
   const tx = t[lang]
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -178,9 +182,21 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
   const [error, setError] = useState('')
   const [booked, setBooked] = useState<SelectedCell | null>(null)
   const [showAllHours, setShowAllHours] = useState(false)
+  // Locally track the balance + just-booked slots so the saldo and grid update
+  // immediately after a booking (the server props are a one-time snapshot; without
+  // this, 'Book another' shows the stale pre-booking balance + the slot as free,
+  // letting a student who spent their last credit re-try and only learn at Confirm
+  // — AG-STATE-03). Server remains the source of truth on next full load.
+  const [remaining, setRemaining] = useState(classesRemaining)
+  const [justBooked, setJustBooked] = useState<string[]>([])
 
-  const weekDays = useMemo(() => getWeekDays(weekOffset, timezone), [weekOffset, timezone])
-  const todayDay = useMemo(() => todayInZone(timezone), [timezone, weekOffset])
+  // Single server-authoritative clock for everything in render (rolling week +
+  // slot gating). Using new Date()/Date.now() in render would diverge between SSR
+  // and hydration at the now+24h / tz-midnight boundaries -> React #418.
+  const nowMs = serverNowMs
+
+  const weekDays = useMemo(() => getWeekDays(weekOffset, timezone, nowMs), [weekOffset, timezone, nowMs])
+  const todayDay = useMemo(() => todayInZone(timezone, nowMs), [timezone, nowMs])
   const visibleHours = showAllHours ? ALL_HOURS : BUSINESS_HOURS
 
   const gridRef = useRef<HTMLDivElement>(null)
@@ -194,24 +210,22 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
   // with the grid cells (which are also keyed in the profile zone).
   const bookedSet = useMemo(() => {
     const set = new Set<string>()
-    for (const iso of existingBookings) {
+    for (const iso of [...existingBookings, ...justBooked]) {
       const p = getZonedParts(new Date(iso), timezone)
       set.add(`${p.year}-${p.month}-${p.day}-${p.hour}`)
     }
     return set
-  }, [existingBookings, timezone])
-
-  const [nowSnapshotMs] = useState(() => Date.now())
+  }, [existingBookings, justBooked, timezone])
 
   const lastWeekSuggestions = useMemo<LastWeekSuggestion[]>(() => {
-    const weekAgo = nowSnapshotMs - 7 * 24 * 60 * 60 * 1000
-    const minBookable = nowSnapshotMs + 24 * 60 * 60 * 1000
+    const weekAgo = nowMs - 7 * 24 * 60 * 60 * 1000
+    const minBookable = nowMs + 24 * 60 * 60 * 1000
     const seen = new Set<string>()
     const suggestions: LastWeekSuggestion[] = []
     for (const iso of existingBookings) {
       const instant = new Date(iso)
       const ms = instant.getTime()
-      if (ms < weekAgo || ms >= nowSnapshotMs) continue
+      if (ms < weekAgo || ms >= nowMs) continue
       // Same profile-zone wall-clock slot, one week later.
       const p = getZonedParts(instant, timezone)
       const nextDay = addDays({ year: p.year, month: p.month, day: p.day }, 7)
@@ -232,21 +246,37 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
       })
     }
     return suggestions.slice(0, 3)
-  }, [existingBookings, bookedSet, lang, nowSnapshotMs, timezone])
+  }, [existingBookings, bookedSet, lang, nowMs, timezone])
 
   function handleConfirm() {
     if (!selected) return
+    const slot = selected
     setError('')
     startTransition(async () => {
       const fd = new FormData()
-      fd.set('scheduled_at', selected.scheduledAt)
+      fd.set('scheduled_at', slot.scheduledAt)
       fd.set('duration_minutes', '60')
       fd.set('lang', lang)
-      const result = await createBooking(fd)
+      // A transport failure (offline / dropped request) rejects the await; without
+      // this catch the transition swallows it and the modal hangs on 'Booking…'
+      // with no feedback (AG-INTERRUPT-04). Money-safe — nothing committed.
+      let result: { error?: string; success?: boolean } | undefined
+      try {
+        result = await createBooking(fd)
+      } catch {
+        setError(lang === 'es'
+          ? 'Se perdió la conexión. Revisa tu internet e intenta de nuevo.'
+          : 'Connection lost. Check your internet and try again.')
+        return
+      }
       if (result?.error) {
         setError(result.error)
       } else {
-        setBooked(selected)
+        // Reflect the spend locally so the saldo + grid update without a reload
+        // (AG-STATE-03): decrement the shown balance and mark the slot occupied.
+        setRemaining((r) => Math.max(0, r - 1))
+        setJustBooked((prev) => [...prev, slot.scheduledAt])
+        setBooked(slot)
         setSelected(null)
       }
     })
@@ -474,9 +504,9 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
             }}
           >
             <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-red)', fontFeatureSettings: '"tnum"' }}>
-              {classesRemaining}
+              {remaining}
             </span>
-            {tx.classesPillLabel(classesRemaining)}
+            {tx.classesPillLabel(remaining)}
           </span>
         }
       />
@@ -494,7 +524,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
         <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Balance dark hero */}
           <DarkHeroCard
-            ghost={classesRemaining}
+            ghost={remaining}
             ghostSize={180}
             ghostStyle={{ top: -30, right: -16 }}
             padding="22px 22px 24px"
@@ -522,10 +552,10 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                 fontFeatureSettings: '"tnum"',
               }}
             >
-              {classesRemaining}
+              {remaining}
             </div>
             <div style={{ fontSize: 13, color: 'var(--ek-on-dark-soft)', marginTop: 6 }}>
-              {tx.saldoSub(classesRemaining)}
+              {tx.saldoSub(remaining)}
             </div>
           </DarkHeroCard>
 
@@ -862,7 +892,7 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                     const cellMs = cellInstant.getTime()
                     const cellKey = `${day.year}-${day.month}-${day.day}-${hour}`
                     const isBooked = bookedSet.has(cellKey)
-                    const now = Date.now()
+                    const now = nowMs
                     const minMs = now + 24 * 60 * 60 * 1000
                     const isPast = cellMs <= now
                     const isTooSoon = cellMs > now && cellMs < minMs

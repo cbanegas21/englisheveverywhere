@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isValidTimeZone } from '@/lib/timezone'
 import AgendarClient from './AgendarClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -18,7 +19,9 @@ export default async function AgendarPage({ params }: Props) {
     .eq('profile_id', user.id)
     .single()
 
-  if (!student) redirect(`/${lang}/dashboard`)
+  // No students row = onboarding not finished. Go straight to /onboarding
+  // (the dashboard would just bounce here too) — one hop, not two (AG-GUARD-05).
+  if (!student) redirect(`/${lang}/onboarding`)
 
   // No classes → buy first
   if ((student.classes_remaining || 0) <= 0) {
@@ -46,10 +49,14 @@ export default async function AgendarPage({ params }: Props) {
     .select('timezone')
     .eq('id', user.id)
     .maybeSingle()
-  const timezone =
+  const rawTimezone =
     (profileRow as { timezone?: string | null } | null)?.timezone ||
     (user.user_metadata?.timezone as string) ||
-    'America/Tegucigalpa'
+    ''
+  // Validate before it reaches getZonedParts/zonedWallTimeToUtc/Intl in the grid —
+  // an invalid IANA string throws a RangeError mid-render and 500s the whole
+  // booking page (AG-TZ-INVALID-PROFILE-ZONE / DASH-01). Canonical fallback.
+  const timezone = isValidTimeZone(rawTimezone) ? rawTimezone : 'America/Tegucigalpa'
 
   return (
     <AgendarClient
@@ -58,6 +65,11 @@ export default async function AgendarPage({ params }: Props) {
       classesRemaining={student.classes_remaining || 0}
       existingBookings={existingBookings}
       timezone={timezone}
+      // Server-authoritative clock so the rolling week + slot past/too-soon gating
+      // render identically on SSR and first client hydration — using new Date()/
+      // Date.now() in render straddles the now+24h and tz-midnight boundaries and
+      // trips React #418 on the slot grid (AG-HYD-01/02).
+      serverNowMs={Date.now()}
     />
   )
 }

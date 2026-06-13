@@ -99,8 +99,14 @@ async function sendAdminBookingEmail(params: {
 
 export async function createBooking(formData: FormData) {
   const supabase = await createClient()
+  // Parse lang up front so even the first guard returns localized copy — the
+  // earlier code parsed it later, so a stale-session student saw a raw English
+  // "Not authenticated" on a money action even in Spanish (AG-GUARD-06).
+  const lang = (formData.get('lang') as string) || 'es'
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) {
+    return { error: lang === 'es' ? 'Tu sesión expiró. Inicia sesión de nuevo.' : 'Your session expired. Please log in again.' }
+  }
 
   const scheduledAt = formData.get('scheduled_at') as string
   // duration_minutes is client-controlled. The product offers a single
@@ -110,7 +116,6 @@ export async function createBooking(formData: FormData) {
   const ALLOWED_DURATIONS = [60]
   const rawDuration = parseInt(formData.get('duration_minutes') as string, 10)
   const durationMinutes = ALLOWED_DURATIONS.includes(rawDuration) ? rawDuration : 60
-  const lang = (formData.get('lang') as string) || 'es'
 
   // Per-user throttle (DASH-07) — the credit balance already caps total bookings;
   // this stops scripted hammering of the endpoint. Generous ceiling so a real
