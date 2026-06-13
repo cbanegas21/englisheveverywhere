@@ -125,8 +125,8 @@ function reminderHtml(params: {
   const cta = isEs ? 'Ir a la clase' : 'Go to the class'
   const whenLabel = isEs ? 'Cuándo' : 'When'
   const lateNote = isEs
-    ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.'
-    : 'You can join up to 90 minutes after the scheduled start time.'
+    ? 'Puedes entrar en cualquier momento antes de la clase y hasta 90 minutos después de que termina.'
+    : 'You can join any time before the class and up to 90 minutes after it ends.'
 
   const bodyHtml = `
     <p style="margin:0 0 16px;">${greeting},</p>
@@ -172,8 +172,8 @@ function reminderText(params: {
   const whenLabel = isEs ? 'Cuándo' : 'When'
   const withLabel = isEs ? 'Con' : 'With'
   const lateNote = isEs
-    ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.'
-    : 'You can join up to 90 minutes after the scheduled start time.'
+    ? 'Puedes entrar en cualquier momento antes de la clase y hasta 90 minutos después de que termina.'
+    : 'You can join any time before the class and up to 90 minutes after it ends.'
 
   return [
     heading,

@@ -1592,7 +1592,7 @@ function sendAssignmentEmail(bookingId: string) {
           : `<p style="margin:0 0 12px;">Hi ${escapeHtml(studentFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
         ctaLabel: lang === 'es' ? 'Unirse al aula' : 'Join the classroom',
         ctaUrl: salaUrl,
-        footnote: lang === 'es' ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.' : 'You can join up to 90 minutes after the scheduled start time.',
+        footnote: lang === 'es' ? 'Puedes entrar en cualquier momento antes de la clase y hasta 90 minutos después de que termina.' : 'You can join any time before the class and up to 90 minutes after it ends.',
         lang,
       })
       const text = lang === 'es'
@@ -1634,7 +1634,7 @@ function sendAssignmentEmail(bookingId: string) {
           : `<p style="margin:0 0 12px;">Hi ${escapeHtml(teacherFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
         ctaLabel: lang === 'es' ? 'Entrar al aula' : 'Enter the classroom',
         ctaUrl: salaUrl,
-        footnote: lang === 'es' ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.' : 'You can join up to 90 minutes after the scheduled start time.',
+        footnote: lang === 'es' ? 'Puedes entrar en cualquier momento antes de la clase y hasta 90 minutos después de que termina.' : 'You can join any time before the class and up to 90 minutes after it ends.',
         lang,
       })
       const text = lang === 'es'
