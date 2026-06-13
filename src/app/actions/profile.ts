@@ -257,26 +257,26 @@ export async function deleteMyAccount(
   //    the student involved. We iterate so we can refund *per booking* rather
   //    than a flat sum — matches how studentCancelBooking already works.
   const nowIso = new Date().toISOString()
-  let studentBookings: { id: string; student_id: string }[] = []
-  let teacherBookings: { id: string; student_id: string }[] = []
+  let studentBookings: { id: string; student_id: string; type: string }[] = []
+  let teacherBookings: { id: string; student_id: string; type: string }[] = []
 
   if (student) {
     const { data } = await admin
       .from('bookings')
-      .select('id, student_id')
+      .select('id, student_id, type')
       .eq('student_id', student.id)
       .in('status', ['pending', 'confirmed'])
       .gte('scheduled_at', nowIso)
-    studentBookings = (data as { id: string; student_id: string }[]) || []
+    studentBookings = (data as { id: string; student_id: string; type: string }[]) || []
   }
   if (teacher) {
     const { data } = await admin
       .from('bookings')
-      .select('id, student_id')
+      .select('id, student_id, type')
       .eq('teacher_id', teacher.id)
       .in('status', ['pending', 'confirmed'])
       .gte('scheduled_at', nowIso)
-    teacherBookings = (data as { id: string; student_id: string }[]) || []
+    teacherBookings = (data as { id: string; student_id: string; type: string }[]) || []
   }
 
   const toCancel = [...studentBookings, ...teacherBookings]
@@ -291,9 +291,13 @@ export async function deleteMyAccount(
       })
       .eq('id', b.id)
 
-    // Restore the student's credit. On teacher-side cancellations the
-    // student is a third party — they still get their class back.
-    await admin.rpc('increment_classes', { p_student_id: b.student_id })
+    // Restore the student's credit — CLASS bookings only. A placement_test is a
+    // free call: minting a credit on it is wrong, and on the teacher-side path the
+    // student is a THIRD PARTY whose account persists, so the mint would stick
+    // (PL-CREDIT-DELETE-01). Mirrors every other cancel path's type guard.
+    if (b.type === 'class') {
+      await admin.rpc('increment_classes', { p_student_id: b.student_id })
+    }
 
     cancelBookingReminders(b.id).catch(() => {})
   }

@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { isValidTimeZone } from '@/lib/timezone'
 import type { Locale } from '@/lib/i18n/translations'
 import PlacementClient from './PlacementClient'
 import PlacementScheduledScreen from './PlacementScheduledScreen'
@@ -25,40 +27,45 @@ export default async function PlacementPage({ params, searchParams }: Props) {
 
   if (!student) redirect(`/${lang}/onboarding`)
 
-  // Check for an existing placement booking (include completed — needed when placement_test_done = true)
+  // Latest non-cancelled placement booking (include completed — needed when
+  // placement_test_done = true). order+limit(1) so a stray second row from a
+  // concurrent reschedule degrades to "take the latest" instead of a maybeSingle()
+  // error that blanked the whole screen (PL-RESCHED-RACE).
   const { data: existingBooking } = await supabase
     .from('bookings')
-    .select(`
-      id,
-      scheduled_at,
-      status,
-      conductor:profiles!bookings_conductor_profile_id_fkey(full_name),
-      teacher:teachers(profile:profiles(full_name))
-    `)
+    .select('id, scheduled_at, status, conductor_profile_id, teacher_id')
     .eq('student_id', student.id)
     .eq('type', 'placement_test')
     .neq('status', 'cancelled')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
-  // Pull the human-readable name of whoever is running the call. Placement
-  // calls can be admin-conducted (conductor_profile_id) or teacher-assigned
-  // (teacher_id → teachers.profile.full_name). Prefer the conductor since
-  // admins currently handle all placement calls.
-  type BookingProfile = { full_name: string | null } | { full_name: string | null }[] | null
-  type BookingTeacher = { profile: BookingProfile } | { profile: BookingProfile }[] | null
-  function extractProfileName(raw: BookingProfile): string | null {
-    if (!raw) return null
-    if (Array.isArray(raw)) return raw[0]?.full_name ?? null
-    return raw.full_name ?? null
+  // Resolve the host's name via the SERVICE-ROLE client. A student has no RLS
+  // SELECT on an admin conductor's profiles row, so the previous user-client embed
+  // always came back null → the page said "host being assigned" while the
+  // dashboard banner (already admin-client-resolved, SH-BAN-01) named them for the
+  // SAME call (PL-CONDUCTOR-RLS-01). Server-only; only a display name.
+  let conductorName: string | null = null
+  if (existingBooking?.conductor_profile_id || existingBooking?.teacher_id) {
+    const admin = createAdminClient()
+    if (existingBooking.conductor_profile_id) {
+      const { data } = await admin
+        .from('profiles')
+        .select('full_name')
+        .eq('id', existingBooking.conductor_profile_id)
+        .maybeSingle()
+      conductorName = (data as { full_name?: string | null } | null)?.full_name ?? null
+    } else if (existingBooking.teacher_id) {
+      const { data } = await admin
+        .from('teachers')
+        .select('profile:profiles(full_name)')
+        .eq('id', existingBooking.teacher_id)
+        .maybeSingle()
+      const prof = (data as { profile?: { full_name?: string | null } | { full_name?: string | null }[] } | null)?.profile
+      conductorName = Array.isArray(prof) ? prof[0]?.full_name ?? null : prof?.full_name ?? null
+    }
   }
-  function extractTeacherName(raw: BookingTeacher): string | null {
-    if (!raw) return null
-    if (Array.isArray(raw)) return extractProfileName(raw[0]?.profile ?? null)
-    return extractProfileName(raw.profile ?? null)
-  }
-  const conductorName =
-    extractProfileName((existingBooking?.conductor as BookingProfile) ?? null) ||
-    extractTeacherName((existingBooking?.teacher as BookingTeacher) ?? null)
 
   // Phase D: prefer profiles.timezone (user-editable) over auth metadata.
   const { data: profileRow } = await supabase
@@ -66,10 +73,14 @@ export default async function PlacementPage({ params, searchParams }: Props) {
     .select('timezone, notification_preferences')
     .eq('id', user.id)
     .maybeSingle()
-  const timezone =
+  const rawTimezone =
     (profileRow as { timezone?: string | null } | null)?.timezone ||
     (user.user_metadata?.timezone as string) ||
-    'America/Tegucigalpa'
+    ''
+  // Validate before it reaches the toLocale/Intl calls in the client screens — an
+  // invalid IANA string throws a RangeError mid-render and 500s the page
+  // (AG-TZ-CRASH class / DASH-01). Canonical fallback.
+  const timezone = isValidTimeZone(rawTimezone) ? rawTimezone : 'America/Tegucigalpa'
   const notificationPreferences =
     (profileRow as { notification_preferences?: Record<string, boolean> | null } | null)
       ?.notification_preferences ?? undefined
@@ -83,8 +94,11 @@ export default async function PlacementPage({ params, searchParams }: Props) {
     ? new Date().getTime() > new Date(existingBooking.scheduled_at).getTime() + PLACEMENT_LIVE_WINDOW_MS
     : false
 
-  // Call booked or already completed
-  if (student.placement_scheduled || student.placement_test_done) {
+  // Call booked or already completed. Require an actual booking row for the
+  // "scheduled" branch — a placement_scheduled flag with NO live booking (a
+  // reschedule strand) would otherwise render a blank scheduled card; fall through
+  // to the booking flow so the student can simply re-book (PL-STATE-BLANK).
+  if ((student.placement_scheduled && existingBooking) || student.placement_test_done) {
     // If booking is in the past and student wants to reschedule — show the scheduling flow.
     // Never offer reschedule once placement is DONE: the assessment is finished, the
     // server action rejects it, and the student would dead-end on an error (placement-ui-1).
@@ -97,6 +111,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
           existingBooking={null}
           isReschedule
           timezone={timezone}
+          serverNowMs={Date.now()}
         />
       )
     }
@@ -130,6 +145,7 @@ export default async function PlacementPage({ params, searchParams }: Props) {
           : null
       }
       timezone={timezone}
+      serverNowMs={Date.now()}
     />
   )
 }

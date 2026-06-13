@@ -237,7 +237,10 @@ function Countdown({ scheduledAt, lang }: { scheduledAt: string; lang: Locale })
   }
 
   const diff = targetMs - now
-  const endedMs = targetMs + 90 * 60 * 1000
+  // The call is 60 min and the room stays open 90 min after it ENDS (getRoomAccess
+  // + the page's PLACEMENT_LIVE_WINDOW_MS), so "ended" is scheduled + 60 + 90 =
+  // +150m — not +90m, which flipped to "ended" while the room was still joinable.
+  const endedMs = targetMs + (60 + 90) * 60 * 1000
 
   if (now >= endedMs) {
     return <span style={{ color: 'rgba(255,255,255,0.9)' }}>{tx.ended}</span>

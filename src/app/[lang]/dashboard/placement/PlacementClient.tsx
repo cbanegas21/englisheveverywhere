@@ -109,9 +109,12 @@ function tzShortLabel(tz: string): string {
 // Slots are offered on Honduras local hours (when staff are available) but are
 // stored + booked as UTC instants — so we generate the same instants and just
 // group + display them in the STUDENT's timezone (decision #1: de-hardcode).
-function generateBusinessDays(tz: string, count = 7): BusinessDay[] {
+function generateBusinessDays(tz: string, count: number, nowMs: number): BusinessDay[] {
   const zone = tz || 'America/Tegucigalpa'
-  const nowMs = Date.now()
+  // nowMs is the server-authoritative clock (serverNowMs prop) so the slot list
+  // renders identically on SSR and first client hydration — using Date.now() here
+  // diverged at the day / 24h-cutoff boundaries and tripped React #418 when the
+  // schedule stage is the SSR-initial view (returning/reschedule student).
   const minMs = nowMs + 24 * 60 * 60 * 1000
 
   // Candidate UTC instants: every hour of the next ~60 Honduras calendar days.
@@ -160,11 +163,15 @@ function fmtSlot(isoUtc: string, tz: string): string {
 }
 
 function fmtBookingDate(isoUtc: string, lang: Locale, tz: string): string {
+  // Normalize the am/pm separator (Node ICU emits a plain/U+00A0 space, Chrome a
+  // U+202F narrow no-break space) so SSR and client hydration match — without this
+  // the confirmed-stage date trips React #418 on prod (mirrors formatTime in
+  // PlacementScheduledScreen / the dashboard). PL-418-CONFIRMED-01.
   return new Date(isoUtc).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
     timeZone: tz || 'America/Tegucigalpa',
-  })
+  }).replace(/[\u00a0\u202f]/g, ' ')
 }
 
 const slideVariants = {
@@ -258,6 +265,9 @@ interface Props {
   isReschedule?: boolean
   /** The student's stored timezone — all scheduling times render in it. */
   timezone: string
+  /** Server-authoritative clock (ms) — anchors the slot list so SSR and client
+   *  hydration agree (no Date.now()-in-render #418 on the schedule stage). */
+  serverNowMs: number
 }
 
 type Answers = Record<string, string | string[]>
@@ -269,6 +279,7 @@ export default function PlacementClient({
   existingBooking,
   isReschedule,
   timezone,
+  serverNowMs,
 }: Props) {
   const tx = ui[lang]
   const accent = 'var(--ek-red)'
@@ -291,7 +302,7 @@ export default function PlacementClient({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState('')
 
-  const businessDays = useMemo(() => generateBusinessDays(timezone, 7), [timezone])
+  const businessDays = useMemo(() => generateBusinessDays(timezone, 7, serverNowMs), [timezone, serverNowMs])
   const totalQ = QUESTIONS.length
   const currentQ = QUESTIONS[qIndex]
 

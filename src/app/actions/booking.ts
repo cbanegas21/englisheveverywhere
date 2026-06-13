@@ -317,15 +317,20 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
     .eq('id', bookingId)
     .eq('teacher_id', teacher.id)
     .in('status', ['pending', 'confirmed'])
-    .select('student_id')
+    .select('student_id, type')
 
   if (error) return { error: bookingActionErrorMsg(error, lang, 'declineBooking') }
   if (!declined || declined.length === 0) {
     return { error: lang === 'es' ? 'Esta reserva ya no se puede rechazar.' : 'This booking can no longer be declined.' }
   }
 
-  // Restore the student's class (exactly once)
-  await admin.rpc('increment_classes', { p_student_id: declined[0].student_id })
+  // Restore the student's class (exactly once) — CLASS bookings only. A
+  // placement_test is a FREE call and must never mint a paid credit; declineBooking
+  // was the lone refund path missing this guard (studentCancelBooking,
+  // reportTeacherNoShow, and both admin cancels all guard type==='class').
+  if (declined[0].type === 'class') {
+    await admin.rpc('increment_classes', { p_student_id: declined[0].student_id })
+  }
 
   // Cancel any already-scheduled reminder emails (no-op if booking was still
   // pending when declined and no reminders had been scheduled yet).

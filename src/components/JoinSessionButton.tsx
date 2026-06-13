@@ -7,10 +7,12 @@ import type { Locale } from '@/lib/i18n/translations'
 
 // Zoom-style entry: the room itself renders a lobby with a countdown for
 // anyone who arrives early, so we expose the Join link up to 24h before
-// scheduled_at. Server-side `getRoomAccess` only enforces the LATE cap
-// (scheduled + duration + 90m) — we mirror that bound here.
+// scheduled_at. Server-side `getRoomAccess` enforces the LATE cap at
+// scheduled + duration + 90m — the close bound is computed from the booking's
+// duration below so the button doesn't grey out an HOUR before the room actually
+// closes and lock out a late-arriving student (PL-TIME-JOIN-01).
 const OPEN_BEFORE_MS = 24 * 60 * 60 * 1000
-const CLOSE_AFTER_MS = 90 * 60 * 1000
+const LATE_GRACE_MS = 90 * 60 * 1000
 
 const T = {
   en: {
@@ -47,6 +49,9 @@ interface Props {
   lang: Locale
   bookingId: string
   scheduledAt: string
+  /** Class/call length in minutes; the late cap is scheduled + duration + 90m to
+   *  match getRoomAccess. Defaults to 60 (every class + placement is 60 min). */
+  durationMinutes?: number
   /** Visual style: primary (filled brand), secondary (outline), compact (tight inline). */
   variant?: 'primary' | 'secondary' | 'compact'
   className?: string
@@ -56,6 +61,7 @@ export default function JoinSessionButton({
   lang,
   bookingId,
   scheduledAt,
+  durationMinutes = 60,
   variant = 'primary',
   className,
 }: Props) {
@@ -75,7 +81,9 @@ export default function JoinSessionButton({
   }, [])
 
   const openAt = scheduledMs - OPEN_BEFORE_MS
-  const closeAt = scheduledMs + CLOSE_AFTER_MS
+  // Match getRoomAccess (video.ts): the room is joinable until the call ENDS plus
+  // a 90-min grace, i.e. scheduled + duration + 90m — not merely scheduled + 90m.
+  const closeAt = scheduledMs + durationMinutes * 60 * 1000 + LATE_GRACE_MS
   const tx = T[lang]
 
   const href = `/${lang}/sala/${bookingId}`

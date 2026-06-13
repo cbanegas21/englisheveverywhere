@@ -156,6 +156,15 @@ export async function reschedulePlacementCall(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  // Per-user throttle (mirror bookPlacementCall) — reschedule was the one
+  // unthrottled placement path, so a scripted student could loop
+  // cancel+insert+admin-email unbounded (PL-RL-RESCHED-01). 'reschedulePlacementCall'
+  // is allowlisted in auth_attempts (migration 044) so this isn't a silent no-op.
+  const rl = await checkUserActionLimit(user.id, 'reschedulePlacementCall', 5)
+  if (!rl.ok) {
+    return { error: lang === 'es' ? 'Demasiados intentos. Espera unos minutos.' : 'Too many attempts. Please wait a few minutes.' }
+  }
+
   // Date validation (same rules as bookPlacementCall) — a direct call could
   // otherwise persist an Invalid Date or a past/far-future time (DASH-05).
   const scheduledDate = new Date(newScheduledAt)
