@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 import { Logo } from '@/components/ui/Logo'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 
 const t = {
   en: {
@@ -215,6 +216,8 @@ function LoginForm({ lang }: { lang: Locale }) {
                 {isPending ? tx.loading : tx.submit}
               </button>
             </form>
+
+            <GoogleButton lang={lang} next={searchParams.get('next')} />
 
             <p className="mt-6 text-center text-[13px]" style={{ color: 'var(--ek-text-muted)' }}>
               {tx.noAccount}{' '}

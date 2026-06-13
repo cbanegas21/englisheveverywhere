@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
 import { Logo } from '@/components/ui/Logo'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 import { PhoneInput } from 'react-international-phone'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import 'react-international-phone/style.css'
@@ -400,6 +401,8 @@ function RegistroContent({ lang }: { lang: Locale }) {
             <a href={`/${lang}/privacy`} className="underline" style={{ color: 'var(--ek-text-soft)' }}>{tx.privacy}</a>.
           </p>
         </form>
+
+        {role === 'student' && <GoogleButton lang={lang} />}
       </div>
     </Shell>
   )
