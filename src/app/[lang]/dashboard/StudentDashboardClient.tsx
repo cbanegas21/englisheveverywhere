@@ -150,25 +150,6 @@ const t = {
   },
 }
 
-function getGreeting(lang: Locale, timezone: string) {
-  let h: number
-  try {
-    const hourStr = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      hour12: false,
-      timeZone: timezone,
-    }).format(new Date())
-    h = parseInt(hourStr, 10)
-    if (isNaN(h)) h = new Date().getHours()
-  } catch {
-    h = new Date().getHours()
-  }
-  const tx = t[lang]
-  if (h < 12) return tx.greeting
-  if (h < 18) return tx.greetingAfternoon
-  return tx.greetingEvening
-}
-
 function ymdInTz(d: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -178,14 +159,20 @@ function ymdInTz(d: Date, timeZone: string): string {
   }).format(d)
 }
 
-function formatDate(iso: string, lang: Locale, timeZone: string) {
+function formatDate(iso: string, lang: Locale, timeZone: string, nowMs: number | null) {
   const d = new Date(iso)
-  const now = new Date()
-  const tomorrow = new Date(now.getTime() + 86400000)
   const tx = t[lang]
-  if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
-  if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
-  return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
+  // "Today/Tomorrow" depends on the current instant, so only compute it AFTER
+  // mount (nowMs set in useEffect). On SSR + first client render nowMs is null →
+  // render the absolute date, identical on both → no #418 (SH-HYD-02). Mirrors
+  // the countdown ghost gating.
+  if (nowMs !== null) {
+    const now = new Date(nowMs)
+    const tomorrow = new Date(nowMs + 86400000)
+    if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
+    if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
+  }
+  return d.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -253,6 +240,7 @@ interface Props {
   lang: Locale
   userName: string
   timezone: string
+  greetingKey: 'greeting' | 'greetingAfternoon' | 'greetingEvening'
   classesRemaining: number
   currentPlan: string | null
   placementTestDone: boolean
@@ -261,6 +249,7 @@ interface Props {
   placementConductorName?: string | null
   primaryTeacherName?: string | null
   completedSessions: number
+  totalStudyMinutes: number
   scheduledClasses: number
   upcomingBookings: Booking[]
 }
@@ -269,6 +258,7 @@ export default function StudentDashboardClient({
   lang,
   userName,
   timezone,
+  greetingKey,
   classesRemaining,
   currentPlan,
   placementTestDone,
@@ -277,12 +267,15 @@ export default function StudentDashboardClient({
   placementConductorName,
   primaryTeacherName,
   completedSessions,
+  totalStudyMinutes,
   scheduledClasses,
   upcomingBookings,
 }: Props) {
   const tx = t[lang]
   const firstName = userName.split(' ')[0]
   const accent = 'var(--ek-red)'
+  // Real study time = SUM of completed-class minutes, not the class count (SH-BAN-05).
+  const totalStudyHours = Math.round((totalStudyMinutes / 60) * 10) / 10
 
   // Tick once a minute so the "Live" badge flips when a session starts/ends
   // without needing a full page reload. Hydration-safe: null on SSR.
@@ -348,7 +341,7 @@ export default function StudentDashboardClient({
             {lang === 'es' ? 'Hola, ' : 'Hi, '}
             {firstName}
             {' — '}
-            <TitleFlourish>{getGreeting(lang, timezone)}</TitleFlourish>
+            <TitleFlourish>{tx[greetingKey]}</TitleFlourish>
           </span>
         }
         sub={`${timezone.split('/').pop()?.replace('_', ' ') ?? ''} ${tx.subtitleSuffix}`}
@@ -368,7 +361,9 @@ export default function StudentDashboardClient({
               <span style={{ fontSize: 15, fontWeight: 700, color: accent, fontFeatureSettings: '"tnum"' }}>
                 {classesRemaining}
               </span>
-              {lang === 'es' ? 'clases disponibles' : 'classes available'}
+              {classesRemaining === 1
+                ? (lang === 'es' ? 'clase disponible' : 'class available')
+                : (lang === 'es' ? 'clases disponibles' : 'classes available')}
             </span>
             <Link
               href={`/${lang}/dashboard/agendar`}
@@ -405,7 +400,9 @@ export default function StudentDashboardClient({
                   : false
               const formattedDate = placementScheduledAt
                 ? new Date(placementScheduledAt).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-                    timeZone: 'America/Tegucigalpa',
+                    // Student's own zone, not a hard-coded Honduras zone, so a
+                    // non-HN student doesn't see an off-by-one calendar day (SH-HYD-07).
+                    timeZone: timezone,
                     weekday: 'long',
                     month: 'long',
                     day: 'numeric',
@@ -570,7 +567,7 @@ export default function StudentDashboardClient({
                       color: 'var(--ek-on-dark)',
                     }}
                   >
-                    {formatDate(nextHero.date, lang, timezone)}, {formatTime(nextHero.date, lang, timezone)}
+                    {formatDate(nextHero.date, lang, timezone, now)}, {formatTime(nextHero.date, lang, timezone)}
                   </h2>
                   <div
                     className="ek-hero-meta"
@@ -692,7 +689,7 @@ export default function StudentDashboardClient({
               { kicker: tx.stats.available, value: classesRemaining, sub: tx.stats.availableSub, href: `/${lang}/dashboard/plan`, accent: true },
               { kicker: tx.stats.scheduled, value: scheduledClasses, sub: tx.stats.scheduledSub, href: `/${lang}/dashboard/clases` },
               { kicker: tx.stats.completed, value: completedSessions, sub: tx.stats.completedSub, href: `/${lang}/dashboard/progreso` },
-              { kicker: tx.stats.totalTime, value: `${completedSessions}h`, sub: tx.stats.totalTimeSub, href: `/${lang}/dashboard/progreso` },
+              { kicker: tx.stats.totalTime, value: `${totalStudyHours}h`, sub: tx.stats.totalTimeSub, href: `/${lang}/dashboard/progreso` },
             ]}
           />
         </div>
@@ -883,9 +880,10 @@ export default function StudentDashboardClient({
                         style={{ display: 'flex', alignItems: 'center', gap: 12 }}
                       >
                         <StatusBadge
+                          dot={isLive}
                           variant={
                             isLive
-                              ? 'cancelled' /* red live */
+                              ? 'live' /* crimson + pulse dot — the live state */
                               : booking.status === 'confirmed'
                                 ? 'confirmed'
                                 : awaitingTeacher
