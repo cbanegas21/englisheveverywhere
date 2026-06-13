@@ -269,14 +269,14 @@ ${teacherPendingUrl}
     }),
   }).catch(() => {})
 
-  // Admin notification
-  const adminReviewUrl = `${APP_URL}/${params.lang}/admin/teachers`
-  const adminText = `A new teacher just applied. Review and approve in the admin panel.
+  // Admin notification (owner is Spanish-first, regardless of applicant language)
+  const adminReviewUrl = `${APP_URL}/es/admin/teachers`
+  const adminText = `Un maestro envió su solicitud. Revísala y apruébala en el panel.
 
-Name: ${params.teacherName || '(not provided)'}
-Email: ${params.teacherEmail}
+Nombre: ${params.teacherName || '(no proporcionado)'}
+Correo: ${params.teacherEmail}
 
-Review applications: ${adminReviewUrl}`
+Revisar solicitudes: ${adminReviewUrl}`
 
   fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -284,15 +284,19 @@ Review applications: ${adminReviewUrl}`
     body: JSON.stringify({
       from: EMAIL_FROM,
       to: adminEmail,
-      subject: `New teacher application — ${params.teacherName || params.teacherEmail}`,
-      html: `
-        <p>A new teacher just applied. Review and approve in the admin panel.</p>
-        <table>
-          <tr><td><strong>Name</strong></td><td>${escapeHtml(params.teacherName || '(not provided)')}</td></tr>
-          <tr><td><strong>Email</strong></td><td>${escapeHtml(params.teacherEmail)}</td></tr>
-        </table>
-        <p><a href="${adminReviewUrl}">Review applications →</a></p>
-      `,
+      subject: `Nueva solicitud de maestro — ${params.teacherName || params.teacherEmail}`,
+      html: brandedEmail({
+        heading: 'Nueva solicitud de maestro',
+        bodyHtml: `
+          <p style="margin:0 0 16px;">Un maestro envió su solicitud. Revísala y apruébala en el panel.</p>
+          <table style="border-collapse:collapse;width:100%;">
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Nombre</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.teacherName || '(no proporcionado)')}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Correo</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.teacherEmail)}</td></tr>
+          </table>`,
+        ctaLabel: 'Revisar solicitudes',
+        ctaUrl: adminReviewUrl,
+        lang: 'es',
+      }),
       text: adminText,
     }),
   }).catch(() => {})

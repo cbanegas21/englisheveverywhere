@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { safeNextPath } from '@/lib/safeNext'
+import { sendWelcomeEmail } from '@/lib/welcomeEmail'
 
 export async function GET(
   request: Request,
@@ -41,6 +42,20 @@ export async function GET(
         .single()
 
       const role = profile?.role || user?.user_metadata?.role || 'student'
+
+      // First-time Google signup → send the welcome email. The OAuth path doesn't
+      // run through the signUp action (where email/password signups get theirs),
+      // so without this a Google signup would never be greeted. Gate on a freshly
+      // created account (so a later re-login never re-sends) and a student role
+      // (OAuth signups are always students; teachers get their own application /
+      // approval emails). Awaited so the redirect below can't drop it.
+      const createdMs = user?.created_at ? new Date(user.created_at).getTime() : 0
+      const isNewSignup = createdMs > 0 && Date.now() - createdMs < 2 * 60 * 1000
+      if (isNewSignup && role !== 'admin' && role !== 'teacher') {
+        const fullName =
+          (user?.user_metadata?.full_name as string) || (user?.user_metadata?.name as string) || ''
+        await sendWelcomeEmail(user?.email || '', fullName, lang)
+      }
 
       // Admins go straight to the admin home — never the student onboarding flow.
       if (role === 'admin') {

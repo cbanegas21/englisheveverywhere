@@ -1592,12 +1592,12 @@ function sendAssignmentEmail(bookingId: string) {
           : `<p style="margin:0 0 12px;">Hi ${escapeHtml(studentFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
         ctaLabel: lang === 'es' ? 'Unirse al aula' : 'Join the classroom',
         ctaUrl: salaUrl,
-        footnote: lang === 'es' ? 'El aula se abre 15 minutos antes de la hora de inicio.' : 'The classroom opens 15 minutes before the start time.',
+        footnote: lang === 'es' ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.' : 'You can join up to 90 minutes after the scheduled start time.',
         lang,
       })
       const text = lang === 'es'
-        ? `Hola ${studentFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nUnirse al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`
-        : `Hi ${studentFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nJoin the classroom (opens 15 minutes early):\n${salaUrl}\n\n— EnglishKolab`
+        ? `Hola ${studentFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nUnirse al aula:\n${salaUrl}\n\n— EnglishKolab`
+        : `Hi ${studentFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nJoin the classroom:\n${salaUrl}\n\n— EnglishKolab`
       void fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -1634,12 +1634,12 @@ function sendAssignmentEmail(bookingId: string) {
           : `<p style="margin:0 0 12px;">Hi ${escapeHtml(teacherFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
         ctaLabel: lang === 'es' ? 'Entrar al aula' : 'Enter the classroom',
         ctaUrl: salaUrl,
-        footnote: lang === 'es' ? 'El aula se abre 15 minutos antes de la hora de inicio.' : 'The classroom opens 15 minutes before the start time.',
+        footnote: lang === 'es' ? 'Puedes unirte hasta 90 minutos después de la hora de inicio.' : 'You can join up to 90 minutes after the scheduled start time.',
         lang,
       })
       const text = lang === 'es'
-        ? `Hola ${teacherFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nEntrar al aula (se abre 15 minutos antes):\n${salaUrl}\n\n— EnglishKolab`
-        : `Hi ${teacherFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nEnter the classroom (opens 15 minutes early):\n${salaUrl}\n\n— EnglishKolab`
+        ? `Hola ${teacherFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nEntrar al aula:\n${salaUrl}\n\n— EnglishKolab`
+        : `Hi ${teacherFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nEnter the classroom:\n${salaUrl}\n\n— EnglishKolab`
       void fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

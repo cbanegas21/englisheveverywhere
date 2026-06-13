@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { escapeHtml, brandedEmail, EMAIL_FROM } from '@/lib/email'
+import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
 import { checkUserActionLimit } from '@/lib/rateLimit'
 
@@ -281,17 +281,26 @@ function sendRescheduleNotification(params: {
       from: EMAIL_FROM,
       to: adminEmail,
       subject: `Llamada de diagnóstico reagendada — ${params.studentName}`,
-      html: `
-        <p>Un estudiante reagendó su llamada de diagnóstico.</p>
-        <table>
-          <tr><td><strong>Estudiante</strong></td><td>${escapeHtml(params.studentName)} (${escapeHtml(params.studentEmail)})</td></tr>
-          <tr><td><strong>Nueva fecha</strong></td><td>${hnFormatted} (CST Honduras)</td></tr>
-        </table>
-      `,
+      html: brandedEmail({
+        heading: 'Llamada de diagnóstico reagendada',
+        bodyHtml: `
+          <p style="margin:0 0 16px;">Un estudiante reagendó su llamada de diagnóstico.</p>
+          <table style="border-collapse:collapse;width:100%;">
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Estudiante</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.studentName)}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Correo</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.studentEmail)}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Nueva fecha</td><td style="padding:4px 0;color:#111111;font-weight:600;">${hnFormatted} (hora de Honduras)</td></tr>
+          </table>`,
+        ctaLabel: 'Ver en el panel',
+        ctaUrl: `${APP_URL}/es/admin/bookings`,
+        lang: 'es',
+      }),
       text: [
         'Un estudiante reagendó su llamada de diagnóstico.',
+        '',
         `Estudiante: ${params.studentName} (${params.studentEmail})`,
-        `Nueva fecha: ${hnFormatted} (CST Honduras)`,
+        `Nueva fecha: ${hnFormatted} (hora de Honduras)`,
+        '',
+        `Ver en el panel: ${APP_URL}/es/admin/bookings`,
       ].join('\n'),
     }),
   }).catch(() => {})
@@ -331,19 +340,28 @@ function sendPlacementEmails(params: {
       from: EMAIL_FROM,
       to: adminEmail,
       subject: `Nueva llamada de diagnóstico — ${params.studentName}`,
-      html: `
-        <p>Un estudiante agendó su llamada de diagnóstico gratuita.</p>
-        <table>
-          <tr><td><strong>Estudiante</strong></td><td>${escapeHtml(params.studentName)} (${escapeHtml(params.studentEmail)})</td></tr>
-          <tr><td><strong>Fecha y hora</strong></td><td>${hnFormatted} (CST Honduras)</td></tr>
-          <tr><td><strong>Duración</strong></td><td>60 minutos</td></tr>
-        </table>
-      `,
+      html: brandedEmail({
+        heading: 'Nueva llamada de diagnóstico',
+        bodyHtml: `
+          <p style="margin:0 0 16px;">Un estudiante agendó su llamada de diagnóstico gratuita.</p>
+          <table style="border-collapse:collapse;width:100%;">
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Estudiante</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.studentName)}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Correo</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.studentEmail)}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Fecha y hora</td><td style="padding:4px 0;color:#111111;font-weight:600;">${hnFormatted} (hora de Honduras)</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Duración</td><td style="padding:4px 0;color:#111111;font-weight:600;">60 minutos</td></tr>
+          </table>`,
+        ctaLabel: 'Ver en el panel',
+        ctaUrl: `${APP_URL}/es/admin/bookings`,
+        lang: 'es',
+      }),
       text: [
         'Un estudiante agendó su llamada de diagnóstico gratuita.',
+        '',
         `Estudiante: ${params.studentName} (${params.studentEmail})`,
-        `Fecha y hora: ${hnFormatted} (CST Honduras)`,
+        `Fecha y hora: ${hnFormatted} (hora de Honduras)`,
         'Duración: 60 minutos',
+        '',
+        `Ver en el panel: ${APP_URL}/es/admin/bookings`,
       ].join('\n'),
     }),
   }).catch(() => {})

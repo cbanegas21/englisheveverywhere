@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
-import { escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
+import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
 import { checkUserActionLimit } from '@/lib/rateLimit'
 
@@ -54,13 +54,13 @@ async function sendAdminBookingEmail(params: {
 
   if (!apiKey || apiKey === 're_placeholder') return
 
-  const scheduled = new Date(params.scheduledAt).toLocaleString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
+  const scheduled = new Date(params.scheduledAt).toLocaleString('es-HN', {
+    weekday: 'long', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
     timeZone: 'America/Tegucigalpa',
   })
 
-  const assignUrl = `${APP_URL}/${params.lang}/admin/bookings`
+  const assignUrl = `${APP_URL}/es/admin/bookings`
 
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -71,26 +71,27 @@ async function sendAdminBookingEmail(params: {
     body: JSON.stringify({
       from: EMAIL_FROM,
       to: adminEmail,
-      subject: `Class needs a teacher — ${params.studentName}`,
-      html: `
-        <p>A student booked a class. Assign a teacher in the admin queue.</p>
-        <table>
-          <tr><td><strong>Student</strong></td><td>${escapeHtml(params.studentName)} (${escapeHtml(params.studentEmail)})</td></tr>
-          <tr><td><strong>Scheduled</strong></td><td>${scheduled}</td></tr>
-        </table>
-        <p>
-          <a href="${assignUrl}">
-            Assign teacher →
-          </a>
-        </p>
-      `,
+      subject: `Una clase necesita maestro — ${params.studentName}`,
+      html: brandedEmail({
+        heading: 'Una clase necesita maestro',
+        bodyHtml: `
+          <p style="margin:0 0 16px;">Un estudiante reservó una clase. Asígnale un maestro en el panel.</p>
+          <table style="border-collapse:collapse;width:100%;">
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Estudiante</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.studentName)}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Correo</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(params.studentEmail)}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Horario</td><td style="padding:4px 0;color:#111111;font-weight:600;">${scheduled}</td></tr>
+          </table>`,
+        ctaLabel: 'Asignar maestro',
+        ctaUrl: assignUrl,
+        lang: 'es',
+      }),
       text: [
-        'A student booked a class. Assign a teacher in the admin queue.',
+        'Un estudiante reservó una clase. Asígnale un maestro en el panel.',
         '',
-        `Student: ${params.studentName} (${params.studentEmail})`,
-        `Scheduled: ${scheduled}`,
+        `Estudiante: ${params.studentName} (${params.studentEmail})`,
+        `Horario: ${scheduled} (hora de Honduras)`,
         '',
-        `Assign teacher: ${assignUrl}`,
+        `Asignar maestro: ${assignUrl}`,
       ].join('\n'),
     }),
   }).catch(() => {})
@@ -445,12 +446,13 @@ async function notifyAdminOfCancel(params: {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@englishkolab.com'
   if (!apiKey || apiKey === 're_placeholder') return
 
-  const lang = params.lang || 'es'
-  const reasonLabel = cancelReasonLabel(params.reason, lang)
-  const reviewUrl = `${APP_URL}/${lang}/admin/bookings`
+  // Admin notifications go to the owner (Spanish-first), regardless of the
+  // student's own language.
+  const reasonLabel = cancelReasonLabel(params.reason, 'es')
+  const reviewUrl = `${APP_URL}/es/admin/bookings`
 
-  const scheduled = new Date(params.scheduledAt).toLocaleString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
+  const scheduled = new Date(params.scheduledAt).toLocaleString('es-HN', {
+    weekday: 'long', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
     timeZone: 'America/Tegucigalpa',
   })
@@ -461,24 +463,28 @@ async function notifyAdminOfCancel(params: {
     body: JSON.stringify({
       from: EMAIL_FROM,
       to: adminEmail,
-      subject: `Booking cancelled — ${params.studentName} (${reasonLabel})`,
-      html: `
-        <p>${escapeHtml(params.studentName)} cancelled a class.</p>
-        <table>
-          <tr><td><strong>Reason</strong></td><td>${escapeHtml(reasonLabel)}</td></tr>
-          <tr><td><strong>Originally scheduled</strong></td><td>${scheduled}</td></tr>
-          <tr><td><strong>Class credit refunded</strong></td><td>${params.refundIssued ? 'Yes' : 'No'}</td></tr>
-        </table>
-        <p><a href="${reviewUrl}">Review →</a></p>
-      `,
+      subject: `Clase cancelada — ${params.studentName} (${reasonLabel})`,
+      html: brandedEmail({
+        heading: 'Clase cancelada',
+        bodyHtml: `
+          <p style="margin:0 0 16px;">${escapeHtml(params.studentName)} canceló una clase.</p>
+          <table style="border-collapse:collapse;width:100%;">
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Motivo</td><td style="padding:4px 0;color:#111111;font-weight:600;">${escapeHtml(reasonLabel)}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Estaba agendada</td><td style="padding:4px 0;color:#111111;font-weight:600;">${scheduled}</td></tr>
+            <tr><td style="padding:4px 14px 4px 0;color:#8C8578;font-size:13px;">Crédito restituido</td><td style="padding:4px 0;color:#111111;font-weight:600;">${params.refundIssued ? 'Sí' : 'No'}</td></tr>
+          </table>`,
+        ctaLabel: 'Revisar',
+        ctaUrl: reviewUrl,
+        lang: 'es',
+      }),
       text: [
-        `${params.studentName} cancelled a class.`,
+        `${params.studentName} canceló una clase.`,
         '',
-        `Reason: ${reasonLabel}`,
-        `Originally scheduled: ${scheduled}`,
-        `Class credit refunded: ${params.refundIssued ? 'Yes' : 'No'}`,
+        `Motivo: ${reasonLabel}`,
+        `Estaba agendada: ${scheduled} (hora de Honduras)`,
+        `Crédito restituido: ${params.refundIssued ? 'Sí' : 'No'}`,
         '',
-        `Review: ${reviewUrl}`,
+        `Revisar: ${reviewUrl}`,
       ].join('\n'),
     }),
   }).catch(() => {})
