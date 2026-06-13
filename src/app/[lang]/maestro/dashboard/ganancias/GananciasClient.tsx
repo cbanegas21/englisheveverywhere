@@ -174,7 +174,7 @@ export default function GananciasClient({
               <p style={{ fontSize: 13, color: 'var(--ek-text-soft)', margin: '6px 0 14px', lineHeight: 1.55, maxWidth: 520 }}>{tx.setupBody}</p>
               <ol style={{ margin: '0 0 14px', paddingLeft: 18, fontSize: 13, color: 'var(--ek-text-soft)', lineHeight: 1.6 }}>
                 <li>{tx.setupStep1}{' '}
-                  <a href="https://www.veem.com/signup/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ek-red)', fontWeight: 700, textDecoration: 'none' }}>{tx.createVeem}</a>
+                  <a href="https://apps.veem.com/CustomerApp/o/signup" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ek-red)', fontWeight: 700, textDecoration: 'none' }}>{tx.createVeem}</a>
                 </li>
                 <li style={{ marginTop: 4 }}>{tx.setupStep2}</li>
               </ol>

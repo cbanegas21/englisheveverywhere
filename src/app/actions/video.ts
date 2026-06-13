@@ -363,7 +363,7 @@ export async function completeSession(
   const { data: booking } = await supabase
     .from('bookings')
     .select(`
-      id, status, duration_minutes,
+      id, status, scheduled_at, duration_minutes,
       teacher:teachers(id, profile_id, hourly_rate, total_sessions),
       student:students(id, profile_id)
     `)
@@ -383,6 +383,20 @@ export async function completeSession(
   // stay 'pending'); an already-completed booking is idempotent via justCompleted.
   if (booking.status === 'cancelled') {
     return { error: 'This session was cancelled.' }
+  }
+
+  // Integrity gate: a class cannot be "completed" before it has actually started.
+  // Without this, a teacher could open ANY upcoming booking, click "End class",
+  // and mint themselves a payout + a session-count bump for a class that never
+  // happened (the only prior gates were auth + not-cancelled). Block completing a
+  // booking whose scheduled start is still in the future.
+  const scheduledMs = new Date((booking as { scheduled_at: string }).scheduled_at).getTime()
+  if (!Number.isNaN(scheduledMs) && Date.now() < scheduledMs) {
+    return {
+      error: lang === 'es'
+        ? 'No puedes finalizar una clase que aún no ha comenzado.'
+        : "You can't end a class that hasn't started yet.",
+    }
   }
 
   const adminClient = createAdminClient()
