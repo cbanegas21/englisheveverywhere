@@ -129,14 +129,23 @@ export function RoomShell({
       if (evt.type === 'ended') void leave()
     } catch { /* ignore malformed */ }
   })
+  // Surfaced when the teacher's End-class is REFUSED (e.g. the class hasn't
+  // started yet) — completeSession returns an error, the room is NOT torn down,
+  // and the teacher sees the reason instead of a misleading "ended" screen.
+  const [endError, setEndError] = useState<string | null>(null)
   const handleLeave = useCallback(async () => {
-    if (isTeacher) {
+    setEndError(null)
+    // Tell the student to leave ONLY on the success path (passed into leave so it
+    // fires after completion succeeds, before disconnect) — a refused end must not
+    // kick the student out of a class that's still going.
+    const broadcastEnded = async () => {
       const payload = new TextEncoder().encode(JSON.stringify({ type: 'ended' }))
       try {
         await sendSessionControl(payload, { topic: 'session-control', reliable: true })
       } catch { /* best-effort — don't block the teacher's own leave */ }
     }
-    await leave()
+    const res = await leave(isTeacher ? broadcastEnded : undefined)
+    if (res && !res.ok) setEndError(res.error)
   }, [isTeacher, leave, sendSessionControl])
 
   const cameraTracks = useTracks(
@@ -311,6 +320,26 @@ export function RoomShell({
 
   return (
     <div className="flex flex-col h-full">
+      {endError && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 100, maxWidth: 'min(92vw, 480px)', display: 'flex', alignItems: 'center', gap: 12,
+            background: '#7f1d1d', color: '#fff', padding: '12px 16px', borderRadius: 10,
+            fontSize: 13, lineHeight: 1.45, boxShadow: '0 12px 34px rgba(0,0,0,0.45)',
+          }}
+        >
+          <span style={{ flex: 1 }}>{endError}</span>
+          <button
+            onClick={() => setEndError(null)}
+            aria-label="OK"
+            style={{ background: 'transparent', border: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <TopBar
         lang={lang}
         otherName={otherName}

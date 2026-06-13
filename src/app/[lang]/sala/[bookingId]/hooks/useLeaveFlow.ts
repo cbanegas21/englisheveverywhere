@@ -30,32 +30,49 @@ export function useLeaveFlow({
   const transcriptRef = useRef(getTranscript)
   transcriptRef.current = getTranscript
 
-  const leave = useCallback(async () => {
-    if (leavingRef.current) return
+  // Teacher leave can be REFUSED by completeSession (e.g. the class hasn't
+  // started). On refusal we must NOT disconnect, broadcast "ended", or show the
+  // EndedScreen — the teacher stays in the room and sees the reason. So the
+  // teacher path completes FIRST, and only on success does it tell the student
+  // (onBeforeDisconnect), disconnect, and finish. Returns the outcome so the
+  // caller can surface a refusal.
+  const leave = useCallback(async (
+    onBeforeDisconnect?: () => Promise<void>,
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    if (leavingRef.current) return { ok: true }
     leavingRef.current = true
     setIsLeaving(true)
 
-    // Snapshot the transcript BEFORE disconnecting — after disconnect the
-    // room tears down and we lose any buffered peer captions that arrived
-    // right before the leave click.
-    const transcriptSnapshot = isTeacher && transcriptRef.current
-      ? transcriptRef.current()
-      : ''
-
-    // Disconnect first so the peer sees us leave immediately.
-    await room.disconnect()
-
     if (isTeacher) {
+      // Snapshot the transcript BEFORE anything tears down — after disconnect the
+      // room loses buffered peer captions that arrived right before the click.
+      const transcriptSnapshot = transcriptRef.current ? transcriptRef.current() : ''
+
+      const result = await completeSession(bookingId, sessionId, lang)
+      if ('error' in result) {
+        // Refused — undo the "leaving" state and stay put. Nothing was torn down,
+        // the student was not told, no payout was minted.
+        leavingRef.current = false
+        setIsLeaving(false)
+        return { ok: false, error: result.error }
+      }
+
       if (transcriptSnapshot.trim()) {
         await saveSessionTranscript(sessionId, transcriptSnapshot).catch(() => {
           /* non-blocking — transcript is nice-to-have, not required to end */
         })
       }
-      const result = await completeSession(bookingId, sessionId, lang)
-      onComplete('summary' in result ? result.summary : undefined)
-    } else {
-      onComplete()
+      // Tell the student to leave, then disconnect, then transition to Ended.
+      if (onBeforeDisconnect) await onBeforeDisconnect().catch(() => {})
+      await room.disconnect()
+      onComplete(result.summary)
+      return { ok: true }
     }
+
+    // Student (or data-channel-triggered) leave: just disconnect + show Ended.
+    await room.disconnect()
+    onComplete()
+    return { ok: true }
   }, [room, isTeacher, bookingId, sessionId, lang, onComplete])
 
   return { isLeaving, leave }
