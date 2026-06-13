@@ -92,6 +92,12 @@ export async function POST(req: NextRequest) {
   // in a var so it can be released alongside the event claim if processing fails.
   let refundGuardId: string | null = null
 
+  // Wrap the handler so a malformed-but-signed payload (e.g. a null/string
+  // data.object) can't throw past the ledger claim — an uncaught throw would 500
+  // with the event already marked processed, so Stripe's retry hits the duplicate
+  // branch and the event is permanently swallowed. On any throw we set
+  // processingError, which releases the claim below and 500s for a clean retry.
+  try {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data as { object: Record<string, unknown> }
@@ -186,6 +192,14 @@ export async function POST(req: NextRequest) {
             console.error('[stripe webhook] purchase record insert failed:', purchaseErr.message)
           }
         }
+      } else {
+        // A paid checkout with no app metadata (e.g. a Stripe Payment Link or a
+        // dashboard-created charge) can't be credited — log it for reconciliation
+        // instead of silently dropping it (the unknown-plan / amount-mismatch
+        // branches already log; this closes the no-metadata observability gap).
+        console.error('[stripe webhook] checkout.session.completed missing user_id/plan_key metadata — no credit applied', {
+          eventId: event.id, hasUserId: !!userId, hasPlanKey: !!planKey,
+        })
       }
       break
     }
@@ -224,7 +238,7 @@ export async function POST(req: NextRequest) {
         if (userId && planKey && CLASS_COUNTS[planKey]) {
           const { data: student, error: lookupErr } = await supabase
             .from('students')
-            .select('id, classes_remaining')
+            .select('id')
             .eq('profile_id', userId)
             .maybeSingle()
 
@@ -234,19 +248,17 @@ export async function POST(req: NextRequest) {
           }
 
           if (student) {
-            const newCount = Math.max(0, (student.classes_remaining || 0) - CLASS_COUNTS[planKey])
-            // Clear current_plan when the refund zeroes the balance — otherwise the
-            // student is stuck showing a "current plan" with 0 classes and the
-            // re-buy button for that plan stays disabled.
-            const update: { classes_remaining: number; current_plan?: null } = { classes_remaining: newCount }
-            if (newCount === 0) update.current_plan = null
-            const { error: updateErr } = await supabase
-              .from('students')
-              .update(update)
-              .eq('id', student.id)
-
-            if (updateErr) {
-              processingError = `refund credit decrement failed: ${updateErr.message}`
+            // Atomic, floored decrement (+ clears current_plan at 0) in ONE
+            // statement. The previous read-then-Math.max-write lost concurrent
+            // booking/refund/grant updates between the read and the write
+            // (AG-MONEY-09). decrement_classes_by is SECURITY DEFINER and
+            // service_role-only (migration 043) — never browser-callable.
+            const { error: decErr } = await supabase.rpc('decrement_classes_by', {
+              p_student_id: student.id,
+              p_count: CLASS_COUNTS[planKey],
+            })
+            if (decErr) {
+              processingError = `refund credit decrement failed: ${decErr.message}`
             }
           }
         }
@@ -264,6 +276,10 @@ export async function POST(req: NextRequest) {
 
     default:
       break
+  }
+  } catch (err: unknown) {
+    processingError = `unhandled error processing ${event.type}: ${err instanceof Error ? err.message : 'unknown'}`
+    console.error('[stripe webhook] handler threw', { eventId: event.id, eventType: event.type, err })
   }
 
   // Release the ledger claim on failure so Stripe's retry can re-process.

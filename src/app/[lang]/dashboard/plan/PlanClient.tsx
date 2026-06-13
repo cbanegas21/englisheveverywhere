@@ -7,13 +7,21 @@ import { motion } from 'framer-motion'
 import { CreditCard, ChevronDown } from 'lucide-react'
 import { createCheckoutSession } from '@/app/actions/stripe'
 import { savePreferredCurrency } from '@/app/actions/profile'
-import { PRICING_PLANS } from '@/lib/pricing'
+import { PRICING_PLANS, planName } from '@/lib/pricing'
 import { useCurrency } from '@/lib/useCurrency'
 import CurrencySelect from '@/components/CurrencySelect'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import Modal from '@/components/dashboard/Modal'
+
+export interface Purchase {
+  id: string
+  plan_key: string
+  amount_usd: number
+  classes_added: number
+  created_at: string
+}
 
 interface Props {
   lang: Locale
@@ -23,6 +31,7 @@ interface Props {
   classesRemaining: number
   intakeDone: boolean
   initialCurrency?: string
+  purchases: Purchase[]
 }
 
 const T = {
@@ -182,6 +191,7 @@ export default function PlanClient({
   classesRemaining,
   intakeDone,
   initialCurrency,
+  purchases,
 }: Props) {
   const tx = T[lang]
   const accent = 'var(--ek-red)'
@@ -854,9 +864,46 @@ export default function PlanClient({
                 {tx.billingTitle}
               </h4>
             </header>
-            <div style={{ padding: '40px 22px', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.billingEmpty}</p>
-            </div>
+            {purchases.length === 0 ? (
+              <div style={{ padding: '40px 22px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.billingEmpty}</p>
+              </div>
+            ) : (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {purchases.map((p) => (
+                  <li
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '14px 22px',
+                      borderBottom: '1px solid var(--ek-border-soft)',
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-text)' }}>
+                        {planName(p.plan_key, lang)} · {p.classes_added} {lang === 'es' ? 'clases' : 'classes'}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--ek-text-muted)', marginTop: 2 }}>
+                        {new Date(p.created_at).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
+                          year: 'numeric', month: 'short', day: 'numeric', timeZone: 'America/Tegucigalpa',
+                        })}
+                        {' · '}
+                        {new Intl.NumberFormat(lang === 'es' ? 'es-HN' : 'en-US', { style: 'currency', currency: 'USD' }).format(Number(p.amount_usd) || 0)}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/${lang}/dashboard/recibo/${p.id}`}
+                      style={{ fontSize: 12, fontWeight: 700, color: 'var(--ek-red)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    >
+                      {lang === 'es' ? 'Recibo →' : 'Receipt →'}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <aside

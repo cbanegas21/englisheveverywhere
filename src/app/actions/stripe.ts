@@ -39,6 +39,24 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
   const plan = PLANS[planKey as keyof typeof PLANS]
   if (!plan) return { error: safeLang === 'es' ? 'Plan inválido.' : 'Invalid plan.' }
 
+  // Only a fully-onboarded student (a students row) may buy. Otherwise the
+  // webhook can't find the row to credit, the customer is charged with no
+  // classes and no auto-refund, and the event 500-retries for days
+  // (NONSTUDENT-CHARGE). Teachers/admins are redirected away from the plan page
+  // by the dashboard layout, but the action must enforce it independently.
+  const { data: student } = await supabase
+    .from('students')
+    .select('id')
+    .eq('profile_id', user.id)
+    .maybeSingle()
+  if (!student) {
+    return {
+      error: safeLang === 'es'
+        ? 'Completa tu registro antes de comprar un plan.'
+        : 'Finish setting up your account before buying a plan.',
+    }
+  }
+
   const stripe = getStripe()
   if (!stripe) {
     // Dev mode — just return a fake URL

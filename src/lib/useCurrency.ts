@@ -74,6 +74,12 @@ export function useCurrency(opts: UseCurrencyOptions = {}) {
   const convert = useCallback((usdAmount: number): string => {
     if (currency === 'USD') return formatAmount(usdAmount, 'USD')
     const rate = getCachedRate('USD', currency)
+    // getCachedRate returns 1 as a sentinel when no rate is cached (FX API down /
+    // not yet warmed). A real USD->non-USD rate is never exactly 1, so treat 1 as
+    // "unavailable" and show the honest USD price rather than the local symbol at
+    // 1:1 — which understates ~25x (e.g. "L129" instead of ~"L3,200") and reads as
+    // a real (far cheaper) local price (FX-UNDERSTATEMENT-APIDOWN).
+    if (rate === 1) return formatAmount(usdAmount, 'USD')
     return formatAmount(usdAmount * rate, currency)
   }, [currency])
 
