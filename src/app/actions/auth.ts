@@ -59,14 +59,16 @@ export async function signUp(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const confirmPassword = (formData.get('confirm_password') as string) || ''
-  const firstName = ((formData.get('first_name') as string) || '').trim()
-  const lastName = ((formData.get('last_name') as string) || '').trim()
+  // Sanitize names at the SOURCE — first/last are persisted to user_metadata +
+  // profiles, shown to admins, and interpolated into emails. Strip CR/LF
+  // (header-injection) and angle brackets (markup/XSS), collapse whitespace, and
+  // cap length (mirrors updateStudentProfile). Defense-in-depth for every
+  // downstream consumer (the composed full_name AND the raw first/last fields).
+  const sanitizeName = (s: string) => s.replace(/[\r\n<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)
+  const firstName = sanitizeName((formData.get('first_name') as string) || '')
+  const lastName = sanitizeName((formData.get('last_name') as string) || '')
   const phone = ((formData.get('phone') as string) || '').trim()
   // Compose the stored display name; fall back to a legacy full_name field.
-  // Sanitize at the source — it's persisted to profiles, shown to admins, and
-  // interpolated into email subjects/bodies: strip CR/LF (header-injection) and
-  // angle brackets (markup/XSS), collapse whitespace, and cap length (mirrors
-  // updateStudentProfile). Defense-in-depth for every downstream email helper.
   const fullName = ([firstName, lastName].filter(Boolean).join(' ') || ((formData.get('full_name') as string) || ''))
     .replace(/[\r\n<>]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -137,8 +139,7 @@ export async function signUp(formData: FormData) {
 
   // Instant-login: email confirmation is OFF (mailer_autoconfirm), so signUp
   // returns a session and the user is already logged in. Persist the role for the
-  // proxy fast-path, fire a welcome email (awaited so the redirect can't drop it,
-  // but it never blocks the user), then head into onboarding.
+  // proxy fast-path, fire a welcome email (students only), then head to onboarding.
   if (data.session) {
     if (role === 'student' || role === 'teacher') {
       const cookieStore = await cookies()
@@ -157,9 +158,14 @@ export async function signUp(formData: FormData) {
       const { error: patchErr } = await supabase.from('profiles').update(profilePatch).eq('id', data.user.id)
       if (patchErr) console.error('[signUp] could not save profile fields (non-blocking):', patchErr.message)
     }
-    await sendWelcomeEmail(email, fullName, lang).catch((err) =>
-      console.error('[signUp] welcome email failed (non-blocking):', err)
-    )
+    // Welcome email is student-oriented ("book your first class"). Teachers get
+    // their "application received" email after onboarding, so don't greet them
+    // with the student copy here.
+    if (role === 'student') {
+      await sendWelcomeEmail(email, fullName, lang).catch((err) =>
+        console.error('[signUp] welcome email failed (non-blocking):', err)
+      )
+    }
     redirect(`/${lang}/onboarding`)
   }
 
