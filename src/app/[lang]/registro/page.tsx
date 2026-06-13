@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, use, useEffect, useState, useTransition } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Check, MailCheck, GraduationCap, BookOpen } from 'lucide-react'
 import { signUp } from '@/app/actions/auth'
@@ -52,10 +52,6 @@ const t = {
     successSub: 'Check your inbox or spam folder for your confirmation link. Click it to activate your account.',
     backToLogin: 'Go to login',
     errorDefault: 'Something went wrong. Please try again.',
-    or: 'or sign up with',
-    continueGoogle: 'Sign up with Google',
-    continueMicrosoft: 'Sign up with Microsoft',
-    oauthNote: 'Google and Microsoft sign-ups are registered as students.',
   },
   es: {
     stepRole: 'Regístrate como…',
@@ -95,10 +91,6 @@ const t = {
     successSub: 'Revisa tu bandeja de entrada o carpeta de spam. Haz clic en el enlace para activar tu cuenta.',
     backToLogin: 'Ir a iniciar sesión',
     errorDefault: 'Algo salió mal. Intenta de nuevo.',
-    or: 'o regístrate con',
-    continueGoogle: 'Registrarse con Google',
-    continueMicrosoft: 'Registrarse con Microsoft',
-    oauthNote: 'Las cuentas de Google y Microsoft se registran como estudiantes.',
   },
 }
 
@@ -155,10 +147,9 @@ function RegistroContent({ lang }: { lang: Locale }) {
   const [showPassword, setShowPassword] = useState(false)
   const [phone, setPhone] = useState('')
   const [isPending, startTransition] = useTransition()
-  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
-  const [oauthError, setOauthError] = useState('')
   const [clientError, setClientError] = useState('')
   const [timezone] = useState(detectTimezone)
+  const router = useRouter()
   const searchParams = useSearchParams()
   const errorMsg = searchParams.get('error')
   const successParam = searchParams.get('success')
@@ -175,6 +166,31 @@ function RegistroContent({ lang }: { lang: Locale }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [successParam, errorMsg])
+
+  // Send an already-authenticated visitor to their role home instead of showing
+  // the signup form again (mirrors the login page's LIVE-003 guard). A logged-out
+  // user gets null and sees the form normally. replace() so Back doesn't bounce
+  // them here. Skip while landing on the success screen (?success=confirm).
+  useEffect(() => {
+    if (successParam === 'confirm') return
+    let active = true
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!active || !user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+      const role = profile?.role
+      const home =
+        role === 'teacher' ? `/${lang}/maestro/dashboard`
+        : role === 'admin' ? `/${lang}/admin`
+        : `/${lang}/dashboard`
+      if (active) router.replace(home)
+    })
+    return () => { active = false }
+  }, [lang, router, successParam])
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -193,23 +209,6 @@ function RegistroContent({ lang }: { lang: Locale }) {
     fd.set('role', role)
     fd.set('timezone', timezone)
     startTransition(() => signUp(fd))
-  }
-
-  async function handleOAuth(provider: 'google' | 'azure') {
-    setOauthError('')
-    setOauthLoading(provider)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/${lang}/auth/callback`,
-        ...(provider === 'azure' && { scopes: 'email' }),
-      },
-    })
-    if (error) {
-      setOauthError(error.message)
-      setOauthLoading(null)
-    }
   }
 
   /* STEP 1 — Role selection */

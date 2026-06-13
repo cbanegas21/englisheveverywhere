@@ -27,9 +27,6 @@ const t = {
     errorCallback: "We couldn't complete sign-in. The link may have expired — please try logging in again.",
     successReset: 'Check your inbox for a recovery email.',
     timeoutNotice: 'You were signed out due to inactivity. Please log in again.',
-    or: 'or continue with',
-    continueGoogle: 'Continue with Google',
-    continueMicrosoft: 'Continue with Microsoft',
     adminPrompt: 'Are you an admin? ',
     adminLink: 'Login here',
   },
@@ -49,9 +46,6 @@ const t = {
     errorCallback: 'No pudimos completar el inicio de sesión. El enlace puede haber expirado — inténtalo de nuevo.',
     successReset: 'Revisa tu bandeja de entrada para recuperar tu contraseña.',
     timeoutNotice: 'Tu sesión se cerró por inactividad. Inicia sesión de nuevo.',
-    or: 'o continúa con',
-    continueGoogle: 'Continuar con Google',
-    continueMicrosoft: 'Continuar con Microsoft',
     adminPrompt: '¿Eres administrador? ',
     adminLink: 'Accede aquí',
   },
@@ -77,8 +71,6 @@ const onBlurRing = (e: React.FocusEvent<HTMLInputElement>) => {
 function LoginForm({ lang }: { lang: Locale }) {
   const [showPassword, setShowPassword] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
-  const [oauthError, setOauthError] = useState('')
   const searchParams = useSearchParams()
   const router = useRouter()
   const tx: Tx = t[lang]
@@ -118,26 +110,6 @@ function LoginForm({ lang }: { lang: Locale }) {
     const next = searchParams.get('next')
     if (next) fd.set('next', next)
     startTransition(() => signIn(fd))
-  }
-
-  async function handleOAuth(provider: 'google' | 'azure') {
-    setOauthError('')
-    setOauthLoading(provider)
-    const supabase = createClient()
-    const next = searchParams.get('next')
-    const callback = `${window.location.origin}/${lang}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: callback,
-        ...(provider === 'azure' && { scopes: 'email' }),
-      },
-    })
-    if (error) {
-      setOauthError(error.message)
-      setOauthLoading(null)
-    }
-    // On success the browser follows the OAuth redirect automatically
   }
 
   return (
