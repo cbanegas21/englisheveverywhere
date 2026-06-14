@@ -745,18 +745,25 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
     }
   }
 
-  // Cross-check the session row — if the teacher's track was published,
-  // started_at would be set and a no-show claim is invalid.
+  // A "teacher no-show" means the STUDENT showed up but the teacher never did.
+  // Require proof the student actually joined the room (sessions.student_joined_at,
+  // migration 045) before refunding. Without this, a student who no-showed THEIR
+  // OWN class could self-refund after the window — an infinite-class exploit (book,
+  // both parties skip, wait it out, claim "teacher no-show", get a credit back).
+  // No attendance record for the student → no refund.
+  // (The old gate keyed off sessions.started_at — which getRoomAccess sets the
+  // instant ANYONE opens the room — so it actually refunded the no-attendance case
+  // and BLOCKED a real teacher-no-show where the student had joined. Inverted.)
   const { data: session } = await admin
     .from('sessions')
-    .select('started_at')
+    .select('student_joined_at')
     .eq('booking_id', bookingId)
     .maybeSingle()
-  if (session?.started_at) {
+  if (!session?.student_joined_at) {
     return {
       error: lang === 'es'
-        ? 'Esta clase parece haberse iniciado. Si hay un problema, contáctanos.'
-        : 'This class appears to have started. If there is an issue, please contact support.',
+        ? 'No tenemos registro de que te hayas unido a esta clase, así que no podemos reportar una ausencia del maestro. Si hubo un problema, contáctanos.'
+        : "We have no record that you joined this class, so we can't report a teacher no-show. If something went wrong, please contact support.",
     }
   }
 

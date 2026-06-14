@@ -152,6 +152,7 @@ interface Props {
   placementTestDone: boolean
   placementBooking: PlacementBooking | null
   completedTotal: number
+  totalHours: number
   completedThisMonth: number
   upcomingClasses: number
   recentBookings: {
@@ -183,10 +184,17 @@ function monthShort(iso: string, lang: Locale): string {
     .replace(/\./g, '')
 }
 
+// Day-of-month pinned to the business zone — `new Date().getDate()` uses the host
+// tz, so server (UTC) vs browser could emit a different digit at hydration (#418)
+// and the numeral could disagree with the tz-pinned month/weekday beside it.
+function dayNum(iso: string, lang: Locale): string {
+  return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', { timeZone: 'America/Tegucigalpa', day: 'numeric' })
+}
+
 export default function ProgresoClient({
   lang, level, classesRemaining, currentPlan, surveyAnswers,
   placementTestDone, placementBooking,
-  completedTotal, completedThisMonth, upcomingClasses, recentBookings,
+  completedTotal, totalHours, completedThisMonth, upcomingClasses, recentBookings,
 }: Props) {
   const tx = t[lang]
   const accent = 'var(--ek-red)'
@@ -468,7 +476,7 @@ export default function ProgresoClient({
           <StatLedger
             items={[
               { kicker: tx.stats.completed, value: completedTotal, sub: tx.stats.completedSub },
-              { kicker: tx.stats.hours, value: `${completedTotal}h`, sub: tx.stats.hoursSub },
+              { kicker: tx.stats.hours, value: `${totalHours}h`, sub: tx.stats.hoursSub },
               { kicker: tx.stats.remaining, value: classesRemaining, sub: tx.stats.remainingSub, href: `/${lang}/dashboard/plan`, accent: true },
               { kicker: tx.stats.upcoming, value: upcomingClasses, sub: tx.stats.upcomingSub, href: `/${lang}/dashboard/clases` },
             ]}
@@ -563,7 +571,7 @@ export default function ProgresoClient({
                             fontFeatureSettings: '"tnum"',
                           }}
                         >
-                          {new Date(booking.scheduled_at).getDate()}
+                          {dayNum(booking.scheduled_at, lang)}
                         </div>
                       </div>
                       <div>

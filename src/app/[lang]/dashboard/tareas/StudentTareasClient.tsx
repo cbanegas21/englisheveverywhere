@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { submitAssignment } from '@/app/actions/assignments'
@@ -128,11 +128,15 @@ function getStatusVariant(a: Assignment): 'confirmed' | 'pending' | 'completed' 
   return 'pending'
 }
 
-function getStatusLabel(a: Assignment, tx: typeof t['en']): string {
+// `now` is seeded null on the server + first client render, so the time-dependent
+// "Overdue" vs "Open" label is identical at hydration (no React #418); it resolves
+// to the real comparison only after mount. (The color variant is unaffected —
+// getStatusVariant returns 'pending' either way.)
+function getStatusLabel(a: Assignment, tx: typeof t['en'], now: number | null): string {
   if (a.status === 'cancelled') return tx.cancelled
   if (a.submission?.graded_at) return tx.graded
   if (a.submission) return tx.submitted
-  if (a.due_at && new Date(a.due_at).getTime() < Date.now()) return tx.overdue
+  if (a.due_at && now !== null && new Date(a.due_at).getTime() < now) return tx.overdue
   return tx.open
 }
 
@@ -140,6 +144,9 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
   const tx = t[lang]
   const accent = 'var(--ek-red)'
   const [detail, setDetail] = useState<Assignment | null>(null)
+  // Seeded post-mount so the overdue label is hydration-stable (#418).
+  const [now, setNow] = useState<number | null>(null)
+  useEffect(() => { setNow(Date.now()) }, [])
 
   const pending = assignments.filter((a) => !a.submission && a.status !== 'cancelled')
   // "Completed" = anything the student actually submitted. A cancelled assignment
@@ -325,7 +332,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
             </div>
             <div style={{ display: 'grid', gap: 12 }}>
               {pending.map((a) => (
-                <TaskCard key={a.id} a={a} tx={tx} lang={lang} onOpen={() => setDetail(a)} />
+                <TaskCard key={a.id} a={a} tx={tx} lang={lang} now={now} onOpen={() => setDetail(a)} />
               ))}
             </div>
           </section>
@@ -348,7 +355,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
             </div>
             <div style={{ display: 'grid', gap: 12 }}>
               {completed.map((a) => (
-                <TaskCard key={a.id} a={a} tx={tx} lang={lang} onOpen={() => setDetail(a)} />
+                <TaskCard key={a.id} a={a} tx={tx} lang={lang} now={now} onOpen={() => setDetail(a)} />
               ))}
             </div>
           </section>
@@ -357,7 +364,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
 
       <AnimatePresence>
         {detail && (
-          <DetailPanel lang={lang} assignment={detail} onClose={() => setDetail(null)} />
+          <DetailPanel lang={lang} assignment={detail} now={now} onClose={() => setDetail(null)} />
         )}
       </AnimatePresence>
     </div>
@@ -368,15 +375,17 @@ function TaskCard({
   a,
   tx,
   lang,
+  now,
   onOpen,
 }: {
   a: Assignment
   tx: typeof t['en']
   lang: Locale
+  now: number | null
   onOpen: () => void
 }) {
   const variant = getStatusVariant(a)
-  const label = getStatusLabel(a, tx)
+  const label = getStatusLabel(a, tx, now)
   const hasSubmission = !!a.submission
 
   return (
@@ -443,10 +452,12 @@ function TaskCard({
 function DetailPanel({
   lang,
   assignment,
+  now,
   onClose,
 }: {
   lang: Locale
   assignment: Assignment
+  now: number | null
   onClose: () => void
 }) {
   const tx = t[lang]
@@ -454,7 +465,7 @@ function DetailPanel({
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
   const variant = getStatusVariant(assignment)
-  const label = getStatusLabel(assignment, tx)
+  const label = getStatusLabel(assignment, tx, now)
   const isGraded = !!assignment.submission?.graded_at
   const isCancelled = assignment.status === 'cancelled'
   const canEdit = !isGraded && !isCancelled

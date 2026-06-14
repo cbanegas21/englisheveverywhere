@@ -31,6 +31,7 @@ export default async function ProgresoPage({ params }: Props) {
         placementTestDone={false}
         placementBooking={null}
         completedTotal={0}
+        totalHours={0}
         completedThisMonth={0}
         upcomingClasses={0}
         recentBookings={[]}
@@ -57,6 +58,7 @@ export default async function ProgresoPage({ params }: Props) {
     { count: completedThisMonth },
     { count: upcomingClasses },
     { data: recentBookings },
+    { data: completedDurations },
   ] = await Promise.all([
     supabase
       .from('bookings')
@@ -89,7 +91,22 @@ export default async function ProgresoPage({ params }: Props) {
       .eq('status', 'completed')
       .order('scheduled_at', { ascending: false })
       .limit(8),
+
+    // Real total live-class hours = SUM(duration_minutes) over ALL completed
+    // classes — not the class COUNT with an 'h' suffix (which was wrong for any
+    // non-60-min class and duplicated the Classes tile). PROG-HOURS-DATA-01.
+    supabase
+      .from('bookings')
+      .select('duration_minutes')
+      .eq('student_id', studentId)
+      .eq('type', 'class')
+      .eq('status', 'completed'),
   ])
+
+  const totalMinutes = ((completedDurations as { duration_minutes: number | null }[] | null) || [])
+    .reduce((sum, r) => sum + (r.duration_minutes || 60), 0)
+  // One decimal so a 90-min class reads 4.5h, but a whole number stays clean (4h).
+  const totalHours = Math.round((totalMinutes / 60) * 10) / 10
 
   return (
     <ProgresoClient
@@ -101,6 +118,7 @@ export default async function ProgresoPage({ params }: Props) {
       placementTestDone={student.placement_test_done ?? false}
       placementBooking={(placementBooking as { id: string; scheduled_at: string; status: string } | null) || null}
       completedTotal={completedTotal || 0}
+      totalHours={totalHours}
       completedThisMonth={completedThisMonth || 0}
       upcomingClasses={upcomingClasses || 0}
       recentBookings={(recentBookings || []) as {

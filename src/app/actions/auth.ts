@@ -213,9 +213,20 @@ export async function signIn(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, deleted_at')
     .eq('id', user?.id || '')
     .maybeSingle()
+
+  // Soft-deleted accounts (deleteMyAccount) must never sign in. This is the
+  // DURABLE second line of defense: previously the only login block was the auth
+  // email/password rotate, so if that single API call ever failed the account was
+  // left PII-scrubbed but fully log-in-able (DEL-ROTATE-FAIL). deleted_at is set
+  // atomically with the scrub and is the authoritative marker.
+  if (profile?.deleted_at) {
+    await supabase.auth.signOut()
+    redirect(`/${lang}/login?error=${encodeURIComponent(lang === 'es' ? 'Esta cuenta ya no está disponible.' : 'This account is no longer available.')}`)
+  }
+
   const role = profile?.role || user?.user_metadata?.role
 
   const cookieStore = await cookies()

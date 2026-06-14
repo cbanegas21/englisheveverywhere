@@ -168,13 +168,6 @@ export async function requestEmailChange(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Not authenticated' }
 
-  // Strict per-user throttle (DASH-07) — each call triggers a Supabase
-  // confirmation email; cap to protect the email quota from abuse.
-  const rl = await checkUserActionLimit(user.id, 'requestEmailChange', 3, 60)
-  if (!rl.ok) {
-    return { success: false, error: lang === 'es' ? 'Demasiados intentos. Espera un momento.' : 'Too many attempts. Please wait a moment.' }
-  }
-
   const clean = newEmail.trim().toLowerCase()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
     return {
@@ -189,6 +182,15 @@ export async function requestEmailChange(
         ? 'Ese ya es tu email actual.'
         : 'That is already your current email.',
     }
+  }
+
+  // Strict per-user throttle (DASH-07) — each REAL change attempt triggers a
+  // Supabase confirmation email; cap to protect the quota. Checked AFTER the
+  // format + same-email validation so three typos / no-op submissions (which never
+  // send an email) don't lock a legit change out for 60 min (EMAIL-RL-BEFORE-VAL).
+  const rl = await checkUserActionLimit(user.id, 'requestEmailChange', 3, 60)
+  if (!rl.ok) {
+    return { success: false, error: lang === 'es' ? 'Demasiados intentos. Espera un momento.' : 'Too many attempts. Please wait a moment.' }
   }
 
   // Uses the SSR client so the confirmation email is routed through the
@@ -281,7 +283,12 @@ export async function deleteMyAccount(
 
   const toCancel = [...studentBookings, ...teacherBookings]
   for (const b of toCancel) {
-    await admin
+    // Status-gated cancel + row-count guard (mirrors studentCancelBooking): the
+    // credit refund fires ONLY when THIS call actually flipped a live booking.
+    // Without it the unconditional UPDATE + unconditional increment_classes could
+    // DOUBLE-MINT a credit if a concurrent studentCancelBooking (or a second
+    // delete) cancelled the same booking in the race window (DEL-CONCURRENT-06).
+    const { data: flipped } = await admin
       .from('bookings')
       .update({
         status: 'cancelled',
@@ -290,12 +297,16 @@ export async function deleteMyAccount(
         cancelled_at: nowIso,
       })
       .eq('id', b.id)
+      .in('status', ['pending', 'confirmed'])
+      .select('id')
+    const didFlip = !!(flipped && flipped.length > 0)
 
-    // Restore the student's credit — CLASS bookings only. A placement_test is a
-    // free call: minting a credit on it is wrong, and on the teacher-side path the
-    // student is a THIRD PARTY whose account persists, so the mint would stick
-    // (PL-CREDIT-DELETE-01). Mirrors every other cancel path's type guard.
-    if (b.type === 'class') {
+    // Restore the student's credit — CLASS bookings only, and only on the call
+    // that flipped the row. A placement_test is a free call: minting a credit on
+    // it is wrong, and on the teacher-side path the student is a THIRD PARTY whose
+    // account persists, so the mint would stick (PL-CREDIT-DELETE-01). Mirrors
+    // every other cancel path's type + status guard.
+    if (didFlip && b.type === 'class') {
       await admin.rpc('increment_classes', { p_student_id: b.student_id })
     }
 
