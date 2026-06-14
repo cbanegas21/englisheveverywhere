@@ -252,13 +252,14 @@ export async function assignAndConfirmBooking(
   // already confirmed, so a continuity-hint failure must not surface as an error.
   if (booking?.student_id) await lockInPrimaryTeacher(booking.student_id, teacherId).catch(() => {})
 
-  // Fire-and-forget student + teacher emails so both sides know the class is locked in.
-  sendAssignmentEmail(bookingId)
-
-  // Schedule the 24h + 1h reminder emails on Resend's native scheduled-delivery.
-  // Idempotent: cancels any existing scheduled emails for this booking first,
-  // so re-running the admin "assign" action (e.g. force-switching teachers)
-  // won't leave dangling scheduled sends.
+  // Fire-and-forget: send ONE branded confirmation (with the .ics calendar invite,
+  // in each recipient's own timezone + language, honoring their email prefs) AND
+  // schedule the T-24h/T-1h reminders -- all via scheduleBookingReminders, the single
+  // source of truth. (Previously this ALSO called sendAssignmentEmail here, which sent
+  // a SECOND near-duplicate confirmation in Honduras time with no .ics -- students and
+  // teachers received two confirmation emails per assignment. Consolidated to one.)
+  // Idempotent: cancels any existing scheduled emails for this booking first, so
+  // re-running "assign" (e.g. force-switching teachers) won't leave dangling sends.
   scheduleBookingReminders(bookingId).catch(() => {})
 
   revalidatePath('/', 'layout')
@@ -592,7 +593,7 @@ export async function adminRescheduleBooking(
   // confirmed" email + T-24h/T-1h class reminders). For a still-pending/teacherless
   // booking (a false "confirmed" email) or a non-class meeting (wrong copy), wipe
   // any stale scheduled sends instead, mirroring studentRescheduleBooking.
-  if (booking.status === 'confirmed' && booking.teacher_id && booking.type === 'class') {
+  if (booking.status === 'confirmed' && booking.teacher_id && (booking.type === 'class' || booking.type === 'placement_test')) {
     scheduleBookingReminders(bookingId).catch(() => {})
   } else {
     cancelBookingReminders(bookingId).catch(() => {})
@@ -953,6 +954,10 @@ export async function resetStudentPassword(email: string) {
           ? `Restablece tu contraseña — EnglishKolab\n\nToca el enlace para crear una nueva contraseña:\n${actionLink}\n\nSi no solicitaste esto, ignora este correo.`
           : `Reset your password — EnglishKolab\n\nTap the link to create a new password:\n${actionLink}\n\nIf you didn't request this, you can safely ignore this email.`,
       }),
+    }).catch((err) => {
+      // Fire-and-forget per the platform convention: a Resend hiccup must never
+      // fail the admin action (the recovery link was already generated above).
+      console.error('[resetStudentPassword] reset email send failed (non-blocking):', err)
     })
   }
   revalidatePath('/', 'layout')
@@ -1209,107 +1214,20 @@ export async function createAdminBooking(
   // a continuity-hint failure must not surface as an error to the admin.
   if (teacherId) await lockInPrimaryTeacher(studentId, teacherId).catch(() => {})
 
-  // Send email notifications (non-blocking)
-  sendBookingEmails({ studentId, teacherId, scheduledAt, type, bookingId: booking.id })
+  // Send the confirmation (+.ics) and schedule the T-24h/T-1h reminders for the
+  // student-facing booking types -- same single path as the self-serve assign flow.
+  // Internal coordination meetings (teacher_interview / admin_checkin) get no email
+  // (matching the prior behavior, where the notifier short-circuited those types).
+  // (Previously this called sendBookingEmails: a bare "session scheduled" note in
+  // Honduras time with NO calendar invite and NO reminders ever scheduled.)
+  if (type === 'class' || type === 'placement_test') {
+    scheduleBookingReminders(booking.id).catch(() => {})
+  }
 
   revalidatePath('/', 'layout')
   return { ok: true, bookingId: booking.id }
   } catch (e) {
     return toBookingError(e)
-  }
-}
-
-// ── Shared helpers for admin notification emails (E8) ─────────────────────────
-//
-// Supabase embeds a to-one relation as either an object or a single-element
-// array depending on the query, so normalize both. preferred_language drives the
-// per-recipient language so a student and teacher each get their own locale.
-
-type EmailProfile = { email: string | null; name: string | null; lang: 'es' | 'en' }
-
-function pickEmailProfile(raw: unknown): EmailProfile {
-  const obj = Array.isArray(raw) ? raw[0] : raw
-  if (!obj || typeof obj !== 'object') return { email: null, name: null, lang: 'es' }
-  const p = obj as { email?: string | null; full_name?: string | null; preferred_language?: string | null }
-  return {
-    email: p.email ?? null,
-    name: p.full_name ?? null,
-    lang: p.preferred_language === 'en' ? 'en' : 'es',
-  }
-}
-
-function formatSessionTime(scheduledAt: string, lang: 'es' | 'en'): string {
-  return new Date(scheduledAt).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Tegucigalpa',
-  })
-}
-
-function sendBookingEmails(params: {
-  studentId: string
-  teacherId: string | null
-  scheduledAt: string
-  type: string
-  bookingId: string
-}) {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey || apiKey === 're_placeholder') return
-
-  // Only the student-facing types (a real class or a placement assessment) should
-  // notify the student/teacher. Internal meetings (teacher_interview / admin_checkin)
-  // are admin-scheduled coordination — the generic "session scheduled" copy frames
-  // them wrong for the recipient, so suppress the notification entirely for those.
-  if (params.type !== 'class' && params.type !== 'placement_test') return
-
-  const admin = createAdminClient()
-  const headers: Record<string, string> = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
-
-  // Send one notification in the recipient's own language.
-  const send = (p: EmailProfile, role: 'student' | 'teacher') => {
-    if (!p.email) return
-    const formatted = formatSessionTime(params.scheduledAt, p.lang)
-    const hi = p.lang === 'es' ? 'Hola' : 'Hi'
-    const greeting = p.name ? `${hi} ${escapeHtml(p.name)}` : hi
-    const greetingText = p.name ? `${hi} ${p.name}` : hi
-    const subject = role === 'student'
-      ? (p.lang === 'es' ? 'Sesión agendada — EnglishKolab' : 'Session scheduled — EnglishKolab')
-      : (p.lang === 'es' ? 'Nueva sesión asignada — EnglishKolab' : 'New session assigned — EnglishKolab')
-    const line = p.lang === 'es'
-      ? `Tienes una sesión agendada para el <strong>${formatted}</strong> (hora de Honduras).`
-      : `You have a session scheduled for <strong>${formatted}</strong> (Honduras time).`
-    const lineText = p.lang === 'es'
-      ? `Tienes una sesión agendada para el ${formatted} (hora de Honduras).`
-      : `You have a session scheduled for ${formatted} (Honduras time).`
-    const heading = role === 'student'
-      ? (p.lang === 'es' ? 'Sesión agendada' : 'Session scheduled')
-      : (p.lang === 'es' ? 'Nueva sesión asignada' : 'New session assigned')
-    // Joinable types get a classroom link so the email isn't a dead-end (matches
-    // the self-served booking + assignment emails). Internal meetings don't.
-    const joinable = params.type === 'class' || params.type === 'placement_test'
-    const salaUrl = `${APP_URL}/${p.lang}/sala/${params.bookingId}`
-    const ctaLabel = p.lang === 'es' ? 'Entrar al aula' : 'Join the classroom'
-    void fetch('https://api.resend.com/emails', {
-      method: 'POST', headers,
-      body: JSON.stringify({
-        from: EMAIL_FROM, to: p.email,
-        subject,
-        html: brandedEmail({ heading, bodyHtml: `<p>${greeting},</p><p>${line}</p>`, lang: p.lang, ...(joinable ? { ctaLabel, ctaUrl: salaUrl } : {}) }),
-        text: `${greetingText},\n\n${lineText}${joinable ? `\n\n${ctaLabel}: ${salaUrl}` : ''}\n\n— EnglishKolab`,
-      }),
-    }).catch(() => {})
-  }
-
-  // Student
-  void Promise.resolve(
-    admin.from('students').select('profile:profiles(email, full_name, preferred_language)').eq('id', params.studentId).single()
-  ).then(({ data }) => send(pickEmailProfile(data?.profile), 'student')).catch(() => {})
-
-  // Teacher (if assigned)
-  if (params.teacherId) {
-    void Promise.resolve(
-      admin.from('teachers').select('profile:profiles(email, full_name, preferred_language)').eq('id', params.teacherId).single()
-    ).then(({ data }) => send(pickEmailProfile(data?.profile), 'teacher')).catch(() => {})
   }
 }
 
@@ -1574,133 +1492,13 @@ export async function bulkAssignTeacher(
   // the bookings are already confirmed, so a continuity-hint failure must not throw.
   for (const sid of studentIds) await lockInPrimaryTeacher(sid, teacherId).catch(() => {})
 
-  // Fan out assignment emails (fire-and-forget, same envelope for each student)
-  for (const id of bookingIds) sendAssignmentEmail(id)
+  // Fan out the confirmation + reminder scheduling per booking (fire-and-forget),
+  // same path as single-assign: ONE branded confirmation (+.ics, recipient tz/lang/
+  // prefs) plus the T-24h/T-1h reminders. (Previously bulk called sendAssignmentEmail,
+  // which sent a confirmation but NEVER scheduled reminders or attached the .ics -- so
+  // bulk-assigned students silently missed every reminder. Now consistent with single.)
+  for (const id of bookingIds) scheduleBookingReminders(id).catch(() => {})
 
   revalidatePath('/', 'layout')
 }
 
-// ── Assignment email helper ───────────────────────────────────────────────────
-//
-// Sent when admin assigns a teacher to a pending booking (via assign button or
-// drag-drop). The student already got a "booking received" email at creation
-// time in `src/app/actions/booking.ts`, but that one said "our team will assign
-// a teacher shortly" — this one closes the loop.
-
-function sendAssignmentEmail(bookingId: string) {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey || apiKey === 're_placeholder') return
-
-  const admin = createAdminClient()
-
-  void Promise.resolve(
-    admin
-      .from('bookings')
-      .select(`
-        scheduled_at, type,
-        student:students(profile:profiles(email, full_name, preferred_language)),
-        teacher:teachers(profile:profiles(email, full_name, preferred_language))
-      `)
-      .eq('id', bookingId)
-      .single()
-  ).then(({ data }) => {
-    if (!data) return
-
-    // Unwrap the students/teachers → profiles embed, then normalize to an
-    // EmailProfile (handles object-vs-array shape + per-recipient locale).
-    const unwrapProfile = (raw: unknown): unknown => {
-      const obj = Array.isArray(raw) ? raw[0] : raw
-      if (!obj || typeof obj !== 'object') return null
-      return (obj as { profile: unknown }).profile
-    }
-    const student = pickEmailProfile(unwrapProfile(data.student))
-    const teacher = pickEmailProfile(unwrapProfile(data.teacher))
-
-    const isPlacement = data.type === 'placement_test'
-    const studentFirst = student.name?.split(' ')[0] || ''
-    const teacherFirstRaw = teacher.name?.split(' ')[0] || null
-
-    // Student email — in the student's language.
-    if (student.email) {
-      const lang = student.lang
-      const formatted = formatSessionTime(data.scheduled_at, lang)
-      const salaUrl = `${APP_URL}/${lang}/sala/${bookingId}`
-      const teacherFirst = teacherFirstRaw || (lang === 'es' ? 'tu maestro' : 'your teacher')
-      const subject = lang === 'es'
-        ? (isPlacement ? 'Tu llamada de diagnóstico ha sido confirmada — EnglishKolab' : 'Tu clase ha sido confirmada — EnglishKolab')
-        : (isPlacement ? 'Your placement call is confirmed — EnglishKolab' : 'Your class is confirmed — EnglishKolab')
-      const lead = lang === 'es'
-        ? (isPlacement
-            ? `Tu llamada de diagnóstico con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`
-            : `Tu clase con <strong>${escapeHtml(teacherFirst)}</strong> está confirmada.`)
-        : (isPlacement
-            ? `Your placement call with <strong>${escapeHtml(teacherFirst)}</strong> is confirmed.`
-            : `Your class with <strong>${escapeHtml(teacherFirst)}</strong> is confirmed.`)
-      const leadText = lang === 'es'
-        ? (isPlacement ? `Tu llamada de diagnóstico con ${teacherFirst} está confirmada.` : `Tu clase con ${teacherFirst} está confirmada.`)
-        : (isPlacement ? `Your placement call with ${teacherFirst} is confirmed.` : `Your class with ${teacherFirst} is confirmed.`)
-      const html = brandedEmail({
-        heading: lang === 'es'
-          ? (isPlacement ? 'Tu llamada está confirmada' : 'Tu clase está confirmada')
-          : (isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'),
-        bodyHtml: lang === 'es'
-          ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(studentFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>`
-          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(studentFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
-        ctaLabel: lang === 'es' ? 'Unirse al aula' : 'Join the classroom',
-        ctaUrl: salaUrl,
-        footnote: lang === 'es' ? 'Puedes entrar al aula antes de que empiece tu clase.' : 'You can enter the classroom before your class starts.',
-        lang,
-      })
-      const text = lang === 'es'
-        ? `Hola ${studentFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nUnirse al aula:\n${salaUrl}\n\n— EnglishKolab`
-        : `Hi ${studentFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nJoin the classroom:\n${salaUrl}\n\n— EnglishKolab`
-      void fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: student.email, subject, html, text }),
-      }).catch(() => {})
-    }
-
-    // Teacher email — in the teacher's language.
-    if (teacher.email) {
-      const lang = teacher.lang
-      const formatted = formatSessionTime(data.scheduled_at, lang)
-      const salaUrl = `${APP_URL}/${lang}/sala/${bookingId}`
-      const teacherFirst = teacherFirstRaw || (lang === 'es' ? 'maestro' : 'teacher')
-      const studentLabel = student.name || (lang === 'es' ? 'un estudiante' : 'a student')
-      const subject = lang === 'es'
-        ? (isPlacement ? 'Nueva llamada de diagnóstico asignada — EnglishKolab' : 'Nueva clase asignada — EnglishKolab')
-        : (isPlacement ? 'New placement call assigned — EnglishKolab' : 'New class assigned — EnglishKolab')
-      const lead = lang === 'es'
-        ? (isPlacement
-            ? `Te asignamos una llamada de diagnóstico con <strong>${escapeHtml(studentLabel)}</strong>.`
-            : `Te asignamos una clase con <strong>${escapeHtml(studentLabel)}</strong>.`)
-        : (isPlacement
-            ? `You've been assigned a placement call with <strong>${escapeHtml(studentLabel)}</strong>.`
-            : `You've been assigned a class with <strong>${escapeHtml(studentLabel)}</strong>.`)
-      const leadText = lang === 'es'
-        ? (isPlacement ? `Te asignamos una llamada de diagnóstico con ${studentLabel}.` : `Te asignamos una clase con ${studentLabel}.`)
-        : (isPlacement ? `You've been assigned a placement call with ${studentLabel}.` : `You've been assigned a class with ${studentLabel}.`)
-      const html = brandedEmail({
-        heading: lang === 'es'
-          ? (isPlacement ? 'Nueva llamada asignada' : 'Nueva clase asignada')
-          : (isPlacement ? 'New placement call assigned' : 'New class assigned'),
-        bodyHtml: lang === 'es'
-          ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(teacherFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>Cuándo:</strong> ${formatted} (hora de Honduras).</p>`
-          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(teacherFirst)},</p><p style="margin:0 0 12px;">${lead}</p><p style="margin:0;"><strong>When:</strong> ${formatted} (Honduras time).</p>`,
-        ctaLabel: lang === 'es' ? 'Entrar al aula' : 'Enter the classroom',
-        ctaUrl: salaUrl,
-        footnote: lang === 'es' ? 'Puedes entrar al aula antes de que empiece tu clase.' : 'You can enter the classroom before your class starts.',
-        lang,
-      })
-      const text = lang === 'es'
-        ? `Hola ${teacherFirst},\n\n${leadText}\n\nCuándo: ${formatted} (hora de Honduras).\n\nEntrar al aula:\n${salaUrl}\n\n— EnglishKolab`
-        : `Hi ${teacherFirst},\n\n${leadText}\n\nWhen: ${formatted} (Honduras time).\n\nEnter the classroom:\n${salaUrl}\n\n— EnglishKolab`
-      void fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: teacher.email, subject, html, text }),
-      }).catch(() => {})
-    }
-  }).catch(() => {})
-}

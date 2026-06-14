@@ -179,7 +179,7 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
     cv_storage_path: storagePath,
     cv_uploaded_at: new Date().toISOString(),
     // Sanitize the client-supplied filename: strip control chars + cap length.
-    cv_original_filename: (cvFile.name || '').replace(/[ -]/g, '').trim().slice(0, 200),
+    cv_original_filename: (cvFile.name || '').replace(/[\x00-\x1F]/g, '').trim().slice(0, 200),
   }
   const { data: existingTeacher } = await admin
     .from('teachers')

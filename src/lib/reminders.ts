@@ -101,6 +101,7 @@ function formatScheduled(iso: string, lang: Lang, timezone: string): string {
 function reminderHtml(params: {
   lang: Lang
   audience: Audience
+  isPlacement: boolean
   window: ReminderWindow
   recipientName: string
   counterpartName: string
@@ -108,7 +109,7 @@ function reminderHtml(params: {
   appUrl: string
   bookingId: string
 }): string {
-  const { lang, audience, window, scheduled, appUrl, bookingId } = params
+  const { lang, audience, isPlacement, window, scheduled, appUrl, bookingId } = params
   // Escape user-controlled names — they render in the OTHER party's inbox (cross-party XSS).
   const recipientName = escapeHtml(params.recipientName)
   const counterpartName = escapeHtml(params.counterpartName)
@@ -117,16 +118,18 @@ function reminderHtml(params: {
 
   const greeting = isEs ? `Hola ${recipientName}` : `Hi ${recipientName}`
   const heading = isEs
-    ? window === '24h' ? 'Tu clase es en 24 horas' : 'Tu clase empieza pronto'
-    : window === '24h' ? 'Your class is in 24 hours' : 'Your class starts soon'
+    ? window === '24h' ? (isPlacement ? 'Tu llamada de diagnóstico es en 24 horas' : 'Tu clase es en 24 horas') : (isPlacement ? 'Tu llamada empieza pronto' : 'Tu clase empieza pronto')
+    : window === '24h' ? (isPlacement ? 'Your placement call is in 24 hours' : 'Your class is in 24 hours') : (isPlacement ? 'Your placement call starts soon' : 'Your class starts soon')
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
-  const cta = isEs ? 'Ir a la clase' : 'Go to the class'
+  const cta = isEs
+    ? isPlacement ? 'Ir a la llamada' : 'Ir a la clase'
+    : isPlacement ? 'Go to the call' : 'Go to the class'
   const whenLabel = isEs ? 'Cuándo' : 'When'
   const lateNote = isEs
-    ? 'Puedes entrar al aula antes de que empiece tu clase.'
-    : 'You can enter the classroom before your class starts.'
+    ? `Puedes entrar al aula antes de que empiece tu ${isPlacement ? 'llamada' : 'clase'}.`
+    : `You can enter the classroom before your ${isPlacement ? 'call' : 'class'} starts.`
 
   const bodyHtml = `
     <p style="margin:0 0 16px;">${greeting},</p>
@@ -150,6 +153,7 @@ function reminderHtml(params: {
 function reminderText(params: {
   lang: Lang
   audience: Audience
+  isPlacement: boolean
   window: ReminderWindow
   recipientName: string
   counterpartName: string
@@ -157,23 +161,25 @@ function reminderText(params: {
   appUrl: string
   bookingId: string
 }): string {
-  const { lang, audience, window, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
+  const { lang, audience, isPlacement, window, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
   const roomUrl = `${appUrl}/${lang}/sala/${bookingId}`
   const isEs = lang === 'es'
 
   const greeting = isEs ? `Hola ${recipientName},` : `Hi ${recipientName},`
   const heading = isEs
-    ? window === '24h' ? 'Tu clase es en 24 horas' : 'Tu clase empieza pronto'
-    : window === '24h' ? 'Your class is in 24 hours' : 'Your class starts soon'
+    ? window === '24h' ? (isPlacement ? 'Tu llamada de diagnóstico es en 24 horas' : 'Tu clase es en 24 horas') : (isPlacement ? 'Tu llamada empieza pronto' : 'Tu clase empieza pronto')
+    : window === '24h' ? (isPlacement ? 'Your placement call is in 24 hours' : 'Your class is in 24 hours') : (isPlacement ? 'Your placement call starts soon' : 'Your class starts soon')
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
-  const cta = isEs ? 'Ir a la clase' : 'Go to the class'
+  const cta = isEs
+    ? isPlacement ? 'Ir a la llamada' : 'Ir a la clase'
+    : isPlacement ? 'Go to the call' : 'Go to the class'
   const whenLabel = isEs ? 'Cuándo' : 'When'
   const withLabel = isEs ? 'Con' : 'With'
   const lateNote = isEs
-    ? 'Puedes entrar al aula antes de que empiece tu clase.'
-    : 'You can enter the classroom before your class starts.'
+    ? `Puedes entrar al aula antes de que empiece tu ${isPlacement ? 'llamada' : 'clase'}.`
+    : `You can enter the classroom before your ${isPlacement ? 'call' : 'class'} starts.`
 
   return [
     heading,
@@ -198,13 +204,14 @@ function reminderText(params: {
 function confirmationHtml(params: {
   lang: Lang
   audience: Audience
+  isPlacement: boolean
   recipientName: string
   counterpartName: string
   scheduled: string
   appUrl: string
   bookingId: string
 }): string {
-  const { lang, audience, scheduled, appUrl, bookingId } = params
+  const { lang, audience, isPlacement, scheduled, appUrl, bookingId } = params
   // Escape user-controlled names — they render in the OTHER party's inbox (cross-party XSS).
   const recipientName = escapeHtml(params.recipientName)
   const counterpartName = escapeHtml(params.counterpartName)
@@ -212,11 +219,15 @@ function confirmationHtml(params: {
   const isEs = lang === 'es'
 
   const greeting = isEs ? `Hola ${recipientName}` : `Hi ${recipientName}`
-  const heading = isEs ? 'Tu clase está confirmada' : 'Your class is confirmed'
+  const heading = isEs
+    ? isPlacement ? 'Tu llamada de diagnóstico está confirmada' : 'Tu clase está confirmada'
+    : isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
-  const cta = isEs ? 'Ir a la clase' : 'Go to the class'
+  const cta = isEs
+    ? isPlacement ? 'Ir a la llamada' : 'Ir a la clase'
+    : isPlacement ? 'Go to the call' : 'Go to the class'
   const whenLabel = isEs ? 'Cuándo' : 'When'
   const withLabel = isEs ? 'Con' : 'With'
   const calNote = isEs
@@ -245,22 +256,27 @@ function confirmationHtml(params: {
 function confirmationText(params: {
   lang: Lang
   audience: Audience
+  isPlacement: boolean
   recipientName: string
   counterpartName: string
   scheduled: string
   appUrl: string
   bookingId: string
 }): string {
-  const { lang, audience, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
+  const { lang, audience, isPlacement, recipientName, counterpartName, scheduled, appUrl, bookingId } = params
   const roomUrl = `${appUrl}/${lang}/sala/${bookingId}`
   const isEs = lang === 'es'
 
   const greeting = isEs ? `Hola ${recipientName},` : `Hi ${recipientName},`
-  const heading = isEs ? 'Tu clase está confirmada' : 'Your class is confirmed'
+  const heading = isEs
+    ? isPlacement ? 'Tu llamada de diagnóstico está confirmada' : 'Tu clase está confirmada'
+    : isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
-  const cta = isEs ? 'Ir a la clase' : 'Go to the class'
+  const cta = isEs
+    ? isPlacement ? 'Ir a la llamada' : 'Ir a la clase'
+    : isPlacement ? 'Go to the call' : 'Go to the class'
   const whenLabel = isEs ? 'Cuándo' : 'When'
   const withLabel = isEs ? 'Con' : 'With'
   const calNote = isEs
@@ -394,7 +410,7 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
   const { data: booking } = await admin
     .from('bookings')
     .select(`
-      id, scheduled_at, duration_minutes, scheduled_email_ids,
+      id, scheduled_at, duration_minutes, type, scheduled_email_ids,
       student:students(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences)),
       teacher:teachers(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences))
     `)
@@ -473,6 +489,12 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
   // an invite that *updates* the existing calendar event (same UID, higher
   // SEQUENCE) instead of duplicating it.
   const durationMinutes = (booking as { duration_minutes?: number | null }).duration_minutes ?? 60
+  // A placement_test booking is a free diagnostic CALL, not a paid class — the
+  // confirmation/reminder/.ics copy must say "llamada de diagnóstico" / "placement
+  // call", not "clase" / "class". (Before consolidation this copy lived in the
+  // admin sendAssignmentEmail; that path was removed to kill a double-send, so the
+  // type-awareness now lives here, the single confirmation+reminder source.)
+  const isPlacement = (booking as { type?: string | null }).type === 'placement_test'
   const icsSequence = Math.floor(Date.now() / 1000)
   const organizerEmail = bareEmail(fromEmail)
   const confirmationJobs: Array<Promise<void>> = []
@@ -485,11 +507,11 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
       startIso: booking.scheduled_at,
       durationMinutes,
       summary: r.lang === 'es'
-        ? `Clase de inglés con ${r.counterpartName}`
-        : `English class with ${r.counterpartName}`,
+        ? `${isPlacement ? 'Llamada de diagnóstico' : 'Clase de inglés'} con ${r.counterpartName}`
+        : `${isPlacement ? 'Placement call' : 'English class'} with ${r.counterpartName}`,
       description: r.lang === 'es'
-        ? `Tu clase de EnglishKolab. Entra aquí: ${roomUrl}`
-        : `Your EnglishKolab class. Join here: ${roomUrl}`,
+        ? `Tu ${isPlacement ? 'llamada de diagnóstico' : 'clase'} de EnglishKolab. Entra aquí: ${roomUrl}`
+        : `Your EnglishKolab ${isPlacement ? 'placement call' : 'class'}. Join here: ${roomUrl}`,
       location: roomUrl,
       organizerEmail,
       organizerName: 'EnglishKolab',
@@ -501,10 +523,13 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
       apiKey,
       from: fromEmail,
       to: r.email,
-      subject: r.lang === 'es' ? 'Tu clase está confirmada' : 'Your class is confirmed',
+      subject: r.lang === 'es'
+        ? (isPlacement ? 'Tu llamada de diagnóstico está confirmada' : 'Tu clase está confirmada')
+        : (isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'),
       html: confirmationHtml({
         lang: r.lang,
         audience: r.audience,
+        isPlacement,
         recipientName: r.recipientName,
         counterpartName: r.counterpartName,
         scheduled: formatScheduled(booking.scheduled_at, r.lang, r.timezone),
@@ -514,6 +539,7 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
       text: confirmationText({
         lang: r.lang,
         audience: r.audience,
+        isPlacement,
         recipientName: r.recipientName,
         counterpartName: r.counterpartName,
         scheduled: formatScheduled(booking.scheduled_at, r.lang, r.timezone),
@@ -552,11 +578,12 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
         from: fromEmail,
         to: r.email,
         subject: w.window === '24h'
-          ? (r.lang === 'es' ? 'Tu clase es mañana' : 'Your class is tomorrow')
-          : (r.lang === 'es' ? 'Tu clase empieza pronto' : 'Your class starts soon'),
+          ? (r.lang === 'es' ? (isPlacement ? 'Tu llamada de diagnóstico es mañana' : 'Tu clase es mañana') : (isPlacement ? 'Your placement call is tomorrow' : 'Your class is tomorrow'))
+          : (r.lang === 'es' ? (isPlacement ? 'Tu llamada empieza pronto' : 'Tu clase empieza pronto') : (isPlacement ? 'Your placement call starts soon' : 'Your class starts soon')),
         html: reminderHtml({
           lang: r.lang,
           audience: r.audience,
+          isPlacement,
           window: w.window,
           recipientName: r.recipientName,
           counterpartName: r.counterpartName,
@@ -567,6 +594,7 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
         text: reminderText({
           lang: r.lang,
           audience: r.audience,
+          isPlacement,
           window: w.window,
           recipientName: r.recipientName,
           counterpartName: r.counterpartName,

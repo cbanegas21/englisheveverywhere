@@ -72,7 +72,7 @@ export async function bookPlacementCall(
 
   const [{ data: student }, { data: profile }] = await Promise.all([
     admin.from('students').select('id, placement_test_done').eq('profile_id', user.id).single(),
-    admin.from('profiles').select('full_name').eq('id', user.id).single(),
+    admin.from('profiles').select('full_name, timezone').eq('id', user.id).single(),
   ])
 
   if (!student) {
@@ -139,8 +139,9 @@ export async function bookPlacementCall(
   // Send emails (non-blocking — never let this break the flow)
   sendPlacementEmails({
     studentEmail: user.email || '',
-    studentName: profile?.full_name || user.email || 'Student',
+    studentName: profile?.full_name || user.email || (lang === 'es' ? 'Estudiante' : 'Student'),
     scheduledAt,
+    studentTimezone: profile?.timezone || 'America/Tegucigalpa',
     lang,
   })
 
@@ -319,6 +320,7 @@ function sendPlacementEmails(params: {
   studentEmail: string
   studentName: string
   scheduledAt: string
+  studentTimezone: string
   lang: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
@@ -326,15 +328,23 @@ function sendPlacementEmails(params: {
 
   if (!apiKey || apiKey === 're_placeholder') return
 
+  // Admin notification: owner is in Honduras, so the admin row stays HN time.
   const hnFormatted = new Date(params.scheduledAt).toLocaleString('es-HN', {
     weekday: 'long', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
     timeZone: 'America/Tegucigalpa',
   })
-  const enFormatted = new Date(params.scheduledAt).toLocaleString('en-US', {
+  // Student confirmation: render in the STUDENT's own timezone (not hardcoded HN),
+  // matching how lib/reminders.ts renders every other user-facing time. timeZoneName
+  // 'short' appends their offset so the time is unambiguous. Fall back to HN if their
+  // saved zone is somehow invalid (would otherwise throw RangeError in toLocaleString).
+  const safeTz = (tz: string) => { try { new Date().toLocaleString('en-US', { timeZone: tz }); return tz } catch { return 'America/Tegucigalpa' } }
+  const studentTz = safeTz(params.studentTimezone)
+  const isEsFmt = params.lang === 'es'
+  const studentFormatted = new Date(params.scheduledAt).toLocaleString(isEsFmt ? 'es-HN' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Tegucigalpa',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+    timeZone: studentTz,
   })
 
   const headers = {
@@ -388,8 +398,8 @@ function sendPlacementEmails(params: {
       html: brandedEmail({
         heading: isEs ? 'Tu llamada está confirmada' : 'Your placement call is confirmed',
         bodyHtml: isEs
-          ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">¡Tu llamada de diagnóstico gratuita está confirmada!</p><p style="margin:0;"><strong>Fecha:</strong> ${hnFormatted} (hora de Honduras, CST)</p>`
-          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">Your free placement call is confirmed!</p><p style="margin:0;"><strong>Date:</strong> ${enFormatted} (Honduras time, CST)</p>`,
+          ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">¡Tu llamada de diagnóstico gratuita está confirmada!</p><p style="margin:0;"><strong>Fecha:</strong> ${studentFormatted}</p>`
+          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">Your free placement call is confirmed!</p><p style="margin:0;"><strong>Date:</strong> ${studentFormatted}</p>`,
         footnote: isEs
           ? 'Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a hola@englishkolab.com.'
           : "We'll reach out through the platform. Questions? Email us at hola@englishkolab.com.",
@@ -399,14 +409,14 @@ function sendPlacementEmails(params: {
         ? [
             `Hola ${params.studentName},`,
             '¡Tu llamada de diagnóstico gratuita está confirmada!',
-            `Fecha: ${hnFormatted} (hora de Honduras, CST)`,
+            `Fecha: ${studentFormatted}`,
             'Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a hola@englishkolab.com.',
             '— El equipo de EnglishKolab',
           ].join('\n')
         : [
             `Hi ${params.studentName},`,
             'Your free placement call is confirmed!',
-            `Date: ${enFormatted} (Honduras time, CST)`,
+            `Date: ${studentFormatted}`,
             "We'll reach out through the platform. Questions? Email us at hola@englishkolab.com.",
             '— The EnglishKolab team',
           ].join('\n'),
