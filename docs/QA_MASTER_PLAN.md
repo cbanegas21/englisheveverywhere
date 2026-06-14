@@ -1,0 +1,323 @@
+# EnglishKolab — Master QA Plan
+
+> Goal: find the tiniest bug on every surface before real users. We **plan** (enumerate every what‑if) first, then execute section by section, banking each as "locked."
+> Method per section: (1) **Happy‑path pass** — does the intended thing work? (2) **Break‑it pass** — spam clicks, abusive typing, interrupt, tamper, every role × ES/EN × desktop/mobile.
+> Legend: 🟢 happy · 🔴 break‑it · 🔒 security · 🤖 = I can auto‑test (Playwright) · 👤 = needs your manual/2‑person eye · ⚠ = known risk already seen.
+> Status column: ☐ not started · ◐ in progress · ✅ locked.
+
+---
+
+## How we work
+- I enumerate every what‑if for a section (grounded in the real code) **with expected behavior** = your pass/fail oracle.
+- I auto‑run the 🤖 items to pre‑filter; you run the 👤 items.
+- When reality ≠ expected → I diagnose + fix + redeploy + we re‑check.
+- We lock a section, move on. Nothing is "done" until both passes are clean on PROD.
+
+## Priority order (real user journey + money first)
+1. **Money/funnel:** Register → Onboarding → Login → Student Home → Agendar → **Plan/Payments (Stripe)** → Placement → **Classroom** → Teacher Earnings/Payout
+2. Rest of Student app · 3. Teacher app · 4. Admin · 5. Public/marketing · 6. Emails + Webhook (cross‑cutting)
+
+---
+
+## UNIVERSAL TAXONOMY (apply to EVERY section)
+These ~60 checks are implied for every page; per‑section blocks below only add the *unique* stuff.
+
+- **U1 Arrival/guard** 🔒 — logged‑out access to a protected page → redirect to login; wrong‑role access → redirect to own home (no flash); deep‑link/direct URL; refresh; back/forward; bfcache after logout; already‑logged‑in visiting an auth page.
+- **U2 Happy path** 🟢 — each intended action completes → correct result, redirect, and **persistence after reload**.
+- **U3 Input abuse** 🔴 — every field: empty, whitespace‑only, too‑long (1k+), malformed, unicode/emoji, RTL/zero‑width/control/CR‑LF chars, paste a huge blob, IME composition, browser **autofill leaving React state empty → submits blank**.
+- **U4 Spam/repeat** 🔴 — every button clicked 5–10× fast + clicked while a request is in flight → only one effect, disabled‑state holds and **re‑enables** after error; hold‑Enter key‑repeat; double‑tap on mobile.
+- **U5 Interrupt/race** 🔴 — submit then navigate away / close tab / Back before it lands; two tabs acting at once; refresh mid‑action; offline + slow‑3G (no hang, graceful).
+- **U6 Errors** 🔴 — messages clear, **localized**, human (never a raw Postgres string or the redacted "Server Components render" blob); clear on retry; server/network failure is graceful.
+- **U7 Tamper/IDOR** 🔒 — SQLi/XSS in inputs; tamper URL ids/params/`next=` (access another user's record by id → must 403/404); open‑redirect; rate‑limit anything that mints email/auth/cost.
+- **U8 i18n** — full ES/EN, no untranslated or clipped strings; toggle persists app‑wide.
+- **U9 Mobile (390px)** — layout, ≥44px taps, keyboard doesn't cover actions, no accidental horizontal scroll, scroll containers usable.
+- **U10 A11y** — keyboard nav + visible focus, labelled inputs, errors announced, WCAG‑AA contrast.
+- **U11 Visual/state** — loading states, no layout jump on error, focus management, empty states, images load/degrade, **0 console/#418 on PROD** (localhost hides these).
+- **U12 Data correctness** ⚠ — dates/times in the user's tz + locale with **am/pm whitespace normalized**, money/FX correct, counts match reality.
+
+---
+
+# 1 · MONEY / FUNNEL (do first)
+
+### Register  ✅  *(LOCKED 2026‑06‑12 — dynamic PROD pass, Opus, ultracode‑OFF single‑model per credit rule; 0 real bugs; reusable `scripts/qa-register*.mjs`)*
+**Result: 0 exploitable/functional bugs.** Verified live on englishkolab.com, ES+EN × desktop+mobile (53 checks PASS / 0 FAIL).
+- 🟢 valid student signup → autoconfirm → **instant login → /onboarding** ✅ (role coerced→student; tz auto‑detected+persisted `America/Tegucigalpa`; phone saved `+504…`; **0 console / 0 #418** on prod).
+- 🔴 email already exists → friendly **localized** msg ("Ese correo ya tiene una cuenta…"), **no raw‑error leak** ✅; password min‑8 (client `minLength` + server guard) ✅; confirm mismatch → caught client‑side, **no server hit** ✅; empty required → HTML5‑blocked ✅; invalid/blank phone → caught client‑side ✅; name `<script>`/`<img onerror>` → stored `full_name` **sanitized** (`<>` stripped), **no dialog**, onboarding renders escaped ✅.
+- 🔒 role tamper → server hard‑coerces student/teacher (admin→student), verified by code + live signup ✅; reflected `?error=` param rendered **as text** (no XSS) ✅; signup **rate‑limited 5/IP/15min** ✅; double‑submit guarded by `isPending`‑disabled + unique‑email + rate‑limit ✅.
+- 👤 welcome path lands on **/onboarding** (not a blank dashboard) ✅; welcome email is **triggered** on signup (awaited pre‑redirect) and the feature is known‑working (a real "¡Bienvenido a EnglishKolab!" Resend email exists in Carlos's inbox) — autonomously re‑checked via the Gmail MCP.
+
+**FIXED + SHIPPED this pass — HEAD `ed18cdd` (2026‑06‑12, deployed READY, re‑verified on prod):**
+- 🐛 **Dead OAuth code (Google/Microsoft).** `external_google_enabled`/`external_azure_enabled` were **false** in Supabase (no client IDs/secrets) and the buttons were **never rendered** — but `handleOAuth`, `oauth*` state, and the `continueGoogle/Microsoft/or/oauthNote` strings were **dead code in BOTH `/registro` and `/login`**, advertising an unconfigured feature. **Removed** from both in `ed18cdd`.
+- ✅ **THEN built Google login for real** (Carlos: "just Google") — `b713525`, **verified on prod**. Carlos created the Google OAuth app; I enabled the provider in Supabase (Mgmt API) + added a shared `GoogleButton` (official G mark) to /login (any role) + /registro **student form only** (Google signup→student via trigger). Verified: button renders ES+EN, click hands off to `accounts.google.com` with our client_id, teacher form correctly has no button, 0 console. Final consent click-through = 1 manual confirm (Google blocks headless). Gotcha: Google "JS origins" reject paths/slashes — the `…/auth/v1/callback` URL goes in **redirect URIs** only.
+- 🐛 **Authed user could see the signup form at `/registro`** (and mint a 2nd account on submit). Login already redirected authed users to their role home (LIVE‑003); **mirrored that client‑side guard onto `/registro`** (skips the `?success=confirm` screen). ✅ Re‑verified on prod: authed student → `/registro` now redirects to `/dashboard` (ES+EN). **No proxy change**, so the recovery‑session `/login/new-password` reset flow is untouched. *(Correction to my earlier note: login was NOT affected — it already had the guard; only registro lacked it.)*
+
+**Open findings (NOT fixed — deliberate):**
+- ℹ️ **Terms = passive consent**, no checkbox gate (the plan row above had assumed a gate). Form shows "Al crear una cuenta aceptas… Términos / Política" — a legit common pattern. → **Product/legal decision for Carlos** (explicit checkbox vs keep passive). Not a bug.
+- ℹ️ **Defense‑in‑depth (low):** `first_name`/`last_name` stored RAW in `user_metadata` (only composed `full_name` is `<>`/CRLF‑sanitized). **No exploit path** (React escapes on render; emails use sanitized `full_name` + `escapeHtml`). → fold first/last source‑sanitize into the **Onboarding** pass (consumers in scope there).
+- ⚠️ **Welcome‑email delivery UNCONFIRMED for a fresh test** (→ Emails track §7). Send is triggered (awaited pre‑redirect) and the feature has worked (real "¡Bienvenido!" in Carlos's inbox 2026‑06‑04), BUT a fresh `+alias` test signup's welcome email did NOT land in Gmail (inbox/spam/trash) within ~12 min while other recent mail indexed fine. Could NOT check Resend delivery — the `.env.local` `RESEND_API_KEY` is **send‑restricted** ("restricted to only send emails"). **NEED: a full‑access Resend API key (or dashboard) to verify delivered/bounced status autonomously.** Possible causes: Resend queue/lag, the plus‑alias, or a real deliverability issue — unresolved.
+- ℹ️ **Mobile/iOS clean** (iPhone 13 emulation, ES+EN): brand panel hidden, 0 horizontal scroll, submit reachable in‑viewport after focusing a field, 0 console. Minor: password **eye toggle is 40×40px** (4px under the 44px tap guideline) — secondary control, cosmetic.
+
+**Autonomously tested (items I had wrongly listed as "manual" — corrected):** OAuth click behavior + provider config (Supabase Mgmt API); welcome email (Gmail MCP); mobile (iPhone emulation). Genuinely manual remaining: the **terms passive‑vs‑checkbox product decision** only.
+
+### Onboarding  ✅  *(LOCKED 2026‑06‑13 — dynamic PROD pass, single‑model; `scripts/qa-onboarding*.mjs`)*
+**Result: 0 functional bugs; 2 fixes shipped (`499854e`).** Student flow = 1 step (tz + language); teacher = 3 steps (tz/lang → specializations[≥1] → bio[≥20] + CV[required] + certs[optional] → pending).
+- 🤖 **Guards** all PASS: logged‑out → `/login`; already‑onboarded **student → /dashboard**, **teacher → /maestro/dashboard**, **admin → /admin/overview** (revisit‑when‑done).
+- 🟢 **Student E2E** (fresh signup): → onboarding step1 → "Continuar" → **completes, students row + tz + lang persisted, lands on /dashboard**, revisit → /dashboard. 0 console / 0 #418. (Note: the "¡Todo listo!" done screen is **bypassed** — `completeStudentOnboarding`'s `revalidatePath` re‑runs the server page, which sees the new students row and redirects straight to /dashboard. Benign / smoother, one less click; the done‑screen is effectively dead code.)
+- 🔴 **Teacher 3‑step gates** (fresh signup): role correctly = teacher (trigger preserves metadata role); specs‑required gate (Continuar disabled @ 0 specs), bio‑min gate, CV‑required gate, back‑nav all PASS; 0 #418. Did NOT complete (avoids emailing the admin + storage writes); completion verified by code + prod evidence (real teacher Lesly's row + "application received" email exist).
+- ⚠ **refresh mid‑step (teacher):** step state is in‑memory `useState` → a refresh on step 2/3 restarts at step 1 (progress lost). Acceptable for a short one‑time flow; could persist to localStorage as a future nicety. (by code; low.)
+- ℹ️ **"intake answers → columns"** is NOT this surface — onboarding only collects tz+language; the intake/survey is a separate flow (ONBOARD‑05, already done). 
+
+**FIXED + SHIPPED `499854e` (verified on prod):**
+- 🐛 **Teachers received the student welcome email** ("book your first class") at signup — confirmed via the Resend API on a fresh teacher signup. Gated `sendWelcomeEmail` to `role === 'student'` (teachers get "application received" after onboarding; mirrors the OAuth callback). Re‑verified: teacher signup → **no welcome sent**.
+- 🐛 **Carry‑over from Register:** `first_name`/`last_name` stored RAW in `user_metadata` → now sanitized at the source in `signUp` (strip CR/LF + `<>`, collapse, cap 60). Re‑verified: `<script>` first name → stored `"script alert(1) /script Bad"` (no `<>`).
+
+### Login  ✅  *(LOCKED 2026‑06‑13 — dynamic PROD pass, single‑model Opus, ultracode‑OFF per credit rule; 0 real bugs; reusable `scripts/qa-login-recon.mjs` + `scripts/qa-login-dynamic.mjs`)*
+**Result: 0 functional/security bugs (31/32 auto‑checks PASS; the 1 "fail" was a test‑assertion typo, not a product bug — see EN‑parity note).** Verified live on englishkolab.com, ES+EN × desktop+mobile.
+- 🟢 **Role‑correct redirects** (all live): student → `/dashboard`; **approved** teacher (`is_active=true`) → `/maestro/dashboard`; **pending** teacher (`is_active=false`, tested with a throwaway acct) → `/maestro/pending` (signIn sends every teacher to `/maestro/dashboard`, then `MaestroDashboardLayout` bounces inactive → pending — one server hop, no flash); admin → `/admin/overview`.
+- 🔒 **`next=` role‑scope + open‑redirect** (all live): `//evil`, `https://evil`, and encoded `/%2f%2fevil` are **all rejected** by `safeNextPath` → land on role home, never off‑site; a **cross‑role** `next` (admin given `/es/dashboard`) is **dropped** by `pathAllowedForRole` → `/admin`; a **same‑role** `next` (`/es/admin/bookings`) is **honored**. The `/auth/callback` (Google) path applies `safeNextPath` (same‑origin only) but NOT `pathAllowedForRole` — harmless (layout guard is source of truth; a cross‑role `next` just bounces). 
+- 🔒 **Account‑enumeration parity**: nonexistent email and existing‑email‑wrong‑password return the **identical** generic "Correo o contraseña incorrectos." — no raw provider/Postgres string leaked. (The `email not confirmed` branch is dead since `mailer_autoconfirm=true`.)
+- 🔒 **Rate‑limit ARMED** (verified by DB, not hammered — avoids self‑DoS): `auth_attempts_action_check` lists `login`; 121 success + 14 fail `login` rows in 30d prove inserts succeed and the limiter records. 10/IP + 8/email‑lockout per 15 min (`src/lib/rateLimit.ts`).
+- 🔴 **autofill/blank submit**: login uses **uncontrolled** inputs (read via `FormData`, not React state), so the controlled‑autofill‑blank bug class doesn't apply; blank submit (form is `noValidate`) → server → friendly localized error, stays on `/login`, no crash/#418.
+- 🔒 **soft‑deleted can't log in**: replicated `deleteMyAccount`'s auth rotation (email→sentinel + random password) on a throwaway acct → original email+password **blocked** after deletion (before: logged‑in; after: bounced to login). ⚠ residual (low, def‑in‑depth): `profiles.deleted_at` is set but **not checked** by any login/layout guard — only the email/password rotation blocks re‑entry; if `auth.admin.updateUserById` ever fails (logged) a scrubbed account could re‑enter. No exploit path in the happy case.
+- ✅ **LIVE‑003 preserved**: authed visit to `/login` → client `getUser` effect redirects to role home (verified → `/dashboard`). NOT broken.
+- ✅ **`/login/new-password` recovery reachable**: an authed (recovery) session is **NOT** blanket‑redirected off it — the set‑password form renders (verified). PASSWORD‑01/02 fixes intact (role‑aware redirect after update; single‑use code cached via `establishRef` so a StrictMode re‑run doesn't burn it).
+- ✅ **Google** "Continuar con Google / Continue with Google" renders ES+EN and is **armed** in Supabase (`external_google_enabled=true`, client_id+secret set). The final consent click‑through is the only non‑auto item (Google blocks headless) → carries over from Register: 1 manual confirm.
+- 🟢 **Banners** all render localized: inactivity‑timeout (`?timeout=1`), reset‑success (`?success=reset`), error (`?error=`), and `auth_callback_failed` → friendly ES/EN copy.
+- 🔒 **Reflected XSS**: `?error=<img onerror>` rendered as **text** (React‑escaped), no dialog.
+- 🖥️ **#418 / console clean**: 0 React #418 and 0 page errors across `/login`, `/login/reset`, `/login/new-password` × ES/EN × desktop+mobile (iPhone 13); mobile has no horizontal scroll.
+
+**Open findings (NOT fixed — deliberate / cosmetic):**
+- ℹ️ **Dual error phrasing** (cosmetic): a *real* failed login shows the server copy "Correo o contraseña **incorrectos**." / "Incorrect email or password."; a raw `?error=invalid login credentials` token in the URL hits the client regex map → `errorDefault` "Correo o contraseña **inválidos**." / "Invalid email or password." Both correct + localized, same meaning — not worth a deploy. (This is the only "FAIL" the auto‑suite reported, and it was my assertion checking the wrong phrasing.)
+- ⚠ **bfcache ghost form** (low, residual): the LIVE‑003 effect (the mitigation) is verified on fresh nav; a bfcache *restore* after logout can skip React effects, but headless bfcache is unreliable to test and Chromium often disables it under automation. Carries as a low manual eyeball, same as prior sections.
+- ℹ️ **password eye toggle 40×40px** (4px under the 44px tap guide) — same cosmetic as Register; not fixed.
+
+### Student Home  ✅  *(LOCKED 2026‑06‑13 — dynamic PROD pass, **ultracode/workflow** (Carlos opted in to spend credits); 12‑agent enumerate→verify→fix→re‑verify; 10 fixes shipped `53782dd`; `scripts/qa-dashboard-*.mjs` + `scripts/wf-student-home-enumerate.mjs`)*
+**Result: 10 bugs found, fixed, deployed & re‑verified live (14/14 suite PASS after; 0 #418 across every state ES/EN desktop+mobile).** Workflow enumerated 52 what‑ifs grounded in code; I built consolidated Playwright/SQL suites that **stage throwaway students into each banner/countdown state** + verify, then fixed and re‑ran.
+- 🟢 **Guards**: logged‑out → /login (ES/EN); admin → /admin, teacher → /maestro/dashboard (canonical `profiles.role`); **mid‑onboarding (no students row) → now redirects /onboarding** (was an empty dead‑CTA shell — FIXED).
+- 🟢 **Banner state‑machine** (each staged + verified live): no‑placement, placement‑scheduled (success), placement‑past (warn), first‑plan, used‑all‑classes, all‑booked, assigned‑teacher card — all render correct copy/CTA.
+- 🟢 **Next‑class hero + live countdown**: renders with **0 #418** (the `now!==null` gating holds on prod); am/pm whitespace normalized; "Hoy/Today" label correct.
+- 🔒 **Security**: no URL/id input on the page → no IDOR (all reads bound to `auth.user.id`); reads via user client + RLS; the new host‑name/teacher‑name reads use the service‑role client server‑side, scoped to the student's own booking/assignment.
+
+**FIXED + SHIPPED `53782dd` (10 fixes, re‑verified on prod):**
+- 🐛 **SH‑COLD‑01/INT‑09** (high) — mid‑onboarding student (auth+profiles, no `students` row) rendered an all‑zeros dead‑CTA dashboard (page used `.single()` with no null guard, unlike teacher layout / agendar / placement). Added `if (!student) redirect('/onboarding')`. *Verified: now lands /onboarding.*
+- 🐛 **SH‑HYD‑03** (high latent) — invalid `profiles.timezone` threw a RangeError in Intl and **blanked the dashboard**; helper `isValidTimeZone` existed but page never called it. Now guarded + canonical fallback. *Verified: bad tz → renders, no RangeError.*
+- 🐛 **SH‑BAN‑04** (med) — "Scheduled" stat used `now` while hero/list use `now−2.5h`, so a live/just‑started class showed the wrong "you used all your classes" banner + a 0 count. Count now uses `activeBookingCutoffIso()`. *Verified: consistent.*
+- 🐛 **SH‑BAN‑01 + SH‑COLD‑06** (med) — admin‑conducted placement banner said "host being assigned" and an admin‑assigned (unbooked) teacher card never rendered, because a student can't read those profiles via the RLS embed. Resolve the single display name via the **service‑role client** server‑side. *Verified: names the admin; card shows.*
+- 🐛 **SH‑HYD‑01 / SH‑HYD‑02** (med #418) — greeting + Today/Tomorrow called `new Date()` ungated in render (boundary #418, the unguarded siblings of the gated countdown). Greeting computed **server‑side** + passed as a key; relative date gated behind the mounted `now`. *Verified: 0 #418.*
+- 🐛 **SH‑BAN‑05** (low) — "Total time" rendered the completed‑class COUNT + "h", not SUM(duration)/60 (4×30‑min showed "4h"). Now sums minutes. *Verified: 2×30‑min → "1h".*
+- 🐛 **SH‑A11Y‑03** (low) — live badge used the faint `'cancelled'` variant (a `/* red live */` mislabel); now uses the red `'live'` variant + pulse dot. *Verified: red bg.*
+- 🐛 **SH‑HYD‑07** (low) — placement‑past date hard‑coded `America/Tegucigalpa` instead of the student's tz. Fixed. **I18N‑PLURAL‑01** (low) — "1 clases disponibles" → singular at n=1. *Verified.*
+
+**Open (reported, NOT fixed — out of Student‑Home scope / shared infra):**
+- ⚠ **Mobile/a11y on the shared `Sidebar`** (affects teacher+admin too → batch into a dedicated a11y/mobile pass): drawer has no focus‑trap / Escape / `aria‑modal` (SH‑MOB‑02); drawer footer controls ~26px, top‑bar "+ Agendar" ~32px, empty‑state/compact‑Join buttons <44px (SH‑MOB‑03/05/07, SH‑VIS‑05); framer‑motion drawer ignores `prefers‑reduced‑motion` (SH‑A11Y‑07).
+- ℹ️ **Contrast nits**: `cancelled` status text (~1.95:1) and hero "Reagendar" outline border (~1.2:1) below WCAG (SH‑A11Y‑01 / SH‑VIS‑07).
+- ℹ️ **Hydration CLS** in the upcoming‑actions row as the Join placeholder is replaced post‑mount (SH‑VIS‑01); hero CTAs ragged‑width at ≤640px (SH‑MOB‑01).
+- ℹ️ **Teacher embed array‑shape** (I18N‑TEACHER‑NAME‑EMPTY‑01): prod returns objects so the name shows (verified OK); the upcoming‑list path lacks the defensive array‑normalization the placement query has — cheap insurance, not currently broken.
+
+### Agendar  ✅  *(LOCKED 2026‑06‑13 — dynamic PROD pass, **ultracode/workflow**; 12‑agent enumerate (39 what‑ifs) → dynamic verify → fix → re‑verify; **1 CRITICAL + 5 fixes shipped (`9e9e37d` + migration `042`)**; `scripts/qa-agendar-*.mjs` + `scripts/wf-agendar-enumerate.mjs`)*
+**Result: 1 CRITICAL paywall‑bypass + 5 page bugs found, fixed, deployed & re‑verified live.** `createBooking` itself was already solid (duration pinned to [60], server 24h+90d+invalid‑date guards, **atomic decrement‑first via `decrement_classes`** closing the TOCTOU double‑book race, insert‑then‑refund, 23505→friendly, no client `student_id`) — the bugs were in privilege/grants + the client grid + guards.
+- 🟢 booking happy path verified live: pick slot → confirm → **credit decrements exactly once + 1 booking row** (the service‑role path still works post‑lockdown); 0‑credit → `/plan`; logged‑out → `/login`; `/fr` → 404 (proxy coerces, no crash); rolling week + DST math correct (two‑pass `zonedWallTimeToUtc`).
+
+**🚨 FIXED + SHIPPED — CRITICAL (migration `042`, verified live):**
+- 🔴🔒 **AG‑SEC‑CREDIT‑RPC‑02 — full Stripe paywall bypass + cross‑account credit tampering.** `increment_classes` / `decrement_classes` / `add_classes` / `add_classes_with_plan` are `SECURITY DEFINER` and were left `EXECUTE = PUBLIC` (+ explicit anon/authenticated). **Verified live**: any logged‑in student, straight from the browser (public anon key + their own JWT), could `rpc('increment_classes',{p_student_id})` to **self‑mint unlimited free classes**, `add_classes_with_plan(…,100,'peak')` to **mint 100 classes + upgrade plan for free**, and grant/**drain credits on ANY other student by id** (no `auth.uid()` check). migration 016 locked the table column UPDATE but not the RPCs. Fix: **migration 042 REVOKEs EXECUTE from PUBLIC/anon/authenticated** (every legit caller uses the service‑role admin client; service_role retains EXECUTE). Re‑verified: exploit → **403 permission denied**; legit booking still decrements.
+
+**FIXED + SHIPPED — page bugs (`9e9e37d`, verified live):**
+- 🐛 **AG‑TZ‑CRASH** (high, was a live **500**): an invalid `profiles.timezone` threw a RangeError in the grid's Intl calls and 500'd the whole booking page. Guarded with `isValidTimeZone()` (same class as the dashboard fix). *Verified: bad tz → HTTP 200, grid renders.*
+- 🐛 **AG‑HYD‑01/02 (#418)**: the rolling week (`getWeekDays`/`todayInZone`) and per‑cell past/too‑soon gating used `new Date()`/`Date.now()` in render → SSR vs hydration diverge at the now+24h / tz‑midnight boundaries → React #418 on the slot grid. Anchored on a server‑authoritative `serverNowMs` prop used consistently in render. *Verified: 0 #418.*
+- 🐛 **AG‑STATE‑03** (med): balance + grid were stale after a booking ("Book another" showed the old credit + the slot still free → a student who spent their last credit could re‑try and only learn at Confirm). Track `remaining` + `justBooked` locally so the saldo decrements and the slot greys immediately. *Verified: saldo → 1 after booking 1 of 2.*
+- 🐛 **AG‑GUARD‑05** (low): no‑students‑row user now redirects straight to `/onboarding` (was a `/dashboard`→`/onboarding` double hop).
+- 🐛 **AG‑GUARD‑06** (low): stale‑session Confirm returned a raw English "Not authenticated" even in ES → parse `lang` first + localize.
+- 🐛 **AG‑INTERRUPT‑04** (low): offline Confirm threw an unhandled rejection and hung the modal on "Booking…" → `try/catch` → localized "connection lost".
+
+**Open (reported, NOT fixed — out of scope / deeper change):**
+- ⚠ **AG‑MONEY‑09** (med, §6 Webhook): the Stripe full‑refund path (`webhook/route.ts`) reverses credits with a NON‑atomic read‑then‑`Math.max(0,…)`‑write — the ONLY non‑atomic `classes_remaining` write left; a booking landing mid‑refund is a lost update. Fix = an atomic floored‑decrement RPC (service‑role only). Carry into the **Stripe webhook** section.
+- ⚠ **AG‑OFFHOUR‑INSTANT / AG‑OVERLAP‑01** (med, data‑integrity, tamper‑gated): `createBooking` doesn't validate the instant is on a whole hour **in the student's tz**, so a tampered off‑:00 `scheduled_at` persists and the exact‑timestamp unique index lets two concurrent overlapping bookings (9:00 + 9:30) both insert (each a real spend, not a leak). Fix needs the student tz in the action (tz‑nuanced) — deferred.
+- ℹ️ **a11y / mobile** (med/low): slot grid `<button>`s lack day+hour `aria-label` + `role=grid`; the shared confirm **Modal** has no focus‑trap / `role=alert` error / `aria-busy`; mobile show‑all‑hours scroll offset (6×38 vs 44px). Batch with the **shared‑component a11y/mobile pass** (with the Sidebar items).
+- ℹ️ **AG‑STATE‑02** (low): the "Next week" button has no upper bound, so you can page past the 90‑day server cap into a dead grid of cells that all reject at Confirm.
+
+### Plan / Payments (Stripe)  ✅  🔴🔒 *(LOCKED 2026‑06‑13 — **ultracode/workflow**; 13‑agent enumerate (79 what‑ifs) → signed‑webhook + SQL + Playwright dynamic verify → fix → re‑verify; **5 fixes shipped (`6adddae` + migration `043`)**; `scripts/qa-webhook-signed.mjs` + `qa-agendar-rpc-probe.mjs` + `wf-payments-enumerate.mjs`)*
+**Result: the checkout + webhook are genuinely production‑grade; 5 real gaps found, fixed, deployed & re‑verified live.** ⭐ The credit engine was exercised end‑to‑end WITHOUT a real card via **properly‑signed synthetic Stripe events** (HMAC with `STRIPE_WEBHOOK_SECRET`) POSTed to the live webhook — all PASS:
+- 🟢 valid `checkout.session.completed` → credits exactly N + sets plan + writes 1 receipt row (amount/classes from pinned `pricing.ts`).
+- 🔒 **idempotency**: replay same `event.id` → `{duplicate:true}`, no double‑credit (PK‑on‑event.id ledger, claim‑before‑process); concurrent dupes serialize at the DB.
+- 🔒 **signature**: forged HMAC → 400; missing signature → 400 (verified prod keys are REAL — disproves the dev‑mode fail‑open concern).
+- 🔒 **amount/plan gates**: wrong `amount_total` → no credit; unknown plan_key → no credit; non‑paid/non‑USD → no credit.
+- 🟢 **refund**: full `charge.refunded` → decrement + clear plan; replay (same charge) → per‑charge guard, no double‑decrement, floored at 0.
+- 🔒 **direct‑write lockdown** (SQL + REST as an authed student): `students.classes_remaining` UPDATE → 403 (no column grant); INSERT into `payments` / `student_purchases` / `processed_stripe_events` → 403 RLS (can't forge a receipt or pre‑claim an event); read‑all purchases → RLS‑scoped (no IDOR). All 5 credit RPCs `EXECUTE` = service_role‑only (042 + 043).
+- 🟢 **checkout** (`createCheckoutSession`): client sends only `planKey` (validated) — price/qty/currency are server‑side via fixed Stripe price IDs (no amount tamper); metadata on session AND payment_intent (refunds can key on the charge); idempotency‑key dedupes double‑submit; no open‑redirect; no automatic tax (so `amount_total` == pinned cents). Receipt page is RLS‑scoped (own‑only → 404 on a foreign id).
+
+**FIXED + SHIPPED (`6adddae` + migration `043`, re‑verified live):**
+- 🐛 **AG‑MONEY‑09 / REFUND‑ATOMIC** (high): `charge.refunded` reversed credits with a NON‑atomic read‑then‑`Math.max(0,current‑N)`‑write → a concurrent booking/refund/grant between read and write was a lost update (the only non‑atomic credit write left). New **`decrement_classes_by` RPC** = floored single‑statement decrement (+ clears `current_plan` at 0); `SECURITY DEFINER`, **service_role‑only** (migration 043, locked per the 042 lesson). *Re‑verified: refund 8→0 via the RPC, replay guarded.*
+- 🐛 **NONSTUDENT‑CHARGE** (med): `createCheckoutSession` checked only auth, not a `students` row → a no‑students‑row user could be charged with no way to credit (webhook can't find the row) + no auto‑refund + a multi‑day 500 retry loop. Guard the action + redirect the plan page to `/onboarding`. *Re‑verified: no‑row user → /onboarding.*
+- 🐛 **FX‑UNDERSTATEMENT‑APIDOWN** (med): when the FX API is down with no cache, `getCachedRate` returns 1 and `convert()` rendered the local symbol at 1:1 ("L129" vs ~"L3,200", ~25× too cheap — reads as a real cheap local price). Fall back to the honest USD price when the rate is the unavailable sentinel. (Charge was always USD — display‑only, but misleading.)
+- 🐛 **BILLING‑PANEL‑INVISIBLE** (med): the plan‑page billing panel was hardcoded to "no payments yet" and never queried `student_purchases` — paying students saw an empty history there (Settings + `/recibo` were correct). Fetch + render real purchases with receipt links. *Re‑verified: purchase row + "Recibo →" shows.*
+- 🐛 **webhook observability/robustness** (low): a paid checkout with missing metadata is now logged (was silently dropped — non‑app Payment Link path); the event `switch` is wrapped in try/catch so a malformed‑but‑signed payload releases the ledger claim + 500s for a clean retry instead of being permanently swallowed as a duplicate.
+
+**Open (reported, NOT fixed — deliberate):**
+- ⚠ **REFUND‑OVERDEC / OUT‑OF‑ORDER / STALE‑TIER** (low, refund edges): refund subtracts the full static `CLASS_COUNTS[plan]` regardless of which stacked pack the credits came from (no per‑purchase remaining ledger); floors at 0. Out‑of‑order (refund before completed) is practically impossible (Stripe needs the charge first). Stale `current_plan` after refunding a higher pack with a stacked balance. All low given "no cash refunds" policy + admin‑initiated rarity; a proper fix needs a per‑purchase credit ledger.
+- ℹ️ **STALE‑SUBSCRIPTION‑UI** (low): the plan page still reads a `subscriptions` row + renders "Se renueva el…" though the product is one‑time packs (the webhook never writes subscriptions, so no rows exist) — latent only.
+- ℹ️ **FX no‑USD‑disclaimer / SUCCESS‑URL‑forge (cosmetic) / FORCERENDER perf / checkout no‑ratelimit (no‑card‑no‑charge) / modal+currency a11y** → batch a11y with the shared‑component pass; rest are low polish.
+- 👤 **MANUAL (real card)**: one end‑to‑end card Checkout → return → live webhook → credit + receipt + email; double‑click Pay (one charge); cancel/Back/refresh at Stripe. The webhook/credit logic is fully signed‑event‑verified; only the actual card round‑trip is human‑only.
+
+### Placement call  ✅  *(LOCKED 2026‑06‑13 — **ultracode/workflow**; 12‑agent enumerate (62 what‑ifs) → dynamic verify → fix → re‑verify; **10 fixes shipped (`186a615` + migration `044`)**; `scripts/qa-placement-*.mjs` + `wf-placement-enumerate.mjs`)*
+**Result: free‑call credit integrity verified clean on the student paths; 10 gaps found, fixed, deployed & re‑verified live.** Book/cancel/reschedule never touch a paid credit; `studentCancelBooking`'s historical mint is type‑guarded (re‑confirmed). The credit‑mint risk was in two OTHER refund paths (now fixed). Page already had the mid‑onboarding `/onboarding` guard ✓; the `.ics`/Google‑Cal href is deterministic (DTSTAMP from the stable start — #418‑safe) ✓; the countdown seeds `now=null` ✓.
+
+**FIXED + SHIPPED (`186a615` + migration `044`, re‑verified live):**
+- 🐛💰 **declineBooking minted a credit on a FREE placement** (`booking.ts`): it `increment_classes`'d with **no `type==='class'` guard** — the lone refund path missing it (studentCancelBooking / reportTeacherNoShow / both admin cancels all guard). A teacher declining a teacher‑assigned placement would mint a paid credit. Guarded.
+- 🐛💰 **deleteMyAccount** had the same unguarded increment (`profile.ts`) — on the **teacher‑side** cancel the student is a **third party whose account persists**, so the mint sticks. Select `type` + guard `type==='class'` (PL‑CREDIT‑DELETE‑01).
+- 🐛 **PL‑TIME‑JOIN‑01** (med, student loses their call): Join button + countdown read "ended" at scheduled+90m while the room stays open until scheduled+**duration**+90m (`getRoomAccess`). `JoinSessionButton` close window now = scheduled+duration+90m; placement countdown "ended" at +150m. *Verified: a class 2h ago now shows an enabled Join.*
+- 🐛 **PL‑TZ‑CRASH** (high, was a 500): `placement/page.tsx` passed an unvalidated tz into the client Intl calls → RangeError 500. `isValidTimeZone` guard. *Verified: bad tz → HTTP 200.*
+- 🐛 **PL‑CLIENT‑418**: the slot picker (`generateBusinessDays`) used `Date.now()` in render → boundary #418 when the schedule stage is the SSR‑initial view. Anchor on a server‑authoritative `serverNowMs` prop. *Verified: 0 #418.*
+- 🐛 **PL‑418‑CONFIRMED**: `fmtBookingDate` didn't normalize the am/pm separator → #418 on the confirmed stage. Added the `  `→space normalization.
+- 🐛 **PL‑CONDUCTOR‑RLS‑01** (med): the placement page resolved the host name via the user‑client embed (RLS‑blocked for an admin conductor) → "host being assigned" while the dashboard named them. Resolve via the service‑role client (mirrors SH‑BAN‑01). *Verified: shows the admin host.*
+- 🐛 **PL‑RESCHED‑RACE / STATE‑BLANK** (med): the placement query used `.maybeSingle()` (errored → blank screen on a two‑row reschedule race) and the scheduled screen rendered even with no live booking (strand). Use `.order().limit(1)` + require a booking row → a strand falls through to the book flow and re‑books cleanly. *Verified: strand recovers to the book flow.*
+- 🐛 **PL‑RL‑RESCHED‑01** (med): `reschedulePlacementCall` had no rate limit (book has 5/15min) → admin‑email spam vector. Added `checkUserActionLimit` + **migration 044** allowlists `reschedulePlacementCall` (else a silent no‑op per the 036/041 lesson).
+
+**Open (reported, NOT fixed):**
+- 👤 **PL‑REMIND‑INERT‑01** (med, **needs Carlos's call**): the scheduled screen's Reminders card auto‑saves prefs and promises "we'll nudge you before the call", but **no placement path calls `scheduleBookingReminders`** — only the `.ics` is a real reminder. Either wire `scheduleBookingReminders` into `bookPlacementCall` (feature) **or** soften the card copy (product/copy decision).
+- ℹ️ **PL‑SLOTS‑OFFHOURS‑06** (low, product call): `generateBusinessDays` offers all 24 HN hours incl. 00:00–04:00 ("when staff are available" comment is misleading) — confirm whether off‑hours placement slots should be filtered.
+- ℹ️ **a11y** (med/low): survey options lack radio/checkbox semantics; FAQ accordion lacks `aria-expanded`; shared Modal has no focus‑trap; slot picker color‑only selection → batch with the shared‑component a11y pass.
+- ℹ️ **PL‑RESCHED‑ATOMIC‑01** (low residual): reschedule is non‑atomic cancel‑then‑insert; the page‑level recovery (above) handles the strand symptom; a true transactional reschedule is the root‑cause follow‑up.
+- ℹ️ **PL‑TZ‑EMAIL‑MISMATCH** (low): the confirmation email is Honduras‑time‑labeled while in‑app uses the student tz (labeled, not corruption). 👤 **LIVE 2‑person**: admin‑conductor + student both join `/sala` (covered in the Classroom section).
+
+### Classroom (`/sala`)  ✅✅  *(2026‑06‑13 ultracode/workflow PROD pass — 68 autonomous live checks PASS; HEAD `0b68d28`, migrations 045+046. Carlos: "EVERYTHING PERFECT" → every flagged low FIXED + the "2‑person" set converted to autonomous 2‑participant tests. Only true‑hardware A/V + one teacher's $ rate remain.)*
+**Autonomously verified LIVE on PROD (43 checks, 0 fail):**
+- **Page/getRoomAccess authz (18/18)** ✅ anon→`/login?next=`; non‑participant student→`/dashboard` (IDOR blocked, page‑level); teacher/student/admin‑observer reach room; garbage + SQLi bookingId graceful (no 500); cancelled→error, completed→Ended (no re‑open), **expired→error (proves the scheduled+dur+90m late‑cap is enforced — PROD is NOT dev‑mode)**, future→lobby countdown; ES+EN localized (no leak); **0 React #418** across teacher‑room / cancelled / expired / lobby(ES+EN) / mobile.
+- **End‑class money path (15/15)** ✅ via the REAL "Terminar Clase" click in a live LiveKit room: exactly ONE payments row (amount=payout=20, fee=0), `total_sessions`++, **student credit UNTOUCHED**; not‑before‑start refused (0 payout + localized banner); idempotent re‑open (no double‑pay / double‑increment); **student "Salir" mints nothing by construction** (useLeaveFlow never calls completeSession for a student).
+- **Direct server‑action invocation (10/10)** ✅ captured the real `completeSession` request, replayed as **student** + **anon** + tampered booking → server refuses, 0 payout, status unchanged; **replay of a completed booking stays single‑pay** (action‑layer idempotency, not just UI).
+- Migrations live: `payments_booking_id_unique` present; `auth_attempts.action` allowlist = 044 (incl. `transcribe`/`extractVocab` → those limiters are EFFECTIVE, not silent no‑ops).
+**Fixes shipped `4279095`:** (1) completeSession cancelled/teacher‑only/not‑found/not‑auth error strings lang‑gated — were raw English in the /es endError toast (re‑verified live: cancelled‑end toast now Spanish); (2) Whiteboard CONTENT channel given the CALL‑01 sender‑trust gate (was ungated — an admin observer could inject strokes); (3) Avatar monogram via `Array.from()` (emoji/astral first char no longer a lone surrogate `�`); (4) endError toast × → 44px hit target + localized aria‑label.
+- **Ended / Error screens** ✅ all 9 RoomAccessError codes localized es+en + fallback; 0 #418.
+**✅ NO‑SHOW PAYOUT — DECIDED + FIXED** (Carlos chose attendance‑gated): migration 045 `sessions.student_joined_at`, getRoomAccess stamps the student's first room entry, completeSession withholds the payout + session‑count when null (booking still completes). Shipped `b5b550e`, re‑verified live 17/17 (attended→$20 paid; no‑show→completes + $0 + no count).
+**✅ HARDENING BATCH — ALL prior "lows" FIXED (`0b68d28` + migration 046):** getSessionByBookingId now allows conductor+admin reads; completeSession resolves the session authoritatively from bookingId (no client‑sessionId trust); atomic `increment_teacher_sessions` RPC (both completeSession + admin completeBooking); server length caps on notes/transcript; transcribe/extractVocab limiters fail‑CLOSED on DB error; getRoomAccess logs prod‑missing‑LiveKit‑keys; a11y (reduced‑motion, EndedScreen dvh+scroll, name truncate, More‑menu focus). *(Deliberately NOT added: a completeSession staleness cap — would risk stiffing a legit late end now that attendance gates the money.)*
+**🤖 2‑PARTICIPANT LIVE — now AUTONOMOUS (`qa-sala-twoparty.mjs` 8/8, two real LiveKit clients):** mutual presence; chat both ways; whiteboard open‑sync (`qa-sala-whiteboard.mjs`); teacher End → student auto‑leaves (session‑control = CALL‑01 positive path); attended 2‑party class pays.
+**Genuinely manual remainder (hardware / pricing only):** real A/V picture/sound QUALITY; mic‑speech→live‑transcript CAPTURE (no headless speech engine); device hot‑swap; NEGATIVE forged‑kick from a custom malicious client (code‑closed: only JWT‑signed teacherIdentity honored — unspoofable). ⭐ **Carlos input:** teacher **Lesly Paz (lecparos45@gmail.com) hourly_rate = 0** → set a real rate (else her attended classes mint $0).
+
+### Teacher Earnings / Payout  ✅  *(2026‑06‑13 ultracode/workflow PROD pass — fixes `51eac42`; reconciliation + IDOR verified live)*
+**⭐⭐ Found that the new Classroom attendance‑gating had opened TWO no‑show money leaks here — both fixed:** (1) `teacherEarnings.sessionPayoutUsd`'s `!pay→hourlyRate` fallback counted a no‑show (completed, no payment) as full earnings → inflated Available + would sweep a REAL Veem payout (confirmed live: Available $60 vs $30); dropped the fallback → earnings = payments ledger exactly. (2) admin `completeBooking` had NO attendance gate → added it (verified live both ways: no‑show→$0, attended→$25).
+**Also fixed:** "Sesiones" tile → REAL completed count (was stale 105 vs 4, contradicting its own "this month" sub + the list); removed dead Stripe `stripe_transfer_id`/`paidOut` (per‑session status now Cleared/In‑hold); "earned this month" boundary in America/Tegucigalpa; `/admin/payouts` in‑page admin guard; admin currency cents parity.
+**Verified LIVE (qa‑earnings‑{recon 8/8, admin, admincomplete 3/3}):** math reconciles (Available/In‑hold/month/committed→$0/cancelled→$30/Sesiones‑real, 0 #418); 🔒 teacher→/admin/payouts redirected; **teacher_payouts RLS** read=[] + INSERT=403; assertAdmin real; sweep/mark‑paid/cancel hardened (row‑count guards + migr 040). saveTeacherVeemPayout owner‑scoped + regex/254‑cap.
+**⭐ OPEN (Carlos):** the `total_sessions` counter is student‑facing social proof (profile headline + bio "With N completed lessons…") but inflated (105 vs ~4) — reconcile to reality everywhere vs keep as marketing. Lows: refund‑no‑clawback (delivered class still pays — defensible); cancel‑after‑Veem‑sent has no interlock (v1 manual); mark‑paid no un‑pay path (v1); sub‑$1 not swept (no teacher note); Friday=0 label reads "today" all day.
+
+---
+
+# 2 · REST OF STUDENT APP  ✅ *(2026‑06‑13 ultracode/workflow PROD pass — fixes `9f5d762`; money/IDOR verified live)*
+**⭐⭐ HEADLINE: caught a no‑show self‑refund INFINITE‑CREDIT exploit** — `reportTeacherNoShow`'s gate keyed off `sessions.started_at` (set the instant ANYONE opens the room), so it was inverted: refunded when the student themselves no‑showed (book+skip+claim forever) and blocked real teacher‑no‑shows. FIX: require `sessions.student_joined_at` (migr 045). Verified live 6/6. **+6 fixes:** deleteMyAccount double‑mint race (status‑gate), `deleted_at` login guard (was read nowhere), email‑RL ordering, Progress Hours=real duration sum, Progress day #418, Tareas overdue #418.
+
+### My Classes  ✅
+🟢 tabs/join/summary/search render, 0 #418. ✅ **cancel ≥24h→+1 credit; <24h→forfeit; placement→no mint; double‑cancel idempotent; 🔒 IDOR (can't cancel/reschedule another's booking)** — all verified live 13/13 (capture‑replay). reschedule 24h gates + conflict + ownership server‑side.
+
+### My Progress  ✅
+🟢 stats/level/history. ✅ **Hours stat now sums real duration_minutes** (was count+'h' — the counter‑vs‑data bug), day‑number tz‑pinned (#418 fixed), 0 #418 live.
+
+### Progress report (print)  ✅ — own‑report‑only (server auth); per‑class durations correct (no wrong aggregate). 
+
+### Tareas (student)  ✅ — overdue badge #418 fixed (seed‑null); coming‑soon/real list renders.
+
+### Library (student)  ✅ — confirmed clean **Próximamente placeholder**: `books={[]}` + download action `getBookSignedUrl` hard‑gated by `LIBRARY_ENABLED=false` (no reachable ungated download).
+
+### Settings  ✅
+🟢 profile/account/notifications/billing render (TABS: profile/account/notifications/billing). ✅ **email‑change security 5/5** (existing→generic no‑enum, invalid→error, rate‑limit, now validates‑before‑throttling); 🔒 **receipt RLS IDOR** (another student's purchase→[], owner reads own); **deleteMyAccount** cancels future bookings + refunds CLASS credits only (race fixed) + PII scrub + the new `deleted_at` login guard. ⚠ avatar same‑origin = code‑verified; delete re‑auth (DEL‑CSRF) = open low decision.
+
+### Browse teachers  ☐ — (covered for #418/i18n in the display sweep) 🔒⚠ **never reveal roster/count** still to deep‑audit with the teacher‑discovery pass.
+### Teacher detail (student view)  ☐ — profile; "book with"; 🔒 tamper teacherId — deep‑audit pending.
+### Intake  ◐ — renders + redirects to /agendar when already done (verified); re‑submit overwrites own profile (low, flagged).
+### Receipt (print)  ✅ — 🔒 **own‑receipt‑only IDOR verified live** (RLS: another student's purchase→[], owner reads own); print layout + amount/plan/date in tz.
+
+---
+
+# 3 · TEACHER APP  ✅ *(2026‑06‑13 ultracode/workflow PROD pass — fixes `fd41b99`+`b72049a`/migr 047; pending‑gate + IDOR solid)*
+**⭐ Pending‑gate verified live 8/8** (is_active=false → /maestro/pending on ALL routes; approved reaches dashboard). All actions re‑check is_active + ownership; createAssignment requires a real booking (IDOR gate). **0 #418 across all teacher pages ES+EN.**
+- **Home** ✅ — greeting tz‑crash guarded (try/catch); accepting‑toggle silent‑fail fixed (revert + error); am/pm #418 fixed.
+- **Agenda** ✅ — am/pm #418 + Today/Tomorrow latent #418 (seed‑null) + Join→shared JoinSessionButton (was Date.now‑in‑render); es‑CO→es‑HN.
+- **Availability** ✅ — **server‑side overlap/dup guard added** (verified live: overlap rejected + no‑wipe; happy‑path persists); validate‑before‑delete holds; accepting toggle. ⚠ delete‑then‑insert non‑atomic (low, flagged).
+- **My Students** ✅ — scoped to own teacher_id; teacherSetStudentLevel needs a booking (IDOR) + raw‑PG‑leak fixed. (saveStudentNotes doesn't exist — feature gap.)
+- **Earnings** — see §1 (LOCKED).
+- **Materials** ◐ — **NOT built**: static "Próximamente" placeholder (no upload/action/bucket/table). Decide build vs keep. Mobile padding fixed.
+- **Tareas (teacher)** ✅ — createAssignment booking‑gated IDOR + validation (title≤120, instr≤4000); mobile padding fixed.
+- **Settings** ◐ — intentionally minimal (full_name/bio/specializations only; email read‑only; password=reset link). updateTeacherProfile now is_active‑gated + rate‑limited (migr 047) + generic errors. No tz/lang/email‑change/delete UI here — confirm intended.
+- **Pending‑approval** ✅ — unapproved teacher lands here; gate covers all routes.
+
+---
+
+# 4 · ADMIN  ✅ *(2026‑06‑13 ultracode/workflow PROD pass — fixes `43abd96`+`b0151ce`; AUTHZ BULLETPROOF)*
+**⭐ AUTHZ proven LIVE:** page‑guards 8/8 (student+anon redirected off every /admin route, 0 #418 all pages ES+EN); **direct‑call escalation 5/5** — captured the real addStudentClasses money action, student/anon replay mints NOTHING (assertAdmin Forbidden), and the SANITY control (same request + admin cookie DOES mint) proves it's real authz. All 29 actions assertAdmin‑first (canonical DB role); **no impersonation feature**; admin client bypasses RLS so these guards ARE the boundary.
+- **Home / Overview** ✅ — am/pm time #418 normalized; metrics render.
+- **Bookings (calendar)** ✅ — AD‑03 hardened; structured BookingActionResult (no throw‑crash); 0 #418.
+- **Teachers / Teacher detail** ✅ — approve/reject+email; **reject now refunds students' class credits** (shared helper, was an asymmetry vs delete — verified live: credit 0→1 before cascade); **setTeacherRate bounded 0..1000** (was unbounded payout); CV signed‑url; active toggle.
+- **Students / Student detail** ✅ — addStudentClasses bounded 1‑100 + escalation‑blocked (live); **updateStudentRole last‑admin floor** (can't lock out the only admin) + role‑allowlist + self‑demote guard; resetStudentPassword emails the OWNER (not a takeover).
+- **Payouts** ✅ — see §1 (Earnings, LOCKED).
+- **WhatsApp / Library (admin)** ✅ — render 0 #418; library gated by LIBRARY_ENABLED.
+**OPEN (flag, low):** CRM cluster throws raw error → admin sees a generic toast not the specific guard message in prod (vs the booking actions' structured returns); bogus‑id CRM updates silently no‑op + show success; resetStudentPassword no rate‑limit. All assertAdmin‑gated (not security).
+
+---
+
+# 5 · PUBLIC / MARKETING  ✅ *(LOCKED 2026‑06‑13 — ultracode/workflow PROD pass; HEAD `23aa965` (bugs `78cfcd3` + legal `23aa965`); 7‑agent enumerate + dynamic prod suites `qa-public-{leak,sweep,descubre}.mjs`)*
+**Result: 1 CRITICAL price‑leak + 3 bugs found, fixed, deployed & re‑verified live (`78cfcd3`).** Broad sweep CLEAN: 0 #418 / 0 console across landing+descubre+contact+privacy+terms × ES/EN × desktop+mobile; all internal links 200; invalid locales (`/fr`,`/xx`,`/EN/…`,`..`) → 404 (no 500); ⚠ teacher roster/count **never** exposed (Teachers.tsx is purely typographic) ✓; no real secret in the bundle ✓; the `?x=<script>` param rendered inert ✓.
+- 🔴🔒 **PRICE‑LEAK‑01 (critical, gated‑funnel DEFEAT) — FIXED.** `Pricing.tsx` + `DescubreClient.tsx` (`'use client'`) imported `PRICING_PLANS`, shipping **every pack `priceUsd` (129/179/219/259) + names into the public JS bundle** (confirmed live in chunk `081im1ox~dbpv.js`) — any teacher/competitor could read margin + pack structure from devtools, defeating Carlos's whole gated‑pricing design (only the `$13/class` soft anchor + class counts are meant to be public). Fix: server pages compute a **price‑free** `publicPlans()` + `minPerClassUsd()` and pass as props; neither client component imports `pricing.ts`. **Re‑verified live: `priceUsd` absent from all 19 public chunks; UI unchanged.**
+- 🐛 **FOOTER‑DEAD‑ANCHORS (high) — FIXED.** Footer "Product" links were bare `#how-it-works`/`#pricing`/`#teachers`/`#faq` → dead (scroll nowhere) on /privacy /terms /contact (Navbar had the EK‑036 absolute fix; Footer never got it). Now `/${lang}#…`. *Re‑verified live on /es/privacy: all 4 absolute, 0 bare.*
+- 🐛🔒 **SEC‑COOKIE‑02 / FinalCTA role (med) — FIXED.** FinalCTA read the **httpOnly** `ee-role` cookie via `document.cookie` (always null) → the role‑aware CTA never worked: a logged‑in teacher/admin got the student "Ir a mi Dashboard"→`/dashboard` (then a redirect hop). Role now threaded from the server page. *Re‑verified live: teacher sees "Ir a mi panel"→`/maestro/dashboard`.*
+- 🐛 **DESCUBRE timer (med) — FIXED.** building‑beat `setTimeout` moved into a cleaned‑up `useEffect` + `pick()` re‑entry guard (no setState‑after‑unmount / double‑fire). Quiz drive 8/8 live: gated (NO price on result), CTA→/registro, retake/refresh clean. (Low residual: a rapid double‑tap still auto‑advances two questions — retakeable, accepted.)
+- **Contact** ✅ — **no form** (static `mailto:hola@englishkolab.com` + `wa.me/50488902191`), so no spam/validation/destination surface; links consistent across Contact/FAQ/Footer; both 200/valid.
+- **Privacy / Terms** ✅ render clean ES/EN. **3 factual legal fixes SHIPPED `23aa965` (Carlos‑approved, verified live EN+ES):** Terms §6 dropped dead "**Stripe Connect**" → rail‑agnostic "receive payouts after their classes are completed" (payouts are **Veem**); Privacy §3 vendor list **+ "Veem (teacher payouts)"** (disclosure gap); Privacy §1 dropped "**subscription status**" (one‑time packs, contradicted Terms §3). **OPEN copy DECISIONS Carlos kept (his brand voice):** (4) **HowItWorks step 01 "Choose your pack/One‑time payment" precedes step 02 "free call…before you spend a thing"** — numbering contradicts free‑first funnel; (5) free offer has 4 names ("first class free"/"discovery class"/"placement call"/"diagnostic call"; Pricing EN "placement call" vs ES "diagnostic call") — pick one.
+- **DEFERRED → shared a11y/mobile pass** (same batch as Sidebar/Modal from prior sections): Navbar mobile menu has no focus‑trap/Escape/`aria‑modal`/`aria‑expanded`; sub‑44px tap targets (locale pills ~24px, FAQ trigger, quiz back 40px); Navbar aria‑labels hardcoded English on /es; `--ek-text-faint` "sample/ejemplo" tag ~1.9:1 (fails AA); HeroBookingCard nests focusable slots inside a Link; quiz progressbar/status ARIA. **Also (info):** dead `src/lib/i18n/translations.ts` still holds off‑product marketplace/placement‑test copy + a teacher‑COUNT stat — delete before a future dev wires it up.
+
+---
+
+# 6 · CROSS‑CUTTING
+### Transactional emails (~10) ✅  *(LOCKED 2026‑06‑14 — **ultracode/workflow**; 12‑path adversarial code trace (53 agents) + Resend‑API history audit + Supabase Auth template dump + LIVE booking‑email lifecycle E2E (14/14). Fixes shipped `db43420`+`c74b14b`+`101258d`. Reusable `qa-email-audit/inspect/srccheck.mjs` + `qa-booking-emails-e2e.mjs`.)*
+**Encoding/branding/links all CLEAN** (audited every real send via the full‑access Resend API + every email source file = valid UTF‑8, 0 mojibake, 0 "English Everywhere", all CTA links resolve). Supabase Auth templates (recovery/email‑change/changed/password‑changed) are branded + Spanish + clean; single‑language is inherent/acceptable for a Spanish‑first audience (note: `magic_link` template is English+unbranded but DEAD — no `signInWithOtp`).
+- 🐛🐛 **HIGH double booking‑confirmation**: `assignAndConfirmBooking` fired BOTH `sendAssignmentEmail` (Honduras time, no .ics, ignored email prefs) AND `scheduleBookingReminders` (recipient tz, .ics) → every assigned student+teacher got TWO near‑identical confirmations. **Consolidated** all booking confirm+reminder email onto `reminders.ts` (single source of truth) → fixes double‑send + tz‑hardcode (×3: assign/bulk/admin‑created) + missing‑.ics + missing‑reminders (bulk + createAdminBooking never scheduled any) + prefs‑ignored, all at once. Made the confirm/reminder/.ics copy **type‑aware** (placement → "llamada de diagnóstico"). **LIVE‑verified 14/14** (single confirmation per recipient, each in own tz NY GMT‑4 / Madrid GMT+2 — never Honduras — + own language).
+- 🐛 **reminders silently dropped** under Resend's per‑second rate limit (burst of 6 sends; `scheduleOne` returned null on 429 → filtered out) → added 429/5xx **retry** (`resendEmailPost`); and the whole scheduling was **fire‑and‑forget → frozen by the Vercel suspend** before the `scheduled_email_ids` write → wrapped in `next/server` **`after()`** (non‑blocking but guaranteed to finish). Re‑verified: 4/4 reminders scheduled + persisted.
+- 🐛 `resetStudentPassword` Resend send was `await`ed without catch → a Resend outage failed the admin action (link already generated) → now fire‑and‑forget `.catch`.
+- 🐛 placement student confirmation hardcoded Honduras tz → now renders the **student's own tz** + language‑aware name fallback (Estudiante/Student). 🐛 `onboarding.ts` cv‑filename sanitizer had a literal NUL in its regex (git saw the file as binary) → `\x00-\x1F`.
+- ⚠ **Open (low, carry):** placement *reschedule* sends no student confirmation (only book does); OAuth signup doesn't patch `preferred_language` (mitigated by the onboarding gate); admin‑alert CTA links hardcoded `/es/` (admin is Spanish‑first, intended). ⚠ Gmail‑MCP visual render of the `+alias` inbox NOT done — the connected Gmail MCP account is **carlos@clienttether.com**, not the personal Gmail the +alias targets (render verified instead via the exact Resend‑stored HTML + delivered status + prior prod history).
+
+### Stripe webhook (`/api/stripe/webhook`) ✅  *(re‑confirmed 2026‑06‑14 via `qa-webhook-signed.mjs`, signed synthetic events — 11/11)*
+🟢 checkout.completed → credit (stack‑accrete) ✅; 🔴 duplicate/replay idempotent (no double‑credit) ✅; amount‑mismatch + unknown plan_key → no credit ✅; forged sig + no sig → 400 ✅; full refund → floored decrement + clear plan ✅; per‑charge refund‑replay guard (no double‑decrement) ✅; **+edge events added:** unknown event type → 200 ignored ✅, **malformed signed payload → 500 (ledger released for clean retry, no credit)** ✅, **out‑of‑order refund (no prior credit) → floored at 0** ✅. No code change needed — engine is production‑grade.
+
+---
+
+# 7 · INTEGRATION & CROSS-CUTTING TRACKS
+> Where the real bugs hide — **every bug we've already found lived in one of these layers**, not on a single page. These weave through the section runs.
+
+### 7.1 Global shell & session  ☐ ≈60
+Sidebar/nav per role (links + active state) · mobile hamburger · **language toggle everywhere** · **logout** (clears session, in every tab) · **3h inactivity timeout** · proxy (locale prefix, role redirects, root `/`, invalid-locale URL) · **404 / not-found / error-boundary** pages · bfcache after logout.
+
+### 7.2 End-to-end multi-role journeys  ☐ ≈120  ⭐ #1 gap
+Full flows across roles+pages, asserting state lands in **every** view:
+signup→onboard→book→pay→attend→complete→(student progress + teacher earnings + admin completed) · reschedule (student/admin/teacher-request) · cancel ≥/<24h + refund · no-show + credit restore · placement full flow · teacher onboarding→approval→assignment→teach→payout. ~15–25 cross-page assertions each.
+
+### 7.3 Money & credit-ledger integrity  ☐ ≈50  ⚠ (2 bugs already found here)
+Every path touching `classes_remaining` + `payments` → invariant: **no minted/lost credit, no double-pay.** buy/book/cancel/reschedule/no-show/admin-grant/admin-cancel/delete-refund/webhook + concurrency.
+
+### 7.4 Security: direct server-action + RLS  ☐ 🔒 ≈80  ⚠ (column-grant 42501 proved gaps)
+Every server action called **directly** by the wrong role / tampered args · Supabase REST per-table RLS (read/write another user's row) · are admin actions reachable by a non-admin? · no secret in the client bundle · security headers/CSP.
+
+### 7.5 Browser / device matrix  ☐ ≈40
+**iOS Safari (WebRTC classroom!)** · Android Chrome · tablet · large desktop — on the criticals (classroom, payments, agendar, mobile-heavy).
+
+### 7.6 Empty / first-user platform state  ☐ ≈25
+Day-one cold start: can the **first** student book with no teacher set up? do all empty states render? — literally launch day.
+
+### 7.7 Time / timezone / DST  ☐ ≈30  ⚠ (our worst bug class: am/pm, #418, redirects)
+User in MX/CO/ES tz ≠ Honduras · 24h-advance across tz · reminder scheduling tz · today/tomorrow near midnight · DST · server-UTC vs client-local everywhere.
+
+### 7.8 Notification & reminder scheduling  ✅ *(LIVE‑verified 2026‑06‑14, `qa-booking-emails-e2e.mjs`)*
+T‑24h / T‑1h **do** schedule on Resend (4 sends, each with a real `scheduled_at`, ids persisted on `bookings.scheduled_email_ids`) ✅; student cancel → `cancelBookingReminders` flips **all 4 scheduled sends to `canceled`** + clears the ids ✅. Reliability hardened this pass (429‑retry + `after()` so the burst+write never drops/freezes). WhatsApp queue = manual wa.me (unchanged).
+
+### 7.9 Content / copy / legal  ☐ ≈30
+Typos · tone · **ES↔EN meaning parity** · "1-teacher confidential" enforced everywhere · pricing claims · terms/privacy legally accurate for taking payments + data.
+
+### 7.10 Performance & scale  ☐ ≈25  (lower priority at launch volume)
+Large datasets (teacher w/ 500 sessions, admin w/ 1000 bookings) · page speed · pagination · LiveKit long-session/load · N+1 queries.
+
+### OPS · Launch-readiness  ☐ ≈30  *(separate checklist — "is the platform ready", not "does this page work")*
+Monitoring/logging · **rate-limits ARMED** (auth_attempts allowlist) · Resend domain verified · Stripe live keys + webhook endpoint · DNS/SSL · secrets rotation · backups · cookie/legal.
+
+---
+
+## Test matrix reminder
+Every ☐ above × **ES/EN × desktop/mobile × applicable role(s)**. **~68 surfaces (≈2,820) + integration tracks (≈475) + ops (≈30) ≈ 3,325 individual checks** — that's why we bank section by section and `/clear` between them.
+
+## Tooling I'll reuse (uncommitted, hold test creds)
+`scripts/qa-*.mjs` — login per role, route sweeps, #418 probes, authz/URL‑tamper, end‑class E2E, SSR‑vs‑client diff. I extend these per section for the 🤖 items.
