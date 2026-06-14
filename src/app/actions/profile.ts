@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cancelBookingReminders } from '@/lib/reminders'
+import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import { ROLE_COOKIE } from '@/lib/authCookie'
 import { isValidTimeZone } from '@/lib/timezone'
 import { checkUserActionLimit } from '@/lib/rateLimit'
@@ -279,7 +280,11 @@ export async function deleteMyAccount(
       .select('id, student_id, type')
       .eq('student_id', student.id)
       .in('status', ['pending', 'confirmed'])
-      .gte('scheduled_at', nowIso)
+      // Include just-started / still-live classes (now−2.5h grace), not only
+      // strictly-future ones. A class within the active window was excluded here
+      // yet classes_remaining is zeroed below, so its paid credit silently
+      // vanished and the booking was orphaned against a scrubbed account (SB-06).
+      .gte('scheduled_at', activeBookingCutoffIso())
     studentBookings = (data as { id: string; student_id: string; type: string }[]) || []
   }
   if (teacher) {
@@ -288,7 +293,9 @@ export async function deleteMyAccount(
       .select('id, student_id, type')
       .eq('teacher_id', teacher.id)
       .in('status', ['pending', 'confirmed'])
-      .gte('scheduled_at', nowIso)
+      // Match the student side: refund/cancel live classes within the active
+      // grace window too, not only strictly-future ones (SB-06).
+      .gte('scheduled_at', activeBookingCutoffIso())
     teacherBookings = (data as { id: string; student_id: string; type: string }[]) || []
   }
 

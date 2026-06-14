@@ -15,6 +15,18 @@ export function isValidTimeZone(tz: string | null | undefined): boolean {
   }
 }
 
+// First-of-month at Honduras midnight (America/Tegucigalpa, UTC-6, no DST), as a
+// UTC instant. THE canonical "this month" boundary, shared by the teacher
+// dashboard, the earnings page, and the student progress page so all three bucket
+// a month-edge class (e.g. the 1st at 02:00 UTC = the 31st 20:00 HN) identically
+// in business time. Previously each computed its own boundary — ganancias in HN,
+// teacher-home + progreso in server-UTC midnight — so they disagreed by one month
+// on an HN-evening month-edge session (§7.7 cross-view count divergence).
+export function hnStartOfMonthUtc(now: Date = new Date()): Date {
+  const nowHn = new Date(now.toLocaleString('en-US', { timeZone: 'America/Tegucigalpa' }))
+  return new Date(Date.UTC(nowHn.getFullYear(), nowHn.getMonth(), 1, 6, 0, 0))
+}
+
 export interface ZonedParts {
   year: number
   /** 0-indexed, matching Date.getMonth() / Date.UTC(). */

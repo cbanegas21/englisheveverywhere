@@ -32,7 +32,12 @@ export default async function AgendaPage({ params }: Props) {
     `)
     .eq('teacher_id', teacher.id)
     .eq('status', 'pending')
-    .gte('scheduled_at', new Date().toISOString())
+    // Same now−2.5h grace as the confirmed bucket + teacher home + student clases.
+    // A bare now() cutoff dropped a just-started/live PENDING booking (e.g. one a
+    // student just rescheduled, which reverts confirmed→pending) off the teacher's
+    // agenda while it still showed on their home + the student's list — leaving a
+    // class the teacher had to re-confirm with no agenda surface to do it (SB-08).
+    .gte('scheduled_at', activeBookingCutoffIso())
     .order('scheduled_at', { ascending: true })
 
   // Fetch confirmed upcoming. Include recently-started bookings so teachers can

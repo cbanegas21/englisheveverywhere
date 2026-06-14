@@ -14,6 +14,7 @@ const CANCEL_REASON_LABELS: Record<string, { en: string; es: string }> = {
   late: { en: 'Late cancellation (within 24h)', es: 'Cancelación tardía (dentro de 24h)' },
   early: { en: 'Early cancellation (24h+ notice)', es: 'Cancelación anticipada (24h+ de aviso)' },
   no_show_teacher: { en: 'Teacher no-show', es: 'Ausencia del maestro' },
+  teacher_decline: { en: 'Teacher declined the assignment', es: 'El maestro rechazó la asignación' },
 }
 
 function cancelReasonLabel(reason: string, lang: string): string {
@@ -309,15 +310,23 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
 
   // Status-gated cancel: only a still-live booking can be declined, and the
   // refund fires only when THIS call actually flipped the row — so a double-click
-  // or concurrent decline can't double-credit the student. `.select('student_id')`
-  // both scopes the refund and confirms exactly one row changed.
+  // or concurrent decline can't double-credit the student. Populate the audit
+  // fields (cancelled_by/reason/cancelled_at) like every other cancel path —
+  // declineBooking was the lone path leaving them NULL, so a teacher decline was
+  // an invisible, credit-affecting cancellation (no admin email, and any
+  // cancelled_by='student' analytic missed it) (SB-05).
   const { data: declined, error } = await admin
     .from('bookings')
-    .update({ status: 'cancelled' })
+    .update({
+      status: 'cancelled',
+      cancelled_by: 'teacher',
+      cancellation_reason: 'teacher_decline',
+      cancelled_at: new Date().toISOString(),
+    })
     .eq('id', bookingId)
     .eq('teacher_id', teacher.id)
     .in('status', ['pending', 'confirmed'])
-    .select('student_id, type')
+    .select('student_id, type, scheduled_at')
 
   if (error) return { error: bookingActionErrorMsg(error, lang, 'declineBooking') }
   if (!declined || declined.length === 0) {
@@ -328,13 +337,37 @@ export async function declineBooking(bookingId: string, lang: string = 'es') {
   // placement_test is a FREE call and must never mint a paid credit; declineBooking
   // was the lone refund path missing this guard (studentCancelBooking,
   // reportTeacherNoShow, and both admin cancels all guard type==='class').
-  if (declined[0].type === 'class') {
+  const refundIssued = declined[0].type === 'class'
+  if (refundIssued) {
     await admin.rpc('increment_classes', { p_student_id: declined[0].student_id })
   }
 
   // Cancel any already-scheduled reminder emails (no-op if booking was still
   // pending when declined and no reminders had been scheduled yet).
   cancelBookingReminders(bookingId).catch(() => {})
+
+  // Notify the admin (best-effort) so a teacher decline surfaces in the same
+  // channel as student cancels / no-show reports — it frees a slot that needs a
+  // new teacher assigned.
+  const { data: stuName } = await admin
+    .from('students')
+    .select('profile:profiles(full_name)')
+    .eq('id', declined[0].student_id)
+    .maybeSingle()
+  const stuProfile = (stuName?.profile ?? null) as
+    | { full_name?: string | null }
+    | { full_name?: string | null }[]
+    | null
+  const studentName =
+    (Array.isArray(stuProfile) ? stuProfile[0]?.full_name : stuProfile?.full_name) || 'Student'
+  notifyAdminOfCancel({
+    bookingId,
+    studentName,
+    reason: 'teacher_decline',
+    scheduledAt: declined[0].scheduled_at,
+    refundIssued,
+    lang,
+  }).catch(() => {})
 
   revalidatePath('/', 'layout')
   return { success: true }

@@ -38,6 +38,12 @@ export default async function StudentDashboardPage({ params }: Props) {
     .eq('student_id', student.id)
     .eq('type', 'placement_test')
     .neq('status', 'cancelled')
+    // Two non-cancelled placement rows (reachable via a reschedule race / double
+    // book) make a bare .maybeSingle() throw PGRST116 → null → the banner wrongly
+    // re-prompts "schedule your free call". Take the newest, mirroring the
+    // placement page's own hardening (SB-07).
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   // Resolve the placement host's name. The host is either an admin "conductor"

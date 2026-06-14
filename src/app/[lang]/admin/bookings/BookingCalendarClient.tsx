@@ -1381,9 +1381,14 @@ export default function BookingCalendarClient({
               ) : <span style={{ color: 'var(--ek-red)', fontWeight: 600 }}>{tx.unassigned}</span>}
             </DetailRow>
 
-            {b.type === 'placement_test' && (
+            {/* Only show the Conductor row when an admin conductor is actually set
+                (conductor_profile_id). A placement is normally run by the assigned
+                TEACHER (shown in the Teacher row above), so a permanent red
+                "Conductor: Unassigned" was a misleading vestige on every
+                teacher-conducted placement (SB-04). */}
+            {b.type === 'placement_test' && b.conductor_name && (
               <DetailRow label={tx.conductor}>
-                {b.conductor_name ? <span style={{ fontWeight: 600, color: 'var(--ek-text)' }}>{b.conductor_name}</span> : <span style={{ color: 'var(--ek-red)', fontWeight: 600 }}>{tx.unassigned}</span>}
+                <span style={{ fontWeight: 600, color: 'var(--ek-text)' }}>{b.conductor_name}</span>
               </DetailRow>
             )}
 

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { computeTeacherAvailable, sessionPayoutUsd, isClearedAt } from '@/lib/teacherEarnings'
+import { hnStartOfMonthUtc } from '@/lib/timezone'
 import GananciasClient from './GananciasClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -39,8 +40,9 @@ export default async function GananciasPage({ params }: Props) {
   // mis-bucketing HN-evening month-edge classes).
   const HN = 'America/Tegucigalpa'
   const nowHn = new Date(new Date().toLocaleString('en-US', { timeZone: HN }))
-  // First of the current month at HN midnight, as a UTC instant (HN = UTC-6).
-  const startOfMonth = new Date(Date.UTC(nowHn.getFullYear(), nowHn.getMonth(), 1, 6, 0, 0))
+  // First of the current month at HN midnight, as a UTC instant — shared helper so
+  // teacher home + student progreso bucket the month identically (SB-11).
+  const startOfMonth = hnStartOfMonthUtc()
 
   const { data: allSessions } = await supabase
     .from('bookings')

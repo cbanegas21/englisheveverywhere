@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { hnStartOfMonthUtc } from '@/lib/timezone'
 import ProgresoClient from './ProgresoClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -41,9 +42,10 @@ export default async function ProgresoPage({ params }: Props) {
 
   const studentId = student.id
 
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
+  // "This month" bucketed in HONDURAS time (shared business zone) so the student's
+  // completed-this-month agrees with the teacher's ganancias for the same session
+  // (server-UTC midnight mis-bucketed an HN-evening month-edge class — SB-11).
+  const startOfMonth = hnStartOfMonthUtc()
 
   const { data: placementBooking } = await supabase
     .from('bookings')
@@ -51,6 +53,11 @@ export default async function ProgresoPage({ params }: Props) {
     .eq('student_id', studentId)
     .eq('type', 'placement_test')
     .neq('status', 'cancelled')
+    // Newest non-cancelled placement only — a bare .maybeSingle() throws on 2+
+    // rows (reschedule race / double book) → the banner wrongly re-prompts to
+    // schedule, disagreeing with the placement page (SB-07).
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   const [

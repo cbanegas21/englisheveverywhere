@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { activeBookingCutoffIso } from '@/lib/bookingWindow'
+import { hnStartOfMonthUtc } from '@/lib/timezone'
 import TeacherDashboardClient from './TeacherDashboardClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -43,10 +44,11 @@ export default async function TeacherDashboardPage({ params }: Props) {
     .order('scheduled_at', { ascending: true })
     .limit(5)
 
-  // Fetch this month's completed sessions
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
+  // Fetch this month's completed sessions. Bucket the month in HONDURAS time (the
+  // shared business zone) so the teacher's home "this month" agrees with the
+  // earnings page (which already buckets in HN) — server-UTC midnight mis-bucketed
+  // an HN-evening month-edge class into the wrong month (SB-11).
+  const startOfMonth = hnStartOfMonthUtc()
 
   const { count: thisMonthCount } = await supabase
     .from('bookings')
