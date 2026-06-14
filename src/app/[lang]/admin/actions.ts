@@ -43,6 +43,30 @@ function toBookingError(e: unknown): { ok: false; error: string; forceable?: boo
   return { ok: false, error, forceable: FORCEABLE_RE.test(error) }
 }
 
+// Cancel a teacher's live (pending/confirmed) bookings and refund the student's
+// CLASS credit BEFORE the teacher row is hard-deleted — otherwise the bookings FK
+// cascade silently removes students' upcoming classes WITHOUT returning their
+// credits. Status-gated + type-guarded (mirrors studentCancelBooking). Shared by
+// deleteTeacher + rejectTeacher + rejectTeacherWithEmail so the reject paths can't
+// drop credits the delete path correctly returns.
+async function cancelAndRefundTeacherLiveBookings(
+  admin: ReturnType<typeof createAdminClient>,
+  teacherId: string,
+) {
+  const { data: liveBookings } = await admin
+    .from('bookings').select('id, student_id, type')
+    .eq('teacher_id', teacherId).in('status', ['pending', 'confirmed'])
+  for (const b of (liveBookings || []) as { id: string; student_id: string; type: string }[]) {
+    const { data: flipped } = await admin
+      .from('bookings').update({ status: 'cancelled' })
+      .eq('id', b.id).in('status', ['pending', 'confirmed']).select('id')
+    if (flipped && flipped.length && b.type === 'class') {
+      await admin.rpc('increment_classes', { p_student_id: b.student_id })
+    }
+    cancelBookingReminders(b.id).catch(() => {})
+  }
+}
+
 // ── Teacher actions ───────────────────────────────────────────────────────────
 
 // Signed URL for a teacher's uploaded CV. 10-min TTL is enough for admin
@@ -96,6 +120,11 @@ export async function rejectTeacher(teacherId: string, profileId: string) {
     .eq('id', teacherId)
     .single()
   const cvPath = teacherRow?.cv_storage_path ?? null
+
+  // Refund + cancel any live class bookings BEFORE the delete so the FK cascade
+  // can't drop students' upcoming classes without returning their credit (parity
+  // with deleteTeacher). A genuine pending applicant has none; this closes the gap.
+  await cancelAndRefundTeacherLiveBookings(admin, teacherId)
 
   // Delete teacher record first (FK cascade removes availability_slots)
   const { error: delError } = await admin
@@ -940,6 +969,16 @@ export async function updateStudentRole(profileId: string, role: string) {
     throw new Error('You cannot change your own admin role')
   }
   const admin = createAdminClient()
+  // Last-admin floor: never demote the LAST remaining admin (would lock the whole
+  // team out of the admin CRM). Only relevant when the target is currently an admin
+  // and the new role isn't admin.
+  if (role !== 'admin') {
+    const { data: target } = await admin.from('profiles').select('role').eq('id', profileId).single()
+    if (target?.role === 'admin') {
+      const { count } = await admin.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin')
+      if ((count ?? 0) <= 1) throw new Error('Cannot demote the last admin')
+    }
+  }
   const { error } = await admin.from('profiles').update({ role }).eq('id', profileId)
   if (error) throw new Error(error.message)
   revalidatePath('/', 'layout')
@@ -1027,20 +1066,7 @@ export async function deleteTeacher(teacherId: string, profileId: string) {
   // Refund + cancel the teacher's live (pending/confirmed) CLASS bookings FIRST —
   // otherwise the bookings ON DELETE CASCADE silently removes students' upcoming
   // classes without returning their credits. (Placements cost no credit.)
-  const { data: liveBookings } = await admin
-    .from('bookings')
-    .select('id, student_id, type')
-    .eq('teacher_id', teacherId)
-    .in('status', ['pending', 'confirmed'])
-  for (const b of liveBookings || []) {
-    const { data: flipped } = await admin
-      .from('bookings').update({ status: 'cancelled' })
-      .eq('id', b.id).in('status', ['pending', 'confirmed']).select('id')
-    if (flipped && flipped.length && b.type === 'class') {
-      await admin.rpc('increment_classes', { p_student_id: b.student_id })
-    }
-    cancelBookingReminders(b.id).catch(() => {})
-  }
+  await cancelAndRefundTeacherLiveBookings(admin, teacherId)
 
   // If the teacher has any payment history, a hard delete violates the
   // (no-cascade) payments_teacher_id_fkey and throws a raw Postgres error. Preserve
@@ -1346,6 +1372,9 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
   // from the private teacher-docs bucket (best-effort — never block the rejection).
   const { data: teacherRow } = await admin.from('teachers').select('cv_storage_path').eq('id', teacherId).single()
   const cvPath = (teacherRow as { cv_storage_path?: string | null } | null)?.cv_storage_path ?? null
+
+  // Refund + cancel live class bookings before the FK cascade (parity w/ deleteTeacher).
+  await cancelAndRefundTeacherLiveBookings(admin, teacherId)
 
   const { error: delError } = await admin.from('teachers').delete().eq('id', teacherId)
   if (delError) throw new Error(delError.message)

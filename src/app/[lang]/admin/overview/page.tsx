@@ -233,7 +233,7 @@ export default async function AdminOverviewPage({ params }: Props) {
                       {new Date(b.scheduled_at).toLocaleString(dateLocale, {
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                         timeZone: 'America/Tegucigalpa',
-                      })}
+                      }).replace(/[  ]/g, ' ')}
                     </td>
                     <td className="py-3.5">
                       <span style={statusStyle(b.status)}>
