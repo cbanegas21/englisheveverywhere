@@ -16,6 +16,7 @@
 // Auth: uses RESEND_API_KEY. Dev mode (`re_placeholder`) short-circuits to a
 // no-op so local runs don't try to hit Resend.
 
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { buildBookingIcs } from '@/lib/ics'
 import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
@@ -408,8 +409,12 @@ async function cancelOne(apiKey: string, emailId: string): Promise<void> {
 // repeated calls (e.g. reschedule) don't leave dangling scheduled sends.
 //
 // Fire-and-forget from callers — any failure here must not break the parent
-// booking action.
-export async function scheduleBookingReminders(bookingId: string): Promise<void> {
+// booking action. Callers invoke the exported wrapper below, which runs this via
+// next/server `after()` so the multi-send + scheduled_email_ids write is GUARANTEED
+// to finish after the response instead of being frozen mid-flight when the Vercel
+// instance suspends (a plain un-awaited promise was dropping reminders + the ids
+// write, especially once 429 retries lengthened the work).
+async function runScheduleBookingReminders(bookingId: string): Promise<void> {
   if (!isResendConfigured()) return
 
   const apiKey = process.env.RESEND_API_KEY as string
@@ -628,8 +633,9 @@ export async function scheduleBookingReminders(bookingId: string): Promise<void>
 }
 
 // Cancels any scheduled reminder emails for a booking. Called from the
-// booking-decline and admin reschedule-approval paths. Fire-and-forget.
-export async function cancelBookingReminders(bookingId: string): Promise<void> {
+// booking-decline and admin reschedule-approval paths. Runs via `after()` (see the
+// exported wrapper) so the cancel POSTs + ids-clear write survive the response.
+async function runCancelBookingReminders(bookingId: string): Promise<void> {
   if (!isResendConfigured()) return
   const apiKey = process.env.RESEND_API_KEY as string
 
@@ -649,4 +655,21 @@ export async function cancelBookingReminders(bookingId: string): Promise<void> {
     .from('bookings')
     .update({ scheduled_email_ids: [] })
     .eq('id', bookingId)
+}
+
+// ── Public wrappers ──────────────────────────────────────────────────────────
+// Callers keep their fire-and-forget `.catch(() => {})` usage. We schedule the real
+// work with next/server `after()` so it runs AFTER the response is sent yet is
+// guaranteed to complete (Vercel keeps the instance alive for `after` callbacks) —
+// the multi-send + DB write no longer races the serverless suspend. If `after()`
+// isn't available (e.g. called outside a request context), fall back to running
+// inline so behavior degrades to the prior best-effort instead of throwing.
+export async function scheduleBookingReminders(bookingId: string): Promise<void> {
+  try { after(() => runScheduleBookingReminders(bookingId)) }
+  catch { await runScheduleBookingReminders(bookingId).catch(() => {}) }
+}
+
+export async function cancelBookingReminders(bookingId: string): Promise<void> {
+  try { after(() => runCancelBookingReminders(bookingId)) }
+  catch { await runCancelBookingReminders(bookingId).catch(() => {}) }
 }
