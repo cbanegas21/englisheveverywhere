@@ -306,6 +306,34 @@ function bareEmail(from: string): string {
   return m ? m[1] : from
 }
 
+// POST an email to Resend with retry on transient failures. A single confirm flow
+// fires several sends in quick succession (a confirmation per recipient + up to four
+// scheduled reminders), which can trip Resend's per-second rate limit (HTTP 429) and
+// previously caused a reminder to be SILENTLY DROPPED (the send returned !ok → null →
+// filtered out, so a recipient quietly lost one reminder). Retry 429/5xx a few times
+// with backoff so every reminder actually gets queued. Returns the final Response, or
+// null if every attempt failed (caller treats null as a dropped send).
+async function resendEmailPost(apiKey: string, payload: Record<string, unknown>): Promise<Response | null> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(`${RESEND_BASE}/emails`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.status === 429 || res.status >= 500) {
+        const ra = Number(res.headers.get('retry-after'))
+        await new Promise((r) => setTimeout(r, ra > 0 ? ra * 1000 : 700 * (attempt + 1)))
+        continue
+      }
+      return res
+    } catch {
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)))
+    }
+  }
+  return null
+}
+
 // Sends the confirmation email immediately (no scheduled_at) with the .ics
 // attached as a base64 text/calendar part. Best-effort — never throws into the
 // caller; a Resend hiccup must not break the confirm action.
@@ -318,31 +346,21 @@ async function sendConfirmationEmail(params: {
   text: string
   icsBase64: string
 }): Promise<void> {
-  try {
-    await fetch(`${RESEND_BASE}/emails`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${params.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: params.from,
-        to: params.to,
-        subject: params.subject,
-        html: params.html,
-        text: params.text,
-        attachments: [{
-          filename: 'clase-englishkolab.ics',
-          content: params.icsBase64,
-          // Explicit charset so accented names/summaries don't mojibake on strict
-          // calendar clients; method=REQUEST marks it as an invite (email-ics-charset-1).
-          content_type: 'text/calendar; charset=utf-8; method=REQUEST',
-        }],
-      }),
-    })
-  } catch {
-    // Swallow — best-effort. The scheduled reminder emails still go out.
-  }
+  // Best-effort with transient-retry — never throws into the caller.
+  await resendEmailPost(params.apiKey, {
+    from: params.from,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+    attachments: [{
+      filename: 'clase-englishkolab.ics',
+      content: params.icsBase64,
+      // Explicit charset so accented names/summaries don't mojibake on strict
+      // calendar clients; method=REQUEST marks it as an invite (email-ics-charset-1).
+      content_type: 'text/calendar; charset=utf-8; method=REQUEST',
+    }],
+  })
 }
 
 async function scheduleOne(params: {
@@ -354,23 +372,16 @@ async function scheduleOne(params: {
   text: string
   scheduledAtIso: string
 }): Promise<string | null> {
+  const res = await resendEmailPost(params.apiKey, {
+    from: params.from,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+    scheduled_at: params.scheduledAtIso,
+  })
+  if (!res || !res.ok) return null
   try {
-    const res = await fetch(`${RESEND_BASE}/emails`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${params.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: params.from,
-        to: params.to,
-        subject: params.subject,
-        html: params.html,
-        text: params.text,
-        scheduled_at: params.scheduledAtIso,
-      }),
-    })
-    if (!res.ok) return null
     const body = await res.json() as { id?: string }
     return body.id ?? null
   } catch {
