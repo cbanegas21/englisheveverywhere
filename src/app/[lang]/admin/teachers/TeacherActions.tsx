@@ -211,13 +211,18 @@ export function ActiveToggle({
     const next = !active
     setError('')
     startTransition(async () => {
-      try {
-        await toggleTeacherActive(teacherId, next)
-        setActive(next)
-      } catch {
-        // Thrown server-action messages are redacted in prod → show friendly generic.
-        setError(t.error)
+      let res = await toggleTeacherActive(teacherId, next)
+      // Deactivating a teacher with live bookings / unpaid money warns first, then
+      // re-queues their classes for a backup (QA §7.2 SB-01/SB-02).
+      if (!res.ok && 'needsConfirm' in res) {
+        const msg = lang === 'es'
+          ? `Este maestro todavía tiene ${res.liveBookings} clase(s) próxima(s) y $${res.pendingUsd.toFixed(2)} en pagos pendientes.\n\nSus clases quedarán sin asignar para reasignar un respaldo; el dinero sigue siendo pagable.\n\n¿Desactivar de todos modos?`
+          : `This teacher still has ${res.liveBookings} upcoming class(es) and $${res.pendingUsd.toFixed(2)} in unpaid earnings.\n\nTheir classes will be unassigned for a backup; the money stays payable.\n\nDeactivate anyway?`
+        if (!window.confirm(msg)) return
+        res = await toggleTeacherActive(teacherId, false, { force: true })
       }
+      if (res.ok) setActive(next)
+      else setError('error' in res ? res.error : t.error)
     })
   }
 

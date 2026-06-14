@@ -152,17 +152,74 @@ export async function rejectTeacher(teacherId: string, profileId: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function toggleTeacherActive(teacherId: string, isActive: boolean) {
-  await assertAdmin()
-  const admin = createAdminClient()
+export type ToggleTeacherResult =
+  | { ok: true; requeued?: number }
+  | { ok: false; needsConfirm: true; liveBookings: number; pendingUsd: number }
+  | { ok: false; error: string }
 
-  const { error } = await admin
-    .from('teachers')
-    .update({ is_active: isActive })
-    .eq('id', teacherId)
+// Activate or deactivate a teacher. Reactivating is always safe. Deactivating is
+// the sensitive path: a paused teacher can no longer confirm/decline (booking.ts
+// is_active gate) and is excluded from new assignments + the payout sweep, so two
+// things must NOT silently fall through the cracks (QA §7.2 SB-01/SB-02):
+//  1. Their live student bookings would otherwise be stranded — confirmed in My
+//     Classes but unteachable + invisible to the admin unassigned queue (teacher_id
+//     still set). We RE-QUEUE them (teacher_id=null, status=pending) so a backup
+//     teacher can cover the class (plan B); if none is found the class can still be
+//     cancelled/refunded later. (Deactivation is reversible, so we re-queue rather
+//     than cancel+refund the way reject/deleteTeacher do for a permanent removal.)
+//  2. Any unpaid earnings remain owed (paid manually in Veem). The admin gets a
+//     one-time confirm warning before deactivating a teacher who still has live
+//     bookings or unpaid money, so it's never a silent surprise.
+export async function toggleTeacherActive(
+  teacherId: string,
+  isActive: boolean,
+  opts: { force?: boolean } = {},
+): Promise<ToggleTeacherResult> {
+  try {
+    await assertAdmin()
+    const admin = createAdminClient()
 
-  if (error) throw new Error(error.message)
-  revalidatePath('/', 'layout')
+    if (isActive) {
+      const { error } = await admin.from('teachers').update({ is_active: true }).eq('id', teacherId)
+      if (error) throw new Error(error.message)
+      revalidatePath('/', 'layout')
+      return { ok: true }
+    }
+
+    // Deactivating — gather the impact for the confirm warning.
+    const { data: liveRows } = await admin
+      .from('bookings')
+      .select('id, type')
+      .eq('teacher_id', teacherId)
+      .in('status', ['pending', 'confirmed'])
+    const liveBookings = (liveRows || []).length
+    const { availableUsd, pendingHoldUsd } = await computeTeacherAvailable(admin, teacherId)
+    const pendingUsd = Math.round((availableUsd + pendingHoldUsd) * 100) / 100
+
+    if (!(opts.force ?? false) && (liveBookings > 0 || pendingUsd > 0)) {
+      return { ok: false, needsConfirm: true, liveBookings, pendingUsd }
+    }
+
+    const { error } = await admin.from('teachers').update({ is_active: false }).eq('id', teacherId)
+    if (error) throw new Error(error.message)
+
+    // Re-queue the teacher's live bookings so a student is never left with a class
+    // this teacher can no longer teach. Unassigning returns CLASS bookings to the
+    // admin "unassigned" queue (pending AND teacher_id IS null) for a backup.
+    for (const bRow of (liveRows || []) as { id: string }[]) {
+      await admin
+        .from('bookings')
+        .update({ teacher_id: null, status: 'pending' })
+        .eq('id', bRow.id)
+        .in('status', ['pending', 'confirmed'])
+      cancelBookingReminders(bRow.id).catch(() => {})
+    }
+
+    revalidatePath('/', 'layout')
+    return { ok: true, requeued: liveBookings }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Could not update the teacher.' }
+  }
 }
 
 // ── Booking actions ───────────────────────────────────────────────────────────

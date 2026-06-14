@@ -44,6 +44,8 @@ const STR = {
     profileSaved: 'Profile saved',
     teacherActivated: 'Teacher activated',
     teacherDeactivated: 'Teacher deactivated',
+    deactivateWarn: (n: number, usd: number) =>
+      `This teacher still has ${n} upcoming class${n === 1 ? '' : 'es'} and $${usd.toFixed(2)} in unpaid earnings.\n\nDeactivating will unassign their classes so you can assign a backup teacher; the money stays payable in Veem.\n\nDeactivate anyway?`,
     resetEmailSent: 'Reset email sent',
     teacherDeleted: 'Teacher deleted',
     // sidebar
@@ -137,6 +139,8 @@ const STR = {
     profileSaved: 'Perfil guardado',
     teacherActivated: 'Maestro activado',
     teacherDeactivated: 'Maestro desactivado',
+    deactivateWarn: (n: number, usd: number) =>
+      `Este maestro todavía tiene ${n} clase${n === 1 ? '' : 's'} próxima${n === 1 ? '' : 's'} y $${usd.toFixed(2)} en pagos pendientes.\n\nAl desactivarlo, sus clases quedarán sin asignar para que asignes un maestro de respaldo; el dinero sigue siendo pagable en Veem.\n\n¿Desactivar de todos modos?`,
     resetEmailSent: 'Correo de restablecimiento enviado',
     teacherDeleted: 'Maestro eliminado',
     // sidebar
@@ -280,6 +284,28 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         // Thrown server-action messages are redacted in prod → show friendly generic.
         showToast(t.error, 'error')
       }
+    })
+  }
+
+  // Deactivating a teacher is the sensitive toggle: warn (one-time confirm) if they
+  // still have live bookings or unpaid earnings, then the action re-queues their
+  // classes for a backup teacher. Reactivating is a plain flip. (QA §7.2 SB-01/SB-02.)
+  function handleToggleActive() {
+    const next = !isActive
+    startTransition(async () => {
+      if (next) {
+        const res = await toggleTeacherActive(teacher.id, true)
+        if (res.ok) { setIsActive(true); showToast(t.teacherActivated); router.refresh() }
+        else showToast('error' in res ? res.error : t.error, 'error')
+        return
+      }
+      let res = await toggleTeacherActive(teacher.id, false)
+      if (!res.ok && 'needsConfirm' in res) {
+        if (!window.confirm(t.deactivateWarn(res.liveBookings, res.pendingUsd))) return
+        res = await toggleTeacherActive(teacher.id, false, { force: true })
+      }
+      if (res.ok) { setIsActive(false); showToast(t.teacherDeactivated); router.refresh() }
+      else showToast('error' in res ? res.error : t.error, 'error')
     })
   }
 
@@ -439,11 +465,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
           <div style={cardStyle}>
             <span style={labelStyle}>{t.status}</span>
             <button
-              onClick={() => {
-                const next = !isActive
-                setIsActive(next)
-                run(() => toggleTeacherActive(teacher.id, next), next ? t.teacherActivated : t.teacherDeactivated)
-              }}
+              onClick={handleToggleActive}
               disabled={isPending}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
@@ -912,11 +934,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         <div style={cardStyle}>
           <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: '0 0 8px' }}>{t.accountStatus}</h3>
           <button
-            onClick={() => {
-              const next = !isActive
-              setIsActive(next)
-              run(() => toggleTeacherActive(teacher.id, next), next ? t.teacherActivated : t.teacherDeactivated)
-            }}
+            onClick={handleToggleActive}
             disabled={isPending}
             style={{
               padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',

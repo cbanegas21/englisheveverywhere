@@ -73,6 +73,11 @@ export default async function GananciasPage({ params }: Props) {
     // payment row) correctly earns $0 here too.
     const payoutUsd = sessionPayoutUsd(pay)
     const cleared = isClearedAt(s.scheduled_at, now)
+    // "Attended" = the class actually has a settled payment (attendance-gated by
+    // migration 045). A no-show completes the booking but writes no payment, so it
+    // must NOT count toward the Sessions tile — otherwise the count diverged from
+    // the teacher-home total_sessions and showed a $0 "unpaid session" (SB-10).
+    const attended = !!pay && pay.status === 'completed'
     return {
       id: s.id,
       scheduled_at: s.scheduled_at,
@@ -80,6 +85,7 @@ export default async function GananciasPage({ params }: Props) {
       student: s.student,
       payoutUsd,
       cleared,
+      attended,
     }
   })
 
@@ -107,8 +113,8 @@ export default async function GananciasPage({ params }: Props) {
   return (
     <GananciasClient
       lang={lang as Locale}
-      totalSessions={sessions.length}
-      thisMonthSessions={thisMonth.length}
+      totalSessions={sessions.filter(s => s.attended).length}
+      thisMonthSessions={thisMonth.filter(s => s.attended).length}
       thisMonthEarnedUsd={thisMonthEarnedUsd}
       lifetimeEarnedUsd={lifetimeEarnedUsd}
       availableUsd={availableUsd}
