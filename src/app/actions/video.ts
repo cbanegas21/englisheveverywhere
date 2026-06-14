@@ -202,6 +202,20 @@ export async function getRoomAccess(bookingId: string): Promise<
     sessionId = newSession.id
   }
 
+  // Attendance signal: stamp the first time the STUDENT opens the room. This is
+  // what gates the teacher payout in completeSession — a no-show (student never
+  // reached the room) leaves this null, so the teacher isn't paid for a class
+  // that didn't happen. Set-once (only when null) so the timestamp is the real
+  // first join; fire-and-forget so it never blocks room entry.
+  if (user.id === studentProfileId) {
+    await adminClient
+      .from('sessions')
+      .update({ student_joined_at: new Date().toISOString() })
+      .eq('id', sessionId)
+      .is('student_joined_at', null)
+      .then(() => undefined, () => undefined)
+  }
+
   if (isDevMode) {
     return { url: '', token: '', sessionId, isDevMode: true }
   }
@@ -422,6 +436,22 @@ export async function completeSession(
     if (sessionErr) console.error('[completeSession] session ended_at update failed:', sessionErr.message)
   }
 
+  // Attendance gate (migration 045): the teacher is paid only for a class the
+  // STUDENT actually opened (getRoomAccess stamps sessions.student_joined_at on
+  // the student's first room entry). A no-show — student never reached the room —
+  // still completes the booking but mints NO payout + NO session-count, closing
+  // the "instant-end-at-start pays for a no-show" hole. No session row at all
+  // (neither party opened the room) is likewise treated as no-attendance.
+  let studentJoined = false
+  if (sid) {
+    const { data: srow } = await adminClient
+      .from('sessions')
+      .select('student_joined_at')
+      .eq('id', sid)
+      .maybeSingle()
+    studentJoined = !!srow?.student_joined_at
+  }
+
   // Status-gated flip confirmed→completed. The call that actually flips the row
   // (justCompleted) is the only one that runs the one-time side effects below —
   // race-safe and idempotent on re-calls.
@@ -440,7 +470,14 @@ export async function completeSession(
   const teacherId = (booking.teacher as any)?.id
   const studentId = (booking.student as any)?.id
 
-  if (teacherId && justCompleted) {
+  // Attendance-gated payout: a no-show (studentJoined === false) completes the
+  // booking but mints neither a session-count nor a payment. The teacher is paid
+  // only for a class the student actually showed up to.
+  if (justCompleted && !studentJoined) {
+    console.info('[completeSession] no student attendance — payout + session-count withheld', { bookingId, teacherId })
+  }
+
+  if (teacherId && justCompleted && studentJoined) {
     const total = (booking.teacher as any)?.total_sessions || 0
     await adminClient
       .from('teachers')
@@ -448,7 +485,7 @@ export async function completeSession(
       .eq('id', teacherId)
   }
 
-  if (studentId && teacherId) {
+  if (studentId && teacherId && studentJoined) {
     const { data: existingPayment } = await adminClient
       .from('payments')
       .select('id')

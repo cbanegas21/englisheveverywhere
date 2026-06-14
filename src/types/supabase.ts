@@ -535,6 +535,7 @@ export type Database = {
           notes: string | null
           recording_url: string | null
           started_at: string | null
+          student_joined_at: string | null
           student_rating: number | null
           student_review: string | null
           teacher_notes: string | null
@@ -549,6 +550,7 @@ export type Database = {
           notes?: string | null
           recording_url?: string | null
           started_at?: string | null
+          student_joined_at?: string | null
           student_rating?: number | null
           student_review?: string | null
           teacher_notes?: string | null
@@ -563,6 +565,7 @@ export type Database = {
           notes?: string | null
           recording_url?: string | null
           started_at?: string | null
+          student_joined_at?: string | null
           student_rating?: number | null
           student_review?: string | null
           teacher_notes?: string | null
@@ -885,6 +888,10 @@ export type Database = {
       }
       auth_student_id: { Args: never; Returns: string }
       decrement_classes: { Args: { p_student_id: string }; Returns: boolean }
+      decrement_classes_by: {
+        Args: { p_count: number; p_student_id: string }
+        Returns: undefined
+      }
       increment_classes: { Args: { p_student_id: string }; Returns: undefined }
       is_matched_teacher: { Args: { p_teacher_id: string }; Returns: boolean }
     }
