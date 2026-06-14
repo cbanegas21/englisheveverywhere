@@ -615,6 +615,18 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.increment_teacher_sessions(p_teacher_id uuid)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  update public.teachers
+  set total_sessions = coalesce(total_sessions, 0) + 1
+  where id = p_teacher_id;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.is_matched_teacher(p_teacher_id uuid)
  RETURNS boolean
  LANGUAGE sql

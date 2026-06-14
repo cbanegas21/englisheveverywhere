@@ -61,7 +61,7 @@ export async function transcribeAudioChunk(
   // Deepgram credit. Generous ceiling so a real 60-min class never trips it (video-6).
   // ~10 chunks/min per user (6s slices) = ~150 per rolling 15-min window; 300 is
   // 2x that headroom so a real class never trips it while a loop is capped (video-6).
-  const rl = await checkUserActionLimit(user.id, 'transcribe', 300)
+  const rl = await checkUserActionLimit(user.id, 'transcribe', 300, 15, true)
   if (!rl.ok) return { error: 'rate-limited' }
 
   try {
@@ -160,6 +160,12 @@ export async function getRoomAccess(bookingId: string): Promise<
   const apiSecret = process.env.LIVEKIT_API_SECRET
   const wsUrl = process.env.LIVEKIT_URL
   const isDevMode = !apiKey || !apiSecret || !wsUrl
+  // Config landmine: in production, missing LiveKit keys silently drop into
+  // dev-mode, which SKIPS the expiry/late-cap window. Surface it loudly so a
+  // key-loss deploy is caught in logs rather than quietly opening window-less rooms.
+  if (isDevMode && process.env.NODE_ENV === 'production') {
+    console.error('[getRoomAccess] LIVEKIT keys missing in PRODUCTION — running window-less dev-mode. Set LIVEKIT_API_KEY / LIVEKIT_API_SECRET / LIVEKIT_URL.')
+  }
 
   // Timing window — Zoom-style lobby. Participants may enter at any time;
   // the client renders a countdown lobby if `now < scheduled_at`. We only
@@ -287,7 +293,9 @@ export async function saveSessionNotes(sessionId: string, notes: string): Promis
 
   const { error } = await adminClient
     .from('sessions')
-    .update({ notes })
+    // Server-side length cap (defense-in-depth) — the client textarea isn't the
+    // authority. A 60-min class of notes is well under 100k chars.
+    .update({ notes: (notes || '').slice(0, 100_000) })
     .eq('id', sessionId)
 
   return { success: !error }
@@ -418,15 +426,15 @@ export async function completeSession(
 
   const adminClient = createAdminClient()
 
-  let sid = sessionId
-  if (!sid) {
-    const { data: s } = await adminClient
-      .from('sessions')
-      .select('id')
-      .eq('booking_id', bookingId)
-      .maybeSingle()
-    sid = s?.id || null
-  }
+  // Resolve the session AUTHORITATIVELY from the bookingId — never trust the
+  // client-passed sessionId for writes (a tampered id could point at another
+  // booking's session). One read yields both the id and the attendance flag.
+  const { data: sessionRow } = await adminClient
+    .from('sessions')
+    .select('id, student_joined_at')
+    .eq('booking_id', bookingId)
+    .maybeSingle()
+  const sid = sessionRow?.id || null
 
   if (sid) {
     const { error: sessionErr } = await adminClient
@@ -442,15 +450,7 @@ export async function completeSession(
   // still completes the booking but mints NO payout + NO session-count, closing
   // the "instant-end-at-start pays for a no-show" hole. No session row at all
   // (neither party opened the room) is likewise treated as no-attendance.
-  let studentJoined = false
-  if (sid) {
-    const { data: srow } = await adminClient
-      .from('sessions')
-      .select('student_joined_at')
-      .eq('id', sid)
-      .maybeSingle()
-    studentJoined = !!srow?.student_joined_at
-  }
+  const studentJoined = !!sessionRow?.student_joined_at
 
   // Status-gated flip confirmed→completed. The call that actually flips the row
   // (justCompleted) is the only one that runs the one-time side effects below —
@@ -478,11 +478,10 @@ export async function completeSession(
   }
 
   if (teacherId && justCompleted && studentJoined) {
-    const total = (booking.teacher as any)?.total_sessions || 0
-    await adminClient
-      .from('teachers')
-      .update({ total_sessions: total + 1 })
-      .eq('id', teacherId)
+    // Atomic increment (migration 046): a read-modify-write here could lose an
+    // increment when two DIFFERENT bookings for the same teacher complete at once.
+    const { error: incErr } = await adminClient.rpc('increment_teacher_sessions', { p_teacher_id: teacherId })
+    if (incErr) console.error('[completeSession] total_sessions increment failed:', incErr.message)
   }
 
   if (studentId && teacherId && studentJoined) {
@@ -549,7 +548,9 @@ export async function saveSessionTranscript(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false }
 
-  const trimmed = transcript.trim()
+  // Server-side length cap (defense-in-depth) — a full class transcript is well
+  // under 500k chars; the client isn't the authority on size.
+  const trimmed = transcript.trim().slice(0, 500_000)
   if (!trimmed) return { success: false }
 
   const adminClient = createAdminClient()
@@ -599,6 +600,7 @@ export async function getSessionByBookingId(bookingId: string): Promise<{
   const { data: booking } = await adminClient
     .from('bookings')
     .select(`
+      conductor_profile_id,
       teacher:teachers(profile_id),
       student:students(profile_id)
     `)
@@ -609,8 +611,18 @@ export async function getSessionByBookingId(bookingId: string): Promise<{
 
   const teacherProfileId = (booking.teacher as any)?.profile_id
   const studentProfileId = (booking.student as any)?.profile_id
+  const conductorProfileId = (booking as any).conductor_profile_id
 
-  if (user.id !== teacherProfileId && user.id !== studentProfileId) return null
+  // Readers = the booking's teacher / student / placement conductor, OR any admin
+  // (support + placement review). A conductor who ran the call could not read its
+  // notes/transcript afterward before this — mirrors getRoomAccess's participant set.
+  const { data: caller } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const isAllowed =
+    user.id === teacherProfileId ||
+    user.id === studentProfileId ||
+    user.id === conductorProfileId ||
+    caller?.role === 'admin'
+  if (!isAllowed) return null
 
   const { data: session } = await adminClient
     .from('sessions')
@@ -681,7 +693,7 @@ export async function extractLiveVocab(
   // Throttle per user — caps runaway loops draining Anthropic credit. Fires every
   // ~30s in a real class (~2/min = ~30 per rolling 15-min window), so 60 is 2x
   // headroom — a real class never trips it (video-6).
-  const rl = await checkUserActionLimit(user.id, 'extractVocab', 60)
+  const rl = await checkUserActionLimit(user.id, 'extractVocab', 60, 15, true)
   if (!rl.ok) return []
 
   const lang = options.lang || 'es'

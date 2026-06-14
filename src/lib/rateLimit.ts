@@ -128,23 +128,29 @@ export async function checkUserActionLimit(
   action: string,
   limit: number,
   windowMinutes = 15,
+  // failClosed: on a DB error, DENY instead of allowing. Default false (login-style
+  // throttles must never lock out a real user on a DB blip). Set true for actions
+  // that SPEND external money on each call (transcribe→Deepgram, extractVocab→
+  // Anthropic): during a DB outage, better to degrade the AI feature than let an
+  // un-throttled loop drain credit.
+  failClosed = false,
 ): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> {
   const h = await headers()
   const ip = getClientIp(h)
   const admin = createAdminClient()
   const windowMs = windowMinutes * 60 * 1000
   const since = new Date(Date.now() - windowMs).toISOString()
+  const retryAfterSeconds = Math.ceil(windowMs / 1000)
 
   // Insert FIRST, then count — so concurrent callers each count the others' rows
   // and the limit can't be bypassed by a race (the old count-then-insert let two
-  // requests both read count<limit and both insert). Fail open on insert error so
-  // a DB blip never blocks a real user.
+  // requests both read count<limit and both insert).
   const { error: insErr } = await admin
     .from('auth_attempts')
     .insert({ ip, action, email: userId, success: true })
   if (insErr) {
-    console.error('[rateLimit] user-action insert failed (failing open)', insErr)
-    return { ok: true }
+    console.error(`[rateLimit] user-action insert failed (failing ${failClosed ? 'CLOSED' : 'open'})`, insErr)
+    return failClosed ? { ok: false, retryAfterSeconds } : { ok: true }
   }
   const { count, error } = await admin
     .from('auth_attempts')
@@ -153,8 +159,8 @@ export async function checkUserActionLimit(
     .eq('action', action)
     .gte('attempted_at', since)
   if (error) {
-    console.error('[rateLimit] user-action count failed (failing open)', error)
-    return { ok: true }
+    console.error(`[rateLimit] user-action count failed (failing ${failClosed ? 'CLOSED' : 'open'})`, error)
+    return failClosed ? { ok: false, retryAfterSeconds } : { ok: true }
   }
   // This call's own row is counted, so reject once the window EXCEEDS the limit.
   if ((count ?? 0) > limit) {

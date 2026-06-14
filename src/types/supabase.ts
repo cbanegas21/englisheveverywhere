@@ -893,6 +893,10 @@ export type Database = {
         Returns: undefined
       }
       increment_classes: { Args: { p_student_id: string }; Returns: undefined }
+      increment_teacher_sessions: {
+        Args: { p_teacher_id: string }
+        Returns: undefined
+      }
       is_matched_teacher: { Args: { p_teacher_id: string }; Returns: boolean }
     }
     Enums: {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
+import { MotionConfig } from 'framer-motion'
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react'
 import { getRoomAccess, completeSession } from '@/app/actions/video'
 import type { SessionSummary } from '@/app/actions/video'
@@ -96,17 +97,20 @@ export default function VideoRoomClient({
 
   if (status === 'completed' || phase === 'ended') {
     return (
-      <EndedScreen
-        lang={lang}
-        isTeacher={isTeacher}
-        summary={summaryData}
-        isGenerating={isPendingDev}
-        dashboardPath={dashboardPath}
-      />
+      <MotionConfig reducedMotion="user">
+        <EndedScreen
+          lang={lang}
+          isTeacher={isTeacher}
+          summary={summaryData}
+          isGenerating={isPendingDev}
+          dashboardPath={dashboardPath}
+        />
+      </MotionConfig>
     )
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden" style={{ background: VIDEO_THEME.stage }}>
       <div className="flex-1 relative">
         {phase === 'init' && <ConnectingScreen message={tx.connecting} />}
@@ -163,5 +167,6 @@ export default function VideoRoomClient({
         )}
       </div>
     </div>
+    </MotionConfig>
   )
 }

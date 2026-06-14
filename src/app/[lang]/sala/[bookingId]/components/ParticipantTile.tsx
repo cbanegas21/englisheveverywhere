@@ -72,7 +72,9 @@ export function TileLabel({
       style={{ bottom: 8 + bottomInset, background: 'rgba(10,12,15,0.55)', border: `1px solid ${VIDEO_THEME.border}` }}
     >
       {muted && <MicOff className="h-3.5 w-3.5 flex-shrink-0" style={{ color: VIDEO_THEME.brand }} />}
-      <span className="text-[13px] font-medium leading-none text-white">
+      {/* truncate + cap width so a very long display name can't overrun the
+          stage / push the pill past the viewport edge. */}
+      <span className="max-w-[45vw] truncate text-[13px] font-medium leading-none text-white">
         {name}{youLabel ? ` · ${youLabel}` : ''}
       </span>
     </div>

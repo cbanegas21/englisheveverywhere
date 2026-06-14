@@ -796,7 +796,9 @@ export async function completeBooking(bookingId: string) {
       .eq('id', booking.teacher_id)
       .single()
     if (teacher) {
-      await admin.from('teachers').update({ total_sessions: (teacher.total_sessions || 0) + 1 }).eq('id', teacher.id)
+      // Atomic increment (migration 046) — parity with completeSession; avoids a
+      // lost update when an admin completion races the in-room one.
+      await admin.rpc('increment_teacher_sessions', { p_teacher_id: teacher.id })
       const { data: existingPayment } = await admin.from('payments').select('id').eq('booking_id', bookingId).maybeSingle()
       if (!existingPayment) {
         const rate = Math.round((teacher.hourly_rate || 0) * ((booking.duration_minutes || 60) / 60))

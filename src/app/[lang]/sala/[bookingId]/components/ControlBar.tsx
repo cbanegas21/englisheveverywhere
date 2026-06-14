@@ -77,6 +77,7 @@ export function ControlBar({
 }: Props) {
   const tx = videoStrings(lang)
   const rootRef = useRef<HTMLDivElement>(null)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
   const [showMore, setShowMore] = useState(false)
   // Compact = phone-width. On compact only the essentials stay on the bar; the
   // rest fold into the "More" sheet so the row never wraps (the old 3-row pile).
@@ -90,9 +91,11 @@ export function ControlBar({
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  // Close the "More" sheet on Escape.
+  // Close the "More" sheet on Escape; move keyboard focus into the menu on open
+  // so keyboard / screen-reader users land on the first item (a11y).
   useEffect(() => {
     if (!showMore) return
+    moreMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowMore(false) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -270,6 +273,7 @@ export function ControlBar({
                 style={{ background: 'transparent' }}
               />
               <div
+                ref={moreMenuRef}
                 role="menu"
                 className="absolute bottom-full right-0 z-50 mb-3 w-60 overflow-hidden rounded-2xl p-1.5 shadow-2xl"
                 style={{

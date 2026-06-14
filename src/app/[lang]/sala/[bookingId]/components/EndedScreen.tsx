@@ -22,7 +22,7 @@ export function EndedScreen({ lang, isTeacher, summary, isGenerating, dashboardP
   const router = useRouter()
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: VIDEO_THEME.stage }}>
+    <div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto px-4 py-8" style={{ background: VIDEO_THEME.stage }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
