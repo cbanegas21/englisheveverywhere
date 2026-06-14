@@ -28,3 +28,20 @@ export function planName(key: string, lang: 'es' | 'en'): string {
   if (!p) return key
   return lang === 'es' ? p.nameEs : p.nameEn
 }
+
+// ── Public, PRICE-FREE projection for anon/marketing surfaces ────────────────
+// The landing + /descubre quiz must NEVER ship per-pack priceUsd to the browser
+// (the gated-pricing funnel protects margin/structure from teachers+competitors).
+// Importing PRICING_PLANS into a 'use client' component bundles the whole priced
+// array. So the SERVER components call these helpers and pass the result as props
+// into the client Pricing/DescubreClient — only names, class counts, and the one
+// derived soft-anchor number cross the boundary; priceUsd stays server-side.
+export type PublicPlan = { key: PricingPlanKey; nameEn: string; nameEs: string; classes: number; highlight: boolean }
+export function publicPlans(): PublicPlan[] {
+  return PRICING_PLANS.map(p => ({ key: p.key, nameEn: p.nameEn, nameEs: p.nameEs, classes: p.classes, highlight: p.highlight }))
+}
+// Soft anchor: the lowest per-class USD across packs — the ONLY price-derived
+// number that is public (e.g. "$13/class").
+export function minPerClassUsd(): number {
+  return Math.round(Math.min(...PRICING_PLANS.map(p => p.priceUsd / p.classes)))
+}

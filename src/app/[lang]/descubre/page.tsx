@@ -1,4 +1,5 @@
 import type { Locale } from '@/lib/i18n/translations'
+import { publicPlans } from '@/lib/pricing'
 import DescubreClient from './DescubreClient'
 
 interface Props { params: Promise<{ lang: string }> }
@@ -9,5 +10,7 @@ interface Props { params: Promise<{ lang: string }> }
 // funnel. Public route (no auth).
 export default async function DescubrePage({ params }: Props) {
   const { lang } = await params
-  return <DescubreClient lang={lang as Locale} />
+  // Pass a price-free plan list (names + class counts only) — the quiz reveals a
+  // recommended pack but NEVER its price (gated funnel); priceUsd stays server-side.
+  return <DescubreClient lang={lang as Locale} plans={publicPlans()} />
 }

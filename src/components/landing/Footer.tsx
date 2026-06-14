@@ -133,17 +133,23 @@ export default function Footer({ lang }: { lang: Locale }) {
                   gap: 10,
                 }}
               >
-                {col.links.map((l) => (
-                  <li key={l.label}>
-                    <Link
-                      href={l.href}
-                      className="lk-footer-link"
-                      style={{ color: '#aaa', textDecoration: 'none' }}
-                    >
-                      {l.label}
-                    </Link>
-                  </li>
-                ))}
+                {col.links.map((l) => {
+                  // Product-column links are bare #hash; make them absolute so
+                  // they also work from /privacy, /terms, /contact (where those
+                  // sections don't exist) — mirrors the Navbar's EK-036 fix.
+                  const href = l.href.startsWith('#') ? `/${lang}${l.href}` : l.href
+                  return (
+                    <li key={l.label}>
+                      <Link
+                        href={href}
+                        className="lk-footer-link"
+                        style={{ color: '#aaa', textDecoration: 'none' }}
+                      >
+                        {l.label}
+                      </Link>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))}

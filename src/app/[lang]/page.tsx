@@ -12,6 +12,7 @@ import Pricing from '@/components/landing/Pricing'
 import FAQ from '@/components/landing/FAQ'
 import FinalCTA from '@/components/landing/FinalCTA'
 import Footer from '@/components/landing/Footer'
+import { publicPlans, minPerClassUsd } from '@/lib/pricing'
 
 type Props = { params: Promise<{ lang: string }> }
 
@@ -25,7 +26,10 @@ export default async function LandingPage({ params }: Props) {
   // case (stale cookie post-expiry) is the user clicks "Dashboard"
   // and gets redirected to /login, which is fine.
   const cookieStore = await cookies()
-  const isLoggedIn = !!cookieStore.get('ee-role')?.value
+  // Read the role server-side (the ee-role cookie is httpOnly — unreadable from
+  // the client) so role-aware CTAs work without a dead document.cookie read.
+  const role = cookieStore.get('ee-role')?.value ?? null
+  const isLoggedIn = !!role
 
   // overflow-x: clip (not hidden) contains horizontal overflow WITHOUT creating
   // a scroll container — so the sticky Navbar keeps working (LK-01).
@@ -39,9 +43,9 @@ export default async function LandingPage({ params }: Props) {
       <Teachers lang={lang as Locale} />
       <NotebookBanner lang={lang as Locale} />
       <HorasGrid lang={lang as Locale} />
-      <Pricing lang={lang as Locale} />
+      <Pricing lang={lang as Locale} plans={publicPlans()} minPerClass={minPerClassUsd()} />
       <FAQ lang={lang as Locale} />
-      <FinalCTA lang={lang as Locale} isLoggedIn={isLoggedIn} />
+      <FinalCTA lang={lang as Locale} isLoggedIn={isLoggedIn} role={role} />
       <Footer lang={lang as Locale} />
     </main>
   )

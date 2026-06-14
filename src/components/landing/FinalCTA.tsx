@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
@@ -11,15 +10,6 @@ const ROLE_HOME: Record<string, string> = {
   admin: '/admin',
   teacher: '/maestro/dashboard',
   student: '/dashboard',
-}
-
-// Read the (unsigned, UX-only) ee-role fast-path cookie on the client. The
-// page passes isLoggedIn as a boolean; we read the role here so a logged-in
-// teacher/admin isn't linked to student-only routes. Falls back to null.
-function readRoleCookie(): string | null {
-  if (typeof document === 'undefined') return null
-  const m = document.cookie.match(/(?:^|;\s*)ee-role=([^;]+)/)
-  return m ? decodeURIComponent(m[1]) : null
 }
 
 const t = {
@@ -53,17 +43,11 @@ const t = {
   },
 }
 
-export default function FinalCTA({ lang, isLoggedIn = false }: { lang: Locale; isLoggedIn?: boolean }) {
+export default function FinalCTA({ lang, isLoggedIn = false, role = null }: { lang: Locale; isLoggedIn?: boolean; role?: string | null }) {
   const tx = t[lang]
 
-  // Resolve the logged-in user's role on the client (the cookie isn't available
-  // at SSR for this static marketing page). Start null so the first paint is
-  // role-neutral, then enrich after mount — avoids a hydration mismatch.
-  const [role, setRole] = useState<string | null>(null)
-  useEffect(() => {
-    if (isLoggedIn) setRole(readRoleCookie())
-  }, [isLoggedIn])
-
+  // Role comes from the SERVER page (the ee-role cookie is httpOnly — unreadable
+  // via document.cookie), so the role-aware CTA renders correctly on first paint.
   const isStudent = role === 'student'
   const dashHref = `/${lang}${ROLE_HOME[role ?? ''] ?? '/dashboard'}`
 

@@ -4,7 +4,13 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 import { useCurrency } from '@/lib/useCurrency'
-import { PRICING_PLANS } from '@/lib/pricing'
+
+// Price-free plan shape passed in from the SERVER page. The full PRICING_PLANS
+// (which carries priceUsd per pack) is NEVER imported here — importing it into a
+// 'use client' component ships the pack prices into the public JS bundle, defeating
+// the gated-pricing funnel (anyone could read margin + pack structure from devtools).
+// Only names + class counts + the single precomputed soft anchor are public.
+type PublicPlan = { key: string; nameEn: string; nameEs: string; classes: number; highlight: boolean }
 
 const t = {
   en: {
@@ -85,7 +91,7 @@ const t = {
   },
 }
 
-export default function Pricing({ lang }: { lang: Locale }) {
+export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; plans: PublicPlan[]; minPerClass: number }) {
   const tx = t[lang]
   const { convert, currency, loading } = useCurrency()
   const isUsd = currency === 'USD'
@@ -96,8 +102,9 @@ export default function Pricing({ lang }: { lang: Locale }) {
   const fxPending = !isUsd && loading
   // Soft anchor — show ONLY the lowest per-class equivalent (no pack prices, no
   // structure, no margin). The best-evidenced lever for converting without a
-  // public price; the real plan prices are revealed after signup.
-  const minPerClass = Math.round(Math.min(...PRICING_PLANS.map(p => p.priceUsd / p.classes)))
+  // public price; the real plan prices are revealed after signup. `minPerClass`
+  // is precomputed on the SERVER (from priceUsd) and passed in, so the priced
+  // PRICING_PLANS never reaches the public client bundle.
   const anchorDisplay = (isUsd || fxPending) ? `$${minPerClass}` : convert(minPerClass)
 
   return (
@@ -184,7 +191,7 @@ export default function Pricing({ lang }: { lang: Locale }) {
           }
         `}</style>
         <div className="lk-plangrid">
-          {PRICING_PLANS.map((pack, i) => {
+          {plans.map((pack, i) => {
             const hl = pack.highlight
             const name = lang === 'es' ? pack.nameEs : pack.nameEn
             const desc = tx.tags[pack.key]

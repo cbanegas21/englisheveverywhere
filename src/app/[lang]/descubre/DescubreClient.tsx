@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Locale } from '@/lib/i18n/translations'
-import { PRICING_PLANS } from '@/lib/pricing'
+
+// Price-free plan shape passed from the SERVER page — no priceUsd reaches this
+// 'use client' bundle (gated funnel). Only names + class counts cross the boundary.
+type QuizPlan = { nameEn: string; nameEs: string; classes: number }
 
 // Lowercase a phrase for natural mid-sentence use BUT keep all-caps tokens
 // (acronyms) intact — otherwise "An exam (TOEFL, IELTS…)" became "...(toefl, ielts…)".
@@ -64,7 +67,7 @@ const T = {
   },
 }
 
-export default function DescubreClient({ lang }: { lang: Locale }) {
+export default function DescubreClient({ lang, plans }: { lang: Locale; plans: QuizPlan[] }) {
   const tx = T[lang === 'es' ? 'es' : 'en']
   const router = useRouter()
   const other: Locale = lang === 'en' ? 'es' : 'en'
@@ -86,15 +89,19 @@ export default function DescubreClient({ lang }: { lang: Locale }) {
   }
 
   function pick(optIdx: number) {
+    if (phase !== 'quiz') return            // ignore stray clicks once building/result
     const next = [...answers, optIdx]
     setAnswers(next)
-    if (next.length === total) {
-      setPhase('building')
-      // "Labor illusion" beat — a brief, honest processing pause measurably
-      // raises the perceived value of the personalized result.
-      setTimeout(() => setPhase('result'), 1600)
-    }
+    if (next.length === total) setPhase('building')
   }
+  // "Labor illusion" beat — a brief, honest processing pause measurably raises the
+  // perceived value of the result. Run it as an effect so the timer is cleaned up
+  // on back()/retake()/unmount (no setState-after-unmount, no double-fire timer).
+  useEffect(() => {
+    if (phase !== 'building') return
+    const id = setTimeout(() => setPhase('result'), 1600)
+    return () => clearTimeout(id)
+  }, [phase])
   function back() {
     if (phase === 'result' || phase === 'building') { setPhase('quiz'); setAnswers(a => a.slice(0, -1)); return }
     setAnswers(a => a.slice(0, -1))
@@ -103,7 +110,7 @@ export default function DescubreClient({ lang }: { lang: Locale }) {
 
   // Recommend a plan from the weekly-frequency answer (q3): 1-2→Partida, 3→Trayecto,
   // 4→Ascenso, daily→Cumbre. PRICING_PLANS is ordered small→large.
-  const plan = PRICING_PLANS[Math.min(answers[2] ?? 0, PRICING_PLANS.length - 1)]
+  const plan = plans[Math.min(answers[2] ?? 0, plans.length - 1)]
   const planName = lang === 'es' ? plan.nameEs : plan.nameEn
   const freqLabel = tx.questions[2].opts[answers[2] ?? 0] ?? ''
 
