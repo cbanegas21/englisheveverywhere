@@ -181,7 +181,7 @@ export async function reschedulePlacementCall(
 
   const [{ data: student }, { data: profile }] = await Promise.all([
     admin.from('students').select('id, placement_test_done').eq('profile_id', user.id).single(),
-    admin.from('profiles').select('full_name').eq('id', user.id).single(),
+    admin.from('profiles').select('full_name, timezone').eq('id', user.id).single(),
   ])
 
   if (!student) {
@@ -255,11 +255,20 @@ export async function reschedulePlacementCall(
     .update({ placement_scheduled: true })
     .eq('profile_id', user.id)
 
-  // Notify admin (non-blocking)
+  // Notify admin (non-blocking) AND re-confirm to the student with the new time —
+  // previously the student got no email on reschedule (only the admin did).
+  const studentName = profile?.full_name || user.email || (lang === 'es' ? 'Estudiante' : 'Student')
   sendRescheduleNotification({
     studentEmail: user.email || '',
-    studentName: profile?.full_name || user.email || 'Student',
+    studentName,
     newScheduledAt,
+    lang,
+  })
+  sendStudentPlacementConfirmation({
+    studentEmail: user.email || '',
+    studentName,
+    scheduledAt: newScheduledAt,
+    studentTimezone: profile?.timezone || 'America/Tegucigalpa',
     lang,
   })
 
@@ -334,18 +343,6 @@ function sendPlacementEmails(params: {
     hour: '2-digit', minute: '2-digit',
     timeZone: 'America/Tegucigalpa',
   })
-  // Student confirmation: render in the STUDENT's own timezone (not hardcoded HN),
-  // matching how lib/reminders.ts renders every other user-facing time. timeZoneName
-  // 'short' appends their offset so the time is unambiguous. Fall back to HN if their
-  // saved zone is somehow invalid (would otherwise throw RangeError in toLocaleString).
-  const safeTz = (tz: string) => { try { new Date().toLocaleString('en-US', { timeZone: tz }); return tz } catch { return 'America/Tegucigalpa' } }
-  const studentTz = safeTz(params.studentTimezone)
-  const isEsFmt = params.lang === 'es'
-  const studentFormatted = new Date(params.scheduledAt).toLocaleString(isEsFmt ? 'es-HN' : 'en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
-    timeZone: studentTz,
-  })
 
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
@@ -385,10 +382,35 @@ function sendPlacementEmails(params: {
     }),
   }).catch(() => {})
 
-  // Confirm to student
+  // Confirm to the student (own timezone + language). Shared with the reschedule
+  // path so a student always gets a confirmation of the new time too.
+  sendStudentPlacementConfirmation(params)
+}
+
+// Student-facing placement-call confirmation. Sent on initial booking AND on
+// reschedule (previously the reschedule path emailed only the admin, so a student
+// who moved their call heard nothing back). Renders the time in the STUDENT's own
+// timezone (timeZoneName 'short' for an unambiguous offset), falling back to HN if
+// their saved zone is invalid. Best-effort, never throws into the caller.
+function sendStudentPlacementConfirmation(params: {
+  studentEmail: string
+  studentName: string
+  scheduledAt: string
+  studentTimezone: string
+  lang: string
+}) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey || apiKey === 're_placeholder' || !params.studentEmail) return
+  const safeTz = (tz: string) => { try { new Date().toLocaleString('en-US', { timeZone: tz }); return tz } catch { return 'America/Tegucigalpa' } }
   const isEs = params.lang === 'es'
+  const studentFormatted = new Date(params.scheduledAt).toLocaleString(isEs ? 'es-HN' : 'en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+    timeZone: safeTz(params.studentTimezone),
+  })
   fetch('https://api.resend.com/emails', {
-    method: 'POST', headers,
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: EMAIL_FROM,
       to: params.studentEmail,
