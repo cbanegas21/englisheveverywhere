@@ -17,7 +17,7 @@ const t = {
           'Account information: name, email address, password (hashed), preferred language, and role (student, teacher, or admin).',
           'Profile information you provide: proficiency level, time zone, availability, bio, optional profile photo, and for teachers, CV and payout details.',
           'Booking and session data: class times, duration, attendance, teacher notes, and automatically generated session transcripts (stored only for teachers of the session).',
-          'Payment information: we use Stripe to process payments. We never store full card numbers. Stripe provides us with a customer ID, subscription status, and last four digits for reconciliation.',
+          'Payment information: we use Stripe to process payments. We never store full card numbers. Stripe provides us with a customer ID and the last four digits of your card for reconciliation.',
           'Technical data: IP address, browser, device, pages visited, and error logs. Collected through standard web analytics and error-monitoring tools.',
         ],
       },
@@ -34,7 +34,7 @@ const t = {
       {
         heading: '3. Service providers',
         body: [
-          'We share personal information with the following vendors only as necessary to provide the Service: Supabase (database and authentication), Stripe (payments), LiveKit (video sessions), Resend (transactional email), Vercel (hosting), and Anthropic (AI-generated session summaries — session transcripts may be sent to Anthropic\'s API for summarization).',
+          'We share personal information with the following vendors only as necessary to provide the Service: Supabase (database and authentication), Stripe (payments), Veem (teacher payouts), LiveKit (video sessions), Resend (transactional email), Vercel (hosting), and Anthropic (AI-generated session summaries — session transcripts may be sent to Anthropic\'s API for summarization).',
           'Each provider is contractually required to safeguard your data and use it only to perform services on our behalf.',
         ],
       },
@@ -88,7 +88,7 @@ const t = {
           'Información de cuenta: nombre, correo electrónico, contraseña (hasheada), idioma preferido y rol (estudiante, maestro o administrador).',
           'Información de perfil que proporcionas: nivel de dominio, zona horaria, disponibilidad, biografía, foto opcional y, para maestros, CV y datos de pago.',
           'Datos de reservas y sesiones: horarios de clase, duración, asistencia, notas del maestro y transcripciones de sesión generadas automáticamente (almacenadas únicamente para los maestros de la sesión).',
-          'Información de pago: usamos Stripe para procesar pagos. Nunca almacenamos números de tarjeta completos. Stripe nos proporciona un ID de cliente, estado de suscripción y los últimos cuatro dígitos para conciliación.',
+          'Información de pago: usamos Stripe para procesar pagos. Nunca almacenamos números de tarjeta completos. Stripe nos proporciona un ID de cliente y los últimos cuatro dígitos para conciliación.',
           'Datos técnicos: dirección IP, navegador, dispositivo, páginas visitadas y registros de errores. Recopilados mediante herramientas estándar de analítica web y monitoreo de errores.',
         ],
       },
@@ -105,7 +105,7 @@ const t = {
       {
         heading: '3. Proveedores de servicios',
         body: [
-          'Compartimos información personal con los siguientes proveedores solo en la medida necesaria para proporcionar el Servicio: Supabase (base de datos y autenticación), Stripe (pagos), LiveKit (sesiones de video), Resend (correo transaccional), Vercel (hosting) y Anthropic (resúmenes de sesión generados por IA — las transcripciones de sesión pueden enviarse a la API de Anthropic para su resumen).',
+          'Compartimos información personal con los siguientes proveedores solo en la medida necesaria para proporcionar el Servicio: Supabase (base de datos y autenticación), Stripe (pagos), Veem (pagos a maestros), LiveKit (sesiones de video), Resend (correo transaccional), Vercel (hosting) y Anthropic (resúmenes de sesión generados por IA — las transcripciones de sesión pueden enviarse a la API de Anthropic para su resumen).',
           'Cada proveedor está obligado contractualmente a proteger tus datos y usarlos únicamente para prestar servicios en nuestro nombre.',
         ],
       },

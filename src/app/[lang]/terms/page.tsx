@@ -51,7 +51,7 @@ const t = {
       {
         heading: '6. Teacher terms (supplemental)',
         body: [
-          'Teachers apply, are reviewed, and approved before providing paid classes. Teachers are independent contractors, not employees. Teachers set their availability, conduct classes professionally, and receive payouts via Stripe Connect after classes are completed. Teachers warrant they have the right to provide the services and that the content they provide does not infringe any third party rights.',
+          'Teachers apply, are reviewed, and approved before providing paid classes. Teachers are independent contractors, not employees. Teachers set their availability, conduct classes professionally, and receive payouts after their classes are completed. Teachers warrant they have the right to provide the services and that the content they provide does not infringe any third party rights.',
         ],
       },
       {
@@ -143,7 +143,7 @@ const t = {
       {
         heading: '6. Términos para Maestros (suplementarios)',
         body: [
-          'Los Maestros aplican, son evaluados y aprobados antes de impartir clases pagadas. Los Maestros son contratistas independientes, no empleados. Los Maestros fijan su disponibilidad, imparten clases profesionalmente y reciben pagos vía Stripe Connect tras la finalización de las clases. Los Maestros declaran tener derecho a prestar los servicios y que el contenido que proporcionan no infringe derechos de terceros.',
+          'Los Maestros aplican, son evaluados y aprobados antes de impartir clases pagadas. Los Maestros son contratistas independientes, no empleados. Los Maestros fijan su disponibilidad, imparten clases profesionalmente y reciben pagos tras la finalización de las clases. Los Maestros declaran tener derecho a prestar los servicios y que el contenido que proporcionan no infringe derechos de terceros.',
         ],
       },
       {
