@@ -465,7 +465,9 @@ export async function teacherSetStudentLevel(studentId: string, level: string) {
     .from('students')
     .update({ level })
     .eq('id', studentId)
-  if (error) return { error: error.message }
+  // Don't reflect the raw Postgres string to the browser — log it, return a
+  // generic message (mirrors the rest of the codebase).
+  if (error) { console.error('[teacherSetStudentLevel] update failed:', error.message); return { error: 'Could not save. Please try again.' } }
 
   revalidatePath('/', 'layout')
   return { success: true }

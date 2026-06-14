@@ -190,7 +190,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
 
       <DashTopBar title={tx.title} sub={tx.subtitle} />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto space-y-7">
+      <div className="px-4 sm:px-8 py-6 max-w-4xl mx-auto space-y-7">
 
         {/* Summary stats — editorial ledger: big numbers + hairline rules, no boxes. */}
         {students.length > 0 && (

@@ -164,7 +164,7 @@ export default function TeacherTareasClient({ lang, students, assignments }: Pro
         }
       />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto space-y-6">
+      <div className="px-4 sm:px-8 py-6 max-w-4xl mx-auto space-y-6">
 
         {students.length === 0 && (
           <div

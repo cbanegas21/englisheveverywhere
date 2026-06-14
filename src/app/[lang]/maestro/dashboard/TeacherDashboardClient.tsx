@@ -22,6 +22,7 @@ const t = {
     acceptingKicker: 'New bookings',
     acceptingOnHint: 'On — open to new student bookings.',
     acceptingOffHint: 'Off — new student bookings are paused. Your current classes are unaffected.',
+    toggleError: "Couldn't update — please try again.",
     stats: {
       sessions: 'Sessions this month',
       sessionsSub: 'completed',
@@ -63,6 +64,7 @@ const t = {
     acceptingKicker: 'Nuevas reservas',
     acceptingOnHint: 'Activo — abierto a reservas de nuevos estudiantes.',
     acceptingOffHint: 'En pausa — no recibirás reservas de nuevos estudiantes. Tus clases actuales no se ven afectadas.',
+    toggleError: 'No se pudo actualizar — inténtalo de nuevo.',
     stats: {
       sessions: 'Sesiones este mes',
       sessionsSub: 'completadas',
@@ -103,9 +105,17 @@ const t = {
 // real greeting after mount (see the mounted effect below), so there is never a
 // server/client mismatch.
 function getGreeting(lang: Locale, timeZone: string) {
-  const hourStr = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone }).format(new Date())
-  const h = Number(hourStr) % 24
   const tx = t[lang]
+  let h: number
+  try {
+    const hourStr = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone }).format(new Date())
+    h = Number(hourStr) % 24
+  } catch {
+    // A malformed/legacy IANA tz (e.g. 'CST', '', 'Not/AZone') makes Intl throw
+    // RangeError — fall back to the runtime hour rather than crash the greeting
+    // effect (mirrors the Student Home invalid-tz guard).
+    h = new Date().getHours()
+  }
   if (h < 12) return tx.greeting
   if (h < 18) return tx.greetingAfternoon
   return tx.greetingEvening
@@ -193,6 +203,7 @@ export default function TeacherDashboardClient({
   const tx = t[lang]
   const firstName = userName.split(' ')[0]
   const [active, setActive] = useState(initialActive)
+  const [toggleErr, setToggleErr] = useState(false)
 
   // Minute-tick drives the "Live" badge transition. Null on SSR for
   // hydration safety; React-19 rules-of-hooks forbids synchronous setState
@@ -217,12 +228,23 @@ export default function TeacherDashboardClient({
   // dashboard. See migration 028 / audit EK-011.
   function toggleActive() {
     const supabase = createClient()
+    const next = !active
+    setActive(next)           // optimistic
+    setToggleErr(false)
     startTransition(async () => {
-      await supabase
+      // Confirm the write actually landed (.select row-count). If RLS or the
+      // column grant rejects (the historic LIVE-S02 42501 class), REVERT instead
+      // of lying — the old code set the new state unconditionally, so a silent
+      // DB rejection showed "saved" then reverted on refresh with no error.
+      const { data, error } = await supabase
         .from('teachers')
-        .update({ accepting_students: !active })
+        .update({ accepting_students: next })
         .eq('profile_id', profileId)
-      setActive(!active)
+        .select('id')
+      if (error || !data || data.length === 0) {
+        setActive(!next)
+        setToggleErr(true)
+      }
     })
   }
 
@@ -307,6 +329,9 @@ export default function TeacherDashboardClient({
               }}
             >
               {active ? tx.acceptingOnHint : tx.acceptingOffHint}
+              {toggleErr && (
+                <span role="alert" style={{ display: 'block', marginTop: 4, color: 'var(--ek-red)' }}>{tx.toggleError}</span>
+              )}
             </span>
           </div>
         }

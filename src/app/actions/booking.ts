@@ -856,6 +856,23 @@ export async function saveAvailabilitySlots(
     }
   }
 
+  // Server-side overlap/duplicate guard. The AvailabilityClient blocks overlaps in
+  // the UI, but the ACTION is the boundary — a crafted/replayed call must not
+  // persist overlapping or byte-identical windows (there is no unique index on
+  // availability_slots). Times are zero-padded HH:MM, so a lexicographic compare
+  // (sliced to HH:MM) detects interval overlap within the same day.
+  const hhmm = (t: string) => t.slice(0, 5)
+  const slotsByDay = new Map<number, { start: string; end: string }[]>()
+  for (const s of slots) {
+    const arr = slotsByDay.get(s.day_of_week) ?? []
+    const start = hhmm(s.start_time), end = hhmm(s.end_time)
+    if (arr.some((e) => start < e.end && end > e.start)) {
+      return { error: lang === 'es' ? 'Tienes horarios que se traslapan.' : 'You have overlapping time slots.' }
+    }
+    arr.push({ start, end })
+    slotsByDay.set(s.day_of_week, arr)
+  }
+
   // Delete existing recurring slots
   await admin
     .from('availability_slots')

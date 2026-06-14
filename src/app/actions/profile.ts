@@ -113,15 +113,24 @@ export async function updateTeacherProfile(data: {
 
   const admin = createAdminClient()
 
-  // Gate on an actual teacher row up front (TEACH-LOW-1). Without it a non-teacher
-  // could call this and at least mutate their own profiles.full_name (the teachers
-  // update below would silently no-op against zero rows).
+  // Gate on an actual ACTIVE teacher row up front (TEACH-LOW-1). Without it a
+  // non-teacher could call this and at least mutate their own profiles.full_name
+  // (the teachers update below would silently no-op against zero rows). The
+  // is_active check mirrors every other teacher write (saveAvailabilitySlots /
+  // requireTeacher) so a deactivated/pending teacher — blocked from the PAGE by
+  // the dashboard layout — can't mutate their profile via a direct action call.
   const { data: teacherRow } = await admin
     .from('teachers')
-    .select('id')
+    .select('id, is_active')
     .eq('profile_id', user.id)
     .maybeSingle()
   if (!teacherRow) return { success: false, error: 'Not a teacher account' }
+  if (!teacherRow.is_active) return { success: false, error: 'Teacher account is not active' }
+
+  // Per-user throttle (mirrors updateStudentProfile) — caps scripted hammering of
+  // this RLS-bypassing admin write. Action is allowlisted in auth_attempts (migr 047).
+  const rl = await checkUserActionLimit(user.id, 'updateTeacherProfile', 30)
+  if (!rl.ok) return { success: false, error: 'Too many attempts. Please wait a moment.' }
 
   // Validate/sanitize free text (written via the RLS-bypassing admin client and
   // later shown to admins/students + interpolated into emails). Mirrors the
@@ -137,7 +146,9 @@ export async function updateTeacherProfile(data: {
     .update({ full_name: name, updated_at: new Date().toISOString() })
     .eq('id', user.id)
 
-  if (profileError) return { success: false, error: profileError.message }
+  // Never reflect the raw Postgres/Supabase string to the browser — log it,
+  // return one generic message (mirrors the rest of the codebase).
+  if (profileError) { console.error('[updateTeacherProfile] profile update failed:', profileError.message); return { success: false, error: 'Could not save. Please try again.' } }
 
   const specs = data.specializations
     .split(',')
@@ -151,7 +162,7 @@ export async function updateTeacherProfile(data: {
     .update({ bio, specializations: specs })
     .eq('profile_id', user.id)
 
-  if (teacherError) return { success: false, error: teacherError.message }
+  if (teacherError) { console.error('[updateTeacherProfile] teacher update failed:', teacherError.message); return { success: false, error: 'Could not save. Please try again.' } }
   return { success: true }
 }
 

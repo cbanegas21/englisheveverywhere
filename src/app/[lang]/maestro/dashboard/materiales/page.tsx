@@ -51,7 +51,7 @@ export default async function MaterialesPage({ params }: Props) {
         sub={isEs ? 'Recursos y currículo para tus clases.' : 'Resources and curriculum for your classes.'}
       />
 
-      <div className="px-8 py-6 max-w-4xl mx-auto space-y-7">
+      <div className="px-4 sm:px-8 py-6 max-w-4xl mx-auto space-y-7">
 
         {/* Coming soon banner — editorial accent rule + type, no glyph tile */}
         <div

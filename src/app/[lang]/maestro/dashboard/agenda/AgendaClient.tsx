@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import Link from 'next/link'
+import { useState, useEffect, useTransition } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Video } from 'lucide-react'
+import JoinSessionButton from '@/components/JoinSessionButton'
 import { confirmBooking, declineBooking, requestReschedule, cancelRescheduleRequest } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
@@ -113,14 +112,21 @@ function ymdInTz(d: Date, timeZone: string): string {
   }).format(d)
 }
 
-function formatDate(iso: string, lang: Locale, tx: typeof t['en'], timeZone: string) {
+function formatDate(iso: string, lang: Locale, tx: typeof t['en'], timeZone: string, nowMs: number | null) {
   const d = new Date(iso)
-  const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(now.getDate() + 1)
-  if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
-  if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
-  return d.toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
+  // Today/Tomorrow depends on the live clock; resolve it ONLY post-mount (nowMs is
+  // seeded via useEffect) so SSR + first client render both show the absolute date.
+  // Otherwise a near-midnight 'Hoy' on the server vs the absolute date on the client
+  // is a hydration mismatch (#418) — the same class fixed on student clases/placement.
+  if (nowMs !== null) {
+    const now = new Date(nowMs)
+    const tomorrow = new Date(now)
+    tomorrow.setDate(now.getDate() + 1)
+    if (ymdInTz(d, timeZone) === ymdInTz(now, timeZone)) return tx.today
+    if (ymdInTz(d, timeZone) === ymdInTz(tomorrow, timeZone)) return tx.tomorrow
+  }
+  // es-HN to match the time formatter (house standard) instead of es-CO.
+  return d.toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
     weekday: 'short', month: 'short', day: 'numeric', timeZone,
   })
 }
@@ -194,16 +200,6 @@ function getInitials(name?: string | null) {
   return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 }
 
-// Zoom-style lobby makes pre-call entry possible at any time, so the "Join"
-// button is available up to 24h before and 2h after the scheduled start.
-function canEnterRoom(scheduledAt: string, durationMinutes: number) {
-  const now = Date.now()
-  const scheduled = new Date(scheduledAt).getTime()
-  const openAt = scheduled - 24 * 60 * 60 * 1000
-  const closeAt = scheduled + (durationMinutes + 90) * 60 * 1000
-  return now >= openAt && now <= closeAt
-}
-
 function typeLabel(type: string | null | undefined, tx: { typePlacement: string; typeCheckin: string; typeClass: string }) {
   if (type === 'placement_test') return tx.typePlacement
   if (type === 'admin_checkin') return tx.typeCheckin
@@ -239,6 +235,10 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
   const [pending, setPending] = useState<Booking[]>(pendingBookings)
   const [confirmed, setConfirmed] = useState<Booking[]>(confirmedBookings)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  // Live clock for the Today/Tomorrow labels — null until mount so SSR + first
+  // client render agree (hydration-safe).
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  useEffect(() => { setNowMs(Date.now()) }, [])
 
   // Reschedule modal state — nullable; when set, the modal is open for that booking.
   const [rescheduleFor, setRescheduleFor] = useState<Booking | null>(null)
@@ -467,7 +467,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                             )}
                           </div>
                           <div className="text-[11px] mt-0.5" style={{ color: 'var(--ek-text-muted)' }}>
-                            {formatDate(booking.scheduled_at, lang, tx, timezone)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
+                            {formatDate(booking.scheduled_at, lang, tx, timezone, nowMs)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                           </div>
                           <div className="flex gap-2 mt-3">
                             <button
@@ -516,7 +516,6 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
               ) : (
                 <ul style={{ borderTop: '1px solid var(--ek-border-soft)' }}>
                   {confirmed.map((booking) => {
-                    const canJoin = canEnterRoom(booking.scheduled_at, booking.duration_minutes)
                     const badge = typeLabel(booking.type, tx)
                     const isReschedPending = booking.reschedule_request?.status === 'pending'
                     return (
@@ -541,7 +540,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                               {badge && <TypeChip>{badge}</TypeChip>}
                             </div>
                             <div className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>
-                              {formatDate(booking.scheduled_at, lang, tx, timezone)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
+                              {formatDate(booking.scheduled_at, lang, tx, timezone, nowMs)} · {formatTime(booking.scheduled_at, lang, timezone)} · {booking.duration_minutes}{tx.mins}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -550,16 +549,13 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                             ) : (
                               <StatusBadge variant="confirmed">{tx.statusConfirmed}</StatusBadge>
                             )}
-                            {canJoin && (
-                              <Link
-                                href={`/${lang}/sala/${booking.id}`}
-                                className="ek-red-btn flex items-center gap-1 px-2.5 py-2 rounded font-semibold text-[11px]"
-                                style={{ background: 'var(--ek-red)', color: '#fff' }}
-                              >
-                                <Video className="h-3 w-3" />
-                                {tx.join}
-                              </Link>
-                            )}
+                            <JoinSessionButton
+                              lang={lang}
+                              bookingId={booking.id}
+                              scheduledAt={booking.scheduled_at}
+                              durationMinutes={booking.duration_minutes}
+                              variant="compact"
+                            />
                           </div>
                         </div>
                         <div className="flex items-center justify-end gap-2 mt-2">
