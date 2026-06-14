@@ -648,9 +648,16 @@ export async function setTeacherRate(teacherId: string, rate: number) {
   await assertAdmin()
   const admin = createAdminClient()
 
+  // Bound the rate — it IS the per-class payout. A negative would mint negative
+  // payouts; a huge/NaN value would inflate them. (USD/hour, 2-decimals, 0..1000.)
+  const n = Math.round(Number(rate) * 100) / 100
+  if (!Number.isFinite(n) || n < 0 || n > 1000) {
+    throw new Error('Rate must be between 0 and 1000')
+  }
+
   const { error } = await admin
     .from('teachers')
-    .update({ hourly_rate: rate })
+    .update({ hourly_rate: n })
     .eq('id', teacherId)
 
   if (error) throw new Error(error.message)
