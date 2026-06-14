@@ -112,10 +112,13 @@ function getGreeting(lang: Locale, timeZone: string) {
 }
 
 function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
-  // Pin locale + tz to keep SSR + client output identical (hydration-safe).
+  // Pin locale + tz to keep SSR + client output identical (hydration-safe), AND
+  // normalize the am/pm separator: es-HN emits a narrow/no-break space (U+202F /
+  // U+00A0) before "a. m."/"p. m." that differs between Node ICU and Chrome ICU,
+  // so without this the time text mismatches at hydration → React #418 (ES only).
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
     hour: '2-digit', minute: '2-digit', timeZone,
-  })
+  }).replace(/[  ]/g, ' ')
 }
 
 function dayInTz(iso: string, timeZone: string): string {

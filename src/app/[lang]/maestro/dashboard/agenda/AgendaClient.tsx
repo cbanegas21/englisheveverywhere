@@ -129,9 +129,12 @@ function formatTime(iso: string, lang: 'es' | 'en', timeZone: string) {
   // Pin the locale so SSR and client render identically — passing []
   // picks up the env locale, which differs between Node and browser and
   // causes hydration mismatches (e.g. "04:00 PM" vs "04:00 p.m.").
+  // Also normalize the am/pm separator: es-HN emits a no-break / narrow-no-break
+  // space (U+00A0 / U+202F) before "a. m."/"p. m." that differs between Node ICU
+  // and Chrome ICU → React #418 (ES only) without this collapse to a plain space.
   return new Date(iso).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
     hour: '2-digit', minute: '2-digit', timeZone,
-  })
+  }).replace(/[\u00a0\u202f]/g, ' ')
 }
 
 // ── Timezone-aware wall-clock helpers ───────────────────────────────────
