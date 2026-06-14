@@ -358,7 +358,10 @@ export async function completeSession(
 ): Promise<{ success: boolean; summary?: SessionSummary } | { error: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  // Error strings are surfaced verbatim in the room's endError toast
+  // (RoomShell), so they must follow the UI locale — never raw English in an
+  // /es room (mirrors the lang-gated integrity gate below).
+  if (!user) return { error: lang === 'es' ? 'No has iniciado sesión.' : 'Not authenticated' }
 
   const { data: booking } = await supabase
     .from('bookings')
@@ -370,11 +373,11 @@ export async function completeSession(
     .eq('id', bookingId)
     .single()
 
-  if (!booking) return { error: 'Booking not found' }
+  if (!booking) return { error: lang === 'es' ? 'No se encontró la reserva.' : 'Booking not found' }
 
   const teacherProfileId = (booking.teacher as any)?.profile_id
   if (user.id !== teacherProfileId) {
-    return { error: 'Only the teacher can end the session' }
+    return { error: lang === 'es' ? 'Solo el maestro puede finalizar la sesión.' : 'Only the teacher can end the session' }
   }
 
   // Block completing a CANCELLED session — that would mint a teacher payout +
@@ -382,7 +385,7 @@ export async function completeSession(
   // proceed (a class can go live before a formal confirm, and dev-mode bookings
   // stay 'pending'); an already-completed booking is idempotent via justCompleted.
   if (booking.status === 'cancelled') {
-    return { error: 'This session was cancelled.' }
+    return { error: lang === 'es' ? 'Esta sesión fue cancelada.' : 'This session was cancelled.' }
   }
 
   // Integrity gate: a class cannot be "completed" before it has actually started.

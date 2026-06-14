@@ -23,6 +23,12 @@ interface Props {
   bookingId: string
   show: boolean
   onClose: () => void
+  // CALL-01: identities allowed to drive the board (known participants, excluding
+  // self). The content channel honors strokes only from these — without it, an
+  // admin OBSERVER (granted canPublishData:true) or any token-holder could inject
+  // shapes onto the participants' board, inconsistent with the gated sibling
+  // channels (whiteboard-control / reactions).
+  peerIdentities: string[]
 }
 
 type WireChanges = {
@@ -43,7 +49,7 @@ type WireChanges = {
 // blank board (MVP) — persisted locally via persistenceKey for reload recovery.
 // Zoom/recenter (CALL-05) is intentionally LOCAL-per-user (each person controls
 // their own view); only shape edits sync.
-export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
+export function Whiteboard({ lang, bookingId, show, onClose, peerIdentities }: Props) {
   const tx = videoStrings(lang)
   const { localParticipant } = useLocalParticipant()
   const editorRef = useRef<Editor | null>(null)
@@ -58,6 +64,10 @@ export function Whiteboard({ lang, bookingId, show, onClose }: Props) {
   const { send } = useDataChannel('whiteboard', msg => {
     const editor = editorRef.current
     if (!editor) return
+    // Drop a stroke from an IDENTIFIABLE non-peer (e.g. an admin observer);
+    // honor a legit peer even if its identity is briefly unresolved during a
+    // (re)connect race — mirrors isUntrustedSender for the sibling channels.
+    if (msg.from?.identity && !peerIdentities.includes(msg.from.identity)) return
     try {
       const decoded = new TextDecoder().decode(msg.payload)
       const changes = JSON.parse(decoded) as WireChanges

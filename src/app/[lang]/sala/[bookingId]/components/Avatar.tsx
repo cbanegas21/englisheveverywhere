@@ -9,7 +9,9 @@ interface Props {
 // Brand crimson stays reserved for CTAs; every participant gets the same calm
 // color (no per-user rainbow — the room is intentionally 1-on-1).
 export function Avatar({ name, size }: Props) {
-  const letter = (name[0] ?? '?').toUpperCase()
+  // Array.from → first GRAPHEME by code point, not UTF-16 unit; `name[0]` would
+  // split an emoji/astral first char into a lone surrogate and render '�'.
+  const letter = (Array.from(name)[0] ?? '?').toUpperCase()
   const cls = size === 'sm' ? 'h-10 w-10 text-base' : size === 'md' ? 'h-14 w-14 text-xl' : 'h-20 w-20 text-3xl'
   return (
     <div

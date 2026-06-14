@@ -333,8 +333,8 @@ export function RoomShell({
           <span style={{ flex: 1 }}>{endError}</span>
           <button
             onClick={() => setEndError(null)}
-            aria-label="OK"
-            style={{ background: 'transparent', border: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+            aria-label={tx.close}
+            style={{ background: 'transparent', border: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', fontSize: 18, lineHeight: 1, minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             ×
           </button>
@@ -509,6 +509,7 @@ export function RoomShell({
           bookingId={bookingId}
           show={showWhiteboard}
           onClose={closeWhiteboard}
+          peerIdentities={peerIdentities}
         />
         <ReactionsPopover
           lang={lang}
