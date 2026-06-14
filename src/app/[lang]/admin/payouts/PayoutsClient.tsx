@@ -79,7 +79,9 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
 
   const DLOC = lang === 'es' ? 'es-HN' : 'en-US'
-  const usd = (n: number) => new Intl.NumberFormat(DLOC, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n)
+  // Pin BOTH min+max fraction digits so the admin queue/preview/history shows the
+  // same cents as the teacher dashboard ($5.50, not $5.5) — they must reconcile.
+  const usd = (n: number) => new Intl.NumberFormat(DLOC, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
   const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString(DLOC, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' }) : '—'
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 3500) }
 

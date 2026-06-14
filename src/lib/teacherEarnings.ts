@@ -15,9 +15,15 @@ export function isClearedAt(scheduledAt: string, now = Date.now()): boolean {
 }
 
 type PayRow = { teacher_payout_usd: number | null; status: string } | undefined
-export function sessionPayoutUsd(pay: PayRow, durationMinutes: number | null, hourlyRate: number): number {
-  if (pay) return pay.status === 'completed' ? (pay.teacher_payout_usd || 0) : 0
-  return Math.round((hourlyRate || 0) * ((durationMinutes || 60) / 60))
+// A class earns EXACTLY its settled payment row. No payment row → $0: with
+// attendance-gated completion (migration 045) a completed booking with no payment
+// is a NO-SHOW the teacher was correctly NOT paid for, so the old
+// `!pay → hourlyRate*duration/60` fallback wrongly inflated earnings (a no-show
+// showed up as full pay on the dashboard + in the available balance). Earnings now
+// equal the payments ledger to the penny. (Prod has zero legitimate
+// completed-without-payment rows, so removing the fallback changes no real earnings.)
+export function sessionPayoutUsd(pay: PayRow): number {
+  return pay && pay.status === 'completed' ? (pay.teacher_payout_usd || 0) : 0
 }
 
 export interface TeacherAvailable {
@@ -37,10 +43,9 @@ export async function computeTeacherAvailable(
 ): Promise<TeacherAvailable> {
   const { data: teacher } = await admin
     .from('teachers')
-    .select('hourly_rate, payout_veem_email')
+    .select('payout_veem_email')
     .eq('id', teacherId)
     .single()
-  const rate = (teacher?.hourly_rate as number | null) || 0
 
   const { data: rows } = await admin
     .from('bookings')
@@ -52,7 +57,7 @@ export async function computeTeacherAvailable(
   let clearedUsd = 0
   let pendingHoldUsd = 0
   for (const r of (rows as { scheduled_at: string; duration_minutes: number | null; payments: PayRow[] | null }[] | null) || []) {
-    const usd = sessionPayoutUsd(r.payments?.[0], r.duration_minutes, rate)
+    const usd = sessionPayoutUsd(r.payments?.[0])
     if (isClearedAt(r.scheduled_at, now)) clearedUsd += usd
     else pendingHoldUsd += usd
   }

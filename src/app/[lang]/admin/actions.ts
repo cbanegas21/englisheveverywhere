@@ -790,12 +790,30 @@ export async function completeBooking(bookingId: string) {
     // flip above is gated so this runs at most once; the payment insert is
     // idempotent via the unique payments.booking_id constraint, and whichever path
     // (in-room vs admin) wins the status flip is the only one that bumps the count.
+    //
+    // Attendance gate (parity with completeSession, migration 045): pay + count
+    // ONLY if the student actually opened the room (sessions.student_joined_at).
+    // student_joined_at is stamped on the STUDENT's getRoomAccess — independent of
+    // the teacher's browser — so the legit "teacher's browser dropped" case still
+    // pays (the student was present). A genuine no-show completes the booking but
+    // mints NO payout/session-count, matching the in-room path (closes the second
+    // no-show inflation vector). If a class truly happened entirely off-platform,
+    // record the payment manually.
+    const { data: sess } = await admin
+      .from('sessions')
+      .select('student_joined_at')
+      .eq('booking_id', bookingId)
+      .maybeSingle()
+    const studentJoined = !!sess?.student_joined_at
     const { data: teacher } = await admin
       .from('teachers')
       .select('id, hourly_rate, total_sessions')
       .eq('id', booking.teacher_id)
       .single()
-    if (teacher) {
+    if (teacher && !studentJoined) {
+      console.info('[completeBooking] no student attendance — payout + session-count withheld', { bookingId, teacherId: teacher.id })
+    }
+    if (teacher && studentJoined) {
       // Atomic increment (migration 046) — parity with completeSession; avoids a
       // lost update when an admin completion races the in-room one.
       await admin.rpc('increment_teacher_sessions', { p_teacher_id: teacher.id })

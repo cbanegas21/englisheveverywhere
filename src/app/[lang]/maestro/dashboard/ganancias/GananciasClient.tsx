@@ -14,7 +14,6 @@ interface Session {
   duration_minutes: number
   student?: { profile?: { full_name?: string } | null } | null
   payoutUsd: number
-  paidOut: boolean
   cleared: boolean
 }
 
@@ -69,8 +68,7 @@ const t = {
     payout: 'Earnings',
     status: 'Status',
     statusHold: 'In hold',
-    statusAvailable: 'Available',
-    statusPaid: 'Paid',
+    statusCleared: 'Cleared',
     mins: 'min',
   },
   es: {
@@ -107,8 +105,7 @@ const t = {
     payout: 'Ganancia',
     status: 'Estado',
     statusHold: 'En espera',
-    statusAvailable: 'Disponible',
-    statusPaid: 'Pagado',
+    statusCleared: 'Liberado',
     mins: 'min',
   },
 }
@@ -230,8 +227,12 @@ export default function GananciasClient({
                 </thead>
                 <tbody>
                   {sessions.map(s => {
-                    const statusLabel = s.paidOut ? tx.statusPaid : s.cleared ? tx.statusAvailable : tx.statusHold
-                    const statusColor = s.paidOut ? 'var(--ek-text-muted)' : s.cleared ? 'var(--ek-text)' : 'var(--ek-text-muted)'
+                    // Per-session status is what we can know accurately at the row
+                    // level: cleared (past the 7-day hold) vs still in hold. Whether
+                    // it's been swept to a Veem payout is a batch concept reflected in
+                    // the top "Available" stat, not per session.
+                    const statusLabel = s.cleared ? tx.statusCleared : tx.statusHold
+                    const statusColor = s.cleared ? 'var(--ek-text)' : 'var(--ek-text-muted)'
                     return (
                       <tr key={s.id} style={{ borderBottom: '1px solid var(--ek-border-soft)' }}>
                         <td className="py-3.5 text-[13px]" style={{ color: 'var(--ek-text)', whiteSpace: 'nowrap' }}>

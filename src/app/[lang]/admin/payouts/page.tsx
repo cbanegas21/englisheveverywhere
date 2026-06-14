@@ -19,6 +19,12 @@ export default async function AdminPayoutsPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
+  // In-page role guard (defense-in-depth). This page reads EVERY teacher's balance
+  // + the full payout ledger via the service-role client, so it must not rely solely
+  // on the admin layout guard — mirror the other admin pages (e.g. biblioteca).
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') redirect(`/${lang}/dashboard`)
+
   const admin = createAdminClient()
 
   // The payout ledger (pending + history), newest first.

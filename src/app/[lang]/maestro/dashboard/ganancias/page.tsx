@@ -27,22 +27,27 @@ export default async function GananciasPage({ params }: Props) {
   // which bypasses the grant), so we don't need those columns here.
   const { data: teacher } = await supabase
     .from('teachers')
-    .select('id, total_sessions, hourly_rate')
+    .select('id')
     .eq('profile_id', user.id)
     .single()
 
   if (!teacher) redirect(`/${lang}/onboarding`)
 
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
+  // Business zone (America/Tegucigalpa, UTC-6) — used for BOTH the "this month"
+  // bucket boundary and the next-Friday payout label so the dashboard's dates are
+  // internally consistent (previously the month boundary used server-UTC midnight,
+  // mis-bucketing HN-evening month-edge classes).
+  const HN = 'America/Tegucigalpa'
+  const nowHn = new Date(new Date().toLocaleString('en-US', { timeZone: HN }))
+  // First of the current month at HN midnight, as a UTC instant (HN = UTC-6).
+  const startOfMonth = new Date(Date.UTC(nowHn.getFullYear(), nowHn.getMonth(), 1, 6, 0, 0))
 
   const { data: allSessions } = await supabase
     .from('bookings')
     .select(`
       id, scheduled_at, duration_minutes, status,
       student:students(profile:profiles(full_name)),
-      payments(teacher_payout_usd, status, stripe_transfer_id)
+      payments(teacher_payout_usd, status)
     `)
     .eq('teacher_id', teacher.id)
     .eq('status', 'completed')
@@ -54,24 +59,23 @@ export default async function GananciasPage({ params }: Props) {
     duration_minutes: number
     status: string
     student: { profile: { full_name: string } | null } | null
-    payments: { teacher_payout_usd: number; status: string; stripe_transfer_id: string | null }[] | null
+    payments: { teacher_payout_usd: number; status: string }[] | null
   }
   const rows = (allSessions as RawSession[] | null) || []
   const now = Date.now()
 
   const sessions = rows.map(s => {
     const pay = s.payments?.[0]
-    const paidOut = !!pay?.stripe_transfer_id
-    // Per-session payout + hold status via the shared earnings rule (kept in sync
-    // with the admin sweep so the teacher's total = what we'll pay out).
-    const payoutUsd = sessionPayoutUsd(pay, s.duration_minutes, teacher.hourly_rate || 0)
+    // Per-session payout via the shared earnings rule (kept in sync with the admin
+    // sweep so the teacher's total = what we'll pay out). A no-show (completed, no
+    // payment row) correctly earns $0 here too.
+    const payoutUsd = sessionPayoutUsd(pay)
     const cleared = isClearedAt(s.scheduled_at, now)
     return {
       id: s.id,
       scheduled_at: s.scheduled_at,
       duration_minutes: s.duration_minutes,
       student: s.student,
-      paidOut,
       payoutUsd,
       cleared,
     }
@@ -87,10 +91,8 @@ export default async function GananciasPage({ params }: Props) {
   const admin = createAdminClient()
   const { availableUsd, pendingHoldUsd: pendingUsd, veemEmail } = await computeTeacherAvailable(admin, teacher.id)
 
-  // Next weekly payout = the upcoming Friday (the auto-sweep day). Computed in the
-  // business zone so the date the teacher sees is consistent.
-  const HN = 'America/Tegucigalpa'
-  const nowHn = new Date(new Date().toLocaleString('en-US', { timeZone: HN }))
+  // Next weekly payout = the upcoming Friday (the auto-sweep day), in the business
+  // zone (HN defined above) so the date the teacher sees is consistent.
   const daysUntilFri = (5 - nowHn.getDay() + 7) % 7 // 0 if today is Friday
   const nextPayout = new Date(nowHn)
   nextPayout.setDate(nowHn.getDate() + daysUntilFri)
@@ -103,7 +105,7 @@ export default async function GananciasPage({ params }: Props) {
   return (
     <GananciasClient
       lang={lang as Locale}
-      totalSessions={teacher.total_sessions || 0}
+      totalSessions={sessions.length}
       thisMonthSessions={thisMonth.length}
       thisMonthEarnedUsd={thisMonthEarnedUsd}
       lifetimeEarnedUsd={lifetimeEarnedUsd}
