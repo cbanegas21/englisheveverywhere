@@ -53,6 +53,7 @@ const t = {
     edit: 'Change',
     cancel: 'Cancel',
     errInvalid: 'Enter a valid email.',
+    errInUse: 'That Veem email is already in use by another teacher.',
     errGeneric: 'Could not save. Please try again.',
     // connected
     connectedTitle: 'Payouts go to your Veem',
@@ -92,6 +93,7 @@ const t = {
     edit: 'Cambiar',
     cancel: 'Cancelar',
     errInvalid: 'Ingresa un correo válido.',
+    errInUse: 'Ese correo de Veem ya está en uso por otro maestro.',
     errGeneric: 'No se pudo guardar. Inténtalo de nuevo.',
     connectedTitle: 'Tus pagos van a tu Veem',
     autoNote: 'Tus ganancias disponibles se envían a tu Veem automáticamente cada semana.',
@@ -133,7 +135,7 @@ export default function GananciasClient({
     startTransition(async () => {
       const res = await saveTeacherVeemPayout(email)
       if ('error' in res) {
-        setError(res.error === 'invalid_email' ? tx.errInvalid : tx.errGeneric)
+        setError(res.error === 'invalid_email' ? tx.errInvalid : res.error === 'email_in_use' ? tx.errInUse : tx.errGeneric)
         return
       }
       setEditing(false)
