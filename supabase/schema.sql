@@ -418,11 +418,7 @@ create policy "teacher reads own assignments" on public.assignments for select u
 create policy "Teachers manage own availability" on public.availability_slots for all using ((auth.uid() = ( SELECT teachers.profile_id
    FROM teachers
   WHERE (teachers.id = availability_slots.teacher_id))));
-create policy "Students can create bookings" on public.bookings for insert to authenticated with check ((student_id = auth_student_id()));
 create policy "Students see own bookings" on public.bookings for select to authenticated using ((student_id = auth_student_id()));
-create policy "Teachers can update booking status" on public.bookings for update using ((auth.uid() = ( SELECT teachers.profile_id
-   FROM teachers
-  WHERE (teachers.id = bookings.teacher_id))));
 create policy "Teachers see own bookings" on public.bookings for select using ((auth.uid() = ( SELECT teachers.profile_id
    FROM teachers
   WHERE (teachers.id = bookings.teacher_id))));
@@ -483,14 +479,6 @@ create policy "Students can read own sessions" on public.sessions for select usi
    FROM (bookings b
      JOIN students s ON ((s.id = b.student_id)))
   WHERE ((b.id = sessions.booking_id) AND (s.profile_id = auth.uid())))));
-create policy "Teachers can insert sessions" on public.sessions for insert with check ((EXISTS ( SELECT 1
-   FROM (bookings b
-     JOIN teachers t ON ((t.id = b.teacher_id)))
-  WHERE ((b.id = sessions.booking_id) AND (t.profile_id = auth.uid())))));
-create policy "Teachers can update sessions" on public.sessions for update using ((EXISTS ( SELECT 1
-   FROM (bookings b
-     JOIN teachers t ON ((t.id = b.teacher_id)))
-  WHERE ((b.id = sessions.booking_id) AND (t.profile_id = auth.uid())))));
 create policy "Students read own purchases" on public.student_purchases for select to authenticated using ((student_id = auth_student_id()));
 create policy "Students can insert own record" on public.students for insert to authenticated with check ((auth.uid() = profile_id));
 create policy "Students can update own record" on public.students for update using ((auth.uid() = profile_id));
