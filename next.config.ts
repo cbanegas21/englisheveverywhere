@@ -73,9 +73,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Sentry only uploads sourcemaps when SENTRY_AUTH_TOKEN + SENTRY_ORG +
-// SENTRY_PROJECT are set. Without them the wrapper is a no-op pass-through,
-// so this is safe to ship before the user has a Sentry account.
+// Sentry uploads sourcemaps when SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT
+// are set (configured 2026-06-15: org english-kolab / project englishkolab, org
+// auth token in Vercel) — so production stack traces de-minify to real file:line.
+// Without them the wrapper is a no-op pass-through (safe for local/preview).
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
