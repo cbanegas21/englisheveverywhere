@@ -11,9 +11,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 // never load on our origin): Stripe (checkout is a full window.location redirect,
 // no Stripe.js embedded), Google OAuth (Supabase signInWithOAuth top-level
 // redirect, no GIS script/iframe), Resend / Anthropic / Deepgram (all server
-// actions). Fonts are self-hosted by next/font/google. Sentry browser is inert
-// (no NEXT_PUBLIC_SENTRY_DSN) — if enabled later, add https://*.ingest.sentry.io
-// to connect-src.
+// actions). Fonts are self-hosted by next/font/google. Sentry error monitoring
+// is ENABLED (NEXT_PUBLIC_SENTRY_DSN set 2026-06-15) → its ingest host is in
+// connect-src below so the browser SDK + Session Replay can report.
 //
 // 'unsafe-inline' (script + style) is required: Next App Router emits inline
 // bootstrap/hydration scripts with no nonce pipeline here, and the app uses
@@ -33,7 +33,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${SUPABASE_ORIGIN}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com`,
+  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io`,
   `media-src 'self' blob: mediastream: ${SUPABASE_ORIGIN}`,
   "worker-src 'self' blob:",
   "frame-src 'self'",
