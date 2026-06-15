@@ -1,6 +1,48 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+// ---------------------------------------------------------------------------
+// Content-Security-Policy (§7.4 follow-up). Origins enumerated from the actual
+// client code — every browser-reachable external host:
+//   • Supabase REST/auth/storage (https) + realtime (wss) — public project URL.
+//   • LiveKit signaling — regional *.livekit.cloud over wss/https.
+//   • FX rates — open.er-api.com (client fetch in lib/fx.ts).
+// Deliberately NOT listed (verified server-side or top-level redirects, so they
+// never load on our origin): Stripe (checkout is a full window.location redirect,
+// no Stripe.js embedded), Google OAuth (Supabase signInWithOAuth top-level
+// redirect, no GIS script/iframe), Resend / Anthropic / Deepgram (all server
+// actions). Fonts are self-hosted by next/font/google. Sentry browser is inert
+// (no NEXT_PUBLIC_SENTRY_DSN) — if enabled later, add https://*.ingest.sentry.io
+// to connect-src.
+//
+// 'unsafe-inline' (script + style) is required: Next App Router emits inline
+// bootstrap/hydration scripts with no nonce pipeline here, and the app uses
+// pervasive inline style={{}} attributes + framer-motion. 'wasm-unsafe-eval'
+// lets LiveKit compile its audio-processing WASM without allowing full eval.
+// The real defense-in-depth comes from the locked-down connect-src/object-src/
+// base-uri/form-action/frame-ancestors — nonce-based strict-dynamic is a future
+// hardening step. Shipping as Report-Only first to confirm zero violations on
+// every live surface (esp. the /sala WebRTC room) before enforcing.
+const SUPABASE_ORIGIN = "https://kasuwdltupqpfxvjrmrp.supabase.co";
+const SUPABASE_WSS = "wss://kasuwdltupqpfxvjrmrp.supabase.co";
+
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: ${SUPABASE_ORIGIN}`,
+  "font-src 'self' data:",
+  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com`,
+  `media-src 'self' blob: mediastream: ${SUPABASE_ORIGIN}`,
+  "worker-src 'self' blob:",
+  "frame-src 'self'",
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const nextConfig: NextConfig = {
   // Move the Next.js dev-tools indicator off the admin sidebar's bottom-left
   // "Sign out" button (its default position). Dev-only — absent in production.
@@ -9,9 +51,8 @@ const nextConfig: NextConfig = {
   // Baseline security headers (§7.4). Only HSTS was present; add clickjacking +
   // MIME-sniff + referrer-leak + feature-policy hardening on every route. NOTE:
   // Permissions-Policy MUST keep camera/microphone = (self) or the /sala LiveKit
-  // classroom loses getUserMedia. A full Content-Security-Policy is deliberately
-  // NOT set here — it needs per-source tuning for LiveKit/Stripe/Resend/Sentry and
-  // careful testing to avoid breaking the app (tracked as a follow-up).
+  // classroom loses getUserMedia. CSP (see `CSP` above) ships as Report-Only
+  // first; flip the header key to "Content-Security-Policy" once verified clean.
   async headers() {
     return [
       {
@@ -24,6 +65,7 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(self), microphone=(self), geolocation=(), browsing-topics=()",
           },
+          { key: "Content-Security-Policy-Report-Only", value: CSP },
         ],
       },
     ];
