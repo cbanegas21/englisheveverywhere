@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { EKMark } from '@/components/ui/EKMark'
@@ -15,6 +15,22 @@ export default function AdminSidebar({ lang }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
+  const drawerRef = useRef<HTMLElement>(null)
+
+  // Mobile-drawer a11y parity with the student/teacher Sidebar: Escape closes,
+  // body scroll locks, focus moves into the role="dialog" drawer (SH-MOB-02 / -A11Y-07).
+  useEffect(() => {
+    if (!mobileOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false) }
+    window.addEventListener('keydown', onKey)
+    drawerRef.current?.focus()
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [mobileOpen])
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -197,7 +213,8 @@ export default function AdminSidebar({ lang }: Props) {
           <AdminLangToggle lang={lang} />
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex', color: text }}
+            style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex', color: text, padding: 10, margin: -8 }}
+            aria-expanded={mobileOpen}
             aria-label={mobileOpen ? labels.closeMenu : labels.openMenu}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -205,7 +222,8 @@ export default function AdminSidebar({ lang }: Props) {
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — reducedMotion="user" honors prefers-reduced-motion */}
+      <MotionConfig reducedMotion="user">
       <AnimatePresence>
         {mobileOpen && (
           <>
@@ -214,21 +232,29 @@ export default function AdminSidebar({ lang }: Props) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
+              aria-hidden
               className="md:hidden fixed inset-0 z-40"
               style={{ background: 'rgba(0,0,0,0.6)' }}
             />
             <motion.aside
+              ref={drawerRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label={lang === 'es' ? 'Menú de navegación' : 'Navigation menu'}
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring' as const, stiffness: 300, damping: 30 }}
               className="md:hidden fixed left-0 top-0 bottom-0 w-[224px] z-50 flex flex-col"
+              style={{ outline: 'none' }}
             >
               {railContent}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
+      </MotionConfig>
     </>
   )
 }

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import type { Locale } from '@/lib/i18n/translations'
@@ -98,6 +98,24 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
   const [switching, setSwitching] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
+  const drawerRef = useRef<HTMLElement>(null)
+
+  // Mobile-drawer a11y (SH-MOB-02 / SH-A11Y-07): close on Escape, lock body scroll
+  // while open, and move focus into the drawer so keyboard + screen-reader users
+  // aren't stranded behind it (it's marked role="dialog" aria-modal below). Mirrors
+  // the shared Drawer/Modal behavior, which the hand-rolled nav drawer lacked.
+  useEffect(() => {
+    if (!mobileOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false) }
+    window.addEventListener('keydown', onKey)
+    drawerRef.current?.focus()
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [mobileOpen])
   const other = lang === 'en' ? 'es' : 'en'
   const otherLocalePath = pathname.replace(`/${lang}`, `/${other}`)
   const nav = role === 'teacher' ? teacherNav[lang] : studentNav[lang]
@@ -258,7 +276,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             alignItems: 'center',
             gap: 8,
             width: '100%',
-            padding: '6px 10px',
+            padding: '10px 10px',
             marginBottom: 1,
             borderRadius: 6,
             fontSize: 12,
@@ -286,7 +304,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
             alignItems: 'center',
             gap: 8,
             width: '100%',
-            padding: '6px 10px',
+            padding: '10px 10px',
             marginBottom: 1,
             borderRadius: 6,
             fontSize: 12,
@@ -306,7 +324,7 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
               alignItems: 'center',
               gap: 8,
               width: '100%',
-              padding: '6px 10px',
+              padding: '10px 10px',
               borderRadius: 6,
               fontSize: 12,
               background: 'transparent',
@@ -348,7 +366,8 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="ek-side-foot"
-          style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex' }}
+          style={{ background: 'transparent', border: 0, cursor: 'pointer', display: 'inline-flex', padding: 10, margin: -8 }}
+          aria-expanded={mobileOpen}
           aria-label={
             lang === 'es'
               ? mobileOpen ? 'Cerrar menú' : 'Abrir menú'
@@ -359,30 +378,39 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
         </button>
       </div>
 
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileOpen(false)}
-              className="md:hidden fixed inset-0 z-40"
-              style={{ background: 'rgba(0,0,0,0.6)' }}
-            />
-            <motion.aside
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring' as const, stiffness: 300, damping: 30 }}
-              className="md:hidden fixed left-0 top-0 bottom-0 w-[224px] z-50 flex flex-col"
-            >
-              {sidebarContent}
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      {/* Mobile drawer — reducedMotion="user" honors prefers-reduced-motion (SH-A11Y-07) */}
+      <MotionConfig reducedMotion="user">
+        <AnimatePresence>
+          {mobileOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileOpen(false)}
+                aria-hidden
+                className="md:hidden fixed inset-0 z-40"
+                style={{ background: 'rgba(0,0,0,0.6)' }}
+              />
+              <motion.aside
+                ref={drawerRef}
+                tabIndex={-1}
+                role="dialog"
+                aria-modal="true"
+                aria-label={lang === 'es' ? 'Menú de navegación' : 'Navigation menu'}
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring' as const, stiffness: 300, damping: 30 }}
+                className="md:hidden fixed left-0 top-0 bottom-0 w-[224px] z-50 flex flex-col"
+                style={{ outline: 'none' }}
+              >
+                {sidebarContent}
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+      </MotionConfig>
     </>
   )
 }
