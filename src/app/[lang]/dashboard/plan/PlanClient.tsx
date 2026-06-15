@@ -26,8 +26,6 @@ export interface Purchase {
 interface Props {
   lang: Locale
   currentPlan: string | null
-  subscriptionStatus: string | null
-  renewalDate: string | null
   classesRemaining: number
   intakeDone: boolean
   initialCurrency?: string
@@ -43,13 +41,6 @@ const T = {
     currentPlanLabel: 'Current plan',
     freePlanName: 'No active plan',
     freePlanSub: 'Pick a plan below to start learning.',
-    renewsOn: 'Renews on',
-    statusActive: 'Active',
-    statusTrialing: 'Trial',
-    statusCancelled: 'Cancelled',
-    statusPastDue: 'Past due',
-    manageSub: 'Manage subscription',
-    manageSubSoon: 'Coming soon',
     comparePlans: 'Choose another plan',
     perMonth: '/ month',
     classes: 'classes',
@@ -115,13 +106,6 @@ const T = {
     currentPlanLabel: 'Plan actual',
     freePlanName: 'Sin plan activo',
     freePlanSub: 'Elige un plan para empezar a aprender.',
-    renewsOn: 'Se renueva el',
-    statusActive: 'Activo',
-    statusTrialing: 'Prueba',
-    statusCancelled: 'Cancelado',
-    statusPastDue: 'Vencido',
-    manageSub: 'Administrar suscripción',
-    manageSubSoon: 'Próximamente',
     comparePlans: 'Elige otro plan',
     perMonth: '/ mes',
     classes: 'clases',
@@ -186,8 +170,6 @@ interface PurchaseResult {
 export default function PlanClient({
   lang,
   currentPlan,
-  subscriptionStatus,
-  renewalDate,
   classesRemaining,
   intakeDone,
   initialCurrency,
@@ -280,25 +262,6 @@ export default function PlanClient({
 
   const currentPlanDef = currentPlan
     ? PRICING_PLANS.find((p) => p.key === currentPlan) || null
-    : null
-
-  const statusLabel = (() => {
-    switch (subscriptionStatus) {
-      case 'active': return tx.statusActive
-      case 'trialing': return tx.statusTrialing
-      case 'cancelled': return tx.statusCancelled
-      case 'past_due': return tx.statusPastDue
-      default: return null
-    }
-  })()
-
-  const renewalFormatted = renewalDate
-    ? new Date(renewalDate).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-        timeZone: 'America/Tegucigalpa',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
     : null
 
   // ── Success screen ────────────────────────────────────────────
@@ -486,40 +449,6 @@ export default function PlanClient({
                 >
                   {tx.plans[currentPlanDef.key]}
                 </h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>
-                  {statusLabel && (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '5px 12px',
-                        borderRadius: 999,
-                        background: 'rgba(255,255,255,0.12)',
-                        fontSize: 10,
-                        fontWeight: 700,
-                        letterSpacing: '0.15em',
-                        textTransform: 'uppercase',
-                        color: 'var(--ek-on-dark)',
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          background: 'var(--ek-success-dot)',
-                        }}
-                      />
-                      {statusLabel}
-                    </span>
-                  )}
-                  {renewalFormatted && (
-                    <span style={{ fontSize: 12.5, color: 'var(--ek-on-dark-soft)' }}>
-                      {tx.renewsOn} <strong style={{ color: 'var(--ek-on-dark)' }}>{renewalFormatted}</strong>
-                    </span>
-                  )}
-                </div>
               </div>
               <div
                 style={{

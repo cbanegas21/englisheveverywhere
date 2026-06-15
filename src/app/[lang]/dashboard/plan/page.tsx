@@ -23,7 +23,7 @@ export default async function PlanPage({ params }: Props) {
   // with no students row can't be credited (NONSTUDENT-CHARGE); finish setup first.
   if (!student) redirect(`/${lang}/onboarding`)
 
-  const [{ data: profile }, { data: purchasesRaw }, { data: sub }] = await Promise.all([
+  const [{ data: profile }, { data: purchasesRaw }] = await Promise.all([
     supabase
       .from('profiles')
       .select('preferred_currency')
@@ -37,25 +37,12 @@ export default async function PlanPage({ params }: Props) {
       .eq('student_id', student.id)
       .order('created_at', { ascending: false })
       .limit(24),
-    supabase
-      .from('subscriptions')
-      .select('status, current_period_end')
-      .eq('student_id', student.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ])
-
-  const subscription = sub
-    ? { status: sub.status as string, current_period_end: sub.current_period_end as string | null }
-    : null
 
   return (
     <PlanClient
       lang={lang as Locale}
       currentPlan={(student.current_plan as string) || null}
-      subscriptionStatus={subscription?.status || null}
-      renewalDate={subscription?.current_period_end || null}
       classesRemaining={student.classes_remaining || 0}
       intakeDone={student.intake_done ?? false}
       initialCurrency={(profile?.preferred_currency as string) || 'USD'}
