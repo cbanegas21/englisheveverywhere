@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isValidTimeZone } from '@/lib/timezone'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
@@ -234,7 +235,12 @@ export default async function MiMaestroPage({ params }: Props) {
       .select('timezone')
       .eq('id', user.id)
       .maybeSingle()
-    const studentTz = (profileRow as { timezone?: string | null } | null)?.timezone || 'America/Tegucigalpa'
+    // Validate before it reaches toLocaleString({ timeZone }) below — an invalid
+    // IANA string throws a RangeError that the page catch turns into the generic
+    // error card, hiding the student's real scheduled-placement card. Mirror the
+    // isValidTimeZone guard agendar/placement/dashboard already use (§7.6).
+    const rawTz = (profileRow as { timezone?: string | null } | null)?.timezone || 'America/Tegucigalpa'
+    const studentTz = isValidTimeZone(rawTz) ? rawTz : 'America/Tegucigalpa'
 
     const { data: placementBooking } = await supabase
       .from('bookings')
