@@ -21,8 +21,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 // lets LiveKit compile its audio-processing WASM without allowing full eval.
 // The real defense-in-depth comes from the locked-down connect-src/object-src/
 // base-uri/form-action/frame-ancestors — nonce-based strict-dynamic is a future
-// hardening step. Shipping as Report-Only first to confirm zero violations on
-// every live surface (esp. the /sala WebRTC room) before enforcing.
+// hardening step. Verified with scripts/qa-csp.mjs: zero violations across
+// anon/student surfaces AND a live /sala LiveKit room (video connected) — now
+// ENFORCING (was Report-Only for the verification pass).
 const SUPABASE_ORIGIN = "https://kasuwdltupqpfxvjrmrp.supabase.co";
 const SUPABASE_WSS = "wss://kasuwdltupqpfxvjrmrp.supabase.co";
 
@@ -51,8 +52,8 @@ const nextConfig: NextConfig = {
   // Baseline security headers (§7.4). Only HSTS was present; add clickjacking +
   // MIME-sniff + referrer-leak + feature-policy hardening on every route. NOTE:
   // Permissions-Policy MUST keep camera/microphone = (self) or the /sala LiveKit
-  // classroom loses getUserMedia. CSP (see `CSP` above) ships as Report-Only
-  // first; flip the header key to "Content-Security-Policy" once verified clean.
+  // classroom loses getUserMedia. CSP (see `CSP` above) is enforced; it was
+  // verified Report-Only first (scripts/qa-csp.mjs, zero violations incl. /sala).
   async headers() {
     return [
       {
@@ -65,7 +66,7 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(self), microphone=(self), geolocation=(), browsing-topics=()",
           },
-          { key: "Content-Security-Policy-Report-Only", value: CSP },
+          { key: "Content-Security-Policy", value: CSP },
         ],
       },
     ];
