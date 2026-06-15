@@ -192,7 +192,7 @@ const STR = {
     minShort: (m: number) => `${m} min`,
     minTight: (m: number) => `${m}min`,
     status: { pending: 'Pending', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' } as Record<string, string>,
-    types: { class: 'Class', placement_test: 'Placement test', teacher_interview: 'Teacher interview', admin_checkin: 'Admin check-in' } as Record<string, string>,
+    types: { class: 'Class', placement_test: 'Diagnostic call', teacher_interview: 'Teacher interview', admin_checkin: 'Admin check-in' } as Record<string, string>,
   },
   es: {
     assigned: 'Asignado y confirmado',
@@ -280,7 +280,7 @@ const STR = {
     minShort: (m: number) => `${m} min`,
     minTight: (m: number) => `${m}min`,
     status: { pending: 'Pendiente', confirmed: 'Confirmada', completed: 'Completada', cancelled: 'Cancelada' } as Record<string, string>,
-    types: { class: 'Clase', placement_test: 'Diagnóstico', teacher_interview: 'Entrevista de maestro', admin_checkin: 'Revisión de admin' } as Record<string, string>,
+    types: { class: 'Clase', placement_test: 'Llamada de diagnóstico', teacher_interview: 'Entrevista de maestro', admin_checkin: 'Revisión de admin' } as Record<string, string>,
   },
 }
 

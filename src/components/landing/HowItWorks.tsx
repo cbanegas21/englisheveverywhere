@@ -13,15 +13,15 @@ const t = {
     steps: [
       {
         n: '01',
-        title: 'Choose your pack',
-        body: '8, 12, 16 or 20 classes a month. One payment — no auto-renewal, and the classes never expire.',
-        tag: 'One-time payment',
+        title: 'Take your free diagnostic call',
+        body: 'A real person, not a quiz. A short human call sets your level and goals before you spend a thing.',
+        tag: 'Always free',
       },
       {
         n: '02',
-        title: 'Take your free call',
-        body: 'A real person, not a quiz. A short human call sets your level and goals before you spend a thing.',
-        tag: 'Always free',
+        title: 'Choose your pack',
+        body: '8, 12, 16 or 20 classes a month. One payment — no auto-renewal, and the classes never expire.',
+        tag: 'One-time payment',
       },
       {
         n: '03',
@@ -46,15 +46,15 @@ const t = {
     steps: [
       {
         n: '01',
-        title: 'Elige tu paquete',
-        body: '8, 12, 16 o 20 clases al mes. Un solo pago — sin renovación automática, y las clases nunca caducan.',
-        tag: 'Pago único',
+        title: 'Toma tu llamada de diagnóstico gratis',
+        body: 'Una persona real, no un test. Una breve llamada humana define tu nivel y tus metas antes de gastar nada.',
+        tag: 'Siempre gratis',
       },
       {
         n: '02',
-        title: 'Toma tu llamada gratis',
-        body: 'Una persona real, no un test. Una breve llamada humana define tu nivel y tus metas antes de gastar nada.',
-        tag: 'Siempre gratis',
+        title: 'Elige tu paquete',
+        body: '8, 12, 16 o 20 clases al mes. Un solo pago — sin renovación automática, y las clases nunca caducan.',
+        tag: 'Pago único',
       },
       {
         n: '03',

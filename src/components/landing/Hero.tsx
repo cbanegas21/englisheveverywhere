@@ -28,7 +28,7 @@ const t = {
     statTeacherUnit: 'to 1',
     statHours: 'Booking',
     statHoursValue: '24/7',
-    freeNote: 'First class free · no card',
+    freeNote: 'Free diagnostic call · no card',
   },
   es: {
     eyebrow: 'Inglés en vivo · 1 a 1',
@@ -52,7 +52,7 @@ const t = {
     statTeacherUnit: 'a 1',
     statHours: 'Reserva',
     statHoursValue: '24/7',
-    freeNote: 'Primera clase gratis · sin tarjeta',
+    freeNote: 'Llamada de diagnóstico gratis · sin tarjeta',
   },
 }
 

@@ -120,7 +120,7 @@ const t = {
     statusLive: 'En vivo',
     teacherBeingAssigned: 'Asignando maestro',
     statusCompleted: 'Completada',
-    statusDiagnostic: 'Llamada diagnóstica',
+    statusDiagnostic: 'Llamada de diagnóstico',
     today: 'Hoy',
     tomorrow: 'Mañana',
     viewSummary: 'Cuaderno',
@@ -647,7 +647,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                             }}
                           >
                             {booking.type === 'placement_test'
-                              ? (lang === 'es' ? 'Llamada diagnóstica' : 'Diagnostic call')
+                              ? (lang === 'es' ? 'Llamada de diagnóstico' : 'Diagnostic call')
                               : teacherName
                                 ? `${tx.with} ${teacherName}`
                                 : (lang === 'es' ? 'Sin maestro' : 'No teacher')}

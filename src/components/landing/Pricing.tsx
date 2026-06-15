@@ -21,7 +21,7 @@ const t = {
     anchorPrefix: '1-on-1 classes from',
     findCta: 'Find your ideal plan',
     findSub: 'Answer 3 quick questions — see your price when you create your account.',
-    riskFree: 'Your first placement call is free.',
+    riskFree: 'Your first diagnostic call is free.',
     popular: 'most chosen',
     perClass: 'per class',
     classes: 'classes',

@@ -46,7 +46,7 @@ const STR = {
     } as Record<string, string>,
     typeLabels: {
       class: 'Class',
-      placement_test: 'Placement test',
+      placement_test: 'Diagnostic call',
       student_call: 'Call',
     } as Record<string, string>,
     tabLabels: {
@@ -157,7 +157,7 @@ const STR = {
     } as Record<string, string>,
     typeLabels: {
       class: 'Clase',
-      placement_test: 'Prueba de nivelación',
+      placement_test: 'Llamada de diagnóstico',
       student_call: 'Llamada',
     } as Record<string, string>,
     tabLabels: {

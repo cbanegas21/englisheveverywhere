@@ -119,7 +119,7 @@ const STR = {
     errCreate: 'Error al crear la reserva',
     assignAnyway: '¿Asignar de todas formas?',
     meetingTypes: {
-      placement_test: { label: 'Llamada diagnóstica', description: 'Evaluar el nivel del estudiante' },
+      placement_test: { label: 'Llamada de diagnóstico', description: 'Evaluar el nivel del estudiante' },
       class: { label: 'Clase regular', description: 'Sesión de tutoría estándar' },
       teacher_interview: { label: 'Entrevista de maestro', description: 'Entrevista de incorporación' },
       admin_checkin: { label: 'Revisión interna', description: 'Llamada de seguimiento interna' },

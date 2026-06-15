@@ -120,11 +120,11 @@ const t = {
     timelineEmpty: 'Tu viaje empieza aquí. Completa tu primera clase para ver tu progreso.',
     aiSummary: '◇ Resumen',
     noSummary: 'El resumen aparecerá después de la clase.',
-    placementTitle: 'Llamada diagnóstica',
-    placementNotScheduled: 'Agenda tu llamada diagnóstica gratuita',
+    placementTitle: 'Llamada de diagnóstico',
+    placementNotScheduled: 'Agenda tu llamada de diagnóstico gratuita',
     placementNotScheduledSub: 'Evaluaremos tu nivel y crearemos tu plan de aprendizaje personalizado.',
     placementNotScheduledCta: 'Agendar llamada',
-    placementScheduledTitle: 'Tu llamada diagnóstica está agendada',
+    placementScheduledTitle: 'Tu llamada de diagnóstico está agendada',
     placementScheduledSub: (date: string, time: string) => `Agendada para el ${date} a las ${time}.`,
     placementDoneTitle: 'Diagnóstico completado',
     placementDoneSub: (level: string) => `Tu nivel fue evaluado como ${level}.`,
@@ -259,7 +259,7 @@ export default function ProgresoClient({
                   }}
                 >
                   {lang === 'es'
-                    ? `Tu llamada diagnóstica del ${placementDate} a las ${placementTime} ya pasó. Contáctanos: hola@englishkolab.com`
+                    ? `Tu llamada de diagnóstico del ${placementDate} a las ${placementTime} ya pasó. Contáctanos: hola@englishkolab.com`
                     : `Your diagnostic call from ${placementDate} at ${placementTime} has passed. Contact us: hola@englishkolab.com`}
                 </div>
               )
@@ -427,7 +427,7 @@ export default function ProgresoClient({
               {level
                 ? tx.currentLevelDesc
                 : (lang === 'es'
-                    ? 'Completa tu llamada diagnóstica para conocer tu nivel exacto.'
+                    ? 'Completa tu llamada de diagnóstico para conocer tu nivel exacto.'
                     : 'Complete your diagnostic call to learn your exact level.')}
             </p>
 

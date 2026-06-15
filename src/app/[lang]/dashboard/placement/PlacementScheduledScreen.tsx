@@ -90,16 +90,16 @@ const T = {
     minsLeft: (m: number) => `${m} minute${m !== 1 ? 's' : ''}`,
   },
   es: {
-    title: 'Llamada diagnóstica',
+    title: 'Llamada de diagnóstico',
     subtitle: 'Descubrimos tu nivel de inglés juntos — sin presión, solo una conversación.',
     pastTitle: 'Tu llamada ha pasado',
     pastBody: (date: string, time: string) =>
-      `Tu llamada diagnóstica estaba programada para el ${date} a las ${time} pero ya pasó. Puedes reagendarla para continuar.`,
+      `Tu llamada de diagnóstico estaba programada para el ${date} a las ${time} pero ya pasó. Puedes reagendarla para continuar.`,
     rescheduleBtn: 'Reagendar llamada',
     backDashBtn: 'Volver al dashboard',
     doneKicker: 'Completada',
     doneTitle: 'Tu evaluación está completa',
-    doneBody: 'Completaste tu llamada diagnóstica — tu nivel de inglés ya está definido. Empieza tus clases cuando quieras.',
+    doneBody: 'Completaste tu llamada de diagnóstico — tu nivel de inglés ya está definido. Empieza tus clases cuando quieras.',
     viewProgressBtn: 'Ver mi progreso',
     scheduledBadge: 'Agendada',
     withLabel: 'Con',
@@ -176,9 +176,9 @@ function buildGoogleCalendarUrl(iso: string, lang: Locale): string {
   const start = new Date(iso)
   const end = new Date(start.getTime() + 60 * 60 * 1000)
   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-  const title = lang === 'es' ? 'Llamada diagnóstica — EnglishKolab' : 'Diagnostic Call — EnglishKolab'
+  const title = lang === 'es' ? 'Llamada de diagnóstico — EnglishKolab' : 'Diagnostic Call — EnglishKolab'
   const details = lang === 'es'
-    ? 'Llamada diagnóstica de 60 minutos para evaluar tu nivel de inglés.'
+    ? 'Llamada de diagnóstico de 60 minutos para evaluar tu nivel de inglés.'
     : '60-minute diagnostic call to assess your English level.'
   const params = new URLSearchParams({
     action: 'TEMPLATE',
@@ -193,9 +193,9 @@ function buildIcsDataUrl(iso: string, lang: Locale): string {
   const start = new Date(iso)
   const end = new Date(start.getTime() + 60 * 60 * 1000)
   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-  const title = lang === 'es' ? 'Llamada diagnóstica — EnglishKolab' : 'Diagnostic Call — EnglishKolab'
+  const title = lang === 'es' ? 'Llamada de diagnóstico — EnglishKolab' : 'Diagnostic Call — EnglishKolab'
   const details = lang === 'es'
-    ? 'Llamada diagnóstica de 60 minutos para evaluar tu nivel de inglés.'
+    ? 'Llamada de diagnóstico de 60 minutos para evaluar tu nivel de inglés.'
     : '60-minute diagnostic call to assess your English level.'
   const ics = [
     'BEGIN:VCALENDAR',

@@ -97,7 +97,7 @@ export async function bookPlacementCall(
     return {
       error: lang === 'es'
         ? 'Ya tienes una llamada de diagnóstico agendada.'
-        : 'You already have an evaluation call scheduled.',
+        : 'You already have a diagnostic call scheduled.',
       existingAt: existing.scheduled_at,
     }
   }
@@ -416,12 +416,12 @@ function sendStudentPlacementConfirmation(params: {
       to: params.studentEmail,
       subject: isEs
         ? 'Tu llamada de diagnóstico está confirmada — EnglishKolab'
-        : 'Your placement call is confirmed — EnglishKolab',
+        : 'Your diagnostic call is confirmed — EnglishKolab',
       html: brandedEmail({
-        heading: isEs ? 'Tu llamada está confirmada' : 'Your placement call is confirmed',
+        heading: isEs ? 'Tu llamada está confirmada' : 'Your diagnostic call is confirmed',
         bodyHtml: isEs
           ? `<p style="margin:0 0 12px;">Hola ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">¡Tu llamada de diagnóstico gratuita está confirmada!</p><p style="margin:0;"><strong>Fecha:</strong> ${studentFormatted}</p>`
-          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">Your free placement call is confirmed!</p><p style="margin:0;"><strong>Date:</strong> ${studentFormatted}</p>`,
+          : `<p style="margin:0 0 12px;">Hi ${escapeHtml(params.studentName)},</p><p style="margin:0 0 12px;">Your free diagnostic call is confirmed!</p><p style="margin:0;"><strong>Date:</strong> ${studentFormatted}</p>`,
         footnote: isEs
           ? 'Nos comunicaremos contigo a través de la plataforma. ¿Preguntas? Escríbenos a hola@englishkolab.com.'
           : "We'll reach out through the platform. Questions? Email us at hola@englishkolab.com.",
@@ -437,7 +437,7 @@ function sendStudentPlacementConfirmation(params: {
           ].join('\n')
         : [
             `Hi ${params.studentName},`,
-            'Your free placement call is confirmed!',
+            'Your free diagnostic call is confirmed!',
             `Date: ${studentFormatted}`,
             "We'll reach out through the platform. Questions? Email us at hola@englishkolab.com.",
             '— The EnglishKolab team',

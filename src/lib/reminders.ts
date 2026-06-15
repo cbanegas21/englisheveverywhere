@@ -120,7 +120,7 @@ function reminderHtml(params: {
   const greeting = isEs ? `Hola ${recipientName}` : `Hi ${recipientName}`
   const heading = isEs
     ? window === '24h' ? (isPlacement ? 'Tu llamada de diagnóstico es en 24 horas' : 'Tu clase es en 24 horas') : (isPlacement ? 'Tu llamada empieza pronto' : 'Tu clase empieza pronto')
-    : window === '24h' ? (isPlacement ? 'Your placement call is in 24 hours' : 'Your class is in 24 hours') : (isPlacement ? 'Your placement call starts soon' : 'Your class starts soon')
+    : window === '24h' ? (isPlacement ? 'Your diagnostic call is in 24 hours' : 'Your class is in 24 hours') : (isPlacement ? 'Your diagnostic call starts soon' : 'Your class starts soon')
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
@@ -169,7 +169,7 @@ function reminderText(params: {
   const greeting = isEs ? `Hola ${recipientName},` : `Hi ${recipientName},`
   const heading = isEs
     ? window === '24h' ? (isPlacement ? 'Tu llamada de diagnóstico es en 24 horas' : 'Tu clase es en 24 horas') : (isPlacement ? 'Tu llamada empieza pronto' : 'Tu clase empieza pronto')
-    : window === '24h' ? (isPlacement ? 'Your placement call is in 24 hours' : 'Your class is in 24 hours') : (isPlacement ? 'Your placement call starts soon' : 'Your class starts soon')
+    : window === '24h' ? (isPlacement ? 'Your diagnostic call is in 24 hours' : 'Your class is in 24 hours') : (isPlacement ? 'Your diagnostic call starts soon' : 'Your class starts soon')
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
@@ -222,7 +222,7 @@ function confirmationHtml(params: {
   const greeting = isEs ? `Hola ${recipientName}` : `Hi ${recipientName}`
   const heading = isEs
     ? isPlacement ? 'Tu llamada de diagnóstico está confirmada' : 'Tu clase está confirmada'
-    : isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'
+    : isPlacement ? 'Your diagnostic call is confirmed' : 'Your class is confirmed'
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
@@ -271,7 +271,7 @@ function confirmationText(params: {
   const greeting = isEs ? `Hola ${recipientName},` : `Hi ${recipientName},`
   const heading = isEs
     ? isPlacement ? 'Tu llamada de diagnóstico está confirmada' : 'Tu clase está confirmada'
-    : isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'
+    : isPlacement ? 'Your diagnostic call is confirmed' : 'Your class is confirmed'
   const withLine = isEs
     ? audience === 'student' ? `Con tu maestro ${counterpartName}` : `Con tu estudiante ${counterpartName}`
     : audience === 'student' ? `With your teacher ${counterpartName}` : `With your student ${counterpartName}`
@@ -524,10 +524,10 @@ async function runScheduleBookingReminders(bookingId: string): Promise<void> {
       durationMinutes,
       summary: r.lang === 'es'
         ? `${isPlacement ? 'Llamada de diagnóstico' : 'Clase de inglés'} con ${r.counterpartName}`
-        : `${isPlacement ? 'Placement call' : 'English class'} with ${r.counterpartName}`,
+        : `${isPlacement ? 'Diagnostic call' : 'English class'} with ${r.counterpartName}`,
       description: r.lang === 'es'
         ? `Tu ${isPlacement ? 'llamada de diagnóstico' : 'clase'} de EnglishKolab. Entra aquí: ${roomUrl}`
-        : `Your EnglishKolab ${isPlacement ? 'placement call' : 'class'}. Join here: ${roomUrl}`,
+        : `Your EnglishKolab ${isPlacement ? 'diagnostic call' : 'class'}. Join here: ${roomUrl}`,
       location: roomUrl,
       organizerEmail,
       organizerName: 'EnglishKolab',
@@ -541,7 +541,7 @@ async function runScheduleBookingReminders(bookingId: string): Promise<void> {
       to: r.email,
       subject: r.lang === 'es'
         ? (isPlacement ? 'Tu llamada de diagnóstico está confirmada' : 'Tu clase está confirmada')
-        : (isPlacement ? 'Your placement call is confirmed' : 'Your class is confirmed'),
+        : (isPlacement ? 'Your diagnostic call is confirmed' : 'Your class is confirmed'),
       html: confirmationHtml({
         lang: r.lang,
         audience: r.audience,
@@ -594,8 +594,8 @@ async function runScheduleBookingReminders(bookingId: string): Promise<void> {
         from: fromEmail,
         to: r.email,
         subject: w.window === '24h'
-          ? (r.lang === 'es' ? (isPlacement ? 'Tu llamada de diagnóstico es mañana' : 'Tu clase es mañana') : (isPlacement ? 'Your placement call is tomorrow' : 'Your class is tomorrow'))
-          : (r.lang === 'es' ? (isPlacement ? 'Tu llamada empieza pronto' : 'Tu clase empieza pronto') : (isPlacement ? 'Your placement call starts soon' : 'Your class starts soon')),
+          ? (r.lang === 'es' ? (isPlacement ? 'Tu llamada de diagnóstico es mañana' : 'Tu clase es mañana') : (isPlacement ? 'Your diagnostic call is tomorrow' : 'Your class is tomorrow'))
+          : (r.lang === 'es' ? (isPlacement ? 'Tu llamada empieza pronto' : 'Tu clase empieza pronto') : (isPlacement ? 'Your diagnostic call starts soon' : 'Your class starts soon')),
         html: reminderHtml({
           lang: r.lang,
           audience: r.audience,

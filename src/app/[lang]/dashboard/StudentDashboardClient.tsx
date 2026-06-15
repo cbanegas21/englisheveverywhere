@@ -53,12 +53,12 @@ const t = {
     quickActionsKicker: 'Quick actions',
     actions: {
       book: { title: 'Schedule another class', sub: 'Pick any time that works for you' },
-      test: { title: 'Placement call', sub: 'Find your exact level' },
+      test: { title: 'Diagnostic call', sub: 'Find your exact level' },
       testScheduled: { title: 'View diagnostic call', sub: 'See your scheduled session' },
       progress: { title: 'My progress', sub: 'Track your improvement' },
     },
     placementBanner: {
-      title: 'Schedule your free evaluation call',
+      title: 'Schedule your free diagnostic call',
       sub: "Not sure of your level? Let's figure it out together. Free, no pressure.",
       cta: 'Get started',
     },
@@ -122,8 +122,8 @@ const t = {
     quickActionsKicker: 'Accesos rápidos',
     actions: {
       book: { title: 'Agendar otra clase', sub: 'Elige la hora que te funcione' },
-      test: { title: 'Llamada de nivel', sub: 'Encuentra tu nivel exacto' },
-      testScheduled: { title: 'Ver llamada diagnóstica', sub: 'Ver tu sesión agendada' },
+      test: { title: 'Llamada de diagnóstico', sub: 'Encuentra tu nivel exacto' },
+      testScheduled: { title: 'Ver llamada de diagnóstico', sub: 'Ver tu sesión agendada' },
       progress: { title: 'Mi progreso', sub: 'Sigue tu mejora' },
     },
     placementBanner: {
@@ -132,13 +132,13 @@ const t = {
       cta: 'Comenzar',
     },
     placementScheduledBanner: {
-      title: 'Tu llamada diagnóstica está agendada',
+      title: 'Tu llamada de diagnóstico está agendada',
       with: (name: string) => `Con ${name}`,
       hostPending: 'Anfitrión por asignar',
       cta: 'Ver',
     },
     placementPastBanner: {
-      title: 'Tu llamada diagnóstica ya pasó',
+      title: 'Tu llamada de diagnóstico ya pasó',
       sub: (date: string) => `Estaba agendada para el ${date}. Reagenda para elegir un nuevo horario.`,
       cta: 'Reagendar',
     },

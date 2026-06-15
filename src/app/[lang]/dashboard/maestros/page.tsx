@@ -48,13 +48,13 @@ const t = {
     assignedSoonTitle: 'A teacher is matched after you book',
     assignedSoonBody:
       "Once you book a class, we'll match you with an available teacher for that time based on your level and goals.",
-    placementTitle: 'Schedule your free placement call',
+    placementTitle: 'Schedule your free diagnostic call',
     placementBody:
-      'Take your free placement call so we can set your level and match you with the right teacher.',
-    placementCta: 'Schedule placement call',
-    placementScheduledTitle: 'Your placement call is scheduled',
+      'Take your free diagnostic call so we can set your level and match you with the right teacher.',
+    placementCta: 'Schedule diagnostic call',
+    placementScheduledTitle: 'Your diagnostic call is scheduled',
     placementScheduledBody:
-      "After your placement call we'll match you with the right teacher for your level.",
+      "After your diagnostic call we'll match you with the right teacher for your level.",
     placementScheduledLabel: 'Scheduled for',
     errorMsg: 'Something went wrong. Please try again.',
     tryAgain: 'Try again',

@@ -62,7 +62,7 @@ const T = {
     bullets: ['Your own teacher, just for you', '60-minute live classes', 'Classes never expire'],
     cta: 'Create your account to start',
     ctaSub: 'Create your account to see the price and book your first class.',
-    riskFree: 'Your first placement call is free.',
+    riskFree: 'Your first diagnostic call is free.',
     retake: 'Start over',
   },
 }
