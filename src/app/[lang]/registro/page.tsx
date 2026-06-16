@@ -10,6 +10,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import { Logo } from '@/components/ui/Logo'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { GoogleButton } from '@/components/auth/GoogleButton'
+import { Turnstile } from '@/components/Turnstile'
 import { PhoneInput } from 'react-international-phone'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import 'react-international-phone/style.css'
@@ -53,6 +54,7 @@ const t = {
     successSub: 'Check your inbox or spam folder for your confirmation link. Click it to activate your account.',
     backToLogin: 'Go to login',
     errorDefault: 'Something went wrong. Please try again.',
+    captchaRequired: 'Please complete the anti-bot check below.',
   },
   es: {
     stepRole: 'Regístrate como…',
@@ -92,6 +94,7 @@ const t = {
     successSub: 'Revisa tu bandeja de entrada o carpeta de spam. Haz clic en el enlace para activar tu cuenta.',
     backToLogin: 'Ir a iniciar sesión',
     errorDefault: 'Algo salió mal. Intenta de nuevo.',
+    captchaRequired: 'Completa la verificación anti-robot abajo.',
   },
 }
 
@@ -149,7 +152,9 @@ function RegistroContent({ lang }: { lang: Locale }) {
   const [phone, setPhone] = useState('')
   const [isPending, startTransition] = useTransition()
   const [clientError, setClientError] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
   const [timezone] = useState(detectTimezone)
+  const captchaOn = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
   const router = useRouter()
   const searchParams = useSearchParams()
   const errorMsg = searchParams.get('error')
@@ -204,11 +209,16 @@ function RegistroContent({ lang }: { lang: Locale }) {
       setClientError(tx.phoneInvalid)
       return
     }
+    if (captchaOn && !captchaToken) {
+      setClientError(tx.captchaRequired)
+      return
+    }
     setClientError('')
     fd.set('phone', phone)
     fd.set('lang', lang)
     fd.set('role', role)
     fd.set('timezone', timezone)
+    fd.set('captchaToken', captchaToken)
     startTransition(() => signUp(fd))
   }
 
@@ -382,6 +392,8 @@ function RegistroContent({ lang }: { lang: Locale }) {
             <label className="block text-[13px] font-medium mb-1.5" style={{ color: 'var(--ek-text)' }}>{tx.confirmPassword}</label>
             <input type={showPassword ? 'text' : 'password'} name="confirm_password" required minLength={8} placeholder={tx.confirmPlaceholder} style={inputBase} onFocus={onFocusRing} onBlur={onBlurRing} />
           </div>
+
+          {captchaOn && <Turnstile onToken={setCaptchaToken} />}
 
           <button
             type="submit"

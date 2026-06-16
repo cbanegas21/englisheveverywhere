@@ -29,14 +29,14 @@ const SUPABASE_WSS = "wss://kasuwdltupqpfxvjrmrp.supabase.co";
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${SUPABASE_ORIGIN}`,
   "font-src 'self' data:",
-  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io`,
+  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io https://challenges.cloudflare.com`,
   `media-src 'self' blob: mediastream: ${SUPABASE_ORIGIN}`,
   "worker-src 'self' blob:",
-  "frame-src 'self'",
+  "frame-src 'self' https://challenges.cloudflare.com",
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",

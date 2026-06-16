@@ -11,6 +11,24 @@ import { sendWelcomeEmail } from '@/lib/welcomeEmail'
 import { safeNextPath, pathAllowedForRole } from '@/lib/safeNext'
 import { isValidTimeZone } from '@/lib/timezone'
 
+// Verify a Cloudflare Turnstile token server-side. Returns true only on a
+// confirmed human; any network/parse failure or empty token returns false
+// (fail-closed). Not exported — internal helper, so this stays a server module.
+async function verifyTurnstile(token: string, secret: string): Promise<boolean> {
+  if (!token) return false
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ secret, response: token }),
+    })
+    const data = (await res.json()) as { success?: boolean }
+    return data.success === true
+  } catch {
+    return false
+  }
+}
+
 // Proxy-level role guard fast-path. httpOnly = server-only (readable from proxy).
 // Layout guards remain the source of truth — cookie staleness never grants access.
 const ROLE_COOKIE_OPTS = {
@@ -113,6 +131,21 @@ export async function signUp(formData: FormData) {
   if (!phone || !isValidPhoneNumber(phone)) {
     const msg = lang === 'es' ? 'Ingresa un número de teléfono válido.' : 'Please enter a valid phone number.'
     redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}&role=${role}`)
+  }
+
+  // CAPTCHA (Cloudflare Turnstile) — block bot signups. Fail-CLOSED when a secret
+  // is configured (a request with no/invalid token is rejected); a no-op when the
+  // secret is unset so local/dev signups still work without keys.
+  const turnstileSecret = process.env.TURNSTILE_SECRET_KEY
+  if (turnstileSecret && !turnstileSecret.endsWith('_placeholder')) {
+    const captchaToken = (formData.get('captchaToken') as string) || ''
+    const passed = await verifyTurnstile(captchaToken, turnstileSecret)
+    if (!passed) {
+      const msg = lang === 'es'
+        ? 'No pudimos verificar que no eres un robot. Recarga la página e intenta de nuevo.'
+        : "We couldn't verify you're human. Reload the page and try again."
+      redirect(`/${lang}/registro?error=${encodeURIComponent(msg)}&role=${role}`)
+    }
   }
 
   const { data, error } = await supabase.auth.signUp({
