@@ -317,3 +317,25 @@ export async function resetPassword(formData: FormData) {
 
   redirect(`/${lang}/login?success=reset`)
 }
+
+// Welcome email for first-time Google sign-ups. The new GoogleButton uses
+// signInWithIdToken (no /auth/callback round-trip), so the greeting that used to
+// fire in the callback is sent here instead. Fire-and-forget, gated to a
+// brand-new student account so a returning user never re-triggers it.
+export async function notifyGoogleSignup(lang: string = 'es') {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    const role = profile?.role || (user.user_metadata?.role as string | undefined)
+    const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0
+    const isNew = createdMs > 0 && Date.now() - createdMs < 2 * 60 * 1000
+    if (isNew && role !== 'admin' && role !== 'teacher') {
+      const fullName = (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || ''
+      await sendWelcomeEmail(user.email || '', fullName, lang)
+    }
+  } catch (e) {
+    console.error('[notifyGoogleSignup] non-blocking:', e)
+  }
+}

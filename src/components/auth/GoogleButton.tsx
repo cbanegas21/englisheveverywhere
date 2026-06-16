@@ -1,53 +1,118 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { notifyGoogleSignup } from '@/app/actions/auth'
 import type { Locale } from '@/lib/i18n/translations'
 
-const t = {
-  es: { or: 'o', cont: 'Continuar con Google', loading: 'Conectando…', err: 'No se pudo continuar con Google. Intenta de nuevo.' },
-  en: { or: 'or', cont: 'Continue with Google', loading: 'Connecting…', err: "Couldn't continue with Google. Please try again." },
-}
-
-// Official Google "G" mark.
-function GoogleG() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z" />
-      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.35 0-4.34-1.59-5.05-3.71H.96v2.33A9 9 0 0 0 9 18z" />
-      <path fill="#FBBC05" d="M3.95 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.96a9 9 0 0 0 0 8.08l2.99-2.33z" />
-      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
-    </svg>
-  )
-}
-
-/**
- * "Continue with Google" — the only social provider we offer (Google is what
- * nearly everyone uses; Microsoft/etc. were intentionally dropped). On login it
- * works for any existing account (role read from `profiles` in the callback); on
- * signup the DB trigger provisions a *student*, so registro only shows this on the
- * student form. Requires Google to be enabled in Supabase Auth → Providers.
- */
-export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const tx = t[lang]
-
-  async function continueWithGoogle() {
-    setError('')
-    setLoading(true)
-    const supabase = createClient()
-    const callback = `${window.location.origin}/${lang}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: callback },
-    })
-    if (error) {
-      setError(tx.err)
-      setLoading(false)
+// "Continue with Google" via Google Identity Services (GIS) + Supabase
+// signInWithIdToken. Unlike the old signInWithOAuth redirect flow, the login is
+// NOT bounced through <ref>.supabase.co — Google's screen shows englishkolab.com.
+// This file ONLY affects Google sign-in; email/password login is untouched.
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (cfg: Record<string, unknown>) => void
+          renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void
+        }
+      }
     }
-    // On success the browser follows the redirect to Google automatically.
   }
+}
+
+const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+const GIS_SRC = 'https://accounts.google.com/gsi/client'
+
+const t = {
+  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…' },
+  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…' },
+}
+
+// Minimal client-side open-redirect guard for the post-login `next` (the server
+// re-validates room access anyway). Only same-origin app paths are allowed.
+function safeNext(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null
+  return next
+}
+
+export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
+  const tx = t[lang]
+  const router = useRouter()
+  const btnRef = useRef<HTMLDivElement>(null)
+  const rawNonce = useRef<string>('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!CLIENT_ID || !btnRef.current) return
+    let cancelled = false
+    let poll: ReturnType<typeof setInterval> | undefined
+
+    async function handleCredential(resp: { credential?: string }) {
+      if (!resp.credential) return
+      setError('')
+      setLoading(true)
+      const supabase = createClient()
+      const { error: signErr } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: resp.credential,
+        nonce: rawNonce.current,
+      })
+      if (signErr) {
+        console.error('[google] signInWithIdToken failed:', signErr.message)
+        setError(tx.err)
+        setLoading(false)
+        return
+      }
+      // Role-based landing, resolved client-side (RLS lets a user read own profile).
+      const { data: { user } } = await supabase.auth.getUser()
+      let dest = `/${lang}/dashboard`
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        const role = profile?.role
+        dest = role === 'teacher' ? `/${lang}/maestro/dashboard` : role === 'admin' ? `/${lang}/admin` : `/${lang}/dashboard`
+        // First-time Google students get the welcome email (the old flow did this
+        // in /auth/callback, which signInWithIdToken bypasses). Fire-and-forget.
+        notifyGoogleSignup(lang).catch(() => {})
+      }
+      router.replace(safeNext(next) || dest)
+      router.refresh()
+    }
+
+    async function init() {
+      if (cancelled || !window.google?.accounts?.id || !btnRef.current) return
+      // Nonce: GIS gets the SHA-256 hash, Supabase gets the raw value (replay guard).
+      const raw = crypto.randomUUID()
+      rawNonce.current = raw
+      const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))
+      const hashedNonce = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+      window.google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleCredential,
+        nonce: hashedNonce,
+        ux_mode: 'popup',
+        auto_select: false,
+      })
+      window.google.accounts.id.renderButton(btnRef.current, {
+        type: 'standard', theme: 'outline', size: 'large',
+        text: 'continue_with', shape: 'rectangular', logo_alignment: 'center', width: 336,
+      })
+    }
+
+    if (window.google?.accounts?.id) { init() }
+    else {
+      if (!document.querySelector(`script[src="${GIS_SRC}"]`)) {
+        const s = document.createElement('script'); s.src = GIS_SRC; s.async = true; s.defer = true; document.head.appendChild(s)
+      }
+      poll = setInterval(() => { if (window.google?.accounts?.id) { clearInterval(poll); init() } }, 150)
+    }
+    return () => { cancelled = true; if (poll) clearInterval(poll) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!CLIENT_ID) return null
 
   return (
     <div>
@@ -56,18 +121,10 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
         <span className="text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.or}</span>
         <div className="h-px flex-1" style={{ background: 'var(--ek-border)' }} />
       </div>
-      <button
-        type="button"
-        onClick={continueWithGoogle}
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-3 rounded-lg py-3.5 text-[14px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-        style={{ border: '1px solid var(--ek-border)', background: '#fff', color: 'var(--ek-text)' }}
-        onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = 'var(--ek-paper)' }}
-        onMouseLeave={(e) => { if (!loading) e.currentTarget.style.background = '#fff' }}
-      >
-        <GoogleG />
-        {loading ? tx.loading : tx.cont}
-      </button>
+      <div className="flex justify-center" style={{ minHeight: 44 }}>
+        <div ref={btnRef} aria-label="Google" />
+      </div>
+      {loading && <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.loading}</p>}
       {error && <p className="mt-2 text-center text-[12px]" style={{ color: '#DC2626' }}>{error}</p>}
     </div>
   )
