@@ -49,6 +49,10 @@ const nextConfig: NextConfig = {
   // "Sign out" button (its default position). Dev-only — absent in production.
   devIndicators: { position: "bottom-right" },
 
+  // Don't advertise the framework (drops the `X-Powered-By: Next.js` header) —
+  // pentest LOW: removes a free fingerprinting hint for attackers.
+  poweredByHeader: false,
+
   // Baseline security headers (§7.4). Only HSTS was present; add clickjacking +
   // MIME-sniff + referrer-leak + feature-policy hardening on every route. NOTE:
   // Permissions-Policy MUST keep camera/microphone = (self) or the /sala LiveKit

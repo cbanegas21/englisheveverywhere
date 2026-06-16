@@ -15,7 +15,8 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              // Secure flag in production (pentest hardening) — see proxy.ts.
+              cookieStore.set(name, value, { ...options, secure: process.env.NODE_ENV === 'production' })
             )
           } catch {
             // Called from a Server Component — can be ignored if middleware refreshes sessions

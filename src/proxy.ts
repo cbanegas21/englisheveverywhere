@@ -68,7 +68,11 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            // Force the Secure flag in production (pentest hardening): the auth
+            // cookie can't be HttpOnly (@supabase/ssr's browser client must read
+            // it), so Secure + the existing HSTS keep it HTTPS-only. dev stays
+            // http-friendly.
+            response.cookies.set(name, value, { ...options, secure: process.env.NODE_ENV === 'production' })
           )
         },
       },
