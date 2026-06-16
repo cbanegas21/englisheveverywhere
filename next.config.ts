@@ -31,7 +31,7 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${SUPABASE_ORIGIN}`,
+  `img-src 'self' data: blob: ${SUPABASE_ORIGIN} https://cdnjs.cloudflare.com`,
   "font-src 'self' data:",
   `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io https://challenges.cloudflare.com`,
   `media-src 'self' blob: mediastream: ${SUPABASE_ORIGIN}`,
