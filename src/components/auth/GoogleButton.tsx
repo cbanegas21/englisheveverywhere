@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { notifyGoogleSignup } from '@/app/actions/auth'
+import { safeNextPath, pathAllowedForRole } from '@/lib/safeNext'
 import type { Locale } from '@/lib/i18n/translations'
 
 // "Continue with Google" via Google Identity Services (GIS) + Supabase
@@ -29,13 +30,6 @@ const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const t = {
   es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…' },
   en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…' },
-}
-
-// Minimal client-side open-redirect guard for the post-login `next` (the server
-// re-validates room access anyway). Only same-origin app paths are allowed.
-function safeNext(next: string | null | undefined): string | null {
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return null
-  return next
 }
 
 export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
@@ -87,16 +81,21 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
       }
       // Role-based landing, resolved client-side (RLS lets a user read own profile).
       const { data: { user } } = await supabase.auth.getUser()
+      let role: string | undefined
       let dest = `/${lang}/dashboard`
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-        const role = profile?.role
+        role = profile?.role
         dest = role === 'teacher' ? `/${lang}/maestro/dashboard` : role === 'admin' ? `/${lang}/admin` : `/${lang}/dashboard`
         // First-time Google students get the welcome email (the old flow did this
         // in /auth/callback, which signInWithIdToken bypasses). Fire-and-forget.
         notifyGoogleSignup(lang).catch(() => {})
       }
-      router.replace(safeNext(next) || dest)
+      // Honor `next` only via the SAME canonical guard the password login uses
+      // (safeNextPath rejects //, backslash, and non-locale paths → no open
+      // redirect; pathAllowedForRole keeps it inside the user's own area).
+      const safe = safeNextPath(next)
+      router.replace(safe && pathAllowedForRole(safe, role) ? safe : dest)
       router.refresh()
     }
 
