@@ -26,6 +26,18 @@ export default async function AdminLayout({ children, params }: Props) {
 
   if (profile?.role !== 'admin') redirect(`/${lang}/dashboard`)
 
+  // Second-factor (2FA) gate. `nextLevel === 'aal2'` means the admin has a
+  // VERIFIED authenticator enrolled; if the current session is still aal1, force
+  // a TOTP step-up. The step-up page (/verificar-admin) lives OUTSIDE this layout
+  // so there's no redirect loop. Crucially this only triggers once a factor is
+  // enrolled — an admin who never sets up 2FA is never gated, so building this
+  // can't lock anyone out. (Recovery if a device is lost: delete the factor via
+  // the service-role admin API.)
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+    redirect(`/${lang}/verificar-admin`)
+  }
+
   const displayName = profile?.full_name || user.email?.split('@')[0] || 'Admin'
 
   return (
