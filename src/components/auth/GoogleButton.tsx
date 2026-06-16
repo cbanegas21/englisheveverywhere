@@ -41,7 +41,8 @@ function safeNext(next: string | null | undefined): string | null {
 export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
   const tx = t[lang]
   const router = useRouter()
-  const btnRef = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null) // full-width measuring container
+  const btnRef = useRef<HTMLDivElement>(null)  // GIS renders the iframe button here
   const rawNonce = useRef<string>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -50,6 +51,23 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
     if (!CLIENT_ID || !btnRef.current) return
     let cancelled = false
     let poll: ReturnType<typeof setInterval> | undefined
+    let ro: ResizeObserver | undefined
+    let raf = 0
+
+    // Render the GIS button at the CURRENT container width so it lines up with the
+    // full-width email/password form on every viewport (the old fixed 336px was
+    // narrower than the form on desktop and overflowed the column on mobile). GIS
+    // only accepts a pixel width (200–400), so we measure + clamp and re-render on
+    // resize. renderButton appends, so clear the host first.
+    function renderBtn() {
+      if (!window.google?.accounts?.id || !btnRef.current || !wrapRef.current) return
+      const w = Math.min(400, Math.max(240, Math.floor(wrapRef.current.clientWidth)))
+      btnRef.current.innerHTML = ''
+      window.google.accounts.id.renderButton(btnRef.current, {
+        type: 'standard', theme: 'outline', size: 'large',
+        text: 'continue_with', shape: 'rectangular', logo_alignment: 'center', width: w,
+      })
+    }
 
     async function handleCredential(resp: { credential?: string }) {
       if (!resp.credential) return
@@ -96,10 +114,13 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
         ux_mode: 'popup',
         auto_select: false,
       })
-      window.google.accounts.id.renderButton(btnRef.current, {
-        type: 'standard', theme: 'outline', size: 'large',
-        text: 'continue_with', shape: 'rectangular', logo_alignment: 'center', width: 336,
-      })
+      renderBtn()
+      // Keep the button width matched to the form as the column resizes
+      // (orientation change, responsive breakpoints). rAF-debounced.
+      if (wrapRef.current && typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderBtn) })
+        ro.observe(wrapRef.current)
+      }
     }
 
     if (window.google?.accounts?.id) { init() }
@@ -109,7 +130,7 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
       }
       poll = setInterval(() => { if (window.google?.accounts?.id) { clearInterval(poll); init() } }, 150)
     }
-    return () => { cancelled = true; if (poll) clearInterval(poll) }
+    return () => { cancelled = true; if (poll) clearInterval(poll); if (ro) ro.disconnect(); cancelAnimationFrame(raf) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!CLIENT_ID) return null
@@ -121,7 +142,7 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
         <span className="text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.or}</span>
         <div className="h-px flex-1" style={{ background: 'var(--ek-border)' }} />
       </div>
-      <div className="flex justify-center" style={{ minHeight: 44 }}>
+      <div ref={wrapRef} className="w-full flex justify-center" style={{ minHeight: 44 }}>
         <div ref={btnRef} aria-label="Google" />
       </div>
       {loading && <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.loading}</p>}

@@ -405,16 +405,18 @@ function RegistroContent({ lang }: { lang: Locale }) {
           >
             {isPending ? tx.loading : tx.submit}
           </button>
-
-          <p className="text-[12px] leading-relaxed text-center" style={{ color: 'var(--ek-text-muted)' }}>
-            {tx.terms}{' '}
-            <a href={`/${lang}/terms`} className="underline" style={{ color: 'var(--ek-text-soft)' }}>{tx.termsLink}</a>{' '}
-            {tx.and}{' '}
-            <a href={`/${lang}/privacy`} className="underline" style={{ color: 'var(--ek-text-soft)' }}>{tx.privacy}</a>.
-          </p>
         </form>
 
+        {/* Google sign-up (students only) sits directly under the primary action,
+            with the legal line last so it applies to BOTH sign-up methods. */}
         {role === 'student' && <GoogleButton lang={lang} />}
+
+        <p className="mt-5 text-[12px] leading-relaxed text-center" style={{ color: 'var(--ek-text-muted)' }}>
+          {tx.terms}{' '}
+          <a href={`/${lang}/terms`} className="underline" style={{ color: 'var(--ek-text-soft)' }}>{tx.termsLink}</a>{' '}
+          {tx.and}{' '}
+          <a href={`/${lang}/privacy`} className="underline" style={{ color: 'var(--ek-text-soft)' }}>{tx.privacy}</a>.
+        </p>
       </div>
     </Shell>
   )
