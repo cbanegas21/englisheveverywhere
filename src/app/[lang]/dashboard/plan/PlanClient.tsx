@@ -208,6 +208,12 @@ export default function PlanClient({
     }
   })
   const [error, setError] = useState('')
+  // P3: a cancelled Stripe checkout returned silently. Capture ?cancelled=1 at mount
+  // (the effect below strips it from the URL) to show a calm "you weren't charged" note.
+  const [cancelled, setCancelled] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('cancelled') === '1'
+  })
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [, forceRender] = useState(0)
 
@@ -415,6 +421,29 @@ export default function PlanClient({
   // ── Main plan screen ─────────────────────────────────────────
   return (
     <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      {cancelled && (
+        <div
+          role="status"
+          style={{
+            margin: '12px 16px 0', borderRadius: 10, padding: '10px 14px', fontSize: 13, lineHeight: 1.5,
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8',
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            {lang === 'es'
+              ? 'Cancelaste el pago — no se te cobró nada. Puedes elegir un plan cuando quieras.'
+              : "You cancelled checkout — you weren't charged. You can choose a plan whenever you like."}
+          </span>
+          <button
+            onClick={() => setCancelled(false)}
+            aria-label={lang === 'es' ? 'Cerrar' : 'Close'}
+            style={{ background: 'transparent', border: 0, color: 'inherit', cursor: 'pointer', fontSize: 18, lineHeight: 1, minWidth: 32, minHeight: 32 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <DashTopBar
         title={tx.title}
         sub={tx.subtitle}

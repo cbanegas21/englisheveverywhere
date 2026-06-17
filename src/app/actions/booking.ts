@@ -909,25 +909,18 @@ export async function saveAvailabilitySlots(
     slotsByDay.set(s.day_of_week, arr)
   }
 
-  // Delete existing recurring slots
-  await admin
-    .from('availability_slots')
-    .delete()
-    .eq('teacher_id', teacher.id)
-
-  if (slots.length === 0) {
-    revalidatePath('/', 'layout')
-    return { success: true }
-  }
-
-  const toInsert = slots.map((s) => ({
-    teacher_id: teacher.id,
-    day_of_week: s.day_of_week,
-    start_time: s.start_time,
-    end_time: s.end_time,
-  }))
-
-  const { error } = await admin.from('availability_slots').insert(toInsert)
+  // P3: atomic replace-all (migration 052) — the old delete-then-insert wiped a
+  // teacher's slots if the insert failed transiently. One transaction = a failure
+  // rolls back and the existing slots survive. Empty list is handled inside (delete
+  // all, insert none).
+  const { error } = await admin.rpc('replace_availability_slots', {
+    p_teacher_id: teacher.id,
+    p_slots: slots.map((s) => ({
+      day_of_week: s.day_of_week,
+      start_time: s.start_time,
+      end_time: s.end_time,
+    })),
+  })
   if (error) return { error: bookingActionErrorMsg(error, lang, 'saveAvailabilitySlots') }
 
   revalidatePath('/', 'layout')

@@ -901,6 +901,10 @@ export type Database = {
         Returns: undefined
       }
       is_matched_teacher: { Args: { p_teacher_id: string }; Returns: boolean }
+      replace_availability_slots: {
+        Args: { p_slots: Json; p_teacher_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -635,6 +635,26 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.replace_availability_slots(p_teacher_id uuid, p_slots jsonb)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  delete from availability_slots where teacher_id = p_teacher_id;
+  if p_slots is not null and jsonb_array_length(p_slots) > 0 then
+    insert into availability_slots (teacher_id, day_of_week, start_time, end_time)
+    select p_teacher_id,
+           (e->>'day_of_week')::int,
+           (e->>'start_time')::time,
+           (e->>'end_time')::time
+    from jsonb_array_elements(p_slots) e;
+  end if;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.rls_auto_enable()
  RETURNS event_trigger
  LANGUAGE plpgsql

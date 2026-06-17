@@ -76,10 +76,18 @@ async function query(sql) {
 // Only rows that actually still carry a transcript and are past the window.
 const where = `ended_at is not null and ended_at < now() - interval '${retentionDays} days' and transcript is not null`
 
+// auth_attempts is the hot path for the rate limiter + transcribe/extractVocab; its
+// rows are useless after the (15-min) limiter windows close, so prune old ones to
+// keep the table from growing unbounded over months (P3). Default 30-day retention.
+const authAttemptsDays = Number(process.env.AUTH_ATTEMPTS_RETENTION_DAYS || 30)
+const authWhere = `attempted_at < now() - interval '${authAttemptsDays} days'`
+
 if (dryRun) {
   const rows = await query(`select count(*)::int as to_purge from public.sessions where ${where};`)
   const count = rows?.[0]?.to_purge ?? 0
   console.log(`purge-transcripts [DRY RUN]: ${count} transcript(s) older than ${retentionDays}d would be purged. No changes made.`)
+  const aRows = await query(`select count(*)::int as to_purge from public.auth_attempts where ${authWhere};`)
+  console.log(`purge-transcripts [DRY RUN]: ${aRows?.[0]?.to_purge ?? 0} auth_attempts row(s) older than ${authAttemptsDays}d would be deleted.`)
   process.exit(0)
 }
 
@@ -94,3 +102,11 @@ const rows = await query(`
 `)
 const count = rows?.[0]?.purged ?? 0
 console.log(`purge-transcripts: purged ${count} transcript(s) older than ${retentionDays}d.`)
+
+const aRows = await query(`
+  with deleted as (
+    delete from public.auth_attempts where ${authWhere} returning id
+  )
+  select count(*)::int as deleted from deleted;
+`)
+console.log(`purge-transcripts: deleted ${aRows?.[0]?.deleted ?? 0} auth_attempts row(s) older than ${authAttemptsDays}d.`)

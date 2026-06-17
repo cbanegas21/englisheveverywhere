@@ -90,23 +90,29 @@ function digitsOnly(phone: string): string {
   return phone.replace(/[^\d]/g, '')
 }
 
+// Normalize the locale am/pm whitespace. es-HN renders "p. m." with a NARROW
+// NO-BREAK SPACE (U+202F) in the browser's ICU but a different space in Node's SSR
+// ICU — the mismatch triggers React hydration error #418 (ES-only; EN "PM" has no
+// space). Collapsing those special spaces to a plain space makes SSR == client.
+const normAmPm = (s: string) => s.replace(/[   ]/g, ' ')
+
 function fmtDateTime(iso: string, loc: string): string {
-  return new Date(iso).toLocaleString(loc, {
+  return normAmPm(new Date(iso).toLocaleString(loc, {
     weekday: 'short', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit', timeZone: TZ,
-  })
+  }))
 }
 
 function fmtTime(iso: string, loc: string): string {
-  return new Date(iso).toLocaleTimeString(loc, {
+  return normAmPm(new Date(iso).toLocaleTimeString(loc, {
     hour: '2-digit', minute: '2-digit', timeZone: TZ,
-  })
+  }))
 }
 
 function fmtSendBy(iso: string, offsetMs: number, loc: string): string {
-  return new Date(new Date(iso).getTime() - offsetMs).toLocaleString(loc, {
+  return normAmPm(new Date(new Date(iso).getTime() - offsetMs).toLocaleString(loc, {
     weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ,
-  })
+  }))
 }
 
 export default function RemindersClient({ lang, reminders, windowDays, appUrl, nowIso }: Props) {

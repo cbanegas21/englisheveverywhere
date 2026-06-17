@@ -976,9 +976,16 @@ export async function cancelBookingWithRefund(bookingId: string) {
   // Status-gated cancel: only refund when THIS call actually flips a live booking
   // to cancelled. Without the guard, repeated/raced admin cancels each re-credit
   // the student (credit inflation). Class bookings only — placements cost no credit.
+  // P3: also write the cancellation audit fields (cancelled_by/reason/at), which the
+  // teacher + student cancel paths already populate but the admin path was skipping.
   const { data: cancelledRows, error } = await admin
     .from('bookings')
-    .update({ status: 'cancelled' })
+    .update({
+      status: 'cancelled',
+      cancelled_by: 'admin',
+      cancellation_reason: 'admin_cancel',
+      cancelled_at: new Date().toISOString(),
+    })
     .eq('id', bookingId)
     .in('status', ['pending', 'confirmed'])
     .select('id')

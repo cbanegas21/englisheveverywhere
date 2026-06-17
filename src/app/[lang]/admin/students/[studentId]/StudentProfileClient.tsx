@@ -799,7 +799,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
             <button
               style={btnPrimary}
               disabled={isPending}
-              onClick={() => run(() => addStudentClasses(student.id, manualAddCount), t.classesAdded(manualAddCount))}
+              onClick={() => {
+                // P3: confirm before granting credits (money-equivalent).
+                const msg = lang === 'es'
+                  ? `¿Agregar ${manualAddCount} ${manualAddCount === 1 ? 'clase' : 'clases'} a esta cuenta?`
+                  : `Add ${manualAddCount} ${manualAddCount === 1 ? 'class' : 'classes'} to this account?`
+                if (!confirm(msg)) return
+                run(() => addStudentClasses(student.id, manualAddCount), t.classesAdded(manualAddCount))
+              }}
             >
               {t.add}
             </button>
@@ -956,7 +963,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
             <button
               style={btnPrimary}
               disabled={isPending}
-              onClick={() => run(() => updateStudentRole(student.profile?.id || '', selectedRole), t.roleUpdated)}
+              onClick={() => {
+                // P3: confirm a role change — promoting to admin grants full CRM power.
+                const msg = lang === 'es'
+                  ? `¿Cambiar el rol de esta cuenta a "${selectedRole}"? Esto cambia sus permisos.`
+                  : `Change this account's role to "${selectedRole}"? This changes their permissions.`
+                if (!confirm(msg)) return
+                run(() => updateStudentRole(student.profile?.id || '', selectedRole), t.roleUpdated)
+              }}
             >
               {t.saveRole}
             </button>

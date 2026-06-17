@@ -28,8 +28,8 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 
 const t = {
-  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…', deleted: 'Esta cuenta ya no está disponible.' },
-  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…', deleted: 'This account is no longer available.' },
+  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…', deleted: 'Esta cuenta ya no está disponible.', blocked: 'No se pudo cargar Google. Usa tu correo para continuar.' },
+  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…', deleted: 'This account is no longer available.', blocked: "Couldn't load Google. Use your email to continue." },
 }
 
 export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
@@ -40,6 +40,7 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
   const rawNonce = useRef<string>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [blocked, setBlocked] = useState(false)
 
   useEffect(() => {
     if (!CLIENT_ID || !btnRef.current) return
@@ -136,7 +137,14 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
       if (!document.querySelector(`script[src="${GIS_SRC}"]`)) {
         const s = document.createElement('script'); s.src = GIS_SRC; s.async = true; s.defer = true; document.head.appendChild(s)
       }
-      poll = setInterval(() => { if (window.google?.accounts?.id) { clearInterval(poll); init() } }, 150)
+      // P3: stop polling after ~8s if the GIS script is blocked (extension / network)
+      // and surface a hint to use the email login above, instead of an invisible
+      // never-resolving wait.
+      let tries = 0
+      poll = setInterval(() => {
+        if (window.google?.accounts?.id) { clearInterval(poll); init() }
+        else if (++tries > 53) { clearInterval(poll); if (!cancelled) setBlocked(true) }
+      }, 150)
     }
     return () => { cancelled = true; if (poll) clearInterval(poll); if (ro) ro.disconnect(); cancelAnimationFrame(raf) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -155,6 +163,7 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
       </div>
       {loading && <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.loading}</p>}
       {error && <p className="mt-2 text-center text-[12px]" style={{ color: '#DC2626' }}>{error}</p>}
+      {blocked && <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.blocked}</p>}
     </div>
   )
 }
