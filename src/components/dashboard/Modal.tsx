@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { lockBodyScroll } from '@/lib/scrollLock'
 import { pushOverlay, popOverlay, isTopOverlay } from './overlayStack'
 
 /**
@@ -39,8 +40,7 @@ export default function Modal({
   useEffect(() => {
     if (!open) return
     const id = pushOverlay()
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlock = lockBodyScroll()
     const onKey = (e: KeyboardEvent) => {
       // Only the top-most overlay reacts, so Esc dismisses one dialog at a time.
       if (e.key === 'Escape' && isTopOverlay(id)) onClose()
@@ -48,7 +48,7 @@ export default function Modal({
     window.addEventListener('keydown', onKey)
     return () => {
       popOverlay(id)
-      document.body.style.overflow = prev
+      unlock()
       window.removeEventListener('keydown', onKey)
     }
   }, [open, onClose])

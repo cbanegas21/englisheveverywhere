@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
+import { lockBodyScroll } from '@/lib/scrollLock'
 import { useCurrency } from '@/lib/useCurrency'
 import CurrencySelect from '@/components/CurrencySelect'
 import { Logo } from '@/components/ui/Logo'
@@ -54,10 +55,9 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
   // underneath doesn't move (LK2-10). Restore on close/unmount.
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlock = lockBodyScroll()
     return () => {
-      document.body.style.overflow = prev
+      unlock()
     }
   }, [open])
 

@@ -7,6 +7,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { EKMark } from '@/components/ui/EKMark'
+import { lockBodyScroll } from '@/lib/scrollLock'
 import AdminLangToggle from './AdminLangToggle'
 
 interface Props { lang: string }
@@ -21,13 +22,12 @@ export default function AdminSidebar({ lang }: Props) {
   // body scroll locks, focus moves into the role="dialog" drawer (SH-MOB-02 / -A11Y-07).
   useEffect(() => {
     if (!mobileOpen) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlock = lockBodyScroll()
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false) }
     window.addEventListener('keydown', onKey)
     drawerRef.current?.focus()
     return () => {
-      document.body.style.overflow = prev
+      unlock()
       window.removeEventListener('keydown', onKey)
     }
   }, [mobileOpen])

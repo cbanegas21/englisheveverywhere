@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { lockBodyScroll } from '@/lib/scrollLock'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
@@ -106,13 +107,12 @@ export default function Sidebar({ lang, role, userName, userEmail, avatarInitial
   // the shared Drawer/Modal behavior, which the hand-rolled nav drawer lacked.
   useEffect(() => {
     if (!mobileOpen) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlock = lockBodyScroll()
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileOpen(false) }
     window.addEventListener('keydown', onKey)
     drawerRef.current?.focus()
     return () => {
-      document.body.style.overflow = prev
+      unlock()
       window.removeEventListener('keydown', onKey)
     }
   }, [mobileOpen])
