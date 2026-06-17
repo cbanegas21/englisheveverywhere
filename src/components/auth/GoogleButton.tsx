@@ -48,6 +48,7 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
     let poll: ReturnType<typeof setInterval> | undefined
     let ro: ResizeObserver | undefined
     let raf = 0
+    let lastWidth = -1
 
     // Render the GIS button at the CURRENT container width so it lines up with the
     // full-width email/password form on every viewport (the old fixed 336px was
@@ -57,6 +58,16 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
     function renderBtn() {
       if (!window.google?.accounts?.id || !btnRef.current || !wrapRef.current) return
       const w = Math.min(400, Math.max(240, Math.floor(wrapRef.current.clientWidth)))
+      // GUARD (fixes the login "form jumping up and down" glitch): only re-render
+      // when the WIDTH actually changed. The ResizeObserver also fires when
+      // rendering the button changes the host's HEIGHT — the GIS iframe loads a few
+      // px taller than our 44px min-height floor, so re-rendering on that cleared +
+      // recreated the button every frame, and the vertically-centered login form
+      // jumped up/down each cycle (device-DPI-dependent, why it hit some users not
+      // others). Width is all the button needs and it's parent-controlled + stable,
+      // so this breaks the feedback loop while keeping resize/orientation responsiveness.
+      if (w === lastWidth) return
+      lastWidth = w
       btnRef.current.innerHTML = ''
       window.google.accounts.id.renderButton(btnRef.current, {
         type: 'standard', theme: 'outline', size: 'large',
