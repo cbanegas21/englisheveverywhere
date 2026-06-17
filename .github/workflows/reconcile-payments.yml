@@ -1,0 +1,44 @@
+name: Daily payment reconciliation
+
+# Flags any recent PAID Stripe checkout that has no student_purchases row — a
+# possible paid-but-uncredited customer (P1-3). Alerts via Sentry from the route.
+# Runs on GitHub Actions. Requires repo secrets CRON_SECRET (must match Vercel env)
+# and, optionally, APP_URL (defaults to https://englishkolab.com).
+
+on:
+  schedule:
+    # Daily at 09:00 UTC (~03:00 America/Tegucigalpa).
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: reconcile-payments
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile payments
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secret
+        id: check
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::CRON_SECRET secret not set — skipping reconciliation. Add it at Settings → Secrets → Actions (and as a Vercel env var)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger reconciliation
+        if: steps.check.outputs.skip != 'true'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          BASE="${APP_URL:-https://englishkolab.com}"
+          curl -fsS -X POST "$BASE/api/cron/reconcile-payments" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json"

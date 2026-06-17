@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
 import { escapeHtml, brandedEmail, EMAIL_FROM, APP_URL } from '@/lib/email'
 import { computeTeacherAvailable } from '@/lib/teacherEarnings'
+import { sweepPayouts } from '@/lib/payouts'
 import { isValidTimeZone } from '@/lib/timezone'
 import { studentHasTimeConflict } from '@/lib/bookingConflict'
 
@@ -1412,44 +1413,11 @@ export async function rejectTeacherWithEmail(teacherId: string, profileId: strin
 // $0 available (the prior pending payout already counts as committed) and skips.
 export async function runWeeklyPayoutSweep() {
   await assertAdmin()
-  const admin = createAdminClient()
-  // Only ACTIVE teachers with a Veem email — matches the admin "ready" preview.
-  const { data: teachers } = await admin
-    .from('teachers')
-    .select('id, payout_veem_email')
-    .not('payout_veem_email', 'is', null)
-    .eq('is_active', true)
-
-  let created = 0
-  let totalUsd = 0
-  let skipped = 0
-  const errors: string[] = []
-  const now = new Date().toISOString()
-  for (const t of teachers || []) {
-    const { availableUsd, veemEmail, hasPendingPayout } = await computeTeacherAvailable(admin, t.id)
-    // Skip if the email was cleared mid-sweep, an unpaid payout is already queued
-    // (resolve it first — one pending per teacher), or there's nothing to pay.
-    if (!veemEmail || hasPendingPayout) { skipped++; continue }
-    if (availableUsd < 1) continue
-    const { error } = await admin.from('teacher_payouts').insert({
-      teacher_id: t.id,
-      amount_usd: availableUsd,
-      veem_email: veemEmail,
-      status: 'pending',
-      period_end: now,
-    })
-    if (error) {
-      // 23505 = the one-pending-per-teacher unique index — a concurrent sweep beat
-      // us to it. Benign: skip. Any other error is surfaced to the admin.
-      if (error.code === '23505') { skipped++; continue }
-      errors.push(error.message)
-      continue
-    }
-    created++
-    totalUsd += availableUsd
-  }
+  // Shared with the scheduled cron (/api/cron/weekly-payouts) so both paths create
+  // identical pending rows — single source of truth in lib/payouts.ts.
+  const result = await sweepPayouts(createAdminClient())
   revalidatePath('/', 'layout')
-  return { created, totalUsd: Math.round(totalUsd * 100) / 100, skipped, errors }
+  return result
 }
 
 // Admin confirms they sent the money via Veem. Only a 'pending' payout flips; the

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { MotionConfig } from 'framer-motion'
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react'
 import { getRoomAccess, completeSession } from '@/app/actions/video'
@@ -79,7 +79,13 @@ export default function VideoRoomClient({
     queueMicrotask(() => { void init() })
   }, [init])
 
+  // Marks an INTENTIONAL end (teacher's "End Class", the broadcast session-ended
+  // event a student receives, or a self-initiated leave). Lets onDisconnected tell
+  // a real class-end apart from an involuntary network drop (P2-7).
+  const endedRef = useRef(false)
+
   const handleComplete = useCallback((summary?: SessionSummary) => {
+    endedRef.current = true
     if (summary) setSummaryData(summary)
     setPhase('ended')
   }, [])
@@ -147,7 +153,23 @@ export default function VideoRoomClient({
             audio={true}
             video={true}
             className="absolute inset-0"
-            onDisconnected={() => { if (!isTeacher) handleComplete() }}
+            // P1-2: a connection failure (firewall / LiveKit incident) no longer
+            // leaves a perpetual spinner — surface a connection error + retry.
+            onError={(err) => {
+              console.error('[livekit] room error:', err?.message || err)
+              if (!endedRef.current) { setErrorCode('connection'); setPhase('error') }
+            }}
+            // P2-7: only a real end (teacher End-Class → broadcast → handleComplete,
+            // a self leave, or an already-completed booking) goes to the ended
+            // screen. An INVOLUNTARY drop (after LiveKit exhausts its own reconnects)
+            // shows a connection error with a rejoin button instead of a misleading
+            // "class ended". Re-joining re-checks access (→ "already ended" if the
+            // teacher did finish, or reconnects if it was just the network).
+            onDisconnected={() => {
+              if (endedRef.current || status === 'completed') return
+              setErrorCode('connection')
+              setPhase('error')
+            }}
           >
             <RoomAudioRenderer />
             <RoomShell

@@ -1,0 +1,45 @@
+name: Weekly teacher payout sweep
+
+# Auto-creates the weekly 'pending' teacher-payout rows (P1-4) so they appear
+# without an admin remembering to click the button. The actual Veem transfer +
+# mark-paid stays a manual admin step. Runs on GitHub Actions (Vercel Hobby caps
+# cron at 1/day). Requires repo secrets CRON_SECRET (must match Vercel env) and,
+# optionally, APP_URL (defaults to https://englishkolab.com).
+
+on:
+  schedule:
+    # Mondays at 08:00 UTC (~02:00 America/Tegucigalpa).
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-payouts
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Run payout sweep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secret
+        id: check
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::CRON_SECRET secret not set — skipping payout sweep. Add it at Settings → Secrets → Actions (and as a Vercel env var)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger sweep
+        if: steps.check.outputs.skip != 'true'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          BASE="${APP_URL:-https://englishkolab.com}"
+          curl -fsS -X POST "$BASE/api/cron/weekly-payouts" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json"

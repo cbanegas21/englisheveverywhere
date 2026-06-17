@@ -57,9 +57,9 @@ const t = {
     errGeneric: 'Could not save. Please try again.',
     // connected
     connectedTitle: 'Payouts go to your Veem',
-    autoNote: 'Your available earnings are sent to your Veem automatically every week.',
+    autoNote: 'Your available earnings are paid out to your Veem weekly.',
     nextPayout: (d: string) => `Next payout: ${d}`,
-    howItWorks: 'Earnings clear 7 days after each class, then go to your Veem wallet automatically every week. From Veem you move funds to your bank whenever you like.',
+    howItWorks: 'Earnings clear 7 days after each class, then are paid out to your Veem wallet weekly. From Veem you move funds to your bank whenever you like.',
     // history
     history: 'Session earnings',
     noSessions: 'No completed sessions yet.',
@@ -96,9 +96,9 @@ const t = {
     errInUse: 'Ese correo de Veem ya está en uso por otro maestro.',
     errGeneric: 'No se pudo guardar. Inténtalo de nuevo.',
     connectedTitle: 'Tus pagos van a tu Veem',
-    autoNote: 'Tus ganancias disponibles se envían a tu Veem automáticamente cada semana.',
+    autoNote: 'Tus ganancias disponibles se pagan a tu Veem cada semana.',
     nextPayout: (d: string) => `Próximo pago: ${d}`,
-    howItWorks: 'Las ganancias se liberan 7 días después de cada clase y luego van a tu billetera Veem automáticamente cada semana. Desde Veem mueves los fondos a tu banco cuando quieras.',
+    howItWorks: 'Las ganancias se liberan 7 días después de cada clase y luego se pagan a tu billetera Veem cada semana. Desde Veem mueves los fondos a tu banco cuando quieras.',
     history: 'Ganancias por sesión',
     noSessions: 'Sin sesiones completadas aún.',
     date: 'Fecha',
