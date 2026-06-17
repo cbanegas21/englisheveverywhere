@@ -46,7 +46,7 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
     if (!CLIENT_ID || !btnRef.current) return
     let cancelled = false
     let poll: ReturnType<typeof setInterval> | undefined
-    let ro: ResizeObserver | undefined
+    let onViewportResize: (() => void) | undefined
     let raf = 0
     let lastWidth = -1
 
@@ -135,12 +135,16 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
         auto_select: false,
       })
       renderBtn()
-      // Keep the button width matched to the form as the column resizes
-      // (orientation change, responsive breakpoints). rAF-debounced.
-      if (wrapRef.current && typeof ResizeObserver !== 'undefined') {
-        ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderBtn) })
-        ro.observe(wrapRef.current)
-      }
+      // Re-fit the button width on genuine VIEWPORT changes only (rotation, window
+      // resize). Deliberately NOT a ResizeObserver: its callback re-renders the
+      // button, which changes the host's HEIGHT, which would re-fire the observer →
+      // feedback loop (the "login form jumping up/down" bug). window resize/
+      // orientationchange can only be fired by the viewport, never by our own DOM
+      // mutation — so a loop is impossible by construction. (renderBtn's width-guard
+      // is the second line of defense.) rAF-debounced.
+      onViewportResize = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderBtn) }
+      window.addEventListener('resize', onViewportResize)
+      window.addEventListener('orientationchange', onViewportResize)
     }
 
     if (window.google?.accounts?.id) { init() }
@@ -157,7 +161,15 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
         else if (++tries > 53) { clearInterval(poll); if (!cancelled) setBlocked(true) }
       }, 150)
     }
-    return () => { cancelled = true; if (poll) clearInterval(poll); if (ro) ro.disconnect(); cancelAnimationFrame(raf) }
+    return () => {
+      cancelled = true
+      if (poll) clearInterval(poll)
+      if (onViewportResize) {
+        window.removeEventListener('resize', onViewportResize)
+        window.removeEventListener('orientationchange', onViewportResize)
+      }
+      cancelAnimationFrame(raf)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!CLIENT_ID) return null
