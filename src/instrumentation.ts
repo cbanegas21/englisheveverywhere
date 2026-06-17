@@ -5,6 +5,9 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     await import('../sentry.server.config')
+    // P0-2: alert (via Sentry) on any placeholder/missing critical prod secret.
+    const { assertProductionEnv } = await import('./lib/envCheck')
+    assertProductionEnv()
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {

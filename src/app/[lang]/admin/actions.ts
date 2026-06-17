@@ -23,6 +23,17 @@ async function assertAdmin() {
     .single()
 
   if (profile?.role !== 'admin') throw new Error('Forbidden')
+
+  // 2FA step-up parity with the admin LAYOUT (admin/layout.tsx). Server actions
+  // are independently-invokable POSTs — the page gate alone is bypassable by an
+  // attacker with a stolen but pre-step-up (aal1) admin session. Require aal2 at
+  // the ACTION layer too whenever the admin has a verified TOTP factor
+  // (nextLevel==='aal2'). An admin who never enrolled 2FA is never gated (no
+  // lockout). Fail-open only if the MFA lookup itself errors (aal is null).
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+    throw new Error('2FA required')
+  }
   return user
 }
 

@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { AccessToken } from 'livekit-server-sdk'
+import * as Sentry from '@sentry/nextjs'
 import { checkUserActionLimit } from '@/lib/rateLimit'
+
+const IS_PROD = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production'
 
 export interface SessionSummary {
   covered: string[]
@@ -160,11 +163,14 @@ export async function getRoomAccess(bookingId: string): Promise<
   const apiSecret = process.env.LIVEKIT_API_SECRET
   const wsUrl = process.env.LIVEKIT_URL
   const isDevMode = !apiKey || !apiSecret || !wsUrl
-  // Config landmine: in production, missing LiveKit keys silently drop into
-  // dev-mode, which SKIPS the expiry/late-cap window. Surface it loudly so a
-  // key-loss deploy is caught in logs rather than quietly opening window-less rooms.
-  if (isDevMode && process.env.NODE_ENV === 'production') {
-    console.error('[getRoomAccess] LIVEKIT keys missing in PRODUCTION — running window-less dev-mode. Set LIVEKIT_API_KEY / LIVEKIT_API_SECRET / LIVEKIT_URL.')
+  // P0-2: in PRODUCTION, missing LiveKit keys must NOT silently open a degraded,
+  // window-less dev-mode room — that hands a real student/teacher a broken class.
+  // Fail closed (client shows the error screen) + alert loudly so a key-loss
+  // deploy is caught immediately rather than discovered by a confused user.
+  if (isDevMode && IS_PROD) {
+    Sentry.captureMessage('getRoomAccess: LIVEKIT_API_KEY/SECRET/URL missing in production — classroom disabled', 'fatal')
+    console.error('[getRoomAccess] LIVEKIT keys missing in PRODUCTION — refusing to open a window-less room. Set LIVEKIT_API_KEY / LIVEKIT_API_SECRET / LIVEKIT_URL.')
+    return { error: 'init-failed' }
   }
 
   // Timing window — Zoom-style lobby. Participants may enter at any time;
@@ -202,10 +208,27 @@ export async function getRoomAccess(bookingId: string): Promise<
       .select('id')
       .single()
 
-    if (sessionError || !newSession) {
-      return { error: 'init-failed' }
+    if (newSession?.id) {
+      sessionId = newSession.id
+    } else {
+      // P0-3: teacher + student opening /sala the same instant both read null
+      // above and race to insert. The sessions(booking_id) unique index (migration
+      // 050) makes the loser's insert fail (23505) — re-select so BOTH joiners
+      // converge on the ONE canonical session row. Without this, duplicate rows
+      // broke "Terminar Clase" (.maybeSingle errors) and could read the row
+      // missing student_joined_at, silently withholding a real teacher payout.
+      const { data: raced } = await adminClient
+        .from('sessions')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .maybeSingle()
+      if (raced?.id) {
+        sessionId = raced.id
+      } else {
+        if (sessionError) Sentry.captureException(sessionError, { tags: { area: 'getRoomAccess' }, extra: { bookingId } })
+        return { error: 'init-failed' }
+      }
     }
-    sessionId = newSession.id
   }
 
   // Attendance signal: stamp the first time the STUDENT opens the room. This is

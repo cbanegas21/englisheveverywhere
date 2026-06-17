@@ -1,8 +1,11 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import { PRICING_PLANS } from '@/lib/pricing'
+
+const IS_PROD = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production'
 
 // Lazy-load Stripe to avoid issues when key is placeholder
 function getStripe() {
@@ -59,8 +62,34 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
 
   const stripe = getStripe()
   if (!stripe) {
+    // P0-2: in PRODUCTION a missing/placeholder STRIPE_SECRET_KEY must NEVER
+    // fake-succeed — the old code returned a "?success=1" URL, so a misconfigured
+    // deploy showed the student a success page having paid nothing and getting no
+    // credit. Fail closed + alert loudly; only dev returns the fake URL.
+    if (IS_PROD) {
+      Sentry.captureMessage('createCheckoutSession: STRIPE_SECRET_KEY missing/placeholder in production — checkout disabled', 'fatal')
+      console.error('[createCheckoutSession] STRIPE_SECRET_KEY missing/placeholder in PRODUCTION')
+      return {
+        error: safeLang === 'es'
+          ? 'El pago no está disponible en este momento. Inténtalo más tarde.'
+          : 'Payments are temporarily unavailable. Please try again later.',
+      }
+    }
     // Dev mode — just return a fake URL
     return { url: `/${safeLang}/dashboard/plan?success=1&plan=${planKey}` }
+  }
+
+  // P0-2: a missing/typo'd STRIPE_PRICE_* env var leaves priceId '' → Stripe would
+  // throw a generic error indistinguishable from a transient failure, silently
+  // breaking ONE plan. Validate + alert so a config slip is caught, not guessed.
+  if (!plan.priceId || !plan.priceId.startsWith('price_')) {
+    Sentry.captureMessage(`createCheckoutSession: missing/invalid Stripe price id for plan "${planKey}" (STRIPE_PRICE_${planKey.toUpperCase()})`, 'fatal')
+    console.error(`[createCheckoutSession] invalid priceId for plan ${planKey}: "${plan.priceId}"`)
+    return {
+      error: safeLang === 'es'
+        ? 'Este plan no está disponible en este momento. Inténtalo más tarde.'
+        : 'This plan is temporarily unavailable. Please try again later.',
+    }
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -102,8 +131,9 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
     return { url: session.url }
   } catch (err: unknown) {
     // Don't surface raw Stripe error text to the user (Payments-LOW-stripe-errors);
-    // log it server-side and return a generic localized message.
+    // log it server-side, alert Sentry (lost-sale signal), return generic copy.
     console.error('createCheckoutSession failed:', err)
+    Sentry.captureException(err, { tags: { area: 'checkout' }, extra: { planKey, userId: user.id } })
     return {
       error: safeLang === 'es'
         ? 'No se pudo iniciar el pago. Inténtalo de nuevo.'
