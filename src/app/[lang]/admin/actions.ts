@@ -55,6 +55,26 @@ function toBookingError(e: unknown): { ok: false; error: string; forceable?: boo
   return { ok: false, error, forceable: FORCEABLE_RE.test(error) }
 }
 
+// The CRM (non-booking) admin mutations RETURN a structured result for the same
+// reason the booking mutations do (above): a production build redacts THROWN
+// server-action messages — the client only ever sees a generic digest, which
+// collapsed every actionable guard ("Cannot demote the last admin", "Student has
+// no class credits", rate bounds, …) into one meaningless "An error occurred"
+// toast. `guarded()` wraps an existing throwing body so its message survives to the
+// client as `error`, with zero change to the body itself. Next's control-flow
+// signals (redirect / notFound) are re-thrown, never swallowed.
+export type ActionResult = { ok: true } | { ok: false; error: string }
+async function guarded(fn: () => Promise<unknown>): Promise<ActionResult> {
+  try {
+    await fn()
+    return { ok: true }
+  } catch (e) {
+    const digest = (e as { digest?: unknown } | null)?.digest
+    if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest === 'NEXT_NOT_FOUND')) throw e
+    return { ok: false, error: e instanceof Error ? e.message : 'Something went wrong.' }
+  }
+}
+
 // Cancel a teacher's live (pending/confirmed) bookings and refund the student's
 // CLASS credit BEFORE the teacher row is hard-deleted — otherwise the bookings FK
 // cascade silently removes students' upcoming classes WITHOUT returning their
@@ -770,7 +790,10 @@ async function isTeacherAvailable(
   })
 }
 
-export async function setTeacherRate(teacherId: string, rate: number) {
+export async function setTeacherRate(...args: Parameters<typeof _setTeacherRate>): Promise<ActionResult> {
+  return guarded(() => _setTeacherRate(...args))
+}
+async function _setTeacherRate(teacherId: string, rate: number) {
   await assertAdmin()
   const admin = createAdminClient()
 
@@ -796,7 +819,10 @@ export async function setTeacherRate(teacherId: string, rate: number) {
 
 // ── Student CRM actions ───────────────────────────────────────────────────────
 
-export async function updateStudentLevel(studentId: string, level: string) {
+export async function updateStudentLevel(...args: Parameters<typeof _updateStudentLevel>): Promise<ActionResult> {
+  return guarded(() => _updateStudentLevel(...args))
+}
+async function _updateStudentLevel(studentId: string, level: string) {
   await assertAdmin()
   const admin = createAdminClient()
   const { error } = await admin.from('students').update({ level }).eq('id', studentId)
@@ -804,7 +830,10 @@ export async function updateStudentLevel(studentId: string, level: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function addStudentClasses(studentId: string, count: number) {
+export async function addStudentClasses(...args: Parameters<typeof _addStudentClasses>): Promise<ActionResult> {
+  return guarded(() => _addStudentClasses(...args))
+}
+async function _addStudentClasses(studentId: string, count: number) {
   await assertAdmin()
   const admin = createAdminClient()
   // Bound + integer-coerce: a negative count would covertly DECREMENT credits and
@@ -824,7 +853,10 @@ export async function addStudentClasses(studentId: string, count: number) {
   revalidatePath('/', 'layout')
 }
 
-export async function adminUpdateStudentProfile(
+export async function adminUpdateStudentProfile(...args: Parameters<typeof _adminUpdateStudentProfile>): Promise<ActionResult> {
+  return guarded(() => _adminUpdateStudentProfile(...args))
+}
+async function _adminUpdateStudentProfile(
   profileId: string,
   studentId: string,
   fields: {
@@ -867,7 +899,10 @@ export async function adminUpdateStudentProfile(
   revalidatePath('/', 'layout')
 }
 
-export async function setPrimaryTeacher(studentId: string, teacherId: string | null) {
+export async function setPrimaryTeacher(...args: Parameters<typeof _setPrimaryTeacher>): Promise<ActionResult> {
+  return guarded(() => _setPrimaryTeacher(...args))
+}
+async function _setPrimaryTeacher(studentId: string, teacherId: string | null) {
   await assertAdmin()
   const admin = createAdminClient()
   const { error } = await admin
@@ -878,7 +913,10 @@ export async function setPrimaryTeacher(studentId: string, teacherId: string | n
   revalidatePath('/', 'layout')
 }
 
-export async function completeBooking(bookingId: string) {
+export async function completeBooking(...args: Parameters<typeof _completeBooking>): Promise<ActionResult> {
+  return guarded(() => _completeBooking(...args))
+}
+async function _completeBooking(bookingId: string) {
   await assertAdmin()
   const admin = createAdminClient()
 
@@ -965,7 +1003,10 @@ export async function completeBooking(bookingId: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function cancelBookingWithRefund(bookingId: string) {
+export async function cancelBookingWithRefund(...args: Parameters<typeof _cancelBookingWithRefund>): Promise<ActionResult> {
+  return guarded(() => _cancelBookingWithRefund(...args))
+}
+async function _cancelBookingWithRefund(bookingId: string) {
   await assertAdmin()
   const admin = createAdminClient()
   const { data: booking } = await admin
@@ -1007,7 +1048,10 @@ export async function cancelBookingWithRefund(bookingId: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function saveAdminNotes(studentId: string, notes: string) {
+export async function saveAdminNotes(...args: Parameters<typeof _saveAdminNotes>): Promise<ActionResult> {
+  return guarded(() => _saveAdminNotes(...args))
+}
+async function _saveAdminNotes(studentId: string, notes: string) {
   await assertAdmin()
   const admin = createAdminClient()
   const { error } = await admin.from('students').update({ admin_notes: notes }).eq('id', studentId)
@@ -1015,7 +1059,10 @@ export async function saveAdminNotes(studentId: string, notes: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function resetStudentPassword(email: string) {
+export async function resetStudentPassword(...args: Parameters<typeof _resetStudentPassword>): Promise<ActionResult> {
+  return guarded(() => _resetStudentPassword(...args))
+}
+async function _resetStudentPassword(email: string) {
   await assertAdmin()
   const { createClient: createSupabaseAdmin } = await import('@supabase/supabase-js')
   const supabaseAdmin = createSupabaseAdmin(
@@ -1066,7 +1113,10 @@ export async function resetStudentPassword(email: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function updateStudentRole(profileId: string, role: string) {
+export async function updateStudentRole(...args: Parameters<typeof _updateStudentRole>): Promise<ActionResult> {
+  return guarded(() => _updateStudentRole(...args))
+}
+async function _updateStudentRole(profileId: string, role: string) {
   const acting = await assertAdmin()
   // Allowlist — never write an arbitrary role string to profiles.role.
   if (!['student', 'teacher', 'admin'].includes(role)) {
@@ -1096,7 +1146,10 @@ export async function updateStudentRole(profileId: string, role: string) {
 // deactivated user genuinely cannot log in. profiles.id === auth.users.id.
 // ban_duration 'none' lifts the ban. (Previously this set an invalid
 // role='deactivated' that was silently ignored — audit EK-017.)
-export async function setStudentDeactivated(profileId: string, deactivated: boolean) {
+export async function setStudentDeactivated(...args: Parameters<typeof _setStudentDeactivated>): Promise<ActionResult> {
+  return guarded(() => _setStudentDeactivated(...args))
+}
+async function _setStudentDeactivated(profileId: string, deactivated: boolean) {
   const acting = await assertAdmin()
   // An admin must not ban themselves out of the platform.
   if (profileId === acting.id && deactivated) {
@@ -1125,7 +1178,10 @@ export async function setStudentDeactivated(profileId: string, deactivated: bool
 
 // ── Teacher profile CRM actions ───────────────────────────────────────────────
 
-export async function adminUpdateTeacherProfile(
+export async function adminUpdateTeacherProfile(...args: Parameters<typeof _adminUpdateTeacherProfile>): Promise<ActionResult> {
+  return guarded(() => _adminUpdateTeacherProfile(...args))
+}
+async function _adminUpdateTeacherProfile(
   teacherId: string,
   profileId: string,
   fields: {
@@ -1159,7 +1215,10 @@ export async function adminUpdateTeacherProfile(
   revalidatePath('/', 'layout')
 }
 
-export async function saveTeacherAdminNotes(teacherId: string, notes: string) {
+export async function saveTeacherAdminNotes(...args: Parameters<typeof _saveTeacherAdminNotes>): Promise<ActionResult> {
+  return guarded(() => _saveTeacherAdminNotes(...args))
+}
+async function _saveTeacherAdminNotes(teacherId: string, notes: string) {
   await assertAdmin()
   const admin = createAdminClient()
   const { error } = await admin.from('teachers').update({ admin_notes: notes }).eq('id', teacherId)
@@ -1167,7 +1226,10 @@ export async function saveTeacherAdminNotes(teacherId: string, notes: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function deleteTeacher(teacherId: string, profileId: string) {
+export async function deleteTeacher(...args: Parameters<typeof _deleteTeacher>): Promise<ActionResult> {
+  return guarded(() => _deleteTeacher(...args))
+}
+async function _deleteTeacher(teacherId: string, profileId: string) {
   await assertAdmin()
   const admin = createAdminClient()
 
@@ -1392,7 +1454,10 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
   return { ok: true as const }
 }
 
-export async function rejectTeacherWithEmail(teacherId: string, profileId: string) {
+export async function rejectTeacherWithEmail(...args: Parameters<typeof _rejectTeacherWithEmail>): Promise<ActionResult> {
+  return guarded(() => _rejectTeacherWithEmail(...args))
+}
+async function _rejectTeacherWithEmail(teacherId: string, profileId: string) {
   await assertAdmin()
   const admin = createAdminClient()
 
@@ -1466,7 +1531,10 @@ export async function runWeeklyPayoutSweep() {
 // Admin confirms they sent the money via Veem. Only a 'pending' payout flips; the
 // .select() row-count guard surfaces a no-op (already paid / stale click) instead
 // of silently succeeding.
-export async function markTeacherPayoutPaid(payoutId: string, note?: string) {
+export async function markTeacherPayoutPaid(...args: Parameters<typeof _markTeacherPayoutPaid>): Promise<ActionResult> {
+  return guarded(() => _markTeacherPayoutPaid(...args))
+}
+async function _markTeacherPayoutPaid(payoutId: string, note?: string) {
   const acting = await assertAdmin()
   const admin = createAdminClient()
   const { data, error } = await admin
@@ -1482,7 +1550,10 @@ export async function markTeacherPayoutPaid(payoutId: string, note?: string) {
 }
 
 // Cancel a pending payout — its amount returns to the teacher's available balance.
-export async function cancelTeacherPayout(payoutId: string) {
+export async function cancelTeacherPayout(...args: Parameters<typeof _cancelTeacherPayout>): Promise<ActionResult> {
+  return guarded(() => _cancelTeacherPayout(...args))
+}
+async function _cancelTeacherPayout(payoutId: string) {
   await assertAdmin()
   const admin = createAdminClient()
   const { data, error } = await admin

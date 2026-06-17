@@ -12,6 +12,7 @@ import {
   resetStudentPassword,
   getTeacherCvSignedUrl,
 } from '../../actions'
+import type { ActionResult } from '../../actions'
 import MeetingScheduler from '@/components/admin/MeetingScheduler'
 
 type Lang = 'es' | 'en'
@@ -274,14 +275,18 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
     setTimeout(() => setToast(null), 3000)
   }
 
-  function run(fn: () => Promise<void>, successMsg: string) {
+  function run(fn: () => Promise<ActionResult | void>, successMsg: string, onSuccess?: () => void) {
     startTransition(async () => {
       try {
-        await fn()
+        const res = await fn()
+        // CRM actions now RETURN { ok:false, error } instead of throwing (prod redacts
+        // thrown messages) — surface the specific guard message. onSuccess runs only
+        // on success (e.g. the delete flow navigates away only if the delete worked).
+        if (res && res.ok === false) { showToast(res.error || t.error, 'error'); return }
         showToast(successMsg)
         router.refresh()
+        onSuccess?.()
       } catch {
-        // Thrown server-action messages are redacted in prod → show friendly generic.
         showToast(t.error, 'error')
       }
     })
@@ -968,9 +973,9 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                   setShowDeleteConfirm(false)
                   run(
                     () => deleteTeacher(teacher.id, teacher.profile_id),
-                    t.teacherDeleted
+                    t.teacherDeleted,
+                    () => router.push(`/${lang}/admin/teachers`),
                   )
-                  router.push(`/${lang}/admin/teachers`)
                 }}
               >
                 {t.yesDelete}

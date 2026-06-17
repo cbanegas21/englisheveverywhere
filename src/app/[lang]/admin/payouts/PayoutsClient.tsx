@@ -101,14 +101,20 @@ export default function PayoutsClient({ lang, ready, payouts }: Props) {
   }
   function markPaid(id: string) {
     startTransition(async () => {
-      try { await markTeacherPayoutPaid(id); setConfirmId(null); flash(tx.paidToast); router.refresh() }
-      catch { flash(tx.error) }
+      try {
+        const res = await markTeacherPayoutPaid(id)
+        if (res && !res.ok) { flash(res.error || tx.error); return }
+        setConfirmId(null); flash(tx.paidToast); router.refresh()
+      } catch { flash(tx.error) }
     })
   }
   function cancel(id: string) {
     startTransition(async () => {
-      try { await cancelTeacherPayout(id); setConfirmCancelId(null); flash(tx.cancelledToast); router.refresh() }
-      catch { flash(tx.error) }
+      try {
+        const res = await cancelTeacherPayout(id)
+        if (res && !res.ok) { flash(res.error || tx.error); return }
+        setConfirmCancelId(null); flash(tx.cancelledToast); router.refresh()
+      } catch { flash(tx.error) }
     })
   }
 

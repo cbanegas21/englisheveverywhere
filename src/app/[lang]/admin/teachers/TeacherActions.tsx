@@ -77,7 +77,8 @@ export function ApproveRejectButtons({
     setError('')
     startTransition(async () => {
       try {
-        await rejectTeacherWithEmail(teacherId, profileId)
+        const res = await rejectTeacherWithEmail(teacherId, profileId)
+        if (res && !res.ok) { setError(res.error || t.error); return }
         setDone('rejected')
       } catch {
         // Thrown server-action messages are redacted in prod → show friendly generic.
@@ -152,7 +153,8 @@ export function RateEditor({
     setSaved(false)
     startTransition(async () => {
       try {
-        await setTeacherRate(teacherId, parsed)
+        const res = await setTeacherRate(teacherId, parsed)
+        if (res && !res.ok) { setError(res.error || t.error); return }
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       } catch {

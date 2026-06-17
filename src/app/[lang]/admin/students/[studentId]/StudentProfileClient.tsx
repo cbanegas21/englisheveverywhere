@@ -15,6 +15,7 @@ import {
   updateStudentRole,
   setStudentDeactivated,
 } from '../../actions'
+import type { ActionResult } from '../../actions'
 import MeetingScheduler from '@/components/admin/MeetingScheduler'
 
 const LEVEL_COLORS: Record<string, { bg: string; color: string }> = {
@@ -145,6 +146,11 @@ const STR = {
     areYouSure: 'Are you sure?',
     yesDeactivate: 'Yes, deactivate',
     accountDeactivated: 'Account deactivated',
+    deactivatedBadge: 'Deactivated',
+    deactivatedNotice: 'This account is deactivated — the student cannot log in.',
+    reactivateHint: 'Restore this student’s access. They will be able to log in again.',
+    reactivateAccount: 'Reactivate account',
+    accountReactivated: 'Account reactivated',
     // Footer / nav
     backToStudents: '← Back to Students',
   },
@@ -256,6 +262,11 @@ const STR = {
     areYouSure: '¿Estás seguro?',
     yesDeactivate: 'Sí, desactivar',
     accountDeactivated: 'Cuenta desactivada',
+    deactivatedBadge: 'Desactivada',
+    deactivatedNotice: 'Esta cuenta está desactivada — el estudiante no puede iniciar sesión.',
+    reactivateHint: 'Restaura el acceso de este estudiante. Podrá iniciar sesión de nuevo.',
+    reactivateAccount: 'Reactivar cuenta',
+    accountReactivated: 'Cuenta reactivada',
     // Footer / nav
     backToStudents: '← Volver a Estudiantes',
   },
@@ -336,14 +347,18 @@ export default function StudentProfileClient({ student, lang }: Props) {
   // 1..100 bounds enforced server-side in addStudentClasses.
   const clampClassCount = (v: string) => Math.max(1, Math.min(100, Math.trunc(Number(v)) || 1))
 
-  function run(fn: () => Promise<void>, successMsg: string) {
+  function run(fn: () => Promise<ActionResult | void>, successMsg: string) {
     startTransition(async () => {
       try {
-        await fn()
+        const res = await fn()
+        // The CRM actions now RETURN { ok:false, error } instead of throwing (a prod
+        // build redacts thrown server-action messages) — surface the specific guard
+        // message ("Cannot demote the last admin", "Student has no class credits", …)
+        // instead of the old one-size-fits-all toast.
+        if (res && res.ok === false) { showToast(res.error || t.genericError, 'error'); return }
         showToast(successMsg)
         router.refresh()
       } catch {
-        // Thrown server-action messages are redacted in prod → show friendly generic.
         showToast(t.genericError, 'error')
       }
     })
@@ -434,6 +449,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
           <p style={{ fontSize: '12px', color: '#6B7280', marginTop: 2 }}>
             {student.profile?.email || t.dash}
           </p>
+          {student.deactivated && (
+            <div style={{ marginTop: 8 }}>
+              <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, background: 'rgba(196,30,58,0.1)', color: '#C41E3A', fontSize: 11, fontWeight: 700 }}>
+                {t.deactivatedBadge}
+              </span>
+            </div>
+          )}
           <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: 6 }}>
             {t.memberSince} {new Date(student.created_at).toLocaleDateString(dateLocale, { timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
@@ -977,35 +999,54 @@ export default function StudentProfileClient({ student, lang }: Props) {
           </div>
         </div>
 
-        {/* Danger zone */}
+        {/* Danger zone — deactivate (ban) / reactivate (unban). The reactivate path
+            makes deactivation reversible from the UI; previously a deactivated student
+            could only be restored via service-role, so the state was one-way + invisible. */}
         <div style={{ ...cardStyle, border: '1px solid rgba(196,30,58,0.3)', background: 'rgba(196,30,58,0.02)' }}>
           <h3 style={{ fontSize: 14, fontWeight: 700, color: '#C41E3A', margin: '0 0 8px' }}>{t.dangerZone}</h3>
-          <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 14px' }}>
-            {t.dangerZoneHint}
-          </p>
-          {!showCancelConfirm ? (
-            <button
-              style={{ ...btnPrimary, background: '#fff', color: '#C41E3A', border: '1px solid #C41E3A' }}
-              onClick={() => setShowCancelConfirm(true)}
-            >
-              {t.deactivateAccount}
-            </button>
-          ) : (
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: '#374151' }}>{t.areYouSure}</span>
+          {student.deactivated ? (
+            <>
+              <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 14px' }}>
+                {t.deactivatedNotice} {t.reactivateHint}
+              </p>
               <button
                 style={btnPrimary}
-                onClick={() => {
-                  setShowCancelConfirm(false)
-                  run(() => setStudentDeactivated(student.profile?.id || '', true), t.accountDeactivated)
-                }}
+                disabled={isPending}
+                onClick={() => run(() => setStudentDeactivated(student.profile?.id || '', false), t.accountReactivated)}
               >
-                {t.yesDeactivate}
+                {t.reactivateAccount}
               </button>
-              <button style={btnSecondary} onClick={() => setShowCancelConfirm(false)}>
-                {t.cancel}
-              </button>
-            </div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 14px' }}>
+                {t.dangerZoneHint}
+              </p>
+              {!showCancelConfirm ? (
+                <button
+                  style={{ ...btnPrimary, background: '#fff', color: '#C41E3A', border: '1px solid #C41E3A' }}
+                  onClick={() => setShowCancelConfirm(true)}
+                >
+                  {t.deactivateAccount}
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: '#374151' }}>{t.areYouSure}</span>
+                  <button
+                    style={btnPrimary}
+                    onClick={() => {
+                      setShowCancelConfirm(false)
+                      run(() => setStudentDeactivated(student.profile?.id || '', true), t.accountDeactivated)
+                    }}
+                  >
+                    {t.yesDeactivate}
+                  </button>
+                  <button style={btnSecondary} onClick={() => setShowCancelConfirm(false)}>
+                    {t.cancel}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

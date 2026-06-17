@@ -730,13 +730,12 @@ export default function BookingCalendarClient({
     if (!selectedBooking) return
     startTransition(async () => {
       try {
-        await completeBooking(selectedBooking.id)
+        const res = await completeBooking(selectedBooking.id)
+        if (res && !res.ok) { showToast(res.error || tx.error, 'error'); return }
         showToast(tx.markedComplete)
         setSelectedBooking(null)
         router.refresh()
       } catch {
-        // completeBooking/cancelBookingWithRefund still throw; prod redacts the
-        // message → show the friendly generic instead of the scary crash text.
         showToast(tx.error, 'error')
       }
     })
@@ -745,14 +744,13 @@ export default function BookingCalendarClient({
     if (!selectedBooking) return
     startTransition(async () => {
       try {
-        await cancelBookingWithRefund(selectedBooking.id)
+        const res = await cancelBookingWithRefund(selectedBooking.id)
+        if (res && !res.ok) { showToast(res.error || tx.error, 'error'); return }
         showToast(tx.cancelledRefunded)
         setSelectedBooking(null)
         setConfirmCancel(false)
         router.refresh()
       } catch {
-        // completeBooking/cancelBookingWithRefund still throw; prod redacts the
-        // message → show the friendly generic instead of the scary crash text.
         showToast(tx.error, 'error')
       }
     })

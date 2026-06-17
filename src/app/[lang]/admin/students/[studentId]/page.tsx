@@ -54,6 +54,9 @@ export interface StudentDetail {
   assignedTeacherName: string | null
   teachers: TeacherOption[]
   hasPurchasesTable: boolean
+  // True when the account is banned at the auth layer (admin "deactivate"). Drives
+  // the reactivate UI + the "Deactivated" badge in StudentProfileClient.
+  deactivated: boolean
 }
 
 export default async function StudentProfilePage({ params }: Props) {
@@ -80,8 +83,10 @@ export default async function StudentProfilePage({ params }: Props) {
 
   if (!rawStudent) notFound()
 
-  // Fetch bookings and active teachers in parallel
-  const [bookingsResult, teachersResult] = await Promise.all([
+  // Fetch bookings, active teachers, and the auth user's ban state in parallel.
+  // The ban (banned_until in the future) is what the admin "deactivate" action sets;
+  // we surface it so the CRM can show + reverse it. profiles.id === auth.users.id.
+  const [bookingsResult, teachersResult, authUserResult] = await Promise.all([
     admin
       .from('bookings')
       .select('id, scheduled_at, duration_minutes, status, type, teacher_id, student_notes')
@@ -91,10 +96,14 @@ export default async function StudentProfilePage({ params }: Props) {
       .from('teachers')
       .select('id, accepting_students, profile:profiles(full_name)')
       .eq('is_active', true),
+    admin.auth.admin.getUserById(rawStudent.profile_id),
   ])
 
   const rawBookings = bookingsResult.data || []
   const rawTeachers = teachersResult.data || []
+
+  const bannedUntil = (authUserResult.data?.user as { banned_until?: string | null } | null | undefined)?.banned_until ?? null
+  const deactivated = !!bannedUntil && new Date(bannedUntil).getTime() > Date.now()
 
   // Build teacher map
   const teacherMap = new Map<string, string>()
@@ -169,6 +178,7 @@ export default async function StudentProfilePage({ params }: Props) {
     assignedTeacherName,
     teachers: teacherOptions,
     hasPurchasesTable: false, // purchases table does not exist yet
+    deactivated,
   }
 
   return <StudentProfileClient student={student} lang={lang} />
