@@ -14,6 +14,7 @@ const STR = {
     reject: 'Reject',
     rejectConfirm: 'Reject this application? The teacher record will be deleted and the user will revert to student.',
     error: 'Error',
+    noRate: 'Set the rate first',
     invalid: 'Invalid',
     save: 'Save',
     active: 'Active',
@@ -26,6 +27,7 @@ const STR = {
     reject: 'Rechazar',
     rejectConfirm: '¿Rechazar esta solicitud? El registro del maestro se eliminará y el usuario volverá a ser estudiante.',
     error: 'Error',
+    noRate: 'Asigna la tarifa primero',
     invalid: 'Inválido',
     save: 'Guardar',
     active: 'Activo',
@@ -60,7 +62,8 @@ export function ApproveRejectButtons({
     setError('')
     startTransition(async () => {
       try {
-        await approveTeacherWithEmail(teacherId, profileId)
+        const res = await approveTeacherWithEmail(teacherId, profileId)
+        if (res && !res.ok) { setError(res.code === 'no-rate' ? t.noRate : t.error); return }
         setDone('approved')
       } catch {
         // Thrown server-action messages are redacted in prod → show friendly generic.

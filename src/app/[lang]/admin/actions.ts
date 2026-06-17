@@ -110,6 +110,13 @@ export async function approveTeacher(teacherId: string) {
   await assertAdmin()
   const admin = createAdminClient()
 
+  // P2-5: don't activate a teacher with no rate — they'd record $0 payments on real
+  // completed classes (treated as legitimate). Require a positive rate first.
+  const { data: rateRow } = await admin.from('teachers').select('hourly_rate').eq('id', teacherId).single()
+  if (!rateRow || !(Number(rateRow.hourly_rate) > 0)) {
+    throw new Error("Set the teacher's hourly rate before approving.")
+  }
+
   const { error } = await admin
     .from('teachers')
     .update({ is_active: true })
@@ -291,10 +298,10 @@ export async function assignAndConfirmBooking(
   // even under force — force only relaxes the stated-hours availability guard
   // above. The message therefore never offers "force=true".
   if (booking?.scheduled_at) {
-    const conflict = await teacherHasConflict(teacherId, booking.scheduled_at, bookingId)
+    const conflict = await teacherHasConflict(teacherId, booking.scheduled_at, booking.duration_minutes ?? 60, bookingId)
     if (conflict) {
       throw new Error(
-        'Teacher already has a confirmed class at this time. Pick a different time.',
+        'Teacher already has a confirmed class overlapping this time. Pick a different time.',
       )
     }
   }
@@ -406,24 +413,43 @@ async function assertPrimaryTeacherOk(
 // True if the teacher already has a confirmed booking at this exact time
 // for a different booking. Distinct from isTeacherAvailable, which only
 // checks stated working hours — not other students already on the calendar.
+// P2-3: INTERVAL overlap, not exact-start equality. The old `.eq('scheduled_at')`
+// check (+ the bookings_teacher_time_unique index) only caught two classes that
+// START at the same minute — an admin scheduling a 90-min 9:00 class and a 60-min
+// 10:00 class for the same teacher slipped through (they overlap 10:00–10:30). Now
+// mirrors studentHasTimeConflict: a confirmed class overlaps if it starts before
+// our end AND ends after our start. The 6h lookback bounds the query (max duration
+// is far under 6h) without missing a real overlap.
 async function teacherHasConflict(
   teacherId: string,
   scheduledAt: string,
+  durationMinutes: number,
   excludeBookingId?: string,
 ): Promise<boolean> {
   const admin = createAdminClient()
+  const start = new Date(scheduledAt).getTime()
+  if (Number.isNaN(start)) return false
+  const end = start + durationMinutes * 60_000
+  const windowStartIso = new Date(start - 6 * 60 * 60 * 1000).toISOString()
+  const endIso = new Date(end).toISOString()
   let query = admin
     .from('bookings')
-    .select('id')
+    .select('id, scheduled_at, duration_minutes')
     .eq('teacher_id', teacherId)
-    .eq('scheduled_at', scheduledAt)
     .eq('status', 'confirmed')
+    .gte('scheduled_at', windowStartIso)
+    .lt('scheduled_at', endIso)
   // Exclude the booking being moved/assigned when one already exists. For a
   // brand-new booking (createAdminBooking) there's no id yet, and `.neq('id', '')`
   // would be an invalid-uuid error — so we just skip the exclusion in that case.
   if (excludeBookingId) query = query.neq('id', excludeBookingId)
-  const { data } = await query.limit(1)
-  return !!(data && data.length > 0)
+  const { data } = await query
+  for (const b of (data || []) as { scheduled_at: string; duration_minutes: number | null }[]) {
+    const bStart = new Date(b.scheduled_at).getTime()
+    const bEnd = bStart + (b.duration_minutes || 60) * 60_000
+    if (bStart < end && bEnd > start) return true
+  }
+  return false
 }
 
 // ── Reschedule-request actions (admin side) ──────────────────────────────────
@@ -496,10 +522,11 @@ export async function approveRescheduleRequest(
     const conflict = await teacherHasConflict(
       booking.teacher_id,
       request.proposed_scheduled_at,
+      booking.duration_minutes ?? 60,
       request.booking_id,
     )
     if (conflict) {
-      throw new Error('Teacher already has a confirmed class at the proposed time. Pick a different time.')
+      throw new Error('Teacher already has a confirmed class overlapping the proposed time. Pick a different time.')
     }
   }
 
@@ -636,9 +663,9 @@ export async function adminRescheduleBooking(
       }
     }
     // Confirmed-slot conflict: hard invariant (also DB-enforced), runs even under force.
-    const conflict = await teacherHasConflict(booking.teacher_id, newScheduledAt, bookingId)
+    const conflict = await teacherHasConflict(booking.teacher_id, newScheduledAt, duration, bookingId)
     if (conflict) {
-      throw new Error('Teacher already has a confirmed class at this time. Pick a different time.')
+      throw new Error('Teacher already has a confirmed class overlapping this time. Pick a different time.')
     }
   }
 
@@ -1229,9 +1256,9 @@ export async function createAdminBooking(
         )
       }
     }
-    const conflict = await teacherHasConflict(teacherId, scheduledAt)
+    const conflict = await teacherHasConflict(teacherId, scheduledAt, durationMinutes ?? 60)
     if (conflict) {
-      throw new Error('Teacher already has a confirmed class at this time. Pick a different time.')
+      throw new Error('Teacher already has a confirmed class overlapping this time. Pick a different time.')
     }
   }
 
@@ -1306,6 +1333,14 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
   await assertAdmin()
   const admin = createAdminClient()
 
+  // P2-5: refuse to ACTIVATE a teacher whose hourly rate isn't set — otherwise they
+  // teach real classes that record $0-completed payments treated as legitimate
+  // earnings. Surface a specific, actionable error instead of silently approving.
+  const { data: rateRow } = await admin.from('teachers').select('hourly_rate').eq('id', teacherId).single()
+  if (!rateRow || !(Number(rateRow.hourly_rate) > 0)) {
+    return { ok: false as const, code: 'no-rate' as const }
+  }
+
   // Get teacher name + email + locale for the welcome email (E9 — was ES-only).
   const { data: profile } = await admin.from('profiles').select('full_name, email, preferred_language').eq('id', profileId).single()
 
@@ -1347,6 +1382,7 @@ export async function approveTeacherWithEmail(teacherId: string, profileId: stri
   }
 
   revalidatePath('/', 'layout')
+  return { ok: true as const }
 }
 
 export async function rejectTeacherWithEmail(teacherId: string, profileId: string) {
@@ -1488,7 +1524,7 @@ export async function bulkAssignTeacher(
   // messages never offer "force=true".
   const { data: batch } = await admin
     .from('bookings')
-    .select('id, scheduled_at')
+    .select('id, scheduled_at, duration_minutes')
     .in('id', bookingIds)
 
   const seen = new Set<string>()
@@ -1504,10 +1540,10 @@ export async function bulkAssignTeacher(
 
   for (const b of batch ?? []) {
     if (!b.scheduled_at) continue
-    const conflict = await teacherHasConflict(teacherId, b.scheduled_at, b.id)
+    const conflict = await teacherHasConflict(teacherId, b.scheduled_at, b.duration_minutes ?? 60, b.id)
     if (conflict) {
       throw new Error(
-        `Teacher already has a confirmed class at ${b.scheduled_at}. Adjust the batch and pick a different time.`,
+        `Teacher already has a confirmed class overlapping ${b.scheduled_at}. Adjust the batch and pick a different time.`,
       )
     }
   }

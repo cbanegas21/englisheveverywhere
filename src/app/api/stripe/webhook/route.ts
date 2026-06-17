@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PRICING_MAP } from '@/lib/pricing'
+import { brandedEmail, escapeHtml, EMAIL_FROM, APP_URL } from '@/lib/email'
 
 // Canonical class counts per plan — sourced from src/lib/pricing.ts so a
 // plan-definition change in one place propagates to Stripe webhook crediting.
@@ -202,6 +203,49 @@ export async function POST(req: NextRequest) {
             console.error('[stripe webhook] purchase record insert failed:', purchaseErr.message)
             // Non-blocking (credit already landed) — warn so the missing receipt row is visible.
             Sentry.captureMessage(`Stripe webhook: credit granted but purchase-record insert failed for student ${student.id}: ${purchaseErr.message}`, 'warning')
+          }
+
+          // P2-8: best-effort purchase RECEIPT email — the highest-anxiety money
+          // moment ("did my payment go through?") had no confirmation. Strictly
+          // non-blocking: a send failure never touches the already-granted credit.
+          try {
+            const apiKey = process.env.RESEND_API_KEY
+            if (apiKey && apiKey !== 're_placeholder') {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('email, full_name, preferred_language')
+                .eq('id', userId)
+                .maybeSingle()
+              const toEmail = prof?.email || (session.object.customer_email as string | undefined)
+              if (toEmail) {
+                const elang = (metadata?.lang === 'en' || prof?.preferred_language === 'en') ? 'en' : 'es'
+                const firstName = (prof?.full_name || '').split(' ')[0]
+                const amountStr = `$${(expectedCents / 100).toFixed(2)} USD`
+                const dash = `${APP_URL}/${elang}/dashboard/agendar`
+                const subject = elang === 'es'
+                  ? `Recibo de EnglishKolab — ${classes} clases`
+                  : `EnglishKolab receipt — ${classes} classes`
+                const html = brandedEmail({
+                  heading: elang === 'es' ? '¡Pago recibido!' : 'Payment received!',
+                  bodyHtml: elang === 'es'
+                    ? `<p>${firstName ? 'Hola ' + escapeHtml(firstName) + ',' : 'Hola,'}</p><p>Agregamos <strong>${classes} clases</strong> a tu cuenta.</p><p>Monto: <strong>${amountStr}</strong></p>`
+                    : `<p>${firstName ? 'Hi ' + escapeHtml(firstName) + ',' : 'Hi,'}</p><p>We added <strong>${classes} classes</strong> to your account.</p><p>Amount: <strong>${amountStr}</strong></p>`,
+                  ctaLabel: elang === 'es' ? 'Reservar una clase' : 'Book a class',
+                  ctaUrl: dash,
+                  lang: elang,
+                })
+                const text = elang === 'es'
+                  ? `¡Pago recibido! Agregamos ${classes} clases a tu cuenta. Monto: ${amountStr}. Reserva: ${dash}`
+                  : `Payment received! We added ${classes} classes to your account. Amount: ${amountStr}. Book: ${dash}`
+                fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ from: EMAIL_FROM, to: toEmail, subject, html, text }),
+                }).catch(() => {})
+              }
+            }
+          } catch (e) {
+            console.error('[stripe webhook] receipt email failed (non-blocking):', e)
           }
         }
       } else {

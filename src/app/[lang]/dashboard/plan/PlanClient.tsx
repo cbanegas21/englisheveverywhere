@@ -227,6 +227,19 @@ export default function PlanClient({
     return () => clearInterval(id)
   }, [purchaseResult, router])
 
+  // P2-12: if the webhook credit hasn't landed after the refresh budget (~11s),
+  // show a reassuring "payment received, classes are being applied" note instead of
+  // a confusing stale balance + a CTA that dead-ends. Clears itself once the credit
+  // arrives (classesRemaining is re-read on each router.refresh re-render).
+  const [initialBalance] = useState(classesRemaining)
+  const [budgetElapsed, setBudgetElapsed] = useState(false)
+  useEffect(() => {
+    if (!purchaseResult) return
+    const t = setTimeout(() => setBudgetElapsed(true), 11000)
+    return () => clearTimeout(t)
+  }, [purchaseResult])
+  const creditDelayed = budgetElapsed && classesRemaining <= initialBalance
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
@@ -251,11 +264,22 @@ export default function PlanClient({
     if (!selectedPlan) return
     setError('')
     startTransition(async () => {
-      const result = await createCheckoutSession(selectedPlan.key, lang)
-      if (result?.error) {
-        setError(result.error)
-      } else if (result?.url) {
-        window.location.href = result.url
+      // P2-11: a flaky network made createCheckoutSession reject with no catch,
+      // freezing the modal in a pending state forever. Mirror AgendarClient's
+      // transport-failure handling: clear pending + show a localized "try again".
+      try {
+        const result = await createCheckoutSession(selectedPlan.key, lang)
+        if (result?.error) {
+          setError(result.error)
+        } else if (result?.url) {
+          window.location.href = result.url
+        } else {
+          setError(lang === 'es' ? 'No se pudo iniciar el pago. Inténtalo de nuevo.' : 'Could not start checkout. Please try again.')
+        }
+      } catch {
+        setError(lang === 'es'
+          ? 'Se perdió la conexión. Revisa tu internet e inténtalo de nuevo.'
+          : 'Connection lost. Check your internet and try again.')
       }
     })
   }
@@ -356,6 +380,19 @@ export default function PlanClient({
                   {tx.classesLeft}
                 </div>
               </div>
+              {creditDelayed && (
+                <div
+                  role="status"
+                  style={{
+                    borderRadius: 10, padding: '12px 14px', fontSize: 13, lineHeight: 1.5,
+                    background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', textAlign: 'left',
+                  }}
+                >
+                  {lang === 'es'
+                    ? 'Pago recibido. Tus clases se están aplicando a tu cuenta — puede tardar un momento. Si no aparecen en unos minutos, contáctanos.'
+                    : "Payment received. Your classes are being applied to your account — this can take a moment. If they don't appear in a few minutes, contact us."}
+                </div>
+              )}
               <Link
                 href={intakeDone ? `/${lang}/dashboard/agendar` : `/${lang}/dashboard/intake`}
                 className="ek-btn ek-btn-red ek-btn-square"

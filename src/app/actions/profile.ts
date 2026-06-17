@@ -388,11 +388,13 @@ export async function deleteMyAccount(
     console.error('[deleteMyAccount] auth rotate failed:', authErr.message)
   }
 
-  // 6. Drop the session on the current request so the response comes back
-  //    logged out. Using noop on error so a missing cookie store doesn't
-  //    break the delete after it already committed.
+  // 6. Drop the session. scope:'global' revokes ALL of the user's refresh tokens
+  //    across every device (P2-1) — not just this request's cookie — so a session
+  //    live on another phone/tab can't keep acting on the now-deleted account.
+  //    The layout guards' deleted_at check (added alongside this) is the durable
+  //    backstop for any path the revoke misses (incl. a Google re-login).
   try {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'global' })
     const cookieStore = await cookies()
     cookieStore.delete(ROLE_COOKIE)
   } catch {

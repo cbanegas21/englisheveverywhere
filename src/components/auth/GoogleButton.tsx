@@ -28,8 +28,8 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 
 const t = {
-  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…' },
-  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…' },
+  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…', deleted: 'Esta cuenta ya no está disponible.' },
+  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…', deleted: 'This account is no longer available.' },
 }
 
 export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
@@ -84,7 +84,16 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
       let role: string | undefined
       let dest = `/${lang}/dashboard`
       if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        const { data: profile } = await supabase.from('profiles').select('role, deleted_at').eq('id', user.id).maybeSingle()
+        // A soft-deleted account must never re-enter via Google (the password path
+        // already blocks this in signIn). signInWithIdToken matches the surviving
+        // Google identity onto the scrubbed row, so gate it here. P2-1.
+        if (profile?.deleted_at) {
+          await supabase.auth.signOut()
+          setError(tx.deleted)
+          setLoading(false)
+          return
+        }
         role = profile?.role
         dest = role === 'teacher' ? `/${lang}/maestro/dashboard` : role === 'admin' ? `/${lang}/admin` : `/${lang}/dashboard`
         // First-time Google students get the welcome email (the old flow did this

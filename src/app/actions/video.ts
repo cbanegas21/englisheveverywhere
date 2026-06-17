@@ -237,12 +237,20 @@ export async function getRoomAccess(bookingId: string): Promise<
   // that didn't happen. Set-once (only when null) so the timestamp is the real
   // first join; fire-and-forget so it never blocks room entry.
   if (user.id === studentProfileId) {
-    await adminClient
-      .from('sessions')
-      .update({ student_joined_at: new Date().toISOString() })
-      .eq('id', sessionId)
-      .is('student_joined_at', null)
-      .then(() => undefined, () => undefined)
+    // P2-6: only count attendance once the class is effectively LIVE (≤10 min before
+    // start onward). The join link / lobby is reachable up to 24h early, so stamping
+    // on ANY entry let a far-early click mark a later NO-SHOW as "attended" — which
+    // would pay the teacher for a class the student skipped (defeating migration 045).
+    const scheduledMs = new Date(booking.scheduled_at).getTime()
+    const ATTEND_GRACE_MS = 10 * 60 * 1000
+    if (!isNaN(scheduledMs) && Date.now() >= scheduledMs - ATTEND_GRACE_MS) {
+      await adminClient
+        .from('sessions')
+        .update({ student_joined_at: new Date().toISOString() })
+        .eq('id', sessionId)
+        .is('student_joined_at', null)
+        .then(() => undefined, () => undefined)
+    }
   }
 
   if (isDevMode) {
