@@ -60,9 +60,28 @@ already uses): `SUPABASE_ACCESS_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`. If they're
 already set for the schema-drift job, nothing to do. The workflow skips cleanly
 if the token is missing.
 
-## 4. Staging Supabase (recommended, larger task)
+## 4. Staging Supabase — ✅ DONE (2026-06-17)
 
-Vercel preview deploys currently point at the **production** Supabase, so a
-preview-branch migration/seed could clobber prod data. Recommended: create a
-separate Supabase project for staging and point preview env vars at it. Larger
-ops task — not scripted.
+Vercel preview deploys now point at a dedicated **staging** Supabase project, so
+a preview-branch migration/seed can no longer clobber prod data.
+
+- **Staging project:** `englishkolab-staging` · ref `enbijetqbfoargwvaqez` ·
+  us-east-1 · org `cbanegas`. Schema replicated from `supabase/schema.sql`
+  (17 tables / 12 functions / 35 policies + FKs/indexes/RLS/triggers).
+- **Vercel env split by target** (production untouched):
+  - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+    `SUPABASE_SERVICE_ROLE_KEY` → **preview** = staging, **production+development** = prod.
+  - `RESEND_API_KEY` = `re_placeholder` and `STRIPE_SECRET_KEY` =
+    `sk_test_placeholder` on **preview** only → previews can't send real email
+    or take real charges. (LiveKit/Google left at prod values — ephemeral /
+    domain-bound, no persistent side-effect.)
+- **Verified:** a staging-only user (absent from prod) logged into a real
+  preview deploy and reached `/dashboard`.
+- ⚠ **Keep staging in sync:** whenever a migration is applied to prod
+  (`kasuwdltupqpfxvjrmrp`), apply the same SQL to staging
+  (`enbijetqbfoargwvaqez`) via the Management API query endpoint.
+- ℹ Preview deploys are SSO-protected (`ssoProtection: all_except_custom_domains`)
+  — only team members can view them; the prod custom domain stays public.
+- ⚠ Staging is on the **free** tier and auto-pauses after ~7 days of inactivity;
+  if a preview fails to reach it, un-pause `enbijetqbfoargwvaqez` in the Supabase
+  dashboard (or via the Management API) and redeploy the preview.
