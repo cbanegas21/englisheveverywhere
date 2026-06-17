@@ -319,9 +319,15 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
     setViewingBookingId(bookingId)
     setSessionData(null)
     setLoadingSession(true)
-    const data = await getSessionByBookingId(bookingId)
-    setSessionData(data)
-    setLoadingSession(false)
+    // P3: a throw here used to leave loadingSession stuck → permanent spinner.
+    try {
+      const data = await getSessionByBookingId(bookingId)
+      setSessionData(data)
+    } catch {
+      setSessionData(null)
+    } finally {
+      setLoadingSession(false)
+    }
   }
   function closeSummary() { setViewingBookingId(null); setSessionData(null) }
 
@@ -361,8 +367,9 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
       closeAction()
       setToast(res?.message || tx.actionDone)
       window.location.reload()
-    } catch (err) {
-      setActionStatus('error'); setActionError((err as Error).message || tx.actionFailed)
+    } catch {
+      // P3: never leak a raw (English) error string into the localized UI.
+      setActionStatus('error'); setActionError(tx.actionFailed)
     }
   }
 
