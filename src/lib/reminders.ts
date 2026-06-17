@@ -427,8 +427,8 @@ async function runScheduleBookingReminders(bookingId: string): Promise<void> {
     .from('bookings')
     .select(`
       id, scheduled_at, duration_minutes, type, scheduled_email_ids,
-      student:students(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences)),
-      teacher:teachers(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences))
+      student:students(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences, email_suppressed)),
+      teacher:teachers(profile:profiles(full_name, email, timezone, preferred_language, notification_preferences, email_suppressed))
     `)
     .eq('id', bookingId)
     .maybeSingle()
@@ -448,6 +448,7 @@ async function runScheduleBookingReminders(bookingId: string): Promise<void> {
     timezone: string | null
     preferred_language: Lang | null
     notification_preferences: NotifPrefs | null
+    email_suppressed?: boolean | null
   }
   const pickProfile = (raw: unknown): ProfileLike | null => {
     if (!raw) return null
@@ -467,7 +468,9 @@ async function runScheduleBookingReminders(bookingId: string): Promise<void> {
   const teacherFb = (l: Lang) => (l === 'es' ? 'Maestro' : 'Teacher')
 
   const recipients: Recipient[] = []
-  if (studentProfile?.email) {
+  // P2-9: skip an address Resend flagged as bounced/complained (email_suppressed)
+  // so we stop emailing dead/complaining inboxes and protect sender reputation.
+  if (studentProfile?.email && !studentProfile.email_suppressed) {
     recipients.push({
       audience: 'student',
       email: studentProfile.email,
@@ -478,7 +481,7 @@ async function runScheduleBookingReminders(bookingId: string): Promise<void> {
       prefs: studentProfile.notification_preferences ?? null,
     })
   }
-  if (teacherProfile?.email) {
+  if (teacherProfile?.email && !teacherProfile.email_suppressed) {
     recipients.push({
       audience: 'teacher',
       email: teacherProfile.email,

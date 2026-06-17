@@ -147,6 +147,7 @@ create table public.profiles (
   preferred_currency text default 'USD'::text,
   notification_preferences jsonb default jsonb_build_object('email', true, 'sms', false, 'whatsapp', false, 'before24h', true, 'before1h', true),
   deleted_at timestamp with time zone,
+  email_suppressed boolean not null default false,
   primary key (id)
 );
 
@@ -362,6 +363,7 @@ CREATE INDEX profiles_deleted_at_idx ON public.profiles USING btree (deleted_at)
 CREATE INDEX reschedule_requests_booking_idx ON public.reschedule_requests USING btree (booking_id);
 CREATE UNIQUE INDEX reschedule_requests_one_pending_per_booking ON public.reschedule_requests USING btree (booking_id) WHERE (status = 'pending'::text);
 CREATE INDEX reschedule_requests_status_idx ON public.reschedule_requests USING btree (status);
+CREATE UNIQUE INDEX sessions_booking_id_unique ON public.sessions USING btree (booking_id);
 CREATE INDEX student_purchases_student_id_idx ON public.student_purchases USING btree (student_id, created_at DESC);
 CREATE UNIQUE INDEX teacher_payouts_one_pending_per_teacher ON public.teacher_payouts USING btree (teacher_id) WHERE (status = 'pending'::text);
 CREATE INDEX teacher_payouts_status_idx ON public.teacher_payouts USING btree (status);

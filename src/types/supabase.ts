@@ -414,6 +414,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           email: string
+          email_suppressed: boolean
           full_name: string
           id: string
           notification_preferences: Json | null
@@ -429,6 +430,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           email: string
+          email_suppressed?: boolean
           full_name: string
           id: string
           notification_preferences?: Json | null
@@ -444,6 +446,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           email?: string
+          email_suppressed?: boolean
           full_name?: string
           id?: string
           notification_preferences?: Json | null
