@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import { Geist, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import 'flag-icons/css/flag-icons.min.css'
@@ -70,7 +71,16 @@ export default function RootLayout({
       lang="es"
       className={`${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        {/* Point Excalidraw (the /sala whiteboard) at our self-hosted assets BEFORE
+            any app JS runs — it resolves its font URLs at chunk-eval and otherwise
+            appends the esm.sh CDN (blocked by our 'self'-only CSP). beforeInteractive
+            injects this into <head>, ahead of every chunk. */}
+        <Script id="excalidraw-asset-path" strategy="beforeInteractive">
+          {`window.EXCALIDRAW_ASSET_PATH='/excalidraw/'`}
+        </Script>
+        {children}
+      </body>
     </html>
   )
 }
