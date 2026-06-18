@@ -1,5 +1,8 @@
 'use client'
 
+// MUST be the FIRST import — sets window.EXCALIDRAW_ASSET_PATH before any
+// Excalidraw code (incl. the CSS import below) evaluates + resolves font URLs.
+import './excalidrawAssetPath'
 import { useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
