@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { createAssignment, cancelAssignment, gradeSubmission } from '@/app/actions/assignments'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { Spinner } from '@/components/ui/Spinner'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { SectionHeader } from '@/components/dashboard/SectionHeader'
 import Modal from '@/components/dashboard/Modal'
@@ -296,7 +297,14 @@ function CreateModal({
             className="ek-red-btn px-3 py-1.5 rounded text-[12px] font-semibold disabled:opacity-50"
             style={{ background: 'var(--ek-red)', color: '#fff' }}
           >
-            {isPending ? tx.creating : tx.create}
+            {isPending ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Spinner size={14} stroke="#fff" />
+                {tx.creating}
+              </span>
+            ) : (
+              tx.create
+            )}
           </button>
         </div>
       }
@@ -424,7 +432,14 @@ function DetailDrawer({
               className="ek-red-btn w-full px-3 py-2 rounded text-[12px] font-semibold disabled:opacity-50"
               style={{ background: 'var(--ek-red)', color: '#fff' }}
             >
-              {isPending ? tx.grading : tx.gradeBtn}
+              {isPending ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Spinner size={14} stroke="#fff" />
+                  {tx.grading}
+                </span>
+              ) : (
+                tx.gradeBtn
+              )}
             </button>
           ) : undefined
         }
@@ -550,7 +565,14 @@ function DetailDrawer({
               className="ek-red-btn px-3 py-1.5 rounded text-[12px] font-semibold disabled:opacity-50"
               style={{ background: 'var(--ek-red)', color: '#fff' }}
             >
-              {isCancelPending ? tx.cancelling : tx.cancelConfirmYes}
+              {isCancelPending ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Spinner size={14} stroke="#fff" />
+                  {tx.cancelling}
+                </span>
+              ) : (
+                tx.cancelConfirmYes
+              )}
             </button>
           </div>
         }

@@ -308,7 +308,7 @@ export default function AdminLibraryClient({ lang, books }: Props) {
                       className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded text-[11px] font-medium disabled:opacity-50"
                       style={{ color: '#6B7280', border: '1px solid #E5E7EB' }}
                     >
-                      {book.is_active ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : book.is_active ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                       {book.is_active ? tx.deactivate : tx.activate}
                     </button>
                     <button
@@ -319,7 +319,7 @@ export default function AdminLibraryClient({ lang, books }: Props) {
                       onMouseEnter={e => { if (!busy) e.currentTarget.style.background = 'rgba(220,38,38,0.08)' }}
                       onMouseLeave={e => { if (!busy) e.currentTarget.style.background = 'transparent' }}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                       {tx.delete}
                     </button>
                   </li>

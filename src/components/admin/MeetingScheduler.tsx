@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { Spinner } from '@/components/ui/Spinner'
 import { createAdminBooking } from '@/app/[lang]/admin/actions'
 
 export interface ExistingBooking {
@@ -708,7 +709,7 @@ export default function MeetingScheduler({
               }}
             >
               {isPending ? t.scheduling : t.schedule}
-              {!isPending && <Check className="h-4 w-4" />}
+              {isPending ? <Spinner size={14} stroke="#fff" /> : <Check className="h-4 w-4" />}
             </button>
           )}
         </div>

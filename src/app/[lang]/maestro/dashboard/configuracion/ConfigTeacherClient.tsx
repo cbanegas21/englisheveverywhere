@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 import { updateTeacherProfile } from '@/app/actions/profile'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { Spinner } from '@/components/ui/Spinner'
 
 const t = {
   en: {
@@ -21,6 +22,7 @@ const t = {
     emailReadOnly: 'Email cannot be changed.',
     changePassword: 'Change password',
     save: 'Save changes',
+    saving: 'Saving…',
     saved: 'Changes saved',
     namePlaceholder: 'Your full name',
     bioPlaceholder: 'Tell students about yourself, your teaching style, and experience...',
@@ -39,6 +41,7 @@ const t = {
     emailReadOnly: 'El correo no se puede cambiar.',
     changePassword: 'Cambiar contraseña',
     save: 'Guardar cambios',
+    saving: 'Guardando…',
     saved: 'Cambios guardados',
     namePlaceholder: 'Tu nombre completo',
     bioPlaceholder: 'Cuéntales a los estudiantes sobre ti, tu estilo de enseñanza y experiencia...',
@@ -222,7 +225,16 @@ export default function ConfigTeacherClient({ lang, fullName, bio, specializatio
                   }
             }
           >
-            {saved ? tx.saved : saving ? '...' : tx.save}
+            {saved ? (
+              tx.saved
+            ) : saving ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Spinner size={14} stroke="#fff" />
+                {tx.saving}
+              </span>
+            ) : (
+              tx.save
+            )}
           </button>
         </div>
       </div>

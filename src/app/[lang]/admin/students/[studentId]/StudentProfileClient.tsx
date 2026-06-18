@@ -17,6 +17,7 @@ import {
 } from '../../actions'
 import type { ActionResult } from '../../actions'
 import MeetingScheduler from '@/components/admin/MeetingScheduler'
+import { Spinner } from '@/components/ui/Spinner'
 
 const LEVEL_COLORS: Record<string, { bg: string; color: string }> = {
   A1: { bg: 'rgba(156,163,175,0.15)', color: '#6B7280' },
@@ -68,6 +69,8 @@ const STR = {
     primaryTeacherHint: "Student's usual teacher. Reference only — each booking is still assigned manually.",
     paused: 'paused',
     save: 'Save',
+    saving: 'Saving…',
+    working: 'Working…',
     quickActions: 'Quick Actions',
     scheduleCall: 'Schedule a call',
     sendEmail: 'Send email',
@@ -184,6 +187,8 @@ const STR = {
     primaryTeacherHint: 'Maestro habitual del estudiante. Solo de referencia — cada reserva se asigna manualmente.',
     paused: 'en pausa',
     save: 'Guardar',
+    saving: 'Guardando…',
+    working: 'Procesando…',
     quickActions: 'Acciones rápidas',
     scheduleCall: 'Agendar una llamada',
     sendEmail: 'Enviar correo',
@@ -305,6 +310,10 @@ export default function StudentProfileClient({ student, lang }: Props) {
   const dateLocale = lang === 'es' ? 'es-HN' : 'en-US'
   const [activeTab, setActiveTab] = useState<Tab>('Overview')
   const [isPending, startTransition] = useTransition()
+  // Which specific button is mid-flight. All buttons stay disabled while ANY
+  // action runs (isPending), but only the one matching pendingKey shows a spinner
+  // + working label — so clicking one button no longer just dims all of them.
+  const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [showScheduler, setShowScheduler] = useState(false)
 
@@ -347,7 +356,8 @@ export default function StudentProfileClient({ student, lang }: Props) {
   // 1..100 bounds enforced server-side in addStudentClasses.
   const clampClassCount = (v: string) => Math.max(1, Math.min(100, Math.trunc(Number(v)) || 1))
 
-  function run(fn: () => Promise<ActionResult | void>, successMsg: string) {
+  function run(fn: () => Promise<ActionResult | void>, successMsg: string, key?: string, onSuccess?: () => void) {
+    if (key) setPendingKey(key)
     startTransition(async () => {
       try {
         const res = await fn()
@@ -358,8 +368,11 @@ export default function StudentProfileClient({ student, lang }: Props) {
         if (res && res.ok === false) { showToast(res.error || t.genericError, 'error'); return }
         showToast(successMsg)
         router.refresh()
+        onSuccess?.()
       } catch {
         showToast(t.genericError, 'error')
+      } finally {
+        setPendingKey(null)
       }
     })
   }
@@ -506,10 +519,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
                 disabled={isPending || selectedTeacher === (student.primary_teacher_id || '')}
                 onClick={() => run(
                   () => setPrimaryTeacher(student.id, selectedTeacher || null),
-                  t.primaryTeacherUpdated
+                  t.primaryTeacherUpdated,
+                  'saveTeacherSidebar'
                 )}
               >
-                {t.save}
+                {pendingKey === 'saveTeacherSidebar' ? (
+                  <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="currentColor" />{t.save}</span>
+                ) : t.save}
               </button>
             </div>
           )}
@@ -548,11 +564,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   style={btnPrimary}
                   disabled={isPending}
                   onClick={() => {
-                    run(() => addStudentClasses(student.id, addClassCount), t.classesAdded(addClassCount))
+                    run(() => addStudentClasses(student.id, addClassCount), t.classesAdded(addClassCount), 'addClassesSidebar')
                     setShowAddClasses(false)
                   }}
                 >
-                  {t.confirm}
+                  {pendingKey === 'addClassesSidebar' ? (
+                    <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+                  ) : t.confirm}
                 </button>
                 <button style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: 13 }} onClick={() => setShowAddClasses(false)}>
                   {t.cancel}
@@ -610,9 +628,11 @@ export default function StudentProfileClient({ student, lang }: Props) {
               <button
                 style={btnSecondary}
                 disabled={isPending}
-                onClick={() => run(() => updateStudentLevel(student.id, selectedLevel), t.levelUpdated)}
+                onClick={() => run(() => updateStudentLevel(student.id, selectedLevel), t.levelUpdated, 'saveLevel')}
               >
-                {t.save}
+                {pendingKey === 'saveLevel' ? (
+                  <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="currentColor" />{t.save}</span>
+                ) : t.save}
               </button>
               {selectedLevel && (
                 <span
@@ -643,9 +663,11 @@ export default function StudentProfileClient({ student, lang }: Props) {
               <button
                 style={btnSecondary}
                 disabled={!selectedTeacher || isPending}
-                onClick={() => run(() => setPrimaryTeacher(student.id, selectedTeacher || null), t.primaryTeacherUpdated)}
+                onClick={() => run(() => setPrimaryTeacher(student.id, selectedTeacher || null), t.primaryTeacherUpdated, 'saveTeacherOverview')}
               >
-                {t.save}
+                {pendingKey === 'saveTeacherOverview' ? (
+                  <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="currentColor" />{t.save}</span>
+                ) : t.save}
               </button>
             </div>
           </div>
@@ -735,11 +757,13 @@ export default function StudentProfileClient({ student, lang }: Props) {
                       <div style={{ display: 'flex', gap: 6 }}>
                         {b.status === 'confirmed' && (
                           <button
-                            onClick={() => run(() => completeBooking(b.id), t.bookingMarkedComplete)}
+                            onClick={() => run(() => completeBooking(b.id), t.bookingMarkedComplete, `complete:${b.id}`)}
                             disabled={isPending}
                             style={{ padding: '5px 10px', borderRadius: 6, background: 'rgba(52,211,153,0.1)', color: '#059669', border: '1px solid rgba(52,211,153,0.3)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                           >
-                            {t.complete}
+                            {pendingKey === `complete:${b.id}` ? (
+                              <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="currentColor" />{t.working}</span>
+                            ) : t.complete}
                           </button>
                         )}
                         {(b.status === 'pending' || b.status === 'confirmed') && (
@@ -775,16 +799,20 @@ export default function StudentProfileClient({ student, lang }: Props) {
                 {t.cancelBookingBody}
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button style={btnSecondary} onClick={() => setCancelConfirmBookingId(null)}>{t.keepBooking}</button>
+                <button style={btnSecondary} disabled={isPending} onClick={() => setCancelConfirmBookingId(null)}>{t.keepBooking}</button>
                 <button
                   style={btnPrimary}
+                  disabled={isPending}
                   onClick={() => {
+                    // Keep the modal mounted during the refund so the spinner stays
+                    // visible; close it only once the action settles successfully.
                     const id = cancelConfirmBookingId
-                    setCancelConfirmBookingId(null)
-                    run(() => cancelBookingWithRefund(id), t.bookingCancelled)
+                    run(() => cancelBookingWithRefund(id), t.bookingCancelled, 'cancelBooking', () => setCancelConfirmBookingId(null))
                   }}
                 >
-                  {t.yesCancel}
+                  {pendingKey === 'cancelBooking' ? (
+                    <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+                  ) : t.yesCancel}
                 </button>
               </div>
             </div>
@@ -827,10 +855,12 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   ? `¿Agregar ${manualAddCount} ${manualAddCount === 1 ? 'clase' : 'clases'} a esta cuenta?`
                   : `Add ${manualAddCount} ${manualAddCount === 1 ? 'class' : 'classes'} to this account?`
                 if (!confirm(msg)) return
-                run(() => addStudentClasses(student.id, manualAddCount), t.classesAdded(manualAddCount))
+                run(() => addStudentClasses(student.id, manualAddCount), t.classesAdded(manualAddCount), 'addClassesManual')
               }}
             >
-              {t.add}
+              {pendingKey === 'addClassesManual' ? (
+                <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+              ) : t.add}
             </button>
           </div>
         </div>
@@ -934,11 +964,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
                     learning_style: profileForm.learning_style,
                     age_range: profileForm.age_range,
                   }),
-                t.profileSaved
+                t.profileSaved,
+                'saveProfile'
               )
             }
           >
-            {t.saveProfile}
+            {pendingKey === 'saveProfile' ? (
+              <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.saving}</span>
+            ) : t.saveProfile}
           </button>
         </div>
       </div>
@@ -961,11 +994,14 @@ export default function StudentProfileClient({ student, lang }: Props) {
             onClick={() =>
               run(
                 () => resetStudentPassword(student.profile!.email!),
-                t.resetEmailSent
+                t.resetEmailSent,
+                'resetPassword'
               )
             }
           >
-            {t.sendResetEmail}
+            {pendingKey === 'resetPassword' ? (
+              <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+            ) : t.sendResetEmail}
           </button>
         </div>
 
@@ -991,10 +1027,12 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   ? `¿Cambiar el rol de esta cuenta a "${selectedRole}"? Esto cambia sus permisos.`
                   : `Change this account's role to "${selectedRole}"? This changes their permissions.`
                 if (!confirm(msg)) return
-                run(() => updateStudentRole(student.profile?.id || '', selectedRole), t.roleUpdated)
+                run(() => updateStudentRole(student.profile?.id || '', selectedRole), t.roleUpdated, 'saveRole')
               }}
             >
-              {t.saveRole}
+              {pendingKey === 'saveRole' ? (
+                <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.saving}</span>
+              ) : t.saveRole}
             </button>
           </div>
         </div>
@@ -1012,9 +1050,11 @@ export default function StudentProfileClient({ student, lang }: Props) {
               <button
                 style={btnPrimary}
                 disabled={isPending}
-                onClick={() => run(() => setStudentDeactivated(student.profile?.id || '', false), t.accountReactivated)}
+                onClick={() => run(() => setStudentDeactivated(student.profile?.id || '', false), t.accountReactivated, 'reactivate')}
               >
-                {t.reactivateAccount}
+                {pendingKey === 'reactivate' ? (
+                  <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+                ) : t.reactivateAccount}
               </button>
             </>
           ) : (
@@ -1034,14 +1074,18 @@ export default function StudentProfileClient({ student, lang }: Props) {
                   <span style={{ fontSize: 13, color: '#374151' }}>{t.areYouSure}</span>
                   <button
                     style={btnPrimary}
+                    disabled={isPending}
                     onClick={() => {
-                      setShowCancelConfirm(false)
-                      run(() => setStudentDeactivated(student.profile?.id || '', true), t.accountDeactivated)
+                      // Keep the confirm row mounted while the action runs so the spinner
+                      // stays visible; on success router.refresh swaps to the reactivate UI.
+                      run(() => setStudentDeactivated(student.profile?.id || '', true), t.accountDeactivated, 'deactivate')
                     }}
                   >
-                    {t.yesDeactivate}
+                    {pendingKey === 'deactivate' ? (
+                      <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+                    ) : t.yesDeactivate}
                   </button>
-                  <button style={btnSecondary} onClick={() => setShowCancelConfirm(false)}>
+                  <button style={btnSecondary} disabled={isPending} onClick={() => setShowCancelConfirm(false)}>
                     {t.cancel}
                   </button>
                 </div>

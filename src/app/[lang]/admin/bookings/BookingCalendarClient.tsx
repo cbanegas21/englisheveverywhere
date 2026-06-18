@@ -9,6 +9,7 @@ import Drawer from '@/components/dashboard/Drawer'
 import Modal from '@/components/dashboard/Modal'
 import { StatLedger } from '@/components/ui/StatLedger'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Spinner } from '@/components/ui/Spinner'
 import { getZonedParts, zonedWallTimeToUtc } from '@/lib/timezone'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -170,11 +171,14 @@ const STR = {
     offHoursOption: (name: string) => `${name} (off-hours)`,
     assign: 'Assign',
     markComplete: 'Mark complete',
+    completing: 'Completing…',
     confirmCancelBtn: 'Confirm cancel',
+    cancelling: 'Cancelling…',
     no: 'Keep',
     cancelBooking: 'Cancel booking',
     reschedule: 'Reschedule',
     save: 'Save',
+    saving: 'Saving…',
     // page header
     kicker: '↳ Admin · Operations',
     bookings: 'Bookings',
@@ -260,11 +264,14 @@ const STR = {
     offHoursOption: (name: string) => `${name} (fuera de horario)`,
     assign: 'Asignar',
     markComplete: 'Marcar completada',
+    completing: 'Completando…',
     confirmCancelBtn: 'Confirmar cancelación',
+    cancelling: 'Cancelando…',
     no: 'Conservar',
     cancelBooking: 'Cancelar reserva',
     reschedule: 'Reprogramar',
     save: 'Guardar',
+    saving: 'Guardando…',
     kicker: '↳ Admin · Operaciones',
     bookings: 'Reservas',
     thisWeek: 'esta semana',
@@ -353,6 +360,9 @@ export default function BookingCalendarClient({
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  // Which Drawer action is in flight, so only the clicked button spins (isPending
+  // is shared across complete / reschedule-save / cancel). Loading UI only.
+  const [pendingAction, setPendingAction] = useState<'complete' | 'reschedule' | 'cancel' | null>(null)
   const [detailAssignTeacher, setDetailAssignTeacher] = useState('')
   const [showAiSummary, setShowAiSummary] = useState(false)
   // Seed 0 so the server render and first client render match — Date.now() at
@@ -641,6 +651,8 @@ export default function BookingCalendarClient({
         router.refresh()
       } catch (e) {
         showConflict(tx.rescheduleKicker, e instanceof Error ? e.message : tx.error, undefined)
+      } finally {
+        setPendingAction(null)
       }
     })
   }
@@ -728,6 +740,7 @@ export default function BookingCalendarClient({
   }
   function handleComplete() {
     if (!selectedBooking) return
+    setPendingAction('complete')
     startTransition(async () => {
       try {
         const res = await completeBooking(selectedBooking.id)
@@ -737,11 +750,14 @@ export default function BookingCalendarClient({
         router.refresh()
       } catch {
         showToast(tx.error, 'error')
+      } finally {
+        setPendingAction(null)
       }
     })
   }
   function handleCancel() {
     if (!selectedBooking) return
+    setPendingAction('cancel')
     startTransition(async () => {
       try {
         const res = await cancelBookingWithRefund(selectedBooking.id)
@@ -752,6 +768,8 @@ export default function BookingCalendarClient({
         router.refresh()
       } catch {
         showToast(tx.error, 'error')
+      } finally {
+        setPendingAction(null)
       }
     })
   }
@@ -778,6 +796,7 @@ export default function BookingCalendarClient({
     const [y, m, d] = rDate.split('-').map(Number)
     const [h, min] = rTime.split(':').map(Number)
     const iso = zonedWallTimeToUtc(y, (m || 1) - 1, d || 1, h || 0, min || 0, timezone).toISOString()
+    setPendingAction('reschedule')
     attemptReschedule(selectedBooking.id, iso, false, closeDrawer)
   }
 
@@ -1124,7 +1143,9 @@ export default function BookingCalendarClient({
       )}
       {b.status === 'confirmed' && (
         <button onClick={handleComplete} disabled={isPending} className="ek-btn ek-btn-primary ek-btn-square" style={{ justifyContent: 'center', padding: '11px 0', opacity: isPending ? 0.6 : 1 }}>
-          {tx.markComplete}
+          {pendingAction === 'complete' ? (
+            <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{tx.completing}</span>
+          ) : tx.markComplete}
         </button>
       )}
       {b.status === 'confirmed' && (
@@ -1142,7 +1163,7 @@ export default function BookingCalendarClient({
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => setRescheduleOpen(false)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '10px 0' }}>{tx.cancel}</button>
-              <button onClick={saveReschedule} disabled={isPending || !rDate || !rTime} className="ek-btn ek-btn-primary ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '10px 0', opacity: isPending || !rDate || !rTime ? 0.6 : 1 }}>{tx.save}</button>
+              <button onClick={saveReschedule} disabled={isPending || !rDate || !rTime} className="ek-btn ek-btn-primary ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '10px 0', opacity: isPending || !rDate || !rTime ? 0.6 : 1 }}>{pendingAction === 'reschedule' ? (<span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{tx.saving}</span>) : tx.save}</button>
             </div>
           </div>
         ) : (
@@ -1152,7 +1173,7 @@ export default function BookingCalendarClient({
       {(b.status === 'pending' || b.status === 'confirmed') && (
         confirmCancel ? (
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={handleCancel} disabled={isPending} className="ek-btn ek-btn-red ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{tx.confirmCancelBtn}</button>
+            <button onClick={handleCancel} disabled={isPending} className="ek-btn ek-btn-red ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{pendingAction === 'cancel' ? (<span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{tx.cancelling}</span>) : tx.confirmCancelBtn}</button>
             <button onClick={() => setConfirmCancel(false)} className="ek-btn ek-btn-ghost ek-btn-square" style={{ flex: 1, justifyContent: 'center', padding: '11px 0' }}>{tx.no}</button>
           </div>
         ) : (

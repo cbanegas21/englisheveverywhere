@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { CheckCircle, XCircle, ToggleLeft, ToggleRight } from 'lucide-react'
 import { approveTeacherWithEmail, rejectTeacherWithEmail, toggleTeacherActive, setTeacherRate } from '../actions'
+import { Spinner } from '@/components/ui/Spinner'
 
 type Lang = 'es' | 'en'
 
@@ -11,12 +12,16 @@ const STR = {
     approved: 'Approved',
     rejected: 'Rejected',
     approve: 'Approve',
+    approving: 'Approving…',
     reject: 'Reject',
+    rejecting: 'Rejecting…',
     rejectConfirm: 'Reject this application? The teacher record will be deleted and the user will revert to student.',
     error: 'Error',
     noRate: 'Set the rate first',
     invalid: 'Invalid',
     save: 'Save',
+    saving: 'Saving…',
+    working: 'Working…',
     active: 'Active',
     inactive: 'Inactive',
   },
@@ -24,12 +29,16 @@ const STR = {
     approved: 'Aprobado',
     rejected: 'Rechazado',
     approve: 'Aprobar',
+    approving: 'Aprobando…',
     reject: 'Rechazar',
+    rejecting: 'Rechazando…',
     rejectConfirm: '¿Rechazar esta solicitud? El registro del maestro se eliminará y el usuario volverá a ser estudiante.',
     error: 'Error',
     noRate: 'Asigna la tarifa primero',
     invalid: 'Inválido',
     save: 'Guardar',
+    saving: 'Guardando…',
+    working: 'Procesando…',
     active: 'Activo',
     inactive: 'Inactivo',
   },
@@ -52,6 +61,9 @@ export function ApproveRejectButtons({
 }) {
   const t = STR[lang]
   const [isPending, startTransition] = useTransition()
+  // Which of the two actions is mid-flight. Both buttons stay disabled while either
+  // runs (isPending), but only the clicked one shows a spinner + working label.
+  const [pendingKey, setPendingKey] = useState<'approve' | 'reject' | null>(null)
   const [done, setDone] = useState<'approved' | 'rejected' | null>(null)
   const [error, setError] = useState('')
 
@@ -60,6 +72,7 @@ export function ApproveRejectButtons({
 
   function handleApprove() {
     setError('')
+    setPendingKey('approve')
     startTransition(async () => {
       try {
         const res = await approveTeacherWithEmail(teacherId, profileId)
@@ -68,6 +81,8 @@ export function ApproveRejectButtons({
       } catch {
         // Thrown server-action messages are redacted in prod → show friendly generic.
         setError(t.error)
+      } finally {
+        setPendingKey(null)
       }
     })
   }
@@ -75,6 +90,7 @@ export function ApproveRejectButtons({
   function handleReject() {
     if (!confirm(t.rejectConfirm)) return
     setError('')
+    setPendingKey('reject')
     startTransition(async () => {
       try {
         const res = await rejectTeacherWithEmail(teacherId, profileId)
@@ -83,6 +99,8 @@ export function ApproveRejectButtons({
       } catch {
         // Thrown server-action messages are redacted in prod → show friendly generic.
         setError(t.error)
+      } finally {
+        setPendingKey(null)
       }
     })
   }
@@ -113,8 +131,8 @@ export function ApproveRejectButtons({
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold transition-all disabled:opacity-50"
         style={{ background: 'var(--ek-ink)', color: 'var(--ek-on-dark)', borderRadius: 'var(--ek-radius-sm)' }}
       >
-        <CheckCircle className="h-3.5 w-3.5" />
-        {isPending ? '…' : t.approve}
+        {pendingKey === 'approve' ? <Spinner size={14} stroke="#fff" /> : <CheckCircle className="h-3.5 w-3.5" />}
+        {pendingKey === 'approve' ? t.approving : t.approve}
       </button>
       <button
         onClick={handleReject}
@@ -122,8 +140,8 @@ export function ApproveRejectButtons({
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold transition-all disabled:opacity-50"
         style={{ background: 'var(--ek-card)', color: 'var(--ek-red)', border: '1px solid var(--ek-border-mid)', borderRadius: 'var(--ek-radius-sm)' }}
       >
-        <XCircle className="h-3.5 w-3.5" />
-        {t.reject}
+        {pendingKey === 'reject' ? <Spinner size={14} stroke="currentColor" /> : <XCircle className="h-3.5 w-3.5" />}
+        {pendingKey === 'reject' ? t.rejecting : t.reject}
       </button>
     </div>
   )
@@ -189,7 +207,9 @@ export function RateEditor({
           borderRadius: 'var(--ek-radius-sm)',
         }}
       >
-        {isPending ? '…' : saved ? '✓' : t.save}
+        {isPending ? (
+          <span className="inline-flex items-center justify-center gap-1.5"><Spinner size={12} stroke="currentColor" />{t.saving}</span>
+        ) : saved ? '✓' : t.save}
       </button>
       {error && <span className="text-[11px]" style={{ color: 'var(--ek-red)' }}>{error}</span>}
     </div>
@@ -241,8 +261,8 @@ export function ActiveToggle({
         className="flex items-center gap-1.5 text-[12px] font-medium transition-all disabled:opacity-50"
         style={{ color: active ? 'var(--ek-text)' : 'var(--ek-text-muted)' }}
       >
-        {active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-        {isPending ? '…' : active ? t.active : t.inactive}
+        {isPending ? <Spinner size={14} stroke="currentColor" /> : active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+        {isPending ? t.working : active ? t.active : t.inactive}
       </button>
     </div>
   )

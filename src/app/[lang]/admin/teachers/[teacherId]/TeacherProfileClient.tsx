@@ -14,6 +14,7 @@ import {
 } from '../../actions'
 import type { ActionResult } from '../../actions'
 import MeetingScheduler from '@/components/admin/MeetingScheduler'
+import { Spinner } from '@/components/ui/Spinner'
 
 type Lang = 'es' | 'en'
 
@@ -61,6 +62,8 @@ const STR = {
     rating: 'Rating',
     hourlyRate: 'Hourly Rate',
     save: 'Save',
+    saving: 'Saving…',
+    working: 'Working…',
     status: 'Status',
     clickToToggle: 'click to toggle',
     availability: 'Availability',
@@ -156,6 +159,8 @@ const STR = {
     rating: 'Calificación',
     hourlyRate: 'Tarifa por hora',
     save: 'Guardar',
+    saving: 'Guardando…',
+    working: 'Procesando…',
     status: 'Estado',
     clickToToggle: 'clic para cambiar',
     availability: 'Disponibilidad',
@@ -246,6 +251,10 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [isPending, startTransition] = useTransition()
+  // Which specific button is mid-flight. All buttons stay disabled while ANY action
+  // runs (isPending), but only the one matching pendingKey shows a spinner + working
+  // label — so clicking one button no longer just dims all of them.
+  const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const [showScheduler, setShowScheduler] = useState(false)
 
@@ -275,7 +284,8 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
     setTimeout(() => setToast(null), 3000)
   }
 
-  function run(fn: () => Promise<ActionResult | void>, successMsg: string, onSuccess?: () => void) {
+  function run(fn: () => Promise<ActionResult | void>, successMsg: string, onSuccess?: () => void, key?: string) {
+    if (key) setPendingKey(key)
     startTransition(async () => {
       try {
         const res = await fn()
@@ -288,6 +298,8 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         onSuccess?.()
       } catch {
         showToast(t.error, 'error')
+      } finally {
+        setPendingKey(null)
       }
     })
   }
@@ -297,20 +309,25 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
   // classes for a backup teacher. Reactivating is a plain flip. (QA §7.2 SB-01/SB-02.)
   function handleToggleActive() {
     const next = !isActive
+    setPendingKey('toggleActive')
     startTransition(async () => {
-      if (next) {
-        const res = await toggleTeacherActive(teacher.id, true)
-        if (res.ok) { setIsActive(true); showToast(t.teacherActivated); router.refresh() }
+      try {
+        if (next) {
+          const res = await toggleTeacherActive(teacher.id, true)
+          if (res.ok) { setIsActive(true); showToast(t.teacherActivated); router.refresh() }
+          else showToast('error' in res ? res.error : t.error, 'error')
+          return
+        }
+        let res = await toggleTeacherActive(teacher.id, false)
+        if (!res.ok && 'needsConfirm' in res) {
+          if (!window.confirm(t.deactivateWarn(res.liveBookings, res.pendingUsd))) return
+          res = await toggleTeacherActive(teacher.id, false, { force: true })
+        }
+        if (res.ok) { setIsActive(false); showToast(t.teacherDeactivated); router.refresh() }
         else showToast('error' in res ? res.error : t.error, 'error')
-        return
+      } finally {
+        setPendingKey(null)
       }
-      let res = await toggleTeacherActive(teacher.id, false)
-      if (!res.ok && 'needsConfirm' in res) {
-        if (!window.confirm(t.deactivateWarn(res.liveBookings, res.pendingUsd))) return
-        res = await toggleTeacherActive(teacher.id, false, { force: true })
-      }
-      if (res.ok) { setIsActive(false); showToast(t.teacherDeactivated); router.refresh() }
-      else showToast('error' in res ? res.error : t.error, 'error')
     })
   }
 
@@ -456,13 +473,15 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                 onClick={() => {
                   const parsed = parseFloat(rate)
                   if (!isNaN(parsed)) {
-                    run(() => setTeacherRate(teacher.id, parsed), t.rateSaved)
+                    run(() => setTeacherRate(teacher.id, parsed), t.rateSaved, undefined, 'saveRateOverview')
                     setRateSaved(true)
                     setTimeout(() => setRateSaved(false), 2000)
                   }
                 }}
               >
-                {rateSaved ? '✓' : t.save}
+                {pendingKey === 'saveRateOverview' ? (
+                  <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.saving}</span>
+                ) : rateSaved ? '✓' : t.save}
               </button>
             </div>
           </div>
@@ -480,8 +499,12 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                 border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
               }}
             >
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: isActive ? '#059669' : '#9CA3AF' }} />
-              {isActive ? t.active : t.inactive} — {t.clickToToggle}
+              {pendingKey === 'toggleActive' ? (
+                <Spinner size={14} stroke="currentColor" />
+              ) : (
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: isActive ? '#059669' : '#9CA3AF' }} />
+              )}
+              {pendingKey === 'toggleActive' ? t.working : <>{isActive ? t.active : t.inactive} — {t.clickToToggle}</>}
             </button>
           </div>
         </div>
@@ -881,10 +904,14 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
             disabled={isPending}
             onClick={() => run(
               () => adminUpdateTeacherProfile(teacher.id, teacher.profile_id, { bio, specializations: specs, certifications: certs, timezone, full_name: fullName }),
-              t.profileSaved
+              t.profileSaved,
+              undefined,
+              'saveProfile'
             )}
           >
-            {t.saveProfile}
+            {pendingKey === 'saveProfile' ? (
+              <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.saving}</span>
+            ) : t.saveProfile}
           </button>
         </div>
       </div>
@@ -904,9 +931,11 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
           <button
             style={btnPrimary}
             disabled={isPending || !teacher.profile?.email}
-            onClick={() => run(() => resetStudentPassword(teacher.profile!.email!), t.resetEmailSent)}
+            onClick={() => run(() => resetStudentPassword(teacher.profile!.email!), t.resetEmailSent, undefined, 'resetPassword')}
           >
-            {t.sendResetEmail}
+            {pendingKey === 'resetPassword' ? (
+              <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+            ) : t.sendResetEmail}
           </button>
         </div>
 
@@ -927,10 +956,12 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               disabled={isPending}
               onClick={() => {
                 const parsed = parseFloat(rate)
-                if (!isNaN(parsed)) run(() => setTeacherRate(teacher.id, parsed), t.rateUpdated)
+                if (!isNaN(parsed)) run(() => setTeacherRate(teacher.id, parsed), t.rateUpdated, undefined, 'updateRateTools')
               }}
             >
-              {rateSaved ? t.saved : t.update}
+              {pendingKey === 'updateRateTools' ? (
+                <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.saving}</span>
+              ) : rateSaved ? t.saved : t.update}
             </button>
           </div>
         </div>
@@ -947,7 +978,9 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               color: isActive ? '#059669' : '#6B7280',
             }}
           >
-            {isActive ? t.activeClickDeactivate : t.inactiveClickActivate}
+            {pendingKey === 'toggleActive' ? (
+              <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="currentColor" />{t.working}</span>
+            ) : isActive ? t.activeClickDeactivate : t.inactiveClickActivate}
           </button>
         </div>
 
@@ -969,18 +1002,23 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
               <span style={{ fontSize: 13, color: '#374151' }}>{t.areYouSure}</span>
               <button
                 style={btnPrimary}
+                disabled={isPending}
                 onClick={() => {
-                  setShowDeleteConfirm(false)
+                  // Keep the confirm row mounted during the multi-second delete cascade
+                  // so the spinner stays visible; on success the action navigates away.
                   run(
                     () => deleteTeacher(teacher.id, teacher.profile_id),
                     t.teacherDeleted,
                     () => router.push(`/${lang}/admin/teachers`),
+                    'deleteTeacher',
                   )
                 }}
               >
-                {t.yesDelete}
+                {pendingKey === 'deleteTeacher' ? (
+                  <span className="inline-flex items-center justify-center gap-2"><Spinner size={14} stroke="#fff" />{t.working}</span>
+                ) : t.yesDelete}
               </button>
-              <button style={btnSecondary} onClick={() => setShowDeleteConfirm(false)}>{t.cancel}</button>
+              <button style={btnSecondary} disabled={isPending} onClick={() => setShowDeleteConfirm(false)}>{t.cancel}</button>
             </div>
           )}
         </div>

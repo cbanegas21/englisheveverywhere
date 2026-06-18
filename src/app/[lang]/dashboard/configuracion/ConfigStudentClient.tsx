@@ -22,6 +22,7 @@ import {
 import TimezoneSelect from '@/components/TimezoneSelect'
 import NotificationPreferences from '@/components/NotificationPreferences'
 import { planName } from '@/lib/pricing'
+import { Spinner } from '@/components/ui/Spinner'
 
 export interface PurchaseRow {
   id: string
@@ -124,7 +125,7 @@ const t = {
 
     // Common
     saved: 'Saved',
-    saving: '…',
+    saving: 'Saving…',
     saveError: 'Could not save. Try again.',
   },
   es: {
@@ -206,7 +207,7 @@ const t = {
     deleteFailed: 'No pudimos eliminar tu cuenta. Inténtalo de nuevo.',
 
     saved: 'Guardado',
-    saving: '…',
+    saving: 'Guardando…',
     saveError: 'No se pudo guardar. Inténtalo de nuevo.',
   },
 }
@@ -685,8 +686,17 @@ function ProfilePanel({
                 className="lk-cfg-btn-ghost"
                 style={{ opacity: avatarBusy ? 0.6 : 1, cursor: avatarBusy ? 'wait' : 'pointer' }}
               >
-                <Upload className="h-3.5 w-3.5" />
-                {avatarBusy ? tx.avatarUploading : avatarUrl ? tx.avatarChange : tx.avatarUpload}
+                {avatarBusy ? (
+                  <>
+                    <Spinner size={14} stroke="currentColor" />
+                    {tx.avatarUploading}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3.5 w-3.5" />
+                    {avatarUrl ? tx.avatarChange : tx.avatarUpload}
+                  </>
+                )}
               </button>
               {avatarUrl && !avatarBusy && (
                 <button
@@ -730,7 +740,14 @@ function ProfilePanel({
               disabled={!emailDirty || emailSaving}
               className="lk-cfg-email-btn"
             >
-              {emailSaving ? tx.emailSaving : tx.emailChange}
+              {emailSaving ? (
+                <>
+                  <Spinner size={14} stroke="#fff" />
+                  {tx.emailSaving}
+                </>
+              ) : (
+                tx.emailChange
+              )}
             </button>
           </div>
           {emailErr && (
@@ -1039,7 +1056,14 @@ function DangerPanel({ lang, tx, keyword }: { lang: Locale; tx: typeof t['en']; 
                 cursor: confirmed && !working ? 'pointer' : 'not-allowed',
               }}
             >
-              {working ? tx.deleteWorking : tx.deleteConfirm}
+              {working ? (
+                <>
+                  <Spinner size={14} stroke="#fff" />
+                  {tx.deleteWorking}
+                </>
+              ) : (
+                tx.deleteConfirm
+              )}
             </button>
           </div>
         }
@@ -1112,6 +1136,7 @@ function PanelFooter({
         className="lk-cfg-save"
       >
         {saved && <CheckCircle2 className="h-4 w-4" />}
+        {saving && <Spinner size={14} stroke="#fff" />}
         {saved ? savedLabel : saving ? savingLabel : label}
       </button>
     </div>

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import type { Locale } from '@/lib/i18n/translations'
 import { teacherSetStudentLevel } from '@/app/actions/placement'
 import { DashTopBar } from '@/components/ui/DashTopBar'
+import { Spinner } from '@/components/ui/Spinner'
 import { StatLedger } from '@/components/ui/StatLedger'
 import Drawer from '@/components/dashboard/Drawer'
 
@@ -321,7 +322,14 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
                 className="ek-red-btn inline-flex items-center px-4 py-2 text-[12px] font-semibold disabled:opacity-50"
                 style={{ background: 'var(--ek-red)', color: '#fff', borderRadius: 'var(--ek-radius-xs)', border: 'none', cursor: saveDisabled ? 'default' : 'pointer' }}
               >
-                {isPendingLevel ? tx.savingLevel : tx.saveLevel}
+                {isPendingLevel ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Spinner size={14} stroke="#fff" />
+                    {tx.savingLevel}
+                  </span>
+                ) : (
+                  tx.saveLevel
+                )}
               </button>
             </div>
           ) : undefined

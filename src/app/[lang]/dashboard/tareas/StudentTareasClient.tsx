@@ -8,6 +8,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import { StatLedger } from '@/components/ui/StatLedger'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Spinner } from '@/components/ui/Spinner'
 
 const t = {
   en: {
@@ -698,7 +699,12 @@ function DetailPanel({
                       opacity: isPending ? 0.6 : 1,
                     }}
                   >
-                    {isPending ? tx.submitting : assignment.submission ? tx.updateBtn : tx.submitBtn}
+                    {isPending ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Spinner size={14} stroke="#fff" />
+                        {tx.submitting}
+                      </span>
+                    ) : assignment.submission ? tx.updateBtn : tx.submitBtn}
                   </button>
                 </>
               ) : (
