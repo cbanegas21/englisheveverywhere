@@ -1,14 +1,21 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { locales, defaultLocale } from '@/lib/i18n/translations'
-import { ROLE_COOKIE } from '@/lib/authCookie'
+import { ROLE_COOKIE, SEEN_COOKIE } from '@/lib/authCookie'
 
 // Inactivity session timeout (LIVE-004): no indefinite "stay logged in". An
 // authenticated session is auto-ended after this much inactivity. `ee-seen` is
-// re-armed on every navigation, so active users are never interrupted — only an
-// idle session past the window is signed out. Tune the hours here.
-const SEEN_COOKIE = 'ee-seen'
-const SESSION_IDLE_MS = 3 * 60 * 60 * 1000 // 3 hours
+// re-armed on every navigation, so active users (and anyone in a live class) are
+// never interrupted — only an idle session past the window is signed out.
+const SESSION_IDLE_MS = 4 * 60 * 60 * 1000 // 4 hours of inactivity
+// The marker cookie must OUTLIVE the idle window. It previously used maxAge =
+// the window itself, so the browser deleted it at exactly the horizon it would
+// first read as stale → a returning idle session arrived with NO marker →
+// Number(undefined)=NaN → the logout branch was skipped and the session lived
+// forever (the "still logged in since yesterday" fail-OPEN bug). Giving the
+// marker a long life lets the stored TIMESTAMP — not the cookie's own expiry —
+// decide the window, so an idle session is correctly detected and signed out.
+const SEEN_MAX_AGE_S = 30 * 24 * 60 * 60 // 30 days
 
 function getLocale(request: NextRequest): string {
   // Respect persisted locale cookie (set when user toggles language).
@@ -107,9 +114,12 @@ export async function proxy(request: NextRequest) {
       }
       return out
     }
+    // Re-arm the marker on every request (sliding inactivity window). The long
+    // maxAge decouples the cookie's lifetime from the window so a returning idle
+    // session still carries its last-seen timestamp and CAN be read as stale above.
     response.cookies.set(SEEN_COOKIE, String(now), {
-      httpOnly: true, sameSite: 'lax', secure: true, path: '/',
-      maxAge: Math.floor(SESSION_IDLE_MS / 1000),
+      httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/',
+      maxAge: SEEN_MAX_AGE_S,
     })
   }
 

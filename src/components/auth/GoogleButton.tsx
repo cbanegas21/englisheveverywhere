@@ -1,10 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { notifyGoogleSignup } from '@/app/actions/auth'
-import { safeNextPath, pathAllowedForRole } from '@/lib/safeNext'
+import { completeGoogleSignIn } from '@/app/actions/auth'
 import type { Locale } from '@/lib/i18n/translations'
 
 // "Continue with Google" via Google Identity Services (GIS) + Supabase
@@ -28,13 +25,12 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 
 const t = {
-  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…', deleted: 'Esta cuenta ya no está disponible.', blocked: 'No se pudo cargar Google. Usa tu correo para continuar.' },
-  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…', deleted: 'This account is no longer available.', blocked: "Couldn't load Google. Use your email to continue." },
+  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…', deleted: 'Esta cuenta ya no está disponible.', blocked: 'No se pudo cargar Google. Usa tu correo para continuar.', adminOnly: 'Las cuentas de administrador inician sesión con correo y contraseña.' },
+  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…', deleted: 'This account is no longer available.', blocked: "Couldn't load Google. Use your email to continue.", adminOnly: 'Admin accounts sign in with email and password.' },
 }
 
 export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
   const tx = t[lang]
-  const router = useRouter()
   const wrapRef = useRef<HTMLDivElement>(null) // full-width measuring container
   const btnRef = useRef<HTMLDivElement>(null)  // GIS renders the iframe button here
   const rawNonce = useRef<string>('')
@@ -79,45 +75,26 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
       if (!resp.credential) return
       setError('')
       setLoading(true)
-      const supabase = createClient()
-      const { error: signErr } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: resp.credential,
+      // Hand the Google ID token + raw nonce to a SERVER action that does the
+      // exchange (so the session is written as a Set-Cookie the next request can
+      // see), runs the deleted-account + admin gates, sets the role cookie, and
+      // sends the welcome email — then returns where to land. The old client-side
+      // exchange + soft router.refresh raced the cookie commit and bounced the
+      // user back to /login.
+      const result = await completeGoogleSignIn({
+        idToken: resp.credential,
         nonce: rawNonce.current,
+        lang,
+        next: next ?? null,
       })
-      if (signErr) {
-        console.error('[google] signInWithIdToken failed:', signErr.message)
-        setError(tx.err)
+      if (!result.ok) {
+        setError(result.error === 'deleted' ? tx.deleted : result.error === 'admin' ? tx.adminOnly : tx.err)
         setLoading(false)
         return
       }
-      // Role-based landing, resolved client-side (RLS lets a user read own profile).
-      const { data: { user } } = await supabase.auth.getUser()
-      let role: string | undefined
-      let dest = `/${lang}/dashboard`
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role, deleted_at').eq('id', user.id).maybeSingle()
-        // A soft-deleted account must never re-enter via Google (the password path
-        // already blocks this in signIn). signInWithIdToken matches the surviving
-        // Google identity onto the scrubbed row, so gate it here. P2-1.
-        if (profile?.deleted_at) {
-          await supabase.auth.signOut()
-          setError(tx.deleted)
-          setLoading(false)
-          return
-        }
-        role = profile?.role
-        dest = role === 'teacher' ? `/${lang}/maestro/dashboard` : role === 'admin' ? `/${lang}/admin` : `/${lang}/dashboard`
-        // First-time Google students get the welcome email (the old flow did this
-        // in /auth/callback, which signInWithIdToken bypasses). Fire-and-forget.
-        notifyGoogleSignup(lang).catch(() => {})
-      }
-      // Honor `next` only via the SAME canonical guard the password login uses
-      // (safeNextPath rejects //, backslash, and non-locale paths → no open
-      // redirect; pathAllowedForRole keeps it inside the user's own area).
-      const safe = safeNextPath(next)
-      router.replace(safe && pathAllowedForRole(safe, role) ? safe : dest)
-      router.refresh()
+      // HARD navigation: a full document load carries the freshly server-written
+      // session cookies, eliminating the soft-refresh race entirely.
+      window.location.assign(result.dest)
     }
 
     async function init() {

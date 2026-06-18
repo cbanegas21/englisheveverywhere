@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit, recordLoginOutcome } from '@/lib/rateLimit'
-import { ROLE_COOKIE } from '@/lib/authCookie'
+import { ROLE_COOKIE, SEEN_COOKIE } from '@/lib/authCookie'
 import { APP_URL } from '@/lib/email'
 import { sendWelcomeEmail } from '@/lib/welcomeEmail'
 import { safeNextPath, pathAllowedForRole } from '@/lib/safeNext'
@@ -288,6 +288,9 @@ export async function signOut(lang: string = 'es') {
   await supabase.auth.signOut()
   const cookieStore = await cookies()
   cookieStore.delete(ROLE_COOKIE)
+  // Also drop the inactivity marker so a stale `ee-seen` can't survive a
+  // logout → login cycle and pre-date (and prematurely expire) the next session.
+  cookieStore.delete(SEEN_COOKIE)
   redirect(`/${lang}/login`)
 }
 
@@ -318,24 +321,91 @@ export async function resetPassword(formData: FormData) {
   redirect(`/${lang}/login?success=reset`)
 }
 
-// Welcome email for first-time Google sign-ups. The new GoogleButton uses
-// signInWithIdToken (no /auth/callback round-trip), so the greeting that used to
-// fire in the callback is sent here instead. Fire-and-forget, gated to a
-// brand-new student account so a returning user never re-triggers it.
-export async function notifyGoogleSignup(lang: string = 'es') {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-    const role = profile?.role || (user.user_metadata?.role as string | undefined)
-    const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0
-    const isNew = createdMs > 0 && Date.now() - createdMs < 2 * 60 * 1000
-    if (isNew && role !== 'admin' && role !== 'teacher') {
-      const fullName = (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || ''
-      await sendWelcomeEmail(user.email || '', fullName, lang)
-    }
-  } catch (e) {
-    console.error('[notifyGoogleSignup] non-blocking:', e)
+// Server-side completion of a Google (GIS) sign-in. The browser obtains the
+// Google ID token via Google Identity Services and hands it (plus the raw nonce)
+// here. Doing the token exchange server-side — exactly like signIn() — writes the
+// session as a Set-Cookie on THIS response, so it is durably visible to the next
+// navigation. The OLD flow ran signInWithIdToken on the browser client and then
+// did a SOFT router.refresh(), which raced the cookie commit → the server guard
+// saw no session and bounced the user back to /login. This also moves the
+// deleted-account gate, the admin block, the role cookie, and the welcome email
+// server-side (the client versions were racy/best-effort). Returns a destination
+// for the client to HARD-navigate to, or a typed error to display.
+export async function completeGoogleSignIn(args: {
+  idToken: string
+  nonce: string
+  lang?: string
+  next?: string | null
+}): Promise<{ ok: true; dest: string } | { ok: false; error: 'generic' | 'deleted' | 'admin' }> {
+  const lang = args.lang === 'en' ? 'en' : 'es'
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: args.idToken,
+    nonce: args.nonce,
+  })
+  if (error) {
+    // Never reflect the raw provider message into the UI — just log it.
+    console.error('[completeGoogleSignIn] idToken exchange failed:', error.message)
+    return { ok: false, error: 'generic' }
   }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'generic' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, deleted_at')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  // Soft-deleted accounts must never re-enter (durable server-side gate, mirrors
+  // signIn). signInWithIdToken can match a surviving Google identity onto a
+  // scrubbed row, so block it here too.
+  if (profile?.deleted_at) {
+    await supabase.auth.signOut()
+    return { ok: false, error: 'deleted' }
+  }
+
+  const role = profile?.role || (user.user_metadata?.role as string | undefined)
+
+  // Policy: admins sign in with email + password (+ TOTP). The Google path must
+  // never mint an admin session, regardless of which surface showed the button.
+  // (Teachers and students may use Google.)
+  if (role === 'admin') {
+    await supabase.auth.signOut()
+    return { ok: false, error: 'admin' }
+  }
+
+  // Persist the role for the proxy fast-path (parity with the password login).
+  if (role === 'teacher' || role === 'student') {
+    const cookieStore = await cookies()
+    cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
+  }
+
+  // First-time Google students get the welcome greeting (the old /auth/callback
+  // path used to send it; signInWithIdToken bypasses that). Server-side now, so
+  // it no longer depends on a racily-visible browser session. New-account window
+  // mirrors the prior notifyGoogleSignup guard.
+  const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0
+  const isNew = createdMs > 0 && Date.now() - createdMs < 2 * 60 * 1000
+  if (isNew && role === 'student') {
+    const fullName =
+      (user.user_metadata?.full_name as string) ||
+      (user.user_metadata?.name as string) || ''
+    await sendWelcomeEmail(user.email || '', fullName, lang).catch((e) =>
+      console.error('[completeGoogleSignIn] welcome email (non-blocking):', e)
+    )
+  }
+
+  // Honor a validated same-area next=, else land on the role home.
+  const safe = safeNextPath(args.next ?? null)
+  const dest =
+    safe && pathAllowedForRole(safe, role)
+      ? safe
+      : role === 'teacher'
+        ? `/${lang}/maestro/dashboard`
+        : `/${lang}/dashboard`
+  return { ok: true, dest }
 }

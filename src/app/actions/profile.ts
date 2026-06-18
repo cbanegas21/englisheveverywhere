@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cancelBookingReminders } from '@/lib/reminders'
 import { activeBookingCutoffIso } from '@/lib/bookingWindow'
-import { ROLE_COOKIE } from '@/lib/authCookie'
+import { ROLE_COOKIE, SEEN_COOKIE } from '@/lib/authCookie'
 import { isValidTimeZone } from '@/lib/timezone'
 import { checkUserActionLimit } from '@/lib/rateLimit'
 
@@ -397,6 +397,7 @@ export async function deleteMyAccount(
     await supabase.auth.signOut({ scope: 'global' })
     const cookieStore = await cookies()
     cookieStore.delete(ROLE_COOKIE)
+    cookieStore.delete(SEEN_COOKIE)
   } catch {
     // ignore
   }
