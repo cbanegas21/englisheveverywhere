@@ -7,9 +7,12 @@ import { withSentryConfig } from "@sentry/nextjs";
 //   • Supabase REST/auth/storage (https) + realtime (wss) — public project URL.
 //   • LiveKit signaling — regional *.livekit.cloud over wss/https.
 //   • FX rates — open.er-api.com (client fetch in lib/fx.ts).
-// The whiteboard is now a self-hosted canvas (no third-party CDN/SDK) — it draws
-// to a local <canvas> and syncs strokes over the LiveKit data channel, so no
-// extra origins are needed for it.
+//   • Excalidraw whiteboard (/sala pizarra, MIT/free) — its fonts are SELF-HOSTED
+//     at /excalidraw/ (window.EXCALIDRAW_ASSET_PATH), so the board loads same-origin.
+//     But Excalidraw ALSO hard-appends an esm.sh fallback FontFace per font and
+//     loads it redundantly; that duplicate is harmless (the self-host already
+//     satisfied the font) but spams CSP violations, so esm.sh is allowed for
+//     font-src/connect-src only. No license, no blank — unlike tldraw.
 // Deliberately NOT listed (verified server-side or top-level redirects, so they
 // never load on our origin): Stripe (checkout is a full window.location redirect,
 // no Stripe.js embedded), Google OAuth (Supabase signInWithOAuth top-level
@@ -35,8 +38,8 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://challenges.cloudflare.com https://accounts.google.com",
   "style-src 'self' 'unsafe-inline' https://accounts.google.com",
   `img-src 'self' data: blob: ${SUPABASE_ORIGIN} https://cdnjs.cloudflare.com https://*.googleusercontent.com`,
-  "font-src 'self' data:",
-  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io https://challenges.cloudflare.com https://accounts.google.com`,
+  "font-src 'self' data: https://esm.sh",
+  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io https://challenges.cloudflare.com https://accounts.google.com https://esm.sh`,
   `media-src 'self' blob: mediastream: ${SUPABASE_ORIGIN}`,
   "worker-src 'self' blob:",
   "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com",
