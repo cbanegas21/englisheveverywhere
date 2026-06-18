@@ -256,15 +256,17 @@ function Countdown({ scheduledAt, lang }: { scheduledAt: string; lang: Locale })
   const mins = Math.floor(diff / 60000)
   const hours = Math.floor(mins / 60)
   const days = Math.floor(hours / 24)
+  const remH = hours % 24
+  const remM = mins % 60
 
+  // Always carry down to the MINUTE so the student sees exactly how long is left.
+  // A bare "1 day" hid whether the call was 24h or 47h away (the owner's report).
   let label: string
   if (days >= 1) {
-    const remH = hours % 24
-    label = remH > 0
-      ? `${tx.daysLeft(days)} · ${tx.hoursLeft(remH)}`
-      : tx.daysLeft(days)
+    label = [tx.daysLeft(days), remH > 0 ? tx.hoursLeft(remH) : null, remM > 0 ? tx.minsLeft(remM) : null]
+      .filter(Boolean)
+      .join(' · ')
   } else if (hours >= 1) {
-    const remM = mins % 60
     label = remM > 0
       ? `${tx.hoursLeft(hours)} · ${tx.minsLeft(remM)}`
       : tx.hoursLeft(hours)

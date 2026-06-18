@@ -43,7 +43,11 @@ function formatCountdown(ms: number, lang: Locale): string {
   const mins = totalMinutes % 60
   const tx = T[lang]
   if (days >= 1) {
-    return hours > 0 ? `${tx.day(days)} ${hours}h` : tx.day(days)
+    // Keep hours AND minutes so the countdown is precise to the minute even at
+    // the day level (a bare "1 day" hid the real minutes-remaining).
+    return [tx.day(days), hours > 0 ? `${hours}h` : null, mins > 0 ? `${mins}m` : null]
+      .filter(Boolean)
+      .join(' ')
   }
   return mins ? `${hours}h ${mins}m` : `${hours}h`
 }
