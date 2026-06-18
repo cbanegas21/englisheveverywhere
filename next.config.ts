@@ -7,6 +7,10 @@ import { withSentryConfig } from "@sentry/nextjs";
 //   • Supabase REST/auth/storage (https) + realtime (wss) — public project URL.
 //   • LiveKit signaling — regional *.livekit.cloud over wss/https.
 //   • FX rates — open.er-api.com (client fetch in lib/fx.ts).
+//   • tldraw whiteboard (/sala pizarra) — cdn.tldraw.com serves its fonts/icons/
+//     translations. Without it the enforced CSP BLOCKS those loads, tldraw throws
+//     ("Load failed" + EncodingError), and the board took the whole room down on
+//     mobile (confirmed via Sentry, 2026-06-18). Added to img/font/connect-src.
 // Deliberately NOT listed (verified server-side or top-level redirects, so they
 // never load on our origin): Stripe (checkout is a full window.location redirect,
 // no Stripe.js embedded), Google OAuth (Supabase signInWithOAuth top-level
@@ -31,9 +35,9 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob: https://challenges.cloudflare.com https://accounts.google.com",
   "style-src 'self' 'unsafe-inline' https://accounts.google.com",
-  `img-src 'self' data: blob: ${SUPABASE_ORIGIN} https://cdnjs.cloudflare.com https://*.googleusercontent.com`,
-  "font-src 'self' data:",
-  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io https://challenges.cloudflare.com https://accounts.google.com`,
+  `img-src 'self' data: blob: ${SUPABASE_ORIGIN} https://cdnjs.cloudflare.com https://*.googleusercontent.com https://cdn.tldraw.com`,
+  "font-src 'self' data: https://cdn.tldraw.com",
+  `connect-src 'self' ${SUPABASE_ORIGIN} ${SUPABASE_WSS} https://*.livekit.cloud wss://*.livekit.cloud https://open.er-api.com https://*.ingest.us.sentry.io https://*.ingest.sentry.io https://challenges.cloudflare.com https://accounts.google.com https://cdn.tldraw.com`,
   `media-src 'self' blob: mediastream: ${SUPABASE_ORIGIN}`,
   "worker-src 'self' blob:",
   "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com",
