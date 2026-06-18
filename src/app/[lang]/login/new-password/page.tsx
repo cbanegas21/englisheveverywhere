@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n/translations'
+import { Spinner, LoadingOverlay } from '@/components/ui/Spinner'
 
 const t = {
   en: {
@@ -217,10 +218,17 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
               disabled={status === 'loading'}
               className="ee-btn-primary w-full justify-center"
             >
-              {status === 'loading' ? '…' : tx.cta}
+              {status === 'loading' ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Spinner size={16} stroke="#fff" />
+                  {tx.cta}
+                </span>
+              ) : tx.cta}
             </button>
           </form>
         )}
+
+        {status === 'loading' && <LoadingOverlay />}
 
         {status === 'success' && (
           <p className="text-[14px] font-medium" style={{ color: '#16a34a' }}>

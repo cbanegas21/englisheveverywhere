@@ -99,7 +99,20 @@
 /* ── Reset & Base ────────────────────────────────────────────────── */
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* iOS Safari auto-zooms into any text form control whose font-size is < 16px and
+   does NOT zoom back out — the page then looks shifted right / "stuck zoomed in"
+   until the user pinch-zooms out. Enforce a 16px floor on phone-sized viewports
+   so focusing a field never triggers the zoom. !important is required to beat the
+   inline fontSize:14 some inputs carry. Checkboxes/radios/ranges are excluded. */
+@media (max-width: 640px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
 
 /* Anchored landing sections clear the sticky ~64px header on jump-nav (LK-01). */
 :where(#how-it-works, #teachers, #pricing, #faq) { scroll-margin-top: 80px; }

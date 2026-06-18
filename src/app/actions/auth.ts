@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { isValidPhoneNumber } from 'libphonenumber-js'
@@ -340,19 +341,19 @@ export async function completeGoogleSignIn(args: {
   const lang = args.lang === 'en' ? 'en' : 'es'
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signInWithIdToken({
+  const { data, error } = await supabase.auth.signInWithIdToken({
     provider: 'google',
     token: args.idToken,
     nonce: args.nonce,
   })
-  if (error) {
+  if (error || !data.user) {
     // Never reflect the raw provider message into the UI — just log it.
-    console.error('[completeGoogleSignIn] idToken exchange failed:', error.message)
+    console.error('[completeGoogleSignIn] idToken exchange failed:', error?.message)
     return { ok: false, error: 'generic' }
   }
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: 'generic' }
+  // Use the user FROM the exchange itself — no extra getUser() round-trip (the
+  // session is already authenticated here), which shaves latency off the redirect.
+  const user = data.user
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -394,9 +395,14 @@ export async function completeGoogleSignIn(args: {
     const fullName =
       (user.user_metadata?.full_name as string) ||
       (user.user_metadata?.name as string) || ''
-    await sendWelcomeEmail(user.email || '', fullName, lang).catch((e) =>
-      console.error('[completeGoogleSignIn] welcome email (non-blocking):', e)
-    )
+    // Send AFTER the response so the email's network call never delays the
+    // redirect to the dashboard. after() still guarantees it runs on Vercel
+    // (a bare fire-and-forget can be frozen when the function suspends).
+    after(async () => {
+      await sendWelcomeEmail(user.email || '', fullName, lang).catch((e) =>
+        console.error('[completeGoogleSignIn] welcome email (non-blocking):', e)
+      )
+    })
   }
 
   // Honor a validated same-area next=, else land on the role home.

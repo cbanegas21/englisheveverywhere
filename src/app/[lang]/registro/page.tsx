@@ -11,6 +11,7 @@ import { Logo } from '@/components/ui/Logo'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { Turnstile } from '@/components/Turnstile'
+import { Spinner, LoadingOverlay } from '@/components/ui/Spinner'
 import { PhoneInput } from 'react-international-phone'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import 'react-international-phone/style.css'
@@ -403,9 +404,17 @@ function RegistroContent({ lang }: { lang: Locale }) {
             onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = 'var(--ek-red-hover)' }}
             onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = 'var(--ek-red)' }}
           >
-            {isPending ? tx.loading : tx.submit}
+            {isPending ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Spinner size={16} stroke="#fff" />
+                {tx.loading}
+              </span>
+            ) : tx.submit}
           </button>
         </form>
+
+        {/* Veil the gap between submit and the onboarding page painting. */}
+        {isPending && <LoadingOverlay label={tx.loading} />}
 
         {/* Google sign-up (students only) sits directly under the primary action,
             with the legal line last so it applies to BOTH sign-up methods. */}

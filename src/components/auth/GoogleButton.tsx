@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { completeGoogleSignIn } from '@/app/actions/auth'
+import { LoadingOverlay } from '@/components/ui/Spinner'
 import type { Locale } from '@/lib/i18n/translations'
 
 // "Continue with Google" via Google Identity Services (GIS) + Supabase
@@ -25,8 +26,8 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 
 const t = {
-  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…', deleted: 'Esta cuenta ya no está disponible.', blocked: 'No se pudo cargar Google. Usa tu correo para continuar.', adminOnly: 'Las cuentas de administrador inician sesión con correo y contraseña.' },
-  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…', deleted: 'This account is no longer available.', blocked: "Couldn't load Google. Use your email to continue.", adminOnly: 'Admin accounts sign in with email and password.' },
+  es: { or: 'o', err: 'No se pudo continuar con Google. Intenta de nuevo.', loading: 'Conectando…', signingIn: 'Iniciando sesión…', deleted: 'Esta cuenta ya no está disponible.', blocked: 'No se pudo cargar Google. Usa tu correo para continuar.', adminOnly: 'Las cuentas de administrador inician sesión con correo y contraseña.' },
+  en: { or: 'or', err: "Couldn't continue with Google. Please try again.", loading: 'Connecting…', signingIn: 'Signing you in…', deleted: 'This account is no longer available.', blocked: "Couldn't load Google. Use your email to continue.", adminOnly: 'Admin accounts sign in with email and password.' },
 }
 
 export function GoogleButton({ lang, next }: { lang: Locale; next?: string | null }) {
@@ -161,7 +162,10 @@ export function GoogleButton({ lang, next }: { lang: Locale; next?: string | nul
       <div ref={wrapRef} className="w-full flex justify-center" style={{ minHeight: 44 }}>
         <div ref={btnRef} aria-label="Google" />
       </div>
-      {loading && <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.loading}</p>}
+      {/* Full-screen veil that persists through the server action AND the slow
+          dashboard load that follows the hard navigation — so the ~seconds of
+          DB latency read as "signing you in", not a frozen/broken page. */}
+      {loading && <LoadingOverlay label={tx.signingIn} />}
       {error && <p className="mt-2 text-center text-[12px]" style={{ color: '#DC2626' }}>{error}</p>}
       {blocked && <p className="mt-2 text-center text-[12px]" style={{ color: 'var(--ek-text-muted)' }}>{tx.blocked}</p>}
     </div>

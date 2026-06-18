@@ -14,6 +14,7 @@ import {
   reportTeacherNoShow,
 } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
+import { Spinner, LoadingOverlay } from '@/components/ui/Spinner'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -262,6 +263,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
   const [actionStatus, setActionStatus] = useState<'idle' | 'working' | 'error'>('idle')
   const [actionError, setActionError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [reloading, setReloading] = useState(false)
 
   useEffect(() => {
     if (!toast) return
@@ -366,6 +368,9 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
       if (res?.error) { setActionStatus('error'); setActionError(res.error); return }
       closeAction()
       setToast(res?.message || tx.actionDone)
+      // Veil the full page reload so the cancel/reschedule/no-show doesn't look
+      // frozen between the success and the page repainting.
+      setReloading(true)
       window.location.reload()
     } catch {
       // P3: never leak a raw (English) error string into the localized UI.
@@ -380,6 +385,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+      {reloading && <LoadingOverlay label={tx.actionWorking} />}
       <DashTopBar
         title={tx.title}
         sub={tx.subtitle}
@@ -1216,7 +1222,7 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                   }}
                 >
                   {actionStatus === 'working'
-                    ? tx.actionWorking
+                    ? (<><Spinner size={14} stroke="#fff" />{tx.actionWorking}</>)
                     : kind === 'cancel' ? tx.cancelConfirm
                       : kind === 'reschedule' ? tx.rescheduleConfirm
                         : tx.noShowConfirm}

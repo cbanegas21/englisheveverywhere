@@ -10,6 +10,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import { Logo } from '@/components/ui/Logo'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { GoogleButton } from '@/components/auth/GoogleButton'
+import { Spinner, LoadingOverlay } from '@/components/ui/Spinner'
 
 const t = {
   en: {
@@ -208,14 +209,20 @@ function LoginForm({ lang }: { lang: Locale }) {
               <button
                 type="submit"
                 disabled={isPending}
-                className="w-full font-bold text-[14px] py-3.5 rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full font-bold text-[14px] py-3.5 rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ background: 'var(--ek-red)', color: '#fff' }}
                 onMouseEnter={e => { if (!isPending) e.currentTarget.style.background = 'var(--ek-red-hover)' }}
                 onMouseLeave={e => { if (!isPending) e.currentTarget.style.background = 'var(--ek-red)' }}
               >
+                {isPending && <Spinner size={16} stroke="#fff" />}
                 {isPending ? tx.loading : tx.submit}
               </button>
             </form>
+
+            {/* Slow path: signIn redirects to a server-rendered dashboard that
+                fetches from the (latency-prone) DB — the overlay keeps the screen
+                from looking frozen during that wait. */}
+            {isPending && <LoadingOverlay label={tx.loading} />}
 
             <GoogleButton lang={lang} next={searchParams.get('next')} />
 

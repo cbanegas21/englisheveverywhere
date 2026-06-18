@@ -9,6 +9,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import Modal from '@/components/dashboard/Modal'
+import { Spinner } from '@/components/ui/Spinner'
 
 interface Option { id: string; en: string; es: string }
 interface Question {
@@ -771,7 +772,12 @@ export default function PlacementClient({
                 className="ek-btn ek-btn-red ek-btn-square"
                 style={{ flex: 1, padding: '12px 0', fontSize: 13, justifyContent: 'center', opacity: isPending ? 0.6 : 1 }}
               >
-                {isPending ? tx.confirming : (
+                {isPending ? (
+                  <>
+                    <Spinner size={14} stroke="#fff" />
+                    {tx.confirming}
+                  </>
+                ) : (
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {tx.confirmBtn}

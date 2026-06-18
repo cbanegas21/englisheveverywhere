@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Video } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
+import { LoadingOverlay } from '@/components/ui/Spinner'
 
 // Zoom-style entry: the room itself renders a lobby with a countdown for
 // anyone who arrives early, so we expose the Join link up to 24h before
@@ -17,12 +18,14 @@ const LATE_GRACE_MS = 90 * 60 * 1000
 const T = {
   en: {
     join: 'Join class',
+    joining: 'Joining class…',
     startsIn: (s: string) => `Starts in ${s}`,
     ended: 'Session ended',
     day: (n: number) => (n === 1 ? '1 day' : `${n} days`),
   },
   es: {
     join: 'Entrar a clase',
+    joining: 'Entrando a la clase…',
     startsIn: (s: string) => `Empieza en ${s}`,
     ended: 'Sesión terminada',
     day: (n: number) => (n === 1 ? '1 día' : `${n} días`),
@@ -71,6 +74,10 @@ export default function JoinSessionButton({
   // countdown text differ between the two → React #418 on production. Compute the
   // real time only after mount, so SSR and first client render are identical.
   const [now, setNow] = useState<number | null>(null)
+  // Show a full-screen veil the instant Join is clicked, so the gap between the
+  // click and the /sala page painting (server render + getRoomAccess + LiveKit
+  // token mint) reads as "entering", not a dead button.
+  const [joining, setJoining] = useState(false)
 
   useEffect(() => {
     setNow(Date.now())
@@ -107,16 +114,28 @@ export default function JoinSessionButton({
     return renderDisabled(tx.ended, variant, className)
   }
 
-  return renderLink(href, tx.join, variant, className)
+  return (
+    <>
+      {renderLink(href, tx.join, variant, className, () => setJoining(true))}
+      {joining && <LoadingOverlay label={tx.joining} />}
+    </>
+  )
 }
 
-function renderLink(href: string, label: string, variant: Props['variant'], className?: string) {
+function renderLink(
+  href: string,
+  label: string,
+  variant: Props['variant'],
+  className?: string,
+  onJoin?: () => void,
+) {
   const style = baseStyle(variant, false)
   return (
     <Link
       href={href}
       className={className}
       style={style}
+      onClick={onJoin}
       onMouseEnter={(e) => {
         if (variant !== 'secondary') {
           (e.currentTarget as HTMLAnchorElement).style.background = '#9E1830'

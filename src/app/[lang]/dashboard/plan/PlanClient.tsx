@@ -14,6 +14,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import Modal from '@/components/dashboard/Modal'
+import { Spinner } from '@/components/ui/Spinner'
 
 export interface Purchase {
   id: string
@@ -1053,7 +1054,12 @@ export default function PlanClient({
               className="ek-btn ek-btn-red ek-btn-square"
               style={{ flex: 1.4, padding: '12px 0', fontSize: 13, justifyContent: 'center', opacity: isPending ? 0.6 : 1 }}
             >
-              {isPending ? tx.paying : (
+              {isPending ? (
+                <>
+                  <Spinner size={14} stroke="#fff" />
+                  {tx.paying}
+                </>
+              ) : (
                 <>
                   <CreditCard className="h-3.5 w-3.5" />
                   {tx.payNow}

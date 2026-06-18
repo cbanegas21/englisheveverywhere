@@ -10,6 +10,7 @@ import { getZonedParts, zonedWallTimeToUtc } from '@/lib/timezone'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import Modal from '@/components/dashboard/Modal'
+import { Spinner } from '@/components/ui/Spinner'
 
 interface Props {
   lang: Locale
@@ -1029,7 +1030,12 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
                 opacity: isPending ? 0.6 : 1,
               }}
             >
-              {isPending ? tx.booking : tx.confirm}
+              {isPending ? (
+                <>
+                  <Spinner size={14} stroke="#fff" />
+                  {tx.booking}
+                </>
+              ) : tx.confirm}
             </button>
           </div>
         }
