@@ -11,19 +11,22 @@ import { VIDEO_THEME } from '../theme'
 import { Z } from '../zLayers'
 import '@excalidraw/excalidraw/index.css'
 
-// Self-host Excalidraw's fonts / locales / font-subset worker (copied to
-// /public/excalidraw by scripts/copy-excalidraw-assets.mjs) so NOTHING loads from
-// a third-party CDN — our enforced CSP only allows 'self', and a CDN font fetch is
-// exactly what blanked tldraw. Must be set before Excalidraw's code runs.
-if (typeof window !== 'undefined') {
-  ;(window as unknown as { EXCALIDRAW_ASSET_PATH?: string }).EXCALIDRAW_ASSET_PATH = '/excalidraw/'
-}
-
 // Excalidraw is a large client-only bundle — keep it out of the initial room JS.
-// Typed loosely at the boundary so we don't depend on Excalidraw's internal type
-// subpaths (which move between versions).
+// CRITICAL: set window.EXCALIDRAW_ASSET_PATH IMMEDIATELY BEFORE importing the
+// Excalidraw module. Excalidraw resolves its font URLs at module-eval time and
+// FALLS BACK to the esm.sh CDN (which our 'self'-only CSP blocks) unless the path
+// is already a string. Pointing it at our self-hosted /excalidraw/ (copied to
+// public/ at build by scripts/copy-excalidraw-assets.mjs) keeps every asset
+// same-origin → CSP-clean, no CDN. Typed loosely at the boundary so we don't
+// depend on Excalidraw's internal type subpaths (which move between versions).
 const Excalidraw = dynamic(
-  () => import('@excalidraw/excalidraw').then((m) => m.Excalidraw),
+  async () => {
+    if (typeof window !== 'undefined') {
+      ;(window as unknown as { EXCALIDRAW_ASSET_PATH?: string }).EXCALIDRAW_ASSET_PATH = '/excalidraw/'
+    }
+    const m = await import('@excalidraw/excalidraw')
+    return m.Excalidraw
+  },
   { ssr: false, loading: () => <BoardLoader /> },
 ) as unknown as React.ComponentType<Record<string, unknown>>
 
