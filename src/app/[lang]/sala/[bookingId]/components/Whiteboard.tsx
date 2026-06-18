@@ -1,96 +1,165 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
-import { useDataChannel, useLocalParticipant } from '@livekit/components-react'
+import { X, Pencil, Eraser, Trash2 } from 'lucide-react'
+import { useDataChannel } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
 import { Z } from '../zLayers'
-import type { Editor, HistoryEntry, TLRecord } from 'tldraw'
-import 'tldraw/tldraw.css'
-
-// tldraw drags in ~1MB — keep it out of the initial room bundle.
-const Tldraw = dynamic(() => import('tldraw').then(m => m.Tldraw), {
-  ssr: false,
-  loading: () => <BoardLoader />,
-})
 
 interface Props {
   lang: Locale
   bookingId: string
   show: boolean
   onClose: () => void
-  // CALL-01: identities allowed to drive the board (known participants, excluding
-  // self). The content channel honors strokes only from these — without it, an
-  // admin OBSERVER (granted canPublishData:true) or any token-holder could inject
-  // shapes onto the participants' board, inconsistent with the gated sibling
-  // channels (whiteboard-control / reactions).
+  // CALL-01: identities allowed to draw on the shared board (known participants,
+  // excluding self). Strokes from anyone else (e.g. an admin observer) are dropped.
   peerIdentities: string[]
 }
 
-type WireChanges = {
-  added: Record<string, TLRecord>
-  updated: Record<string, [TLRecord, TLRecord]>
-  removed: Record<string, TLRecord>
-}
+// A self-hosted collaborative whiteboard — no third-party SDK, no license, no CDN.
+// Strokes are stored in NORMALIZED [0..1] board coordinates so they map across the
+// two participants' different screen sizes, and synced over the existing LiveKit
+// 'whiteboard' data channel (one reliable message per completed stroke + a clear).
+// Replaces tldraw, which required a license key and silently blanked the board on
+// a production domain after a few seconds.
 
-// Collaborative whiteboard. Covers the video stage as an overlay (like a
-// screen share). Uses LiveKit data channel with topic 'whiteboard' to sync
-// per-record changes between teacher and student.
-//
-// Sync model (CALL-04, verified): listen for user-source changes locally →
-// send the diff over the 'whiteboard' data channel; on remote diff arrival,
-// apply via mergeRemoteChanges so it doesn't echo back out. Open/close is
-// mirrored separately via 'whiteboard-control' (see RoomShell) so the peer's
-// board is mounted and subscribed before strokes arrive. Late joiners see a
-// blank board (MVP) — persisted locally via persistenceKey for reload recovery.
-// Zoom/recenter (CALL-05) is intentionally LOCAL-per-user (each person controls
-// their own view); only shape edits sync.
-export function Whiteboard({ lang, bookingId, show, onClose, peerIdentities }: Props) {
+type Pt = [number, number] // normalized 0..1 of the board
+interface Stroke { id: string; color: string; size: number; erase: boolean; pts: Pt[] }
+type WireEvt = { t: 'stroke'; s: Stroke } | { t: 'clear' }
+
+const COLORS = ['#1A1A1A', '#C41E3A', '#2563EB', '#059669', '#D97706', '#7C3AED']
+const SIZES = [3, 6, 12]
+
+export function Whiteboard({ lang, show, onClose, peerIdentities }: Props) {
   const tx = videoStrings(lang)
-  const { localParticipant } = useLocalParticipant()
-  const editorRef = useRef<Editor | null>(null)
-  const [ready, setReady] = useState(false)
+  const boardRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
+  const strokes = useRef<Stroke[]>([]) // all completed strokes (local + remote)
+  const cur = useRef<Stroke | null>(null) // local in-progress stroke
+  const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
+  const [color, setColor] = useState(COLORS[0])
+  const [size, setSize] = useState(SIZES[1])
+  // Read current tool settings inside pointer handlers without re-binding them.
+  const toolRef = useRef({ tool, color, size })
+  toolRef.current = { tool, color, size }
 
-  // Scope the local IndexedDB persistence per-user, not just per-booking (CALL-02).
-  // On a shared device, a board keyed only by bookingId would reload the previous
-  // occupant's strokes into the next user's session. Identity (the profile id) is
-  // stable for the duration of a connection.
-  const persistenceKey = `ee-sala-${bookingId}-${localParticipant.identity || 'anon'}`
+  // ── stroke rendering ──────────────────────────────────────────────────────
+  const drawStroke = useCallback((s: Stroke) => {
+    const ctx = ctxRef.current, board = boardRef.current
+    if (!ctx || !board || s.pts.length === 0) return
+    const w = board.clientWidth, h = board.clientHeight
+    ctx.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over'
+    ctx.strokeStyle = s.color
+    ctx.lineWidth = s.erase ? s.size * 2.6 : s.size
+    ctx.beginPath()
+    ctx.moveTo(s.pts[0][0] * w, s.pts[0][1] * h)
+    if (s.pts.length === 1) {
+      // a tap = a dot
+      ctx.lineTo(s.pts[0][0] * w + 0.1, s.pts[0][1] * h)
+    } else {
+      for (let i = 1; i < s.pts.length; i++) ctx.lineTo(s.pts[i][0] * w, s.pts[i][1] * h)
+    }
+    ctx.stroke()
+    ctx.globalCompositeOperation = 'source-over'
+  }, [])
 
-  const { send } = useDataChannel('whiteboard', msg => {
-    const editor = editorRef.current
-    if (!editor) return
-    // Drop a stroke from an IDENTIFIABLE non-peer (e.g. an admin observer);
-    // honor a legit peer even if its identity is briefly unresolved during a
-    // (re)connect race — mirrors isUntrustedSender for the sibling channels.
+  const redraw = useCallback(() => {
+    const ctx = ctxRef.current, cv = canvasRef.current
+    if (!ctx || !cv) return
+    ctx.clearRect(0, 0, cv.width, cv.height)
+    for (const s of strokes.current) drawStroke(s)
+  }, [drawStroke])
+
+  const sizeCanvas = useCallback(() => {
+    const cv = canvasRef.current, board = boardRef.current
+    if (!cv || !board) return
+    const dpr = window.devicePixelRatio || 1
+    const w = board.clientWidth, h = board.clientHeight
+    cv.width = Math.max(1, Math.round(w * dpr))
+    cv.height = Math.max(1, Math.round(h * dpr))
+    cv.style.width = `${w}px`; cv.style.height = `${h}px`
+    const ctx = cv.getContext('2d')
+    if (ctx) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctxRef.current = ctx }
+  }, [])
+
+  // ── data channel sync. CALL-01: ignore strokes from non-peers. ────────────
+  const { send } = useDataChannel('whiteboard', (msg) => {
     if (msg.from?.identity && !peerIdentities.includes(msg.from.identity)) return
     try {
-      const decoded = new TextDecoder().decode(msg.payload)
-      const changes = JSON.parse(decoded) as WireChanges
-      applyRemoteChanges(editor, changes)
+      const evt = JSON.parse(new TextDecoder().decode(msg.payload)) as WireEvt
+      if (evt.t === 'stroke' && evt.s?.pts?.length) { strokes.current.push(evt.s); drawStroke(evt.s) }
+      else if (evt.t === 'clear') { strokes.current = []; redraw() }
     } catch { /* ignore malformed frames */ }
   })
-
-  const zoomIn = useCallback(() => { editorRef.current?.zoomIn() }, [])
-  const zoomOut = useCallback(() => { editorRef.current?.zoomOut() }, [])
-  const recenter = useCallback(() => { editorRef.current?.zoomToFit() }, [])
-
-  const onMount = useCallback((editor: Editor) => {
-    editorRef.current = editor
-    setReady(true)
-    editor.store.listen(
-      (entry: HistoryEntry<TLRecord>) => {
-        if (entry.source !== 'user') return
-        const payload = new TextEncoder().encode(JSON.stringify(entry.changes))
-        void send(payload, { topic: 'whiteboard', reliable: true })
-      },
-      { scope: 'document', source: 'user' },
-    )
+  const broadcast = useCallback((evt: WireEvt) => {
+    try { void send(new TextEncoder().encode(JSON.stringify(evt)), { topic: 'whiteboard', reliable: true }).catch(() => {}) } catch { /* best-effort */ }
   }, [send])
+
+  // Size + redraw whenever the board becomes visible or its size changes. The
+  // component stays mounted for the whole call (RoomShell), so strokes received
+  // while the board was closed are retained and painted on next open.
+  useEffect(() => {
+    if (!show) return
+    const board = boardRef.current
+    if (!board) return
+    sizeCanvas(); redraw()
+    const ro = new ResizeObserver(() => { sizeCanvas(); redraw() })
+    ro.observe(board)
+    return () => ro.disconnect()
+  }, [show, sizeCanvas, redraw])
+
+  // ── pointer drawing ───────────────────────────────────────────────────────
+  const ptFromEvent = (e: React.PointerEvent): Pt => {
+    const r = boardRef.current!.getBoundingClientRect()
+    return [
+      Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+      Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
+    ]
+  }
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
+    const t = toolRef.current
+    cur.current = { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`, color: t.color, size: t.size, erase: t.tool === 'eraser', pts: [ptFromEvent(e)] }
+    drawStroke(cur.current)
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    const s = cur.current
+    if (!s) return
+    s.pts.push(ptFromEvent(e))
+    // Paint only the new segment for smoothness (full redraws are reserved for
+    // resize / remote / clear).
+    const ctx = ctxRef.current, board = boardRef.current
+    if (ctx && board && s.pts.length >= 2) {
+      const w = board.clientWidth, h = board.clientHeight
+      const a = s.pts[s.pts.length - 2], b = s.pts[s.pts.length - 1]
+      ctx.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over'
+      ctx.strokeStyle = s.color
+      ctx.lineWidth = s.erase ? s.size * 2.6 : s.size
+      ctx.beginPath(); ctx.moveTo(a[0] * w, a[1] * h); ctx.lineTo(b[0] * w, b[1] * h); ctx.stroke()
+      ctx.globalCompositeOperation = 'source-over'
+    }
+  }
+  const endStroke = () => {
+    const s = cur.current
+    if (!s) return
+    cur.current = null
+    strokes.current.push(s)
+    broadcast({ t: 'stroke', s }) // one reliable message per completed stroke
+  }
+  const clearAll = () => { strokes.current = []; redraw(); broadcast({ t: 'clear' }) }
+
+  const btn = (active: boolean): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 10, cursor: 'pointer',
+    background: active ? VIDEO_THEME.brandTint20 : 'transparent',
+    color: active ? VIDEO_THEME.brand : 'rgba(255,255,255,0.85)',
+    border: active ? `1px solid ${VIDEO_THEME.brandTint30}` : '1px solid transparent',
+  })
 
   return (
     <AnimatePresence>
@@ -101,102 +170,70 @@ export function Whiteboard({ lang, bookingId, show, onClose, peerIdentities }: P
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           className="absolute inset-0"
-          style={{ background: VIDEO_THEME.stage, zIndex: Z.whiteboard }}
+          style={{ background: VIDEO_THEME.stage, zIndex: Z.whiteboard, display: 'flex', flexDirection: 'column' }}
         >
-          <div className="ek-wb-tldraw absolute inset-0 pt-14">
-            <Tldraw
-              persistenceKey={persistenceKey}
-              onMount={onMount}
-              inferDarkMode
-            />
-          </div>
-          {/* Constrain tldraw's desktop-first chrome on phones so the toolbar /
-              style panel don't collide with the app's top bar or overflow a
-              390px stage. Scoped to this overlay only. */}
-          <style>{`
-            @media (max-width: 640px) {
-              .ek-wb-tldraw .tlui-layout__top { top: 4rem; }
-              .ek-wb-tldraw .tlui-style-panel { max-width: calc(100vw - 16px); }
-              .ek-wb-tldraw .tlui-style-panel__wrapper { max-width: calc(100vw - 16px); }
-              .ek-wb-tldraw .tlui-toolbar { max-width: 100vw; }
-              .ek-wb-tldraw .tlui-toolbar__inner { max-width: 100vw; overflow-x: auto; }
-            }
-          `}</style>
+          {/* Top bar */}
           <div
-            className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-2.5 z-10"
-            style={{ background: 'rgba(0,0,0,0.75)', borderBottom: `1px solid ${VIDEO_THEME.border}` }}
+            className="flex items-center justify-between px-4 py-2.5"
+            style={{ background: 'rgba(0,0,0,0.75)', borderBottom: `1px solid ${VIDEO_THEME.border}`, flexShrink: 0 }}
           >
             <div className="flex items-center gap-2">
               <span className="inline-block h-2 w-2 rounded-full" style={{ background: VIDEO_THEME.brand }} />
               <h3 className="text-sm font-semibold text-white">{tx.whiteboardTitle}</h3>
-              {!ready && (
-                <span className="text-[11px]" style={{ color: VIDEO_THEME.textSubtle }}>{tx.whiteboardLoading}</span>
-              )}
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={zoomOut}
-                disabled={!ready}
-                aria-label={tx.whiteboardZoomOut}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white disabled:opacity-40"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </button>
-              <button
-                onClick={recenter}
-                disabled={!ready}
-                aria-label={tx.whiteboardRecenter}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white disabled:opacity-40"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
-              <button
-                onClick={zoomIn}
-                disabled={!ready}
-                aria-label={tx.whiteboardZoomIn}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white disabled:opacity-40"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </button>
-              <span className="mx-1 h-5 w-px" style={{ background: VIDEO_THEME.border }} />
-              {/* Solid 44px brand circle so the exit is unmistakable + easy to tap
-                  on a phone (was a 32px ghost X that mis-tapped into tldraw). */}
-              <button
-                onClick={onClose}
-                aria-label={tx.whiteboardClose}
-                className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors"
-                style={{ background: VIDEO_THEME.brand }}
-                onMouseEnter={e => { e.currentTarget.style.background = VIDEO_THEME.brandHover }}
-                onMouseLeave={e => { e.currentTarget.style.background = VIDEO_THEME.brand }}
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <button
+              onClick={onClose}
+              aria-label={tx.whiteboardClose}
+              className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors"
+              style={{ background: VIDEO_THEME.brand }}
+              onMouseEnter={e => { e.currentTarget.style.background = VIDEO_THEME.brandHover }}
+              onMouseLeave={e => { e.currentTarget.style.background = VIDEO_THEME.brand }}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Board (white) + drawing canvas */}
+          <div ref={boardRef} className="relative flex-1 min-h-0" style={{ background: '#FFFFFF', touchAction: 'none' }}>
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0"
+              style={{ touchAction: 'none', cursor: tool === 'eraser' ? 'cell' : 'crosshair' }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={endStroke}
+              onPointerCancel={endStroke}
+              onPointerLeave={endStroke}
+            />
+
+            {/* Floating tool palette */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-2 rounded-2xl"
+              style={{ bottom: 'calc(16px + env(safe-area-inset-bottom))', background: 'rgba(16,18,22,0.95)', border: `1px solid ${VIDEO_THEME.border}`, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', maxWidth: 'calc(100vw - 16px)', flexWrap: 'wrap', justifyContent: 'center' }}
+            >
+              <button style={btn(tool === 'pen')} aria-label={tx.whiteboardPen} aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}><Pencil className="h-4 w-4" /></button>
+              <button style={btn(tool === 'eraser')} aria-label={tx.whiteboardEraser} aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}><Eraser className="h-4 w-4" /></button>
+              <span className="mx-0.5 h-6 w-px" style={{ background: VIDEO_THEME.border }} />
+              {COLORS.map(c => (
+                <button
+                  key={c}
+                  aria-label={c}
+                  onClick={() => { setColor(c); setTool('pen') }}
+                  style={{ width: 26, height: 26, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c && tool === 'pen' ? '2px solid #fff' : '2px solid rgba(255,255,255,0.25)', outline: color === c && tool === 'pen' ? `2px solid ${VIDEO_THEME.brand}` : 'none' }}
+                />
+              ))}
+              <span className="mx-0.5 h-6 w-px" style={{ background: VIDEO_THEME.border }} />
+              {SIZES.map(sz => (
+                <button key={sz} aria-label={`size ${sz}`} onClick={() => setSize(sz)} style={btn(size === sz)}>
+                  <span style={{ width: sz + 4, height: sz + 4, borderRadius: '50%', background: size === sz ? VIDEO_THEME.brand : 'rgba(255,255,255,0.8)', display: 'inline-block' }} />
+                </button>
+              ))}
+              <span className="mx-0.5 h-6 w-px" style={{ background: VIDEO_THEME.border }} />
+              <button style={btn(false)} aria-label={tx.whiteboardClear} onClick={clearAll}><Trash2 className="h-4 w-4" /></button>
             </div>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
-  )
-}
-
-function applyRemoteChanges(editor: Editor, changes: WireChanges) {
-  editor.store.mergeRemoteChanges(() => {
-    const toPut: TLRecord[] = []
-    for (const rec of Object.values(changes.added)) toPut.push(rec)
-    for (const pair of Object.values(changes.updated)) toPut.push(pair[1])
-    if (toPut.length) editor.store.put(toPut)
-    const toRemove = Object.keys(changes.removed)
-    if (toRemove.length) editor.store.remove(toRemove as TLRecord['id'][])
-  })
-}
-
-function BoardLoader() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center" style={{ background: VIDEO_THEME.stage }}>
-      <span
-        className="h-8 w-8 rounded-full border-2 border-white/20 border-t-white animate-spin"
-        aria-hidden
-      />
-    </div>
   )
 }

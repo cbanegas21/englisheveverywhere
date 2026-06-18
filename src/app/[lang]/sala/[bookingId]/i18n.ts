@@ -36,6 +36,7 @@ type Strings = {
   deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
   whiteboard: string; whiteboardTitle: string; whiteboardClose: string; whiteboardLoading: string
   whiteboardZoomIn: string; whiteboardZoomOut: string; whiteboardRecenter: string
+  whiteboardPen: string; whiteboardEraser: string; whiteboardClear: string
   transcript: string; transcriptTitle: string; transcriptClose: string; transcriptEmpty: string; transcriptUnsupported: string; transcriptListening: string
   errorMessages: ErrorMessages
 }
@@ -108,6 +109,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     whiteboardZoomIn: 'Zoom in',
     whiteboardZoomOut: 'Zoom out',
     whiteboardRecenter: 'Fit to content',
+    whiteboardPen: 'Pen',
+    whiteboardEraser: 'Eraser',
+    whiteboardClear: 'Clear board',
 
     transcript: 'Transcript',
     transcriptTitle: 'Live transcript',
@@ -197,6 +201,9 @@ export const VIDEO_T: Record<Locale, Strings> = {
     whiteboardZoomIn: 'Acercar',
     whiteboardZoomOut: 'Alejar',
     whiteboardRecenter: 'Ajustar al contenido',
+    whiteboardPen: 'Lápiz',
+    whiteboardEraser: 'Borrador',
+    whiteboardClear: 'Borrar pizarra',
 
     transcript: 'Transcripción',
     transcriptTitle: 'Transcripción en vivo',
