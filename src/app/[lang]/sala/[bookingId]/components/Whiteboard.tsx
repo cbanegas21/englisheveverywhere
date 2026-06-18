@@ -115,7 +115,7 @@ export function Whiteboard({ lang, bookingId, show, onClose, peerIdentities }: P
               390px stage. Scoped to this overlay only. */}
           <style>{`
             @media (max-width: 640px) {
-              .ek-wb-tldraw .tlui-layout__top { top: 3.5rem; }
+              .ek-wb-tldraw .tlui-layout__top { top: 4rem; }
               .ek-wb-tldraw .tlui-style-panel { max-width: calc(100vw - 16px); }
               .ek-wb-tldraw .tlui-style-panel__wrapper { max-width: calc(100vw - 16px); }
               .ek-wb-tldraw .tlui-toolbar { max-width: 100vw; }
@@ -159,12 +159,17 @@ export function Whiteboard({ lang, bookingId, show, onClose, peerIdentities }: P
                 <ZoomIn className="h-4 w-4" />
               </button>
               <span className="mx-1 h-5 w-px" style={{ background: VIDEO_THEME.border }} />
+              {/* Solid 44px brand circle so the exit is unmistakable + easy to tap
+                  on a phone (was a 32px ghost X that mis-tapped into tldraw). */}
               <button
                 onClick={onClose}
                 aria-label={tx.whiteboardClose}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-white transition-colors"
+                style={{ background: VIDEO_THEME.brand }}
+                onMouseEnter={e => { e.currentTarget.style.background = VIDEO_THEME.brandHover }}
+                onMouseLeave={e => { e.currentTarget.style.background = VIDEO_THEME.brand }}
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
           </div>

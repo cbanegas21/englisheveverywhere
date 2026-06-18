@@ -23,6 +23,7 @@ type Strings = {
   lobbyTitle: string; lobbyStartsIn: string; lobbyEnterNow: string; lobbyHint: string; lobbyLive: string
   mute: string; unmute: string; stopVideo: string; startVideo: string
   endClass: string; leave: string; endingSession: string
+  leaveConfirmTitle: string; leaveConfirmYes: string; leaveConfirmNo: string
   sessionEnded: string; sessionEndedSub: string; studentEndedSub: string; returnDashboard: string
   devMode: string; errorTitle: string; retry: string
   you: string; teacher: string; student: string; close: string
@@ -58,6 +59,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     mute: 'Mute', unmute: 'Unmute',
     stopVideo: 'Stop video', startVideo: 'Start video',
     endClass: 'End Class', leave: 'Leave', endingSession: 'Ending...',
+    leaveConfirmTitle: 'Leave class?', leaveConfirmYes: 'Leave', leaveConfirmNo: 'Stay',
 
     sessionEnded: 'Class Complete',
     sessionEndedSub: 'Great work! Your session summary is on the way.',
@@ -146,6 +148,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
     mute: 'Silenciar', unmute: 'Activar mic',
     stopVideo: 'Detener video', startVideo: 'Iniciar video',
     endClass: 'Terminar Clase', leave: 'Salir', endingSession: 'Terminando...',
+    leaveConfirmTitle: '¿Salir de la clase?', leaveConfirmYes: 'Salir', leaveConfirmNo: 'Quedarme',
 
     sessionEnded: 'Clase Completada',
     sessionEndedSub: '¡Buen trabajo! El resumen de tu sesión estará listo pronto.',

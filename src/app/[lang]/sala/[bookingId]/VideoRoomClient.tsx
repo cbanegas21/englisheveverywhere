@@ -83,6 +83,11 @@ export default function VideoRoomClient({
   // event a student receives, or a self-initiated leave). Lets onDisconnected tell
   // a real class-end apart from an involuntary network drop (P2-7).
   const endedRef = useRef(false)
+  // Counts involuntary reconnect attempts. A transient mobile drop (backgrounding,
+  // a network blip, a stray gesture) silently rejoins instead of ejecting to the
+  // error screen; reset to 0 on every successful connect so each new drop gets its
+  // own retry, but a truly dead connection still surfaces the error after one try.
+  const rejoinAttempts = useRef(0)
 
   const handleComplete = useCallback((summary?: SessionSummary) => {
     endedRef.current = true
@@ -117,7 +122,7 @@ export default function VideoRoomClient({
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden" style={{ background: VIDEO_THEME.stage }}>
+    <div className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden" style={{ background: VIDEO_THEME.stage, overscrollBehavior: 'none' }}>
       <div className="flex-1 relative">
         {phase === 'init' && <ConnectingScreen message={tx.connecting} />}
 
@@ -159,14 +164,22 @@ export default function VideoRoomClient({
               console.error('[livekit] room error:', err?.message || err)
               if (!endedRef.current) { setErrorCode('connection'); setPhase('error') }
             }}
-            // P2-7: only a real end (teacher End-Class → broadcast → handleComplete,
-            // a self leave, or an already-completed booking) goes to the ended
-            // screen. An INVOLUNTARY drop (after LiveKit exhausts its own reconnects)
-            // shows a connection error with a rejoin button instead of a misleading
-            // "class ended". Re-joining re-checks access (→ "already ended" if the
-            // teacher did finish, or reconnects if it was just the network).
+            onConnected={() => { rejoinAttempts.current = 0 }}
+            // P2-7 / CALL-mobile: only a real end (teacher End-Class → broadcast →
+            // handleComplete, a self leave, or an already-completed booking) goes to
+            // the ended screen. An INVOLUNTARY drop (after LiveKit exhausts its own
+            // reconnects) silently REJOINS once — re-running init() re-checks access
+            // (→ proper "already ended"/"expired" screen if the class really finished,
+            // or a fresh-token reconnect if it was just a mobile blip/backgrounding).
+            // Only after that retry fails does it surface the connection error +
+            // rejoin button, instead of ejecting the user on the first hiccup.
             onDisconnected={() => {
               if (endedRef.current || status === 'completed') return
+              if (rejoinAttempts.current < 1) {
+                rejoinAttempts.current += 1
+                void init()
+                return
+              }
               setErrorCode('connection')
               setPhase('error')
             }}

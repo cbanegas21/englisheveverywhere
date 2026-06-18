@@ -31,6 +31,9 @@ interface Props {
   onToggleWhiteboard: () => void
   showTranscript: boolean
   onToggleTranscript: () => void
+  // Desktop-only: the live transcript engine is too heavy for phones, so the
+  // toggle is hidden when this is false (see RoomShell). Defaults to true.
+  transcriptEnabled?: boolean
   // Reports the bar's rendered height so the parent can keep the self-view PiP
   // clear of it (CALL-08). With the single-row layout this stays stable, but
   // the ResizeObserver keeps it honest across breakpoints.
@@ -73,6 +76,7 @@ export function ControlBar({
   onToggleWhiteboard,
   showTranscript,
   onToggleTranscript,
+  transcriptEnabled = true,
   onHeightChange,
 }: Props) {
   const tx = videoStrings(lang)
@@ -175,14 +179,16 @@ export function ControlBar({
       active: showReactions || handRaised,
       variant: showReactions || handRaised ? 'brand' : 'neutral',
     },
-    {
-      key: 'transcript',
-      label: tx.transcript,
-      icon: <Captions className="h-5 w-5" />,
-      onClick: onToggleTranscript,
-      active: showTranscript,
-      variant: showTranscript ? 'brand' : 'neutral',
-    },
+    ...(transcriptEnabled
+      ? [{
+          key: 'transcript',
+          label: tx.transcript,
+          icon: <Captions className="h-5 w-5" />,
+          onClick: onToggleTranscript,
+          active: showTranscript,
+          variant: (showTranscript ? 'brand' : 'neutral') as Variant,
+        }]
+      : []),
     {
       key: 'whiteboard',
       label: tx.whiteboard,
@@ -306,6 +312,9 @@ export function ControlBar({
           label={isLeaving ? tx.endingSession : tx.endClass}
           loading={isLeaving}
           compact={isCompact}
+          confirmTitle={tx.leaveConfirmTitle}
+          confirmYes={tx.leaveConfirmYes}
+          confirmNo={tx.leaveConfirmNo}
         />
       ) : (
         <LeaveButton
@@ -315,6 +324,9 @@ export function ControlBar({
           loading={false}
           compact={isCompact}
           icon={<LogOut className="h-5 w-5" />}
+          confirmTitle={tx.leaveConfirmTitle}
+          confirmYes={tx.leaveConfirmYes}
+          confirmNo={tx.leaveConfirmNo}
         />
       )}
     </div>
@@ -401,7 +413,7 @@ function MoreRow({ tool, onPick }: { tool: Tool; onPick: () => void }) {
 }
 
 function LeaveButton({
-  onClick, disabled, label, loading, compact, icon,
+  onClick, disabled, label, loading, compact, icon, confirmTitle, confirmYes, confirmNo,
 }: {
   onClick: () => void
   disabled: boolean
@@ -409,14 +421,60 @@ function LeaveButton({
   loading: boolean
   compact: boolean
   icon?: React.ReactNode
+  confirmTitle: string
+  confirmYes: string
+  confirmNo: string
 }) {
+  const [confirming, setConfirming] = useState(false)
   const hangup = icon ?? <PhoneOff className="h-5 w-5" />
+  // On phones a single tap is too easy to hit by accident at the crowded bottom
+  // bar (it would instantly disconnect → "kicked out"), so gate the leave behind
+  // a quick confirm. Desktop keeps the deliberate one-tap leave.
+  const handleClick = () => {
+    if (compact && !confirming) { setConfirming(true); return }
+    setConfirming(false)
+    onClick()
+  }
   return (
     <div className="group relative">
+      {confirming && compact && (
+        <>
+          <button
+            aria-hidden="true"
+            tabIndex={-1}
+            onClick={() => setConfirming(false)}
+            className="fixed inset-0 z-40 cursor-default"
+            style={{ background: 'transparent' }}
+          />
+          <div
+            role="dialog"
+            className="absolute bottom-full right-0 z-50 mb-3 w-52 rounded-2xl p-3 shadow-2xl"
+            style={{ background: 'rgba(16,18,22,0.97)', border: `1px solid ${VIDEO_THEME.border}`, backdropFilter: 'blur(12px)' }}
+          >
+            <p className="mb-2.5 text-[13px] font-semibold text-white">{confirmTitle}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirming(false)}
+                className="flex-1 rounded-xl py-2.5 text-[13px] font-medium text-white"
+                style={{ background: VIDEO_THEME.surface, border: `1px solid ${VIDEO_THEME.border}` }}
+              >
+                {confirmNo}
+              </button>
+              <button
+                onClick={() => { setConfirming(false); onClick() }}
+                className="flex-1 rounded-xl py-2.5 text-[13px] font-semibold text-white"
+                style={{ background: VIDEO_THEME.brand }}
+              >
+                {confirmYes}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
       <motion.button
         whileHover={{ scale: disabled ? 1 : 1.04 }}
         whileTap={{ scale: disabled ? 1 : 0.96 }}
-        onClick={onClick}
+        onClick={handleClick}
         disabled={disabled}
         className={
           compact

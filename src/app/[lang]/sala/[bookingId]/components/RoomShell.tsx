@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   useTracks,
   useConnectionState,
@@ -35,6 +35,7 @@ import type { FloatingReaction, RemoteHand } from './Reactions'
 import { CuadernoPanel } from './CuadernoPanel'
 import { ConnectingScreen } from './ConnectingScreen'
 import { LeavingScreen } from './LeavingScreen'
+import { ErrorBoundary } from './ErrorBoundary'
 
 interface Props {
   lang: Locale
@@ -86,23 +87,30 @@ export function RoomShell({
     [peerIdentities],
   )
 
-  // Live transcript. Runs for the life of the call so the teacher's leave
-  // flow can persist a complete transcript — the panel toggle only affects
-  // visibility, not capture. Default recognizer language follows the UI
-  // locale; user can toggle ES/EN from the cuaderno header at any time.
+  // The live transcript + AI cuaderno are DESKTOP-ONLY. On phones the continuous
+  // speech capture (a fresh MediaRecorder on the mic every few seconds) + the
+  // ~30s AI calls compete with the WebRTC pipeline and can drop the call — the
+  // room must stay rock-solid on mobile. At >=1024px the cuaderno shows as a right
+  // rail and the engine runs; below that it's off entirely (the control-bar toggle
+  // is hidden too). Default false so a phone never starts the heavy engine even
+  // for a frame (the matchMedia initializer corrects to true on a real desktop).
+  const isDesktopCuaderno = useMediaQuery('(min-width: 1024px)', false)
+
+  // Recognizer language follows the UI locale; user can toggle ES/EN from the
+  // cuaderno header (desktop) at any time.
   const [recognizerLang, setRecognizerLang] = useState<'es-ES' | 'en-US'>(
     lang === 'es' ? 'es-ES' : 'en-US'
   )
-  const transcript = useLiveTranscript({ enabled: true, bookingId, lang: recognizerLang })
+  const transcript = useLiveTranscript({ enabled: isDesktopCuaderno, bookingId, lang: recognizerLang })
 
-  // Live AI cuaderno — extracts teaching-worthy vocab from the running
-  // transcript every ~30s via Claude haiku 4.5. Best-effort, silent on
-  // failure (no Anthropic key = empty vocab list, panel still works).
+  // Live AI cuaderno — extracts teaching-worthy vocab from the running transcript
+  // every ~30s via Claude haiku 4.5. Best-effort; desktop-only (gated with the
+  // transcript engine above).
   const liveVocab = useLiveVocab({
     bookingId,
     finals: transcript.finals,
     uiLang: lang,
-    enabled: true,
+    enabled: isDesktopCuaderno,
   })
 
   const { isLeaving, leave } = useLeaveFlow({
@@ -177,9 +185,6 @@ export function RoomShell({
   const [showCuaderno, setShowCuaderno] = useState(
     () => typeof window === 'undefined' || window.innerWidth >= 1024
   )
-  // Desktop renders the cuaderno as a 360px right rail; below 1024px it docks as
-  // a bottom-sheet over the stage so the AI-vocab notebook survives on phones.
-  const isDesktopCuaderno = useMediaQuery('(min-width: 1024px)', true)
   // Phone-width: the self-view PiP clamps to its small size and a full-width
   // panel hides it (rather than shoving it off-screen / over the panel input).
   const isCompact = useMediaQuery('(max-width: 639px)', false)
@@ -284,6 +289,39 @@ export function RoomShell({
   const unreadCount = chatMessages
     .slice(baselineCount)
     .filter((m) => m.from?.identity !== localParticipant.identity).length
+
+  // ── Mobile back-gesture trap (stops a stray swipe from dropping the call) ──
+  // While a full-bleed panel/overlay is open, an iOS Safari edge-swipe-back would
+  // otherwise unmount the room → disconnect → "kicked out of the call." Keep one
+  // trapped history entry for the room: a back press CLOSES the open panel (and
+  // re-arms the trap) instead of navigating away. With nothing open, back is left
+  // alone so a deliberate exit still works.
+  const anyPanelOpen = showWhiteboard || showCuaderno || showChat || showNotes || showDevices || showReactions
+  const anyPanelOpenRef = useRef(anyPanelOpen)
+  anyPanelOpenRef.current = anyPanelOpen
+  const closeAllPanels = useCallback(() => {
+    closeWhiteboard()
+    setShowCuaderno(false); setShowChat(false); setShowNotes(false); setShowDevices(false); setShowReactions(false)
+  }, [closeWhiteboard])
+  useEffect(() => {
+    window.history.pushState({ eeSalaTrap: true }, '')
+    const onPop = () => {
+      if (anyPanelOpenRef.current) {
+        closeAllPanels()
+        window.history.pushState({ eeSalaTrap: true }, '') // re-arm so the trap persists
+      }
+      // else: nothing open → allow the back through (user leaves normally)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [closeAllPanels])
+
+  // The cuaderno is desktop-only (no mobile toggle, no in-sheet close). If the
+  // viewport narrows below the breakpoint while it was open (desktop resize /
+  // rotation), force it closed so it can never become a stuck mobile sheet.
+  useEffect(() => {
+    if (!isDesktopCuaderno) setShowCuaderno(false)
+  }, [isDesktopCuaderno])
 
   // Keep the PiP self-view clear of an open right-side panel (chat 360 / notes
   // 320) and of the control bar (CALL-01 / CALL-08). When both chat + notes are
@@ -479,6 +517,7 @@ export function RoomShell({
           onToggleWhiteboard={toggleWhiteboard}
           showTranscript={showCuaderno}
           onToggleTranscript={() => setShowCuaderno(p => !p)}
+          transcriptEnabled={isDesktopCuaderno}
           onHeightChange={setControlBarHeight}
         />
         {isTeacher && (
@@ -504,13 +543,15 @@ export function RoomShell({
           show={showDevices}
           onClose={() => setShowDevices(false)}
         />
-        <Whiteboard
-          lang={lang}
-          bookingId={bookingId}
-          show={showWhiteboard}
-          onClose={closeWhiteboard}
-          peerIdentities={peerIdentities}
-        />
+        <ErrorBoundary resetKey={`wb-${showWhiteboard}`} onError={closeWhiteboard}>
+          <Whiteboard
+            lang={lang}
+            bookingId={bookingId}
+            show={showWhiteboard}
+            onClose={closeWhiteboard}
+            peerIdentities={peerIdentities}
+          />
+        </ErrorBoundary>
         <ReactionsPopover
           lang={lang}
           show={showReactions}
@@ -526,21 +567,23 @@ export function RoomShell({
           remoteHand={remoteHand}
         />
       </div>
-      <CuadernoPanel
-        lang={lang}
-        show={showCuaderno}
-        mode={isDesktopCuaderno ? 'rail' : 'sheet'}
-        bottomInset={selfViewBottomInset}
-        onClose={() => setShowCuaderno(false)}
-        finals={transcript.finals}
-        interims={transcript.interims}
-        supported={transcript.supported}
-        listening={transcript.listening}
-        vocab={liveVocab.entries}
-        isExtractingVocab={liveVocab.isExtracting}
-        recognizerLang={recognizerLang}
-        onChangeRecognizerLang={setRecognizerLang}
-      />
+      <ErrorBoundary resetKey={`cu-${showCuaderno}`} onError={() => setShowCuaderno(false)}>
+        <CuadernoPanel
+          lang={lang}
+          show={showCuaderno}
+          mode={isDesktopCuaderno ? 'rail' : 'sheet'}
+          bottomInset={selfViewBottomInset}
+          onClose={() => setShowCuaderno(false)}
+          finals={transcript.finals}
+          interims={transcript.interims}
+          supported={transcript.supported}
+          listening={transcript.listening}
+          vocab={liveVocab.entries}
+          isExtractingVocab={liveVocab.isExtracting}
+          recognizerLang={recognizerLang}
+          onChangeRecognizerLang={setRecognizerLang}
+        />
+      </ErrorBoundary>
       </div>
     </div>
   )
