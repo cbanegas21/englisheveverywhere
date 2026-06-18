@@ -1,165 +1,103 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X, Pencil, Eraser, Trash2 } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useDataChannel } from '@livekit/components-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
 import { VIDEO_THEME } from '../theme'
 import { Z } from '../zLayers'
+import '@excalidraw/excalidraw/index.css'
+
+// Self-host Excalidraw's fonts / locales / font-subset worker (copied to
+// /public/excalidraw by scripts/copy-excalidraw-assets.mjs) so NOTHING loads from
+// a third-party CDN — our enforced CSP only allows 'self', and a CDN font fetch is
+// exactly what blanked tldraw. Must be set before Excalidraw's code runs.
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { EXCALIDRAW_ASSET_PATH?: string }).EXCALIDRAW_ASSET_PATH = '/excalidraw/'
+}
+
+// Excalidraw is a large client-only bundle — keep it out of the initial room JS.
+// Typed loosely at the boundary so we don't depend on Excalidraw's internal type
+// subpaths (which move between versions).
+const Excalidraw = dynamic(
+  () => import('@excalidraw/excalidraw').then((m) => m.Excalidraw),
+  { ssr: false, loading: () => <BoardLoader /> },
+) as unknown as React.ComponentType<Record<string, unknown>>
 
 interface Props {
   lang: Locale
   bookingId: string
   show: boolean
   onClose: () => void
-  // CALL-01: identities allowed to draw on the shared board (known participants,
-  // excluding self). Strokes from anyone else (e.g. an admin observer) are dropped.
+  // CALL-01: identities allowed to drive the board (known participants, excluding
+  // self). Scene updates from anyone else (e.g. an admin observer) are dropped.
   peerIdentities: string[]
 }
 
-// A self-hosted collaborative whiteboard — no third-party SDK, no license, no CDN.
-// Strokes are stored in NORMALIZED [0..1] board coordinates so they map across the
-// two participants' different screen sizes, and synced over the existing LiveKit
-// 'whiteboard' data channel (one reliable message per completed stroke + a clear).
-// Replaces tldraw, which required a license key and silently blanked the board on
-// a production domain after a few seconds.
-
-type Pt = [number, number] // normalized 0..1 of the board
-interface Stroke { id: string; color: string; size: number; erase: boolean; pts: Pt[] }
-type WireEvt = { t: 'stroke'; s: Stroke } | { t: 'clear' }
-
-const COLORS = ['#1A1A1A', '#C41E3A', '#2563EB', '#059669', '#D97706', '#7C3AED']
-const SIZES = [3, 6, 12]
+// Minimal shapes of the Excalidraw element + API we touch.
+type El = { id: string; version: number; isDeleted?: boolean; [k: string]: unknown }
+type ExApi = { updateScene: (s: { elements?: readonly El[] }) => void }
 
 export function Whiteboard({ lang, show, onClose, peerIdentities }: Props) {
   const tx = videoStrings(lang)
-  const boardRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
-  const strokes = useRef<Stroke[]>([]) // all completed strokes (local + remote)
-  const cur = useRef<Stroke | null>(null) // local in-progress stroke
-  const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
-  const [color, setColor] = useState(COLORS[0])
-  const [size, setSize] = useState(SIZES[1])
-  // Read current tool settings inside pointer handlers without re-binding them.
-  const toolRef = useRef({ tool, color, size })
-  toolRef.current = { tool, color, size }
+  const apiRef = useRef<ExApi | null>(null)
+  // id -> latest element (incl. soft-deleted). Lives on the always-mounted
+  // component, so a scene received while the board is closed is retained and
+  // loaded via initialData on next open.
+  const sceneRef = useRef<Map<string, El>>(new Map())
+  const lastSentVer = useRef<Map<string, number>>(new Map())
+  const applyingRemote = useRef(false)
+  const flushScheduled = useRef(false)
 
-  // ── stroke rendering ──────────────────────────────────────────────────────
-  const drawStroke = useCallback((s: Stroke) => {
-    const ctx = ctxRef.current, board = boardRef.current
-    if (!ctx || !board || s.pts.length === 0) return
-    const w = board.clientWidth, h = board.clientHeight
-    ctx.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over'
-    ctx.strokeStyle = s.color
-    ctx.lineWidth = s.erase ? s.size * 2.6 : s.size
-    ctx.beginPath()
-    ctx.moveTo(s.pts[0][0] * w, s.pts[0][1] * h)
-    if (s.pts.length === 1) {
-      // a tap = a dot
-      ctx.lineTo(s.pts[0][0] * w + 0.1, s.pts[0][1] * h)
-    } else {
-      for (let i = 1; i < s.pts.length; i++) ctx.lineTo(s.pts[i][0] * w, s.pts[i][1] * h)
+  const applyRemote = useCallback((incoming: El[]) => {
+    let changed = false
+    for (const el of incoming) {
+      if (!el || typeof el.id !== 'string') continue
+      const have = sceneRef.current.get(el.id)
+      if (!have || (el.version ?? 0) > (have.version ?? 0)) {
+        sceneRef.current.set(el.id, el)
+        lastSentVer.current.set(el.id, el.version ?? 0) // don't echo it straight back
+        changed = true
+      }
     }
-    ctx.stroke()
-    ctx.globalCompositeOperation = 'source-over'
+    if (changed && apiRef.current) {
+      applyingRemote.current = true
+      apiRef.current.updateScene({ elements: Array.from(sceneRef.current.values()) })
+      requestAnimationFrame(() => { applyingRemote.current = false })
+    }
   }, [])
 
-  const redraw = useCallback(() => {
-    const ctx = ctxRef.current, cv = canvasRef.current
-    if (!ctx || !cv) return
-    ctx.clearRect(0, 0, cv.width, cv.height)
-    for (const s of strokes.current) drawStroke(s)
-  }, [drawStroke])
-
-  const sizeCanvas = useCallback(() => {
-    const cv = canvasRef.current, board = boardRef.current
-    if (!cv || !board) return
-    const dpr = window.devicePixelRatio || 1
-    const w = board.clientWidth, h = board.clientHeight
-    cv.width = Math.max(1, Math.round(w * dpr))
-    cv.height = Math.max(1, Math.round(h * dpr))
-    cv.style.width = `${w}px`; cv.style.height = `${h}px`
-    const ctx = cv.getContext('2d')
-    if (ctx) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctxRef.current = ctx }
-  }, [])
-
-  // ── data channel sync. CALL-01: ignore strokes from non-peers. ────────────
+  // Inbound scene updates over the LiveKit data channel (CALL-01 peer gate).
   const { send } = useDataChannel('whiteboard', (msg) => {
     if (msg.from?.identity && !peerIdentities.includes(msg.from.identity)) return
     try {
-      const evt = JSON.parse(new TextDecoder().decode(msg.payload)) as WireEvt
-      if (evt.t === 'stroke' && evt.s?.pts?.length) { strokes.current.push(evt.s); drawStroke(evt.s) }
-      else if (evt.t === 'clear') { strokes.current = []; redraw() }
+      const evt = JSON.parse(new TextDecoder().decode(msg.payload)) as { t: 'els'; els: El[] }
+      if (evt.t === 'els' && Array.isArray(evt.els)) applyRemote(evt.els)
     } catch { /* ignore malformed frames */ }
   })
-  const broadcast = useCallback((evt: WireEvt) => {
-    try { void send(new TextEncoder().encode(JSON.stringify(evt)), { topic: 'whiteboard', reliable: true }).catch(() => {}) } catch { /* best-effort */ }
+
+  const onChange = useCallback((elements: readonly El[]) => {
+    for (const el of elements) if (el && typeof el.id === 'string') sceneRef.current.set(el.id, el)
+    if (applyingRemote.current || flushScheduled.current) return
+    // Throttle: collect everything whose version changed since last broadcast and
+    // send it ~120ms later (Excalidraw fires onChange very rapidly while drawing).
+    flushScheduled.current = true
+    setTimeout(() => {
+      flushScheduled.current = false
+      const changed: El[] = []
+      for (const el of sceneRef.current.values()) {
+        if ((el.version ?? 0) !== (lastSentVer.current.get(el.id) ?? -1)) {
+          changed.push(el); lastSentVer.current.set(el.id, el.version ?? 0)
+        }
+      }
+      if (changed.length) {
+        try { void send(new TextEncoder().encode(JSON.stringify({ t: 'els', els: changed })), { topic: 'whiteboard', reliable: true }).catch(() => {}) } catch { /* best-effort */ }
+      }
+    }, 120)
   }, [send])
-
-  // Size + redraw whenever the board becomes visible or its size changes. The
-  // component stays mounted for the whole call (RoomShell), so strokes received
-  // while the board was closed are retained and painted on next open.
-  useEffect(() => {
-    if (!show) return
-    const board = boardRef.current
-    if (!board) return
-    sizeCanvas(); redraw()
-    const ro = new ResizeObserver(() => { sizeCanvas(); redraw() })
-    ro.observe(board)
-    return () => ro.disconnect()
-  }, [show, sizeCanvas, redraw])
-
-  // ── pointer drawing ───────────────────────────────────────────────────────
-  const ptFromEvent = (e: React.PointerEvent): Pt => {
-    const r = boardRef.current!.getBoundingClientRect()
-    return [
-      Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
-      Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
-    ]
-  }
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
-    const t = toolRef.current
-    cur.current = { id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`, color: t.color, size: t.size, erase: t.tool === 'eraser', pts: [ptFromEvent(e)] }
-    drawStroke(cur.current)
-  }
-  const onPointerMove = (e: React.PointerEvent) => {
-    const s = cur.current
-    if (!s) return
-    s.pts.push(ptFromEvent(e))
-    // Paint only the new segment for smoothness (full redraws are reserved for
-    // resize / remote / clear).
-    const ctx = ctxRef.current, board = boardRef.current
-    if (ctx && board && s.pts.length >= 2) {
-      const w = board.clientWidth, h = board.clientHeight
-      const a = s.pts[s.pts.length - 2], b = s.pts[s.pts.length - 1]
-      ctx.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over'
-      ctx.strokeStyle = s.color
-      ctx.lineWidth = s.erase ? s.size * 2.6 : s.size
-      ctx.beginPath(); ctx.moveTo(a[0] * w, a[1] * h); ctx.lineTo(b[0] * w, b[1] * h); ctx.stroke()
-      ctx.globalCompositeOperation = 'source-over'
-    }
-  }
-  const endStroke = () => {
-    const s = cur.current
-    if (!s) return
-    cur.current = null
-    strokes.current.push(s)
-    broadcast({ t: 'stroke', s }) // one reliable message per completed stroke
-  }
-  const clearAll = () => { strokes.current = []; redraw(); broadcast({ t: 'clear' }) }
-
-  const btn = (active: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: 40, height: 40, borderRadius: 10, cursor: 'pointer',
-    background: active ? VIDEO_THEME.brandTint20 : 'transparent',
-    color: active ? VIDEO_THEME.brand : 'rgba(255,255,255,0.85)',
-    border: active ? `1px solid ${VIDEO_THEME.brandTint30}` : '1px solid transparent',
-  })
 
   return (
     <AnimatePresence>
@@ -172,7 +110,7 @@ export function Whiteboard({ lang, show, onClose, peerIdentities }: Props) {
           className="absolute inset-0"
           style={{ background: VIDEO_THEME.stage, zIndex: Z.whiteboard, display: 'flex', flexDirection: 'column' }}
         >
-          {/* Top bar */}
+          {/* App top bar (title + close), above Excalidraw's own UI. */}
           <div
             className="flex items-center justify-between px-4 py-2.5"
             style={{ background: 'rgba(0,0,0,0.75)', borderBottom: `1px solid ${VIDEO_THEME.border}`, flexShrink: 0 }}
@@ -193,47 +131,27 @@ export function Whiteboard({ lang, show, onClose, peerIdentities }: Props) {
             </button>
           </div>
 
-          {/* Board (white) + drawing canvas */}
-          <div ref={boardRef} className="relative flex-1 min-h-0" style={{ background: '#FFFFFF', touchAction: 'none' }}>
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0"
-              style={{ touchAction: 'none', cursor: tool === 'eraser' ? 'cell' : 'crosshair' }}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={endStroke}
-              onPointerCancel={endStroke}
-              onPointerLeave={endStroke}
+          {/* Excalidraw fills the rest. Light theme = a white board. */}
+          <div className="relative" style={{ flex: 1, minHeight: 0 }}>
+            <Excalidraw
+              excalidrawAPI={(api: ExApi) => { apiRef.current = api }}
+              initialData={{ elements: Array.from(sceneRef.current.values()), appState: { viewBackgroundColor: '#FFFFFF' }, scrollToContent: true }}
+              onChange={onChange}
+              theme="light"
+              langCode={lang === 'es' ? 'es-ES' : 'en'}
+              UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, toggleTheme: false } }}
             />
-
-            {/* Floating tool palette */}
-            <div
-              className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-2 rounded-2xl"
-              style={{ bottom: 'calc(16px + env(safe-area-inset-bottom))', background: 'rgba(16,18,22,0.95)', border: `1px solid ${VIDEO_THEME.border}`, boxShadow: '0 8px 30px rgba(0,0,0,0.4)', maxWidth: 'calc(100vw - 16px)', flexWrap: 'wrap', justifyContent: 'center' }}
-            >
-              <button style={btn(tool === 'pen')} aria-label={tx.whiteboardPen} aria-pressed={tool === 'pen'} onClick={() => setTool('pen')}><Pencil className="h-4 w-4" /></button>
-              <button style={btn(tool === 'eraser')} aria-label={tx.whiteboardEraser} aria-pressed={tool === 'eraser'} onClick={() => setTool('eraser')}><Eraser className="h-4 w-4" /></button>
-              <span className="mx-0.5 h-6 w-px" style={{ background: VIDEO_THEME.border }} />
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  aria-label={c}
-                  onClick={() => { setColor(c); setTool('pen') }}
-                  style={{ width: 26, height: 26, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c && tool === 'pen' ? '2px solid #fff' : '2px solid rgba(255,255,255,0.25)', outline: color === c && tool === 'pen' ? `2px solid ${VIDEO_THEME.brand}` : 'none' }}
-                />
-              ))}
-              <span className="mx-0.5 h-6 w-px" style={{ background: VIDEO_THEME.border }} />
-              {SIZES.map(sz => (
-                <button key={sz} aria-label={`size ${sz}`} onClick={() => setSize(sz)} style={btn(size === sz)}>
-                  <span style={{ width: sz + 4, height: sz + 4, borderRadius: '50%', background: size === sz ? VIDEO_THEME.brand : 'rgba(255,255,255,0.8)', display: 'inline-block' }} />
-                </button>
-              ))}
-              <span className="mx-0.5 h-6 w-px" style={{ background: VIDEO_THEME.border }} />
-              <button style={btn(false)} aria-label={tx.whiteboardClear} onClick={clearAll}><Trash2 className="h-4 w-4" /></button>
-            </div>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
+  )
+}
+
+function BoardLoader() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#fff' }}>
+      <span className="h-8 w-8 rounded-full border-2 border-black/15 border-t-black/60 animate-spin" aria-hidden />
+    </div>
   )
 }

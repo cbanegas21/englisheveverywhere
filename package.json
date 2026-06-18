@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/copy-excalidraw-assets.mjs && next dev",
+    "build": "node scripts/copy-excalidraw-assets.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
@@ -16,6 +16,7 @@
     "purge-transcripts": "node scripts/purge-transcripts.mjs"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
     "@hello-pangea/dnd": "^18.0.1",
     "@livekit/components-react": "^2.9.20",
     "@livekit/components-styles": "^1.2.0",
