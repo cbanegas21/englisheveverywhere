@@ -2,7 +2,7 @@
 
 import { VideoTrack, useTrackToggle } from '@livekit/components-react'
 import type { TrackReference } from '@livekit/components-react'
-import { MonitorUp, MonitorX } from 'lucide-react'
+import { MonitorUp, MonitorX, Volume2 } from 'lucide-react'
 import { Track } from 'livekit-client'
 import type { Locale } from '@/lib/i18n/translations'
 import { videoStrings } from '../i18n'
@@ -11,11 +11,15 @@ import { VIDEO_THEME } from '../theme'
 interface Props {
   lang: Locale
   shareTrack: TrackReference
+  // True when a ScreenShareAudio track is also live — surfaces a "🔊 Audio" pill
+  // so both sides can SEE that sound is being shared (the #1 "is it working?"
+  // question). Computed in RoomShell from the audio publications.
+  hasAudio: boolean
 }
 
 // Full-stage presenter view for an active screen share. object-contain keeps the
 // shared screen's aspect ratio; a hairline frame mats the letterbox bars.
-export function ScreenShareView({ lang, shareTrack }: Props) {
+export function ScreenShareView({ lang, shareTrack, hasAudio }: Props) {
   const tx = videoStrings(lang)
   const presenter = shareTrack.participant.name || shareTrack.participant.identity
   const isLocal = shareTrack.participant.isLocal
@@ -46,6 +50,16 @@ export function ScreenShareView({ lang, shareTrack }: Props) {
             </>
           )}
         </span>
+        {hasAudio && (
+          <span
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-white"
+            style={{ background: VIDEO_THEME.brandTint20, border: `1px solid ${VIDEO_THEME.brandTint30}` }}
+            title={tx.shareAudioBadgeTitle}
+          >
+            <Volume2 className="h-3.5 w-3.5" style={{ color: VIDEO_THEME.brand }} />
+            {tx.shareAudioBadge}
+          </span>
+        )}
         {isLocal && (
           <button
             onClick={() => { void screenShare.toggle() }}

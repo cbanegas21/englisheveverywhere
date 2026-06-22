@@ -25,6 +25,8 @@ import { VideoTile } from './VideoTile'
 import { LocalSelfView, SelfViewPill } from './LocalSelfView'
 import { GridLayout } from './GridLayout'
 import { ScreenShareView } from './ScreenShareView'
+import { ShareScreenMenu } from './ShareScreenMenu'
+import type { ShareOptions } from './ShareScreenMenu'
 import { ControlBar } from './ControlBar'
 import { NotesPanel } from './NotesPanel'
 import { ChatPanel } from './ChatPanel'
@@ -173,6 +175,16 @@ export function RoomShell({
   )
   const activeShareTrack = screenShareTracks.find(isTrackReference) as TrackReference | undefined
 
+  // Whether an accompanying screen-share AUDIO track is live (local published or
+  // remote subscribed). Drives the "🔊 Audio" badge on the presenter view and the
+  // post-share "no sound was shared" reminder. onlySubscribed:false so the local
+  // presenter sees their own audio publication too.
+  const screenAudioTracks = useTracks(
+    [{ source: Track.Source.ScreenShareAudio, withPlaceholder: false }],
+    { onlySubscribed: false },
+  )
+  const shareHasAudio = screenAudioTracks.some(isTrackReference)
+
   const [showNotes, setShowNotes] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [showDevices, setShowDevices] = useState(false)
@@ -277,7 +289,7 @@ export function RoomShell({
   // Uses React's "adjust state based on change" pattern (prev-value state)
   // instead of a useEffect to stay compiler-clean.
   const { chatMessages, send, isSending } = useChat()
-  const { localParticipant } = useLocalParticipant()
+  const { localParticipant, isScreenShareEnabled } = useLocalParticipant()
   const [baselineCount, setBaselineCount] = useState(0)
   const [prevShowChat, setPrevShowChat] = useState(showChat)
   if (prevShowChat !== showChat) {
@@ -290,18 +302,96 @@ export function RoomShell({
     .slice(baselineCount)
     .filter((m) => m.from?.identity !== localParticipant.identity).length
 
+  // ── Screen share (Zoom-style) ──────────────────────────────────────────────
+  // RoomShell owns the share lifecycle so it can build capture options at click
+  // time and react to the published audio track. The control-bar button opens
+  // ShareScreenMenu when idle, or stops the share when active.
+  const [showShareMenu, setShowShareMenu] = useState(false)
+  // Advisory ('info', polite) vs hard failure ('error', assertive) so the toast
+  // maps to the right ARIA live-region role.
+  const [shareNotice, setShareNotice] = useState<{ text: string; kind: 'info' | 'error' } | null>(null)
+  // Handle for the post-share "did audio land?" check, so a fast stop (or unmount)
+  // cancels it instead of firing a stale "no sound" toast for a share that ended.
+  const shareAudioTimerRef = useRef<number | null>(null)
+  // getDisplayMedia is unavailable on most mobile browsers — hide the whole
+  // control rather than offer a button that throws. RoomShell only ever mounts on
+  // the client (it's gated behind the async LiveKit connection, never in SSR
+  // HTML), so a lazy initializer reads navigator safely and computes this once.
+  const [shareSupported] = useState(() =>
+    typeof navigator !== 'undefined' &&
+    !!navigator.mediaDevices &&
+    typeof navigator.mediaDevices.getDisplayMedia === 'function'
+  )
+
+  const startShare = useCallback(async ({ audio, motion }: ShareOptions) => {
+    setShareNotice(null)
+    if (shareAudioTimerRef.current != null) { window.clearTimeout(shareAudioTimerRef.current); shareAudioTimerRef.current = null }
+    try {
+      await localParticipant.setScreenShareEnabled(true, {
+        audio,
+        systemAudio: audio ? 'include' : 'exclude',
+        contentHint: motion ? 'motion' : 'detail',
+        surfaceSwitching: 'include',
+        selfBrowserSurface: 'exclude',
+      })
+      // The presenter must tick the browser's own "share audio" box — we can't do
+      // it for them. If they asked for audio but no audio track landed, nudge
+      // them: this is the exact reason the sound "didn't work at all" before.
+      // Re-check the VIDEO publication too, so a share that was stopped within the
+      // grace window doesn't fire a stale "no sound" toast for a dead share.
+      if (audio) {
+        shareAudioTimerRef.current = window.setTimeout(() => {
+          shareAudioTimerRef.current = null
+          const stillSharing = !!localParticipant.getTrackPublication(Track.Source.ScreenShare)
+          const hasAudio = !!localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)
+          if (stillSharing && !hasAudio) setShareNotice({ text: tx.shareNoAudioWarning, kind: 'info' })
+        }, 1200)
+      }
+    } catch (err) {
+      // Cancelling the picker rejects with NotAllowedError/AbortError — that's an
+      // intentional "never mind", so stay silent. Anything else is a real failure.
+      const name = (err as { name?: string } | null)?.name
+      if (name !== 'NotAllowedError' && name !== 'AbortError') setShareNotice({ text: tx.shareError, kind: 'error' })
+    }
+  }, [localParticipant, tx])
+
+  const handleShareClick = useCallback(() => {
+    if (isScreenShareEnabled) {
+      // Stopping cancels a pending audio check so it can't warn about a dead share.
+      if (shareAudioTimerRef.current != null) { window.clearTimeout(shareAudioTimerRef.current); shareAudioTimerRef.current = null }
+      void localParticipant.setScreenShareEnabled(false)
+    } else {
+      setShowShareMenu(true)
+    }
+  }, [isScreenShareEnabled, localParticipant])
+
+  // Cancel any pending audio check on unmount (leave/disconnect mid-share).
+  useEffect(() => () => {
+    if (shareAudioTimerRef.current != null) window.clearTimeout(shareAudioTimerRef.current)
+  }, [])
+
+  // The share notice is advisory (sound-not-shared / start-failed) — auto-clear it.
+  useEffect(() => {
+    if (!shareNotice) return
+    const t = window.setTimeout(() => setShareNotice(null), 9000)
+    return () => window.clearTimeout(t)
+  }, [shareNotice])
+
   // ── Mobile back-gesture trap (stops a stray swipe from dropping the call) ──
   // While a full-bleed panel/overlay is open, an iOS Safari edge-swipe-back would
   // otherwise unmount the room → disconnect → "kicked out of the call." Keep one
   // trapped history entry for the room: a back press CLOSES the open panel (and
   // re-arms the trap) instead of navigating away. With nothing open, back is left
   // alone so a deliberate exit still works.
-  const anyPanelOpen = showWhiteboard || showCuaderno || showChat || showNotes || showDevices || showReactions
+  const anyPanelOpen = showWhiteboard || showCuaderno || showChat || showNotes || showDevices || showReactions || showShareMenu
   const anyPanelOpenRef = useRef(anyPanelOpen)
-  anyPanelOpenRef.current = anyPanelOpen
+  // Keep the ref in sync from an effect (not during render) so the popstate
+  // handler always reads the latest value — a back-gesture is a user event, so it
+  // can only fire after this effect has flushed.
+  useEffect(() => { anyPanelOpenRef.current = anyPanelOpen }, [anyPanelOpen])
   const closeAllPanels = useCallback(() => {
     closeWhiteboard()
-    setShowCuaderno(false); setShowChat(false); setShowNotes(false); setShowDevices(false); setShowReactions(false)
+    setShowCuaderno(false); setShowChat(false); setShowNotes(false); setShowDevices(false); setShowReactions(false); setShowShareMenu(false)
   }, [closeWhiteboard])
   useEffect(() => {
     window.history.pushState({ eeSalaTrap: true }, '')
@@ -378,6 +468,26 @@ export function RoomShell({
           </button>
         </div>
       )}
+      {shareNotice && (
+        <div
+          role={shareNotice.kind === 'error' ? 'alert' : 'status'}
+          style={{
+            position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 100, maxWidth: 'min(92vw, 520px)', display: 'flex', alignItems: 'center', gap: 12,
+            background: shareNotice.kind === 'error' ? '#7f1d1d' : '#7c5807', color: '#fff', padding: '12px 16px', borderRadius: 10,
+            fontSize: 13, lineHeight: 1.45, boxShadow: '0 12px 34px rgba(0,0,0,0.45)',
+          }}
+        >
+          <span style={{ flex: 1 }}>{shareNotice.text}</span>
+          <button
+            onClick={() => setShareNotice(null)}
+            aria-label={tx.close}
+            style={{ background: 'transparent', border: 0, color: 'rgba(255,255,255,0.85)', cursor: 'pointer', fontSize: 18, lineHeight: 1, minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <TopBar
         lang={lang}
         otherName={otherName}
@@ -388,7 +498,7 @@ export function RoomShell({
       <div ref={stageRef} className="flex-1 relative min-w-0">
         {activeShareTrack ? (
           <>
-            <ScreenShareView lang={lang} shareTrack={activeShareTrack} />
+            <ScreenShareView lang={lang} shareTrack={activeShareTrack} hasAudio={shareHasAudio} />
             {!panelCoversStage && (!selfView.hidden ? (
               <LocalSelfView
                 trackRef={localTrack}
@@ -515,6 +625,10 @@ export function RoomShell({
           onToggleDevices={() => setShowDevices(p => !p)}
           showWhiteboard={showWhiteboard}
           onToggleWhiteboard={toggleWhiteboard}
+          isSharing={isScreenShareEnabled}
+          shareSupported={shareSupported}
+          shareMenuOpen={showShareMenu}
+          onShareClick={handleShareClick}
           showTranscript={showCuaderno}
           onToggleTranscript={() => setShowCuaderno(p => !p)}
           transcriptEnabled={isDesktopCuaderno}
@@ -542,6 +656,12 @@ export function RoomShell({
           lang={lang}
           show={showDevices}
           onClose={() => setShowDevices(false)}
+        />
+        <ShareScreenMenu
+          lang={lang}
+          show={showShareMenu}
+          onClose={() => setShowShareMenu(false)}
+          onStart={(opts) => { void startShare(opts) }}
         />
         <ErrorBoundary resetKey={`wb-${showWhiteboard}`} onError={closeWhiteboard}>
           <Whiteboard

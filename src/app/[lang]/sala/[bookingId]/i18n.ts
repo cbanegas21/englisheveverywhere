@@ -33,6 +33,10 @@ type Strings = {
   reactions: string; raiseHand: string; lowerHand: string; more: string
   chat: string; chatTitle: string; chatClose: string; chatEmpty: string; chatPlaceholder: string; chatSend: string
   shareScreen: string; stopSharing: string; sharingPrefix: string; sharingSuffix: string; youSharing: string
+  shareScreenTitle: string; shareAudioLabel: string; shareAudioDesc: string
+  shareOptimize: string; shareOptimizeSlides: string; shareOptimizeMotion: string
+  sharePickerTip: string; shareStart: string; shareCancel: string
+  shareAudioBadge: string; shareAudioBadgeTitle: string; shareNoAudioWarning: string; shareError: string
   deviceSettings: string; microphone: string; camera: string; speaker: string; noDevices: string
   whiteboard: string; whiteboardTitle: string; whiteboardClose: string; whiteboardLoading: string
   whiteboardZoomIn: string; whiteboardZoomOut: string; whiteboardRecenter: string
@@ -97,6 +101,19 @@ export const VIDEO_T: Record<Locale, Strings> = {
     shareScreen: 'Share screen', stopSharing: 'Stop sharing',
     sharingPrefix: '', sharingSuffix: 'is sharing their screen',
     youSharing: "You're sharing your screen",
+    shareScreenTitle: 'Share your screen',
+    shareAudioLabel: 'Share audio',
+    shareAudioDesc: 'Sound from your computer — a video, PowerPoint, or song',
+    shareOptimize: 'Optimize for',
+    shareOptimizeSlides: 'Slides & text',
+    shareOptimizeMotion: 'Video & motion',
+    sharePickerTip: 'In the next pop-up, choose Entire Screen and tick “Also share system audio” to share your slides’ sound.',
+    shareStart: 'Start sharing',
+    shareCancel: 'Cancel',
+    shareAudioBadge: 'Audio',
+    shareAudioBadgeTitle: 'Computer sound is being shared',
+    shareNoAudioWarning: 'No sound was shared. To include audio, stop and share again, then pick your Entire Screen (or a browser tab) and turn on “share audio” in the pop-up. Note: Safari and Firefox can’t share computer sound.',
+    shareError: "We couldn't start screen sharing. Please try again.",
 
     deviceSettings: 'Audio & video settings',
     microphone: 'Microphone', camera: 'Camera', speaker: 'Speaker',
@@ -189,6 +206,19 @@ export const VIDEO_T: Record<Locale, Strings> = {
     shareScreen: 'Compartir pantalla', stopSharing: 'Dejar de compartir',
     sharingPrefix: '', sharingSuffix: 'está compartiendo la pantalla',
     youSharing: 'Estás compartiendo tu pantalla',
+    shareScreenTitle: 'Compartir tu pantalla',
+    shareAudioLabel: 'Compartir audio',
+    shareAudioDesc: 'El sonido de tu computadora — un video, PowerPoint o canción',
+    shareOptimize: 'Optimizar para',
+    shareOptimizeSlides: 'Diapositivas y texto',
+    shareOptimizeMotion: 'Video y movimiento',
+    sharePickerTip: 'En la ventana que aparece, elige Toda la pantalla y marca «Compartir también el audio del sistema» para compartir el sonido de tus diapositivas.',
+    shareStart: 'Comenzar a compartir',
+    shareCancel: 'Cancelar',
+    shareAudioBadge: 'Audio',
+    shareAudioBadgeTitle: 'Se está compartiendo el sonido de la computadora',
+    shareNoAudioWarning: 'No se compartió sonido. Para incluir el audio, deja de compartir y vuelve a empezar; elige Toda la pantalla (o una pestaña del navegador) y activa «compartir audio» en la ventana. Nota: Safari y Firefox no pueden compartir el sonido de la computadora.',
+    shareError: 'No pudimos iniciar la pantalla compartida. Inténtalo de nuevo.',
 
     deviceSettings: 'Ajustes de audio y video',
     microphone: 'Micrófono', camera: 'Cámara', speaker: 'Altavoz',
