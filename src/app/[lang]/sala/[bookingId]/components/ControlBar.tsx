@@ -29,6 +29,14 @@ interface Props {
   onToggleDevices: () => void
   showWhiteboard: boolean
   onToggleWhiteboard: () => void
+  // Screen share is owned by RoomShell (it builds the capture options + opens the
+  // browser picker). The bar just reflects state and forwards the click: when not
+  // sharing, the click opens the share menu; when sharing, it stops. The tool is
+  // hidden entirely where getDisplayMedia is unavailable (most phones).
+  isSharing: boolean
+  shareSupported: boolean
+  shareMenuOpen: boolean
+  onShareClick: () => void
   showTranscript: boolean
   onToggleTranscript: () => void
   // Desktop-only: the live transcript engine is too heavy for phones, so the
@@ -74,6 +82,10 @@ export function ControlBar({
   onToggleDevices,
   showWhiteboard,
   onToggleWhiteboard,
+  isSharing,
+  shareSupported,
+  shareMenuOpen,
+  onShareClick,
   showTranscript,
   onToggleTranscript,
   transcriptEnabled = true,
@@ -121,7 +133,6 @@ export function ControlBar({
   // with the button labels. Audit EK-020.
   const mic = useTrackToggle({ source: Track.Source.Microphone })
   const cam = useTrackToggle({ source: Track.Source.Camera })
-  const screenShare = useTrackToggle({ source: Track.Source.ScreenShare })
   const isMuted = !mic.enabled
   const isCameraOff = !cam.enabled
 
@@ -163,14 +174,16 @@ export function ControlBar({
       variant: showChat ? 'brand' : 'neutral',
       badge: unreadCount,
     },
-    {
-      key: 'share',
-      label: screenShare.enabled ? tx.stopSharing : tx.shareScreen,
-      icon: screenShare.enabled ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />,
-      onClick: () => { void screenShare.toggle() },
-      active: screenShare.enabled,
-      variant: screenShare.enabled ? 'brand' : 'neutral',
-    },
+    ...(shareSupported
+      ? [{
+          key: 'share',
+          label: isSharing ? tx.stopSharing : tx.shareScreen,
+          icon: isSharing ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />,
+          onClick: onShareClick,
+          active: isSharing || shareMenuOpen,
+          variant: (isSharing || shareMenuOpen ? 'brand' : 'neutral') as Variant,
+        }]
+      : []),
     {
       key: 'reactions',
       label: tx.reactions,

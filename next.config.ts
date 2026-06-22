@@ -62,8 +62,12 @@ const nextConfig: NextConfig = {
   // Baseline security headers (§7.4). Only HSTS was present; add clickjacking +
   // MIME-sniff + referrer-leak + feature-policy hardening on every route. NOTE:
   // Permissions-Policy MUST keep camera/microphone = (self) or the /sala LiveKit
-  // classroom loses getUserMedia. CSP (see `CSP` above) is enforced; it was
-  // verified Report-Only first (scripts/qa-csp.mjs, zero violations incl. /sala).
+  // classroom loses getUserMedia — and display-capture = (self) for screen share
+  // (getDisplayMedia, teacher slide/PowerPoint sharing). display-capture defaults
+  // to (self) when unlisted, so this is belt-and-suspenders: it documents the
+  // dependency and survives a future tightening of this allowlist. CSP (see `CSP`
+  // above) is enforced; verified Report-Only first (scripts/qa-csp.mjs, zero
+  // violations incl. /sala).
   async headers() {
     return [
       {
@@ -74,7 +78,7 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
-            value: "camera=(self), microphone=(self), geolocation=(), browsing-topics=()",
+            value: "camera=(self), microphone=(self), display-capture=(self), geolocation=(), browsing-topics=()",
           },
           { key: "Content-Security-Policy", value: CSP },
         ],
