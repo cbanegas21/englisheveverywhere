@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSessionUser, getSessionProfile } from '@/lib/session'
 import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import { isValidTimeZone } from '@/lib/timezone'
 import StudentDashboardClient from './StudentDashboardClient'
@@ -14,7 +15,9 @@ export default async function StudentDashboardPage({ params }: Props) {
   const { lang } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Request-memoized — reuses the layout's already-validated user (no second
+  // getUser network hop). See src/lib/session.ts.
+  const user = await getSessionUser()
   if (!user) redirect(`/${lang}/login`)
 
   // Fetch student data
@@ -30,28 +33,74 @@ export default async function StudentDashboardPage({ params }: Props) {
   // of rendering an all-zeros, dead-CTA home (SH-COLD-01).
   if (!student) redirect(`/${lang}/onboarding`)
 
-  // Fetch placement booking scheduled_at (to detect past calls) + the id of
-  // whoever's running it, so the dashboard banner can name the host.
-  const { data: placementBooking } = await supabase
-    .from('bookings')
-    .select('scheduled_at, conductor_profile_id, teacher_id')
-    .eq('student_id', student.id)
-    .eq('type', 'placement_test')
-    .neq('status', 'cancelled')
-    // Two non-cancelled placement rows (reachable via a reschedule race / double
-    // book) make a bare .maybeSingle() throw PGRST116 → null → the banner wrongly
-    // re-prompts "schedule your free call". Take the newest, mirroring the
-    // placement page's own hardening (SB-07).
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // Fire the independent dashboard reads concurrently — each only needs
+  // student.id and none depends on another, so the page waits for the SLOWEST,
+  // not the SUM (was a 4-deep serial waterfall). The conditional name lookups
+  // below depend on these results, so they stay after.
+  const studentId = student.id
+  const [
+    { data: placementBooking },
+    { data: upcomingBookings },
+    { data: completedRows },
+    { count: scheduledCount },
+  ] = await Promise.all([
+    // Placement booking scheduled_at (+ host ids) to detect past calls / name the
+    // host. Two non-cancelled rows (reschedule race) make a bare .maybeSingle()
+    // throw PGRST116 → null → banner wrongly re-prompts; .order+.limit(1) hardens
+    // it, mirroring the placement page (SB-07).
+    supabase
+      .from('bookings')
+      .select('scheduled_at, conductor_profile_id, teacher_id')
+      .eq('student_id', studentId)
+      .eq('type', 'placement_test')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    // Upcoming class bookings. Keep live / just-started classes visible so the
+    // Join button stays reachable.
+    supabase
+      .from('bookings')
+      .select(`
+      id, scheduled_at, duration_minutes, status, teacher_id,
+      teacher:teachers(profile:profiles(full_name))
+    `)
+      .eq('student_id', studentId)
+      .eq('type', 'class')
+      .in('status', ['confirmed', 'pending'])
+      .gte('scheduled_at', activeBookingCutoffIso())
+      .order('scheduled_at', { ascending: true })
+      .limit(5),
+    // Completed sessions — read durations so "total time" is the real SUM of
+    // minutes, not the class count × 1h (SH-BAN-05).
+    supabase
+      .from('bookings')
+      .select('duration_minutes')
+      .eq('student_id', studentId)
+      .eq('type', 'class')
+      .eq('status', 'completed'),
+    // Scheduled-class count. Match the hero/upcoming cutoff (now − 2.5h) so a
+    // live or just-started class is still counted — `now` dropped it and showed
+    // the wrong "you used all your classes" banner mid-class (SH-BAN-04).
+    supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('student_id', studentId)
+      .eq('type', 'class')
+      .in('status', ['confirmed', 'pending'])
+      .gte('scheduled_at', activeBookingCutoffIso()),
+  ])
 
-  // Resolve the placement host's name. The host is either an admin "conductor"
-  // (conductor_profile_id) or an assigned teacher (teacher_id). A student cannot
-  // read an admin's profiles row under RLS, so the previous embedded join came
-  // back null and the banner wrongly said "host being assigned" (SH-BAN-01). Read
-  // the single display name via the service-role client — the student is entitled
-  // to know who runs their own call. Server-only; never sent to the browser raw.
+  const completedCount = completedRows?.length || 0
+  const totalStudyMinutes = (completedRows || []).reduce(
+    (sum, r) => sum + ((r as { duration_minutes?: number }).duration_minutes || 0),
+    0,
+  )
+
+  // Resolve the placement host's name (admin "conductor" or assigned teacher) via
+  // the service-role client — a student cannot read an admin's profiles row under
+  // RLS, so an embedded join returns null and the banner wrongly says "host being
+  // assigned" (SH-BAN-01). Server-only; never sent to the browser raw.
   let placementConductorName: string | null = null
   if (placementBooking?.conductor_profile_id || placementBooking?.teacher_id) {
     const admin = createAdminClient()
@@ -72,47 +121,6 @@ export default async function StudentDashboardPage({ params }: Props) {
       placementConductorName = Array.isArray(prof) ? prof[0]?.full_name ?? null : prof?.full_name ?? null
     }
   }
-
-  // Fetch upcoming bookings (class type only)
-  const { data: upcomingBookings } = await supabase
-    .from('bookings')
-    .select(`
-      id, scheduled_at, duration_minutes, status, teacher_id,
-      teacher:teachers(profile:profiles(full_name))
-    `)
-    .eq('student_id', student?.id || '')
-    .eq('type', 'class')
-    .in('status', ['confirmed', 'pending'])
-    // Keep live / just-started classes visible so the Join button stays reachable.
-    .gte('scheduled_at', activeBookingCutoffIso())
-    .order('scheduled_at', { ascending: true })
-    .limit(5)
-
-  // Fetch completed sessions (class type only) — read durations so "total time"
-  // is the real SUM of minutes, not the class count × 1h (SH-BAN-05).
-  const { data: completedRows } = await supabase
-    .from('bookings')
-    .select('duration_minutes')
-    .eq('student_id', student.id)
-    .eq('type', 'class')
-    .eq('status', 'completed')
-  const completedCount = completedRows?.length || 0
-  const totalStudyMinutes = (completedRows || []).reduce(
-    (sum, r) => sum + ((r as { duration_minutes?: number }).duration_minutes || 0),
-    0,
-  )
-
-  // Fetch scheduled-class count (class type only). Match the hero/upcoming cutoff
-  // (now − 2.5h, activeBookingCutoffIso) so a live or just-started class is
-  // counted — using `now` dropped it, leaving the stat at 0 and showing the wrong
-  // "you used all your classes" banner while a class was on screen (SH-BAN-04).
-  const { count: scheduledCount } = await supabase
-    .from('bookings')
-    .select('id', { count: 'exact', head: true })
-    .eq('student_id', student.id)
-    .eq('type', 'class')
-    .in('status', ['confirmed', 'pending'])
-    .gte('scheduled_at', activeBookingCutoffIso())
 
   // Surface the student's locked-in teacher (admin-assigned via primary_teacher_id)
   // so the dashboard can answer "Can I get the same teacher every time?" with a
@@ -136,17 +144,14 @@ export default async function StudentDashboardPage({ params }: Props) {
   }
 
   // Phase D: canonical timezone lives on profiles.timezone (updated by the
-  // settings page). Auth user_metadata is the initial signup value and goes
-  // stale once the user edits their profile.
-  const { data: profileRow } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .maybeSingle()
+  // settings page). Reuse the layout's already-fetched profile row (request-
+  // memoized — no second read). Auth user_metadata is the initial signup value
+  // and goes stale once the user edits their profile.
+  const profile = await getSessionProfile()
 
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student'
   const rawTimezone =
-    (profileRow as { timezone?: string | null } | null)?.timezone ||
+    profile?.timezone ||
     (user.user_metadata?.timezone as string) ||
     ''
   // Validate before it reaches any Intl/toLocale call — an invalid IANA string

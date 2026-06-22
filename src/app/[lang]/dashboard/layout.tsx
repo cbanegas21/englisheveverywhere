@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getSessionUser, getSessionProfile } from '@/lib/session'
 import Sidebar from '@/components/dashboard/Sidebar'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -19,22 +19,18 @@ function getInitials(name: string): string {
 
 export default async function DashboardLayout({ children, params }: Props) {
   const { lang } = await params
-  const supabase = await createClient()
 
-  const { data: { user }, error } = await supabase.auth.getUser()
-
-  if (error || !user) {
+  // Request-memoized: the page under this layout reuses the SAME getUser +
+  // profiles read instead of issuing its own (see src/lib/session.ts).
+  const user = await getSessionUser()
+  if (!user) {
     redirect(`/${lang}/login`)
   }
 
   // profiles.role is the canonical source — user_metadata.role drifts when an
   // admin promotes a user via DB update. Role guard redirects other roles to
   // their own home so admins cannot observe student UI by URL-hopping.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name')
-    .eq('id', user.id)
-    .single()
+  const profile = await getSessionProfile()
 
   if (profile?.role === 'teacher') {
     redirect(`/${lang}/maestro/dashboard`)
