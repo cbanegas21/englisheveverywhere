@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getSessionUser } from '@/lib/session'
 import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import { hnStartOfMonthUtc } from '@/lib/timezone'
 import TeacherDashboardClient from './TeacherDashboardClient'
@@ -13,7 +14,8 @@ export default async function TeacherDashboardPage({ params }: Props) {
   const { lang } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Request-memoized — reuses the layout's already-validated user (see src/lib/session.ts).
+  const user = await getSessionUser()
   if (!user) redirect(`/${lang}/login`)
 
   // Fetch teacher data
@@ -30,39 +32,45 @@ export default async function TeacherDashboardPage({ params }: Props) {
   // the queries below use teacher.id without the misleading `|| ''` fallback.
   if (!teacher) redirect(`/${lang}/onboarding`)
 
-  // Fetch upcoming sessions
-  const { data: upcomingSessions } = await supabase
-    .from('bookings')
-    .select(`
+  // Bucket "this month" in HONDURAS time (the shared business zone) so the
+  // teacher's home "this month" agrees with the earnings page — server-UTC
+  // midnight mis-bucketed an HN-evening month-edge class into the wrong month
+  // (SB-11). Pure computation, no await.
+  const startOfMonth = hnStartOfMonthUtc()
+
+  // The three reads are independent (upcoming + this-month need teacher.id, the
+  // profile read needs user.id), so fire them concurrently instead of serially.
+  const [
+    { data: upcomingSessions },
+    { count: thisMonthCount },
+    { data: profileRow },
+  ] = await Promise.all([
+    // Upcoming sessions. Keep live / just-started sessions visible so the teacher can still join.
+    supabase
+      .from('bookings')
+      .select(`
       id, scheduled_at, duration_minutes, status,
       student:students(profile:profiles(full_name))
     `)
-    .eq('teacher_id', teacher.id)
-    .in('status', ['confirmed', 'pending'])
-    // Keep live / just-started sessions visible so the teacher can still join.
-    .gte('scheduled_at', activeBookingCutoffIso())
-    .order('scheduled_at', { ascending: true })
-    .limit(5)
-
-  // Fetch this month's completed sessions. Bucket the month in HONDURAS time (the
-  // shared business zone) so the teacher's home "this month" agrees with the
-  // earnings page (which already buckets in HN) — server-UTC midnight mis-bucketed
-  // an HN-evening month-edge class into the wrong month (SB-11).
-  const startOfMonth = hnStartOfMonthUtc()
-
-  const { count: thisMonthCount } = await supabase
-    .from('bookings')
-    .select('id', { count: 'exact', head: true })
-    .eq('teacher_id', teacher.id)
-    .eq('status', 'completed')
-    .gte('scheduled_at', startOfMonth.toISOString())
-
-  // Phase D: prefer profiles.timezone (user-editable) over auth metadata.
-  const { data: profileRow } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .maybeSingle()
+      .eq('teacher_id', teacher.id)
+      .in('status', ['confirmed', 'pending'])
+      .gte('scheduled_at', activeBookingCutoffIso())
+      .order('scheduled_at', { ascending: true })
+      .limit(5),
+    // This month's completed sessions (count only).
+    supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('teacher_id', teacher.id)
+      .eq('status', 'completed')
+      .gte('scheduled_at', startOfMonth.toISOString()),
+    // Phase D: prefer profiles.timezone (user-editable) over auth metadata.
+    supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', user.id)
+      .maybeSingle(),
+  ])
 
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
   const timezone =
