@@ -251,6 +251,329 @@ export type Database = {
           },
         ]
       }
+      lab_file_shares: {
+        Row: {
+          file_id: string
+          id: string
+          shared_at: string
+          student_id: string
+        }
+        Insert: {
+          file_id: string
+          id?: string
+          shared_at?: string
+          student_id: string
+        }
+        Update: {
+          file_id?: string
+          id?: string
+          shared_at?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_file_shares_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "lab_teacher_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_file_shares_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_progress: {
+        Row: {
+          created_at: string
+          due_at: string | null
+          ease_factor: number | null
+          id: string
+          interval_days: number | null
+          item_id: string | null
+          item_type: string
+          last_reviewed_at: string | null
+          mastered: boolean
+          repetitions: number | null
+          student_id: string
+          updated_at: string
+          xp: number
+        }
+        Insert: {
+          created_at?: string
+          due_at?: string | null
+          ease_factor?: number | null
+          id?: string
+          interval_days?: number | null
+          item_id?: string | null
+          item_type: string
+          last_reviewed_at?: string | null
+          mastered?: boolean
+          repetitions?: number | null
+          student_id: string
+          updated_at?: string
+          xp?: number
+        }
+        Update: {
+          created_at?: string
+          due_at?: string | null
+          ease_factor?: number | null
+          id?: string
+          interval_days?: number | null
+          item_id?: string | null
+          item_type?: string
+          last_reviewed_at?: string | null
+          mastered?: boolean
+          repetitions?: number | null
+          student_id?: string
+          updated_at?: string
+          xp?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_question_bank: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          general_feedback: string | null
+          id: string
+          payload: Json
+          prompt: string
+          tags: string[]
+          teacher_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          general_feedback?: string | null
+          id?: string
+          payload?: Json
+          prompt?: string
+          tags?: string[]
+          teacher_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          general_feedback?: string | null
+          id?: string
+          payload?: Json
+          prompt?: string
+          tags?: string[]
+          teacher_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_question_bank_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_quiz_assignments: {
+        Row: {
+          created_at: string
+          due_at: string | null
+          id: string
+          quiz_id: string
+          status: string
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          quiz_id: string
+          status?: string
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          quiz_id?: string
+          status?: string
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_quiz_assignments_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "lab_quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_quiz_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_quiz_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_quiz_attempts: {
+        Row: {
+          answers: Json
+          assignment_id: string
+          auto_score: number | null
+          graded_at: string | null
+          id: string
+          manual_adjusted: boolean
+          max_score: number | null
+          questions_snapshot: Json
+          submitted_at: string
+          teacher_feedback: string | null
+        }
+        Insert: {
+          answers?: Json
+          assignment_id: string
+          auto_score?: number | null
+          graded_at?: string | null
+          id?: string
+          manual_adjusted?: boolean
+          max_score?: number | null
+          questions_snapshot?: Json
+          submitted_at?: string
+          teacher_feedback?: string | null
+        }
+        Update: {
+          answers?: Json
+          assignment_id?: string
+          auto_score?: number | null
+          graded_at?: string | null
+          id?: string
+          manual_adjusted?: boolean
+          max_score?: number | null
+          questions_snapshot?: Json
+          submitted_at?: string
+          teacher_feedback?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_quiz_attempts_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: true
+            referencedRelation: "lab_quiz_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_quizzes: {
+        Row: {
+          created_at: string
+          id: string
+          intro: string
+          question_ids: string[]
+          settings: Json
+          status: string
+          teacher_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intro?: string
+          question_ids?: string[]
+          settings?: Json
+          status?: string
+          teacher_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intro?: string
+          question_ids?: string[]
+          settings?: Json
+          status?: string
+          teacher_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_quizzes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_teacher_files: {
+        Row: {
+          created_at: string
+          description: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_teacher_files_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_books: {
         Row: {
           created_at: string

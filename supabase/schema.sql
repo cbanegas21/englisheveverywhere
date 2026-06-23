@@ -84,6 +84,95 @@ create table public.bookings (
   primary key (id)
 );
 
+create table public.lab_file_shares (
+  id uuid not null default gen_random_uuid(),
+  file_id uuid not null,
+  student_id uuid not null,
+  shared_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
+create table public.lab_progress (
+  id uuid not null default gen_random_uuid(),
+  student_id uuid not null,
+  item_type text not null,
+  item_id uuid,
+  xp integer not null default 0,
+  mastered boolean not null default false,
+  ease_factor numeric(4,2),
+  interval_days integer,
+  repetitions integer,
+  due_at timestamp with time zone,
+  last_reviewed_at timestamp with time zone,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
+create table public.lab_question_bank (
+  id uuid not null default gen_random_uuid(),
+  teacher_id uuid not null,
+  type text not null,
+  prompt text not null default ''::text,
+  payload jsonb not null default '{}'::jsonb,
+  general_feedback text,
+  tags text[] not null default '{}'::text[],
+  archived_at timestamp with time zone,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
+create table public.lab_quiz_assignments (
+  id uuid not null default gen_random_uuid(),
+  quiz_id uuid not null,
+  teacher_id uuid not null,
+  student_id uuid not null,
+  due_at timestamp with time zone,
+  status text not null default 'open'::text,
+  created_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
+create table public.lab_quiz_attempts (
+  id uuid not null default gen_random_uuid(),
+  assignment_id uuid not null,
+  questions_snapshot jsonb not null default '[]'::jsonb,
+  answers jsonb not null default '{}'::jsonb,
+  auto_score numeric,
+  max_score numeric,
+  teacher_feedback text,
+  manual_adjusted boolean not null default false,
+  submitted_at timestamp with time zone not null default now(),
+  graded_at timestamp with time zone,
+  primary key (id)
+);
+
+create table public.lab_quizzes (
+  id uuid not null default gen_random_uuid(),
+  teacher_id uuid not null,
+  title text not null,
+  intro text not null default ''::text,
+  question_ids uuid[] not null default '{}'::uuid[],
+  settings jsonb not null default '{}'::jsonb,
+  status text not null default 'draft'::text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
+create table public.lab_teacher_files (
+  id uuid not null default gen_random_uuid(),
+  teacher_id uuid not null,
+  file_name text not null,
+  description text not null default ''::text,
+  storage_path text not null,
+  mime_type text,
+  size_bytes bigint,
+  created_at timestamp with time zone not null default now(),
+  primary key (id)
+);
+
 create table public.library_books (
   id uuid not null default gen_random_uuid(),
   title text not null,
@@ -282,6 +371,16 @@ alter table public.availability_slots add constraint availability_slots_teacher_
 alter table public.bookings add constraint bookings_conductor_profile_id_fkey foreign key (conductor_profile_id) references public.profiles (id);
 alter table public.bookings add constraint bookings_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
 alter table public.bookings add constraint bookings_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
+alter table public.lab_file_shares add constraint lab_file_shares_file_id_fkey foreign key (file_id) references public.lab_teacher_files (id) on delete cascade;
+alter table public.lab_file_shares add constraint lab_file_shares_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
+alter table public.lab_progress add constraint lab_progress_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
+alter table public.lab_question_bank add constraint lab_question_bank_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
+alter table public.lab_quiz_assignments add constraint lab_quiz_assignments_quiz_id_fkey foreign key (quiz_id) references public.lab_quizzes (id) on delete cascade;
+alter table public.lab_quiz_assignments add constraint lab_quiz_assignments_student_id_fkey foreign key (student_id) references public.students (id) on delete cascade;
+alter table public.lab_quiz_assignments add constraint lab_quiz_assignments_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
+alter table public.lab_quiz_attempts add constraint lab_quiz_attempts_assignment_id_fkey foreign key (assignment_id) references public.lab_quiz_assignments (id) on delete cascade;
+alter table public.lab_quizzes add constraint lab_quizzes_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
+alter table public.lab_teacher_files add constraint lab_teacher_files_teacher_id_fkey foreign key (teacher_id) references public.teachers (id) on delete cascade;
 alter table public.payments add constraint payments_booking_id_fkey foreign key (booking_id) references public.bookings (id);
 alter table public.payments add constraint payments_student_id_fkey foreign key (student_id) references public.students (id);
 alter table public.payments add constraint payments_teacher_id_fkey foreign key (teacher_id) references public.teachers (id);
@@ -309,6 +408,10 @@ alter table public.availability_slots add constraint availability_slots_day_of_w
 alter table public.bookings add constraint bookings_cancellation_reason_check CHECK ((cancellation_reason = ANY (ARRAY['early'::text, 'late'::text, 'no_show_teacher'::text, 'no_show_student'::text, 'teacher_decline'::text, 'admin_refund'::text, 'other'::text])));
 alter table public.bookings add constraint bookings_cancelled_by_check CHECK ((cancelled_by = ANY (ARRAY['student'::text, 'teacher'::text, 'admin'::text, 'system'::text])));
 alter table public.bookings add constraint bookings_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'completed'::text, 'cancelled'::text])));
+alter table public.lab_progress add constraint lab_progress_item_type_check CHECK ((item_type = ANY (ARRAY['vocab'::text, 'flashcard'::text, 'quiz'::text, 'assignment'::text, 'lesson'::text])));
+alter table public.lab_question_bank add constraint lab_question_bank_type_check CHECK ((type = ANY (ARRAY['mcq_single'::text, 'mcq_multi'::text, 'true_false'::text, 'short_answer'::text, 'matching'::text, 'essay'::text])));
+alter table public.lab_quiz_assignments add constraint lab_quiz_assignments_status_check CHECK ((status = ANY (ARRAY['open'::text, 'cancelled'::text])));
+alter table public.lab_quizzes add constraint lab_quizzes_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'cancelled'::text])));
 alter table public.library_books add constraint library_books_level_check CHECK (((level IS NULL) OR (level = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text, 'all'::text]))));
 alter table public.payments add constraint payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunded'::text])));
 alter table public.profiles add constraint profiles_preferred_currency_len CHECK (((preferred_currency IS NULL) OR (length(preferred_currency) = 3)));
@@ -333,6 +436,9 @@ alter table public.teacher_payouts add constraint teacher_payouts_status_check C
 -- ============================================================
 
 alter table public.assignment_submissions add constraint assignment_submissions_assignment_id_key UNIQUE (assignment_id);
+alter table public.lab_file_shares add constraint lab_file_shares_file_id_student_id_key UNIQUE (file_id, student_id);
+alter table public.lab_progress add constraint lab_progress_student_id_item_type_item_id_key UNIQUE (student_id, item_type, item_id);
+alter table public.lab_quiz_attempts add constraint lab_quiz_attempts_assignment_id_key UNIQUE (assignment_id);
 alter table public.payments add constraint payments_stripe_payment_intent_id_key UNIQUE (stripe_payment_intent_id);
 alter table public.student_purchases add constraint student_purchases_stripe_session_id_key UNIQUE (stripe_session_id);
 alter table public.students add constraint students_profile_id_key UNIQUE (profile_id);
@@ -356,6 +462,14 @@ CREATE INDEX idx_bookings_pending_placement_assignment ON public.bookings USING 
 CREATE INDEX idx_bookings_scheduled_at ON public.bookings USING btree (scheduled_at);
 CREATE INDEX idx_bookings_student ON public.bookings USING btree (student_id);
 CREATE INDEX idx_bookings_teacher ON public.bookings USING btree (teacher_id);
+CREATE INDEX idx_lab_file_shares_student ON public.lab_file_shares USING btree (student_id, shared_at DESC);
+CREATE INDEX idx_lab_progress_student ON public.lab_progress USING btree (student_id, updated_at DESC);
+CREATE INDEX idx_lab_question_bank_teacher ON public.lab_question_bank USING btree (teacher_id, created_at DESC);
+CREATE INDEX idx_lab_quiz_assignments_student ON public.lab_quiz_assignments USING btree (student_id, created_at DESC);
+CREATE INDEX idx_lab_quiz_assignments_teacher ON public.lab_quiz_assignments USING btree (teacher_id, created_at DESC);
+CREATE INDEX idx_lab_quiz_attempts_assignment ON public.lab_quiz_attempts USING btree (assignment_id);
+CREATE INDEX idx_lab_quizzes_teacher ON public.lab_quizzes USING btree (teacher_id, created_at DESC);
+CREATE INDEX idx_lab_teacher_files_teacher ON public.lab_teacher_files USING btree (teacher_id, created_at DESC);
 CREATE INDEX idx_library_books_active ON public.library_books USING btree (created_at DESC) WHERE (is_active = true);
 CREATE INDEX idx_payments_student ON public.payments USING btree (student_id);
 CREATE INDEX idx_payments_teacher ON public.payments USING btree (teacher_id);
@@ -381,6 +495,13 @@ alter table public.assignments enable row level security;
 alter table public.auth_attempts enable row level security;
 alter table public.availability_slots enable row level security;
 alter table public.bookings enable row level security;
+alter table public.lab_file_shares enable row level security;
+alter table public.lab_progress enable row level security;
+alter table public.lab_question_bank enable row level security;
+alter table public.lab_quiz_assignments enable row level security;
+alter table public.lab_quiz_attempts enable row level security;
+alter table public.lab_quizzes enable row level security;
+alter table public.lab_teacher_files enable row level security;
 alter table public.library_books enable row level security;
 alter table public.payments enable row level security;
 alter table public.plans enable row level security;
@@ -427,6 +548,55 @@ create policy "Students see own bookings" on public.bookings for select to authe
 create policy "Teachers see own bookings" on public.bookings for select using ((auth.uid() = ( SELECT teachers.profile_id
    FROM teachers
   WHERE (teachers.id = bookings.teacher_id))));
+create policy "admin reads lab file shares" on public.lab_file_shares for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "student reads own lab file shares" on public.lab_file_shares for select using ((student_id = auth_student_id()));
+create policy "teacher reads own lab file shares" on public.lab_file_shares for select using ((file_id IN ( SELECT lab_teacher_files.id
+   FROM lab_teacher_files
+  WHERE (lab_teacher_files.teacher_id IN ( SELECT teachers.id
+           FROM teachers
+          WHERE (teachers.profile_id = auth.uid()))))));
+create policy "admin reads lab progress" on public.lab_progress for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "student reads own lab progress" on public.lab_progress for select using ((student_id = auth_student_id()));
+create policy "admin reads lab questions" on public.lab_question_bank for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "teacher reads own lab questions" on public.lab_question_bank for select using ((teacher_id IN ( SELECT teachers.id
+   FROM teachers
+  WHERE (teachers.profile_id = auth.uid()))));
+create policy "admin reads lab assignments" on public.lab_quiz_assignments for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "student reads own lab assignments" on public.lab_quiz_assignments for select using ((student_id = auth_student_id()));
+create policy "teacher reads own lab assignments" on public.lab_quiz_assignments for select using ((teacher_id IN ( SELECT teachers.id
+   FROM teachers
+  WHERE (teachers.profile_id = auth.uid()))));
+create policy "admin reads lab attempts" on public.lab_quiz_attempts for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "student reads own lab attempts" on public.lab_quiz_attempts for select using ((assignment_id IN ( SELECT lab_quiz_assignments.id
+   FROM lab_quiz_assignments
+  WHERE (lab_quiz_assignments.student_id = auth_student_id()))));
+create policy "teacher reads own lab attempts" on public.lab_quiz_attempts for select using ((assignment_id IN ( SELECT lab_quiz_assignments.id
+   FROM lab_quiz_assignments
+  WHERE (lab_quiz_assignments.teacher_id IN ( SELECT teachers.id
+           FROM teachers
+          WHERE (teachers.profile_id = auth.uid()))))));
+create policy "admin reads lab quizzes" on public.lab_quizzes for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "teacher reads own lab quizzes" on public.lab_quizzes for select using ((teacher_id IN ( SELECT teachers.id
+   FROM teachers
+  WHERE (teachers.profile_id = auth.uid()))));
+create policy "admin reads lab files" on public.lab_teacher_files for select using ((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))));
+create policy "teacher reads own lab files" on public.lab_teacher_files for select using ((teacher_id IN ( SELECT teachers.id
+   FROM teachers
+  WHERE (teachers.profile_id = auth.uid()))));
 create policy "auth reads active library books" on public.library_books for select to authenticated using ((is_active = true));
 create policy "Students see own payments" on public.payments for select using ((auth.uid() = ( SELECT students.profile_id
    FROM students
