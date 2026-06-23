@@ -202,12 +202,9 @@ body {
 .ek-kicker--red { color: var(--ek-red); }
 .ek-kicker--on-dark { color: var(--ek-on-dark-muted); }
 .ek-kicker::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  display: inline-block;
+  /* Dot removed (Carlos: the bullet-dot before every eyebrow read as generic
+     "AI slop"). Kept the selector so existing markup/gap stays valid. */
+  display: none;
 }
 .ek-kicker--no-dot::before { display: none; }
 

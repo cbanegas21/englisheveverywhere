@@ -83,7 +83,7 @@ export default function TrustStrip({ lang: _lang }: { lang: Locale }) {
         style={{
           display: 'flex',
           width: 'max-content',
-          animation: 'marquee 60s linear infinite',
+          animation: 'marquee 32s linear infinite',
           whiteSpace: 'nowrap',
           willChange: 'transform',
         }}

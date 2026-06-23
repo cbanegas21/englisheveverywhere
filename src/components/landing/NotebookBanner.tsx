@@ -5,13 +5,13 @@ const t = {
     eyebrow: 'Class after class',
     title: 'Your notebook fills up.',
     accent: 'So does your English.',
-    body: 'Every class leaves a mark — new vocabulary, a phrase that sticks, an accent that sharpens. Your teacher remembers where you left off.',
+    body: 'Every class leaves a mark — new vocabulary, a phrase that sticks, an accent that sharpens. The platform saves an AI summary and the vocabulary from each class, and your teacher remembers where you left off.',
   },
   es: {
     eyebrow: 'Clase tras clase',
     title: 'Tu cuaderno se llena.',
     accent: 'Tu inglés también.',
-    body: 'Cada clase deja huella. Vocabulario nuevo, una expresión que se queda, un acento que se afina. Tu maestro recuerda dónde te quedaste.',
+    body: 'Cada clase deja huella. Vocabulario nuevo, una expresión que se queda, un acento que se afina. La plataforma guarda un resumen con IA y el vocabulario de cada clase, y tu maestro recuerda dónde te quedaste.',
   },
 }
 
