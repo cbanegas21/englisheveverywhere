@@ -20,6 +20,7 @@ const studentNav = {
   en: [
     { label: 'Home', href: '/dashboard' },
     { label: 'My classes', href: '/dashboard/clases' },
+    { label: 'The Lab', href: '/dashboard/lab', badge: 'New' },
     { label: 'Schedule', href: '/dashboard/agendar' },
     { label: 'Homework', href: '/dashboard/tareas' },
     { label: 'Library', href: '/dashboard/biblioteca' },
@@ -31,6 +32,7 @@ const studentNav = {
   es: [
     { label: 'Inicio', href: '/dashboard' },
     { label: 'Mis clases', href: '/dashboard/clases' },
+    { label: 'El Lab', href: '/dashboard/lab', badge: 'Nuevo' },
     { label: 'Agendar', href: '/dashboard/agendar' },
     { label: 'Tareas', href: '/dashboard/tareas' },
     { label: 'Biblioteca', href: '/dashboard/biblioteca' },
