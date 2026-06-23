@@ -29,6 +29,10 @@ const L_MSG = {
   titleRequired: { es: 'El título es obligatorio.', en: 'Title is required.' },
   quizNotFound: { es: 'Quiz no encontrado.', en: 'Quiz not found.' },
   noQuestions: { es: 'Agrega al menos una pregunta antes de publicar.', en: 'Add at least one question before publishing.' },
+  noBooking: { es: 'No tienes ninguna reserva con este estudiante.', en: 'You have no booking with this student.' },
+  notPublished: { es: 'Publica el quiz antes de asignarlo.', en: 'Publish the quiz before assigning it.' },
+  alreadyAssigned: { es: 'Este quiz ya está asignado a este estudiante.', en: 'This quiz is already assigned to this student.' },
+  assignmentNotFound: { es: 'Asignación no encontrada.', en: 'Assignment not found.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
 } as const
 const lm = (k: keyof typeof L_MSG, lang: string) => L_MSG[k][lang === 'en' ? 'en' : 'es']
@@ -366,6 +370,74 @@ export async function cancelQuiz(input: { id: string; lang?: string }) {
     .eq('teacher_id', teacherId)
   if (error) {
     console.error('cancelQuiz update failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+// ── Assign actions (STEP 3, Slice B) ─────────────────────────────────────
+// Non-cancelled-booking IDOR gate (cloned from createAssignment) so a teacher
+// can only assign to a student they actually teach.
+async function hasBookingWith(admin: ReturnType<typeof createAdminClient>, teacherId: string, studentId: string): Promise<boolean> {
+  const { count } = await admin
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('teacher_id', teacherId)
+    .eq('student_id', studentId)
+    .neq('status', 'cancelled')
+  return !!count
+}
+
+export async function assignQuizToStudent(input: { quizId: string; studentId: string; dueAt?: string | null; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+
+  const { data: quiz } = await admin.from('lab_quizzes').select('teacher_id, status').eq('id', input.quizId).maybeSingle()
+  if (!quiz) return { error: lm('quizNotFound', lang) }
+  if (quiz.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+  if (quiz.status !== 'published') return { error: lm('notPublished', lang) }
+  if (!(await hasBookingWith(admin, teacherId, input.studentId))) return { error: lm('noBooking', lang) }
+
+  // Don't stack duplicate OPEN assignments of the same quiz to the same student.
+  const { data: existing } = await admin
+    .from('lab_quiz_assignments')
+    .select('id')
+    .eq('quiz_id', input.quizId)
+    .eq('student_id', input.studentId)
+    .eq('status', 'open')
+    .maybeSingle()
+  if (existing) return { error: lm('alreadyAssigned', lang) }
+
+  const dueAt = input.dueAt && !Number.isNaN(new Date(input.dueAt).getTime()) ? input.dueAt : null
+  const { error } = await admin
+    .from('lab_quiz_assignments')
+    .insert({ quiz_id: input.quizId, teacher_id: teacherId, student_id: input.studentId, due_at: dueAt, status: 'open' })
+  if (error) {
+    console.error('assignQuizToStudent insert failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+export async function cancelLabAssignment(input: { id: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+  const { data: owner } = await admin.from('lab_quiz_assignments').select('teacher_id').eq('id', input.id).maybeSingle()
+  if (!owner) return { error: lm('assignmentNotFound', lang) }
+  if (owner.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+  const { error } = await admin
+    .from('lab_quiz_assignments')
+    .update({ status: 'cancelled' })
+    .eq('id', input.id)
+    .eq('teacher_id', teacherId)
+  if (error) {
+    console.error('cancelLabAssignment update failed:', error.message)
     return { error: lm('saveFailed', lang) }
   }
   revalidatePath('/', 'layout')

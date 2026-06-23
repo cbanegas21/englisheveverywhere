@@ -8,7 +8,7 @@ import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import Modal from '@/components/dashboard/Modal'
 import { Spinner } from '@/components/ui/Spinner'
-import { createQuiz, updateQuiz, publishQuiz, cancelQuiz } from '@/app/actions/lab'
+import { createQuiz, updateQuiz, publishQuiz, cancelQuiz, assignQuizToStudent } from '@/app/actions/lab'
 
 type GradingMethod = 'greatest' | 'average' | 'first' | 'last'
 interface BankItem { id: string; type: string; prompt: string }
@@ -20,7 +20,7 @@ interface Quiz {
   settings: unknown
   status: string
 }
-interface Props { lang: Locale; quizzes: Quiz[]; bank: BankItem[] }
+interface Props { lang: Locale; quizzes: Quiz[]; bank: BankItem[]; students: { id: string; name: string }[] }
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
 
@@ -36,6 +36,7 @@ const t = {
     settings: 'Settings', attempts: 'Attempts allowed', grading: 'Grade from', shuffleQ: 'Shuffle questions', shuffleA: 'Shuffle answers', review: 'Let student review answers after',
     gm: { greatest: 'Highest attempt', average: 'Average', first: 'First attempt', last: 'Last attempt' } as Record<GradingMethod, string>,
     save: 'Save', saving: 'Saving…', publishing: 'Publishing…',
+    assign: 'Assign', assignTitle: 'Assign quiz', chooseStudent: 'Student', dueDate: 'Due date (optional)', noStudents: 'No booked students yet — you can assign once you have one.', send: 'Assign', sending: 'Assigning…',
     types: { mcq_single: 'MC (one)', mcq_multi: 'MC (multi)', true_false: 'T/F', short_answer: 'Short', matching: 'Match', essay: 'Essay' } as Record<string, string>,
   },
   es: {
@@ -49,6 +50,7 @@ const t = {
     settings: 'Ajustes', attempts: 'Intentos permitidos', grading: 'Calificar con', shuffleQ: 'Mezclar preguntas', shuffleA: 'Mezclar respuestas', review: 'Permitir al estudiante revisar respuestas después',
     gm: { greatest: 'Mejor intento', average: 'Promedio', first: 'Primer intento', last: 'Último intento' } as Record<GradingMethod, string>,
     save: 'Guardar', saving: 'Guardando…', publishing: 'Publicando…',
+    assign: 'Asignar', assignTitle: 'Asignar quiz', chooseStudent: 'Estudiante', dueDate: 'Fecha límite (opcional)', noStudents: 'Aún no tienes estudiantes con reserva — podrás asignar cuando tengas uno.', send: 'Asignar', sending: 'Asignando…',
     types: { mcq_single: 'OM (una)', mcq_multi: 'OM (varias)', true_false: 'V/F', short_answer: 'Corta', matching: 'Empareja', essay: 'Ensayo' } as Record<string, string>,
   },
 }
@@ -77,7 +79,7 @@ function formFromQuiz(q: Quiz): FormState {
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--ek-border)', background: 'var(--ek-paper)', color: 'var(--ek-text)', fontSize: 14, fontFamily: 'var(--ek-font-sans)' }
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', marginBottom: 6 }
 
-export default function QuizzesClient({ lang, quizzes, bank }: Props) {
+export default function QuizzesClient({ lang, quizzes, bank, students }: Props) {
   const tx = t[lang]
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -85,6 +87,10 @@ export default function QuizzesClient({ lang, quizzes, bank }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(blankForm)
   const [error, setError] = useState('')
+  const [assignQuiz, setAssignQuiz] = useState<Quiz | null>(null)
+  const [assignStudent, setAssignStudent] = useState('')
+  const [assignDue, setAssignDue] = useState('')
+  const [assignError, setAssignError] = useState('')
 
   const upd = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }))
 
@@ -107,6 +113,16 @@ export default function QuizzesClient({ lang, quizzes, bank }: Props) {
   }
   function doPublish(q: Quiz) { startTransition(async () => { const r = await publishQuiz({ id: q.id, lang }); if (r && !('error' in r)) router.refresh() }) }
   function doCancel(q: Quiz) { startTransition(async () => { const r = await cancelQuiz({ id: q.id, lang }); if (r && !('error' in r)) router.refresh() }) }
+  function openAssign(q: Quiz) { setAssignQuiz(q); setAssignStudent(students[0]?.id ?? ''); setAssignDue(''); setAssignError('') }
+  function doAssign() {
+    if (!assignQuiz || !assignStudent) return
+    setAssignError('')
+    startTransition(async () => {
+      const r = await assignQuizToStudent({ quizId: assignQuiz.id, studentId: assignStudent, dueAt: assignDue || null, lang })
+      if (r && 'error' in r) { setAssignError(r.error ?? ''); return }
+      setAssignQuiz(null); router.refresh()
+    })
+  }
 
   const toggle = (id: string) => upd({ selected: form.selected.includes(id) ? form.selected.filter((x) => x !== id) : [...form.selected, id] })
 
@@ -148,6 +164,7 @@ export default function QuizzesClient({ lang, quizzes, bank }: Props) {
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button onClick={() => openEdit(q)} style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-text)', background: 'transparent', border: '1px solid var(--ek-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.edit}</button>
                     {!isPub && <button onClick={() => doPublish(q)} disabled={pending} style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: 'var(--ek-red)', border: 0, borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.publish}</button>}
+                    {isPub && <button onClick={() => openAssign(q)} disabled={pending} style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: 'var(--ek-red)', border: 0, borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.assign}</button>}
                     <button onClick={() => doCancel(q)} disabled={pending} style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-text-muted)', background: 'transparent', border: '1px solid var(--ek-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.cancelQuiz}</button>
                   </div>
                 </div>
@@ -218,6 +235,35 @@ export default function QuizzesClient({ lang, quizzes, bank }: Props) {
             </div>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!assignQuiz} onClose={() => setAssignQuiz(null)}
+        kicker={tx.assign} title={assignQuiz?.title || tx.assignTitle} maxWidth={440}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
+            {assignError && <span style={{ fontSize: 12.5, color: 'var(--ek-red)', marginRight: 'auto' }}>{assignError}</span>}
+            <button onClick={() => setAssignQuiz(null)} style={{ fontSize: 14, fontWeight: 600, color: 'var(--ek-text-muted)', background: 'transparent', border: 0, cursor: 'pointer', padding: '10px 14px' }}>{tx.cancel}</button>
+            <button onClick={doAssign} disabled={pending || !assignStudent} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--ek-red)', color: '#fff', fontWeight: 700, fontSize: 14, padding: '10px 20px', borderRadius: 8, border: 0, cursor: pending || !assignStudent ? 'default' : 'pointer', opacity: pending || !assignStudent ? 0.6 : 1 }}>{pending && <Spinner size={14} stroke="#fff" />}{pending ? tx.sending : tx.send}</button>
+          </div>
+        }
+      >
+        {students.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--ek-text-muted)', margin: 0 }}>{tx.noStudents}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label style={labelStyle}>{tx.chooseStudent}</label>
+              <select value={assignStudent} onChange={(e) => setAssignStudent(e.target.value)} style={inputStyle}>
+                {students.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>{tx.dueDate}</label>
+              <input type="date" value={assignDue} onChange={(e) => setAssignDue(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )
