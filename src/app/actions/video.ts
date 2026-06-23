@@ -568,11 +568,12 @@ export async function completeSession(
 }
 
 // Persist the live-transcript text captured from the classroom. Called from
-// the teacher's browser immediately before completeSession() so the summary
-// modal and the student's class-history transcript panel both have it.
-// Only the booking's teacher may write.
+// the teacher's browser right after completeSession() (which flips the booking
+// to 'completed'), so the summary modal and the student's class-history
+// transcript panel both have it. Only the booking's teacher may write, and only
+// once — see the first-write-only guard below.
 export async function saveSessionTranscript(
-  sessionId: string,
+  bookingId: string,
   transcript: string,
 ): Promise<{ success: boolean }> {
   const supabase = await createClient()
@@ -586,21 +587,26 @@ export async function saveSessionTranscript(
 
   const adminClient = createAdminClient()
 
+  // Resolve the session AUTHORITATIVELY from the bookingId — never trust a
+  // client-passed sessionId for writes (mirrors completeSession).
   const { data: sessionRow } = await adminClient
     .from('sessions')
     .select(`
       id,
       booking:bookings(status, teacher:teachers(profile_id))
     `)
-    .eq('id', sessionId)
-    .single()
+    .eq('booking_id', bookingId)
+    .maybeSingle()
 
   const teacherProfileId = (sessionRow?.booking as any)?.teacher?.profile_id
-  if (!teacherProfileId || teacherProfileId !== user.id) return { success: false }
-  // Don't allow writes once the booking is terminal — the session is paid-out,
-  // notes/transcript shouldn't change after the fact (server-action-authz).
-  const bStatus = (sessionRow?.booking as any)?.status
-  if (bStatus && bStatus !== 'pending' && bStatus !== 'confirmed') return { success: false }
+  if (!sessionRow || !teacherProfileId || teacherProfileId !== user.id) return { success: false }
+  // This save runs RIGHT AFTER completeSession flips the booking to 'completed',
+  // so 'completed' must be allowed — but only as a one-time back-fill: the
+  // .is('transcript', null) below makes the write first-write-only, so a
+  // paid-out session's transcript can't be rewritten after the fact. A cancelled
+  // (or otherwise non-class) booking is rejected outright.
+  const bStatus = (sessionRow.booking as any)?.status
+  if (!['pending', 'confirmed', 'completed'].includes(bStatus)) return { success: false }
 
   const { error } = await adminClient
     .from('sessions')
@@ -608,7 +614,78 @@ export async function saveSessionTranscript(
       transcript: trimmed,
       transcript_captured_at: new Date().toISOString(),
     })
-    .eq('id', sessionId)
+    .eq('id', sessionRow.id)
+    .is('transcript', null)
+
+  return { success: !error }
+}
+
+// Coerce an untrusted vocab payload to the CuadernoVocabItem contract: drop
+// non-objects / wrong-typed entries, bound each field's length, require a
+// non-empty word AND translation (a blank translation would render as an empty
+// row), and cap the count (defense-in-depth; a 60-min class yields well under
+// 200 words). Shared by the writer (saveSessionVocab) and the reader
+// (getSessionByBookingId) so the stored and returned shapes can never drift.
+function cleanVocab(vocab: unknown): CuadernoVocabItem[] {
+  return (Array.isArray(vocab) ? vocab : [])
+    .filter((x): x is CuadernoVocabItem =>
+      !!x && typeof x.word === 'string' && typeof x.translation === 'string' && typeof x.example === 'string'
+    )
+    .map((x) => ({
+      word: x.word.slice(0, 120),
+      translation: x.translation.slice(0, 200),
+      example: x.example.slice(0, 500),
+    }))
+    .filter((x) => x.word.trim().length > 0 && x.translation.trim().length > 0)
+    .slice(0, 200)
+}
+
+// Persist the AI cuaderno vocabulary captured during the class (CuadernoVocabItem[]
+// from extractLiveVocab, accumulated in useLiveVocab). Called from the teacher's
+// browser right after completeSession — same pattern + same guards as
+// saveSessionTranscript — so the student can review the new words afterward in
+// their class history. Best-effort: never blocks ending the class.
+export async function saveSessionVocab(
+  bookingId: string,
+  vocab: CuadernoVocabItem[],
+): Promise<{ success: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false }
+
+  const cleaned = cleanVocab(vocab)
+  if (cleaned.length === 0) return { success: false }
+
+  const adminClient = createAdminClient()
+
+  // Resolve the session AUTHORITATIVELY from the bookingId — never trust a
+  // client-passed sessionId for writes (mirrors completeSession).
+  const { data: sessionRow } = await adminClient
+    .from('sessions')
+    .select(`
+      id,
+      booking:bookings(status, teacher:teachers(profile_id))
+    `)
+    .eq('booking_id', bookingId)
+    .maybeSingle()
+
+  const teacherProfileId = (sessionRow?.booking as any)?.teacher?.profile_id
+  if (!sessionRow || !teacherProfileId || teacherProfileId !== user.id) return { success: false }
+  // 'completed' is the normal save path (completeSession flips status before this
+  // runs); the .is('vocabulary', null) below keeps it first-write-only so a
+  // paid-out session's words can't be rewritten after the fact. Reject cancelled
+  // / non-class bookings outright.
+  const bStatus = (sessionRow.booking as any)?.status
+  if (!['pending', 'confirmed', 'completed'].includes(bStatus)) return { success: false }
+
+  const { error } = await adminClient
+    .from('sessions')
+    .update({
+      vocabulary: cleaned,
+      vocabulary_captured_at: new Date().toISOString(),
+    })
+    .eq('id', sessionRow.id)
+    .is('vocabulary', null)
 
   return { success: !error }
 }
@@ -619,6 +696,7 @@ export async function getSessionByBookingId(bookingId: string): Promise<{
   teacher_notes: string | null
   transcript: string | null
   transcript_captured_at: string | null
+  vocabulary: CuadernoVocabItem[] | null
   started_at: string | null
   ended_at: string | null
 } | null> {
@@ -657,11 +735,16 @@ export async function getSessionByBookingId(bookingId: string): Promise<{
 
   const { data: session } = await adminClient
     .from('sessions')
-    .select('id, notes, teacher_notes, transcript, transcript_captured_at, started_at, ended_at')
+    .select('id, notes, teacher_notes, transcript, transcript_captured_at, vocabulary, started_at, ended_at')
     .eq('booking_id', bookingId)
     .maybeSingle()
 
-  return session || null
+  if (!session) return null
+  // vocabulary is jsonb (returns as Json) — run it through the same validator the
+  // writer uses so the read contract enforces the stored shape (null if empty).
+  const cleanedVocab = cleanVocab((session as { vocabulary?: unknown }).vocabulary)
+  const vocabulary = cleanedVocab.length > 0 ? cleanedVocab : null
+  return { ...session, vocabulary }
 }
 
 // ─── Live AI cuaderno ──────────────────────────────────────────────────────

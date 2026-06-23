@@ -182,6 +182,8 @@ create table public.sessions (
   transcript text,
   transcript_captured_at timestamp with time zone,
   student_joined_at timestamp with time zone,
+  vocabulary jsonb,
+  vocabulary_captured_at timestamp with time zone,
   primary key (id)
 );
 

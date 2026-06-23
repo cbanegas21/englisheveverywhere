@@ -34,9 +34,15 @@ const t = {
       lead: "You're not paying for a class.",
       body: "You're paying for a teacher who's only yours — who knows you, remembers your progress and answers every question. A ten-student group can't do that.",
     },
+    consistency: {
+      lead: 'Classes never expire — but your consistency is what moves you forward.',
+      body: 'Learning English is a habit: the more regularly you take your classes, the faster you progress. Your classes wait as long as you need — your best progress just comes when you keep the rhythm.',
+    },
     features: [
       { label: '60-minute classes', sub: 'One to one, live on video — the full hour is yours.' },
       { label: 'Your own certified teacher', sub: 'Hand-matched to your level and goals, so every minute is about you.' },
+      { label: 'An AI notebook for your classes', sub: 'A summary of your class, the new vocabulary and a note on your progress — saved so you can review anytime.' },
+      { label: 'Pay securely by card, in the app', sub: 'Checkout right here — no transfers, no extra apps. Your classes are ready the moment you pay.' },
       { label: 'Classes never expire', sub: 'Use them at your pace — no deadlines, no pressure.' },
       { label: 'Packs stack, never renew', sub: 'Pay once. Buy another pack only when you want more.' },
     ],
@@ -72,9 +78,15 @@ const t = {
       lead: 'No pagas por una clase.',
       body: 'Pagas por un maestro que es solo tuyo — te conoce, recuerda tu progreso y responde cada pregunta. Eso una clase de diez no lo da.',
     },
+    consistency: {
+      lead: 'Las clases no caducan, pero tu constancia sí cuenta.',
+      body: 'Aprender inglés es un hábito: mientras más seguido tomas tus clases, más rápido avanzas. Tus clases te esperan el tiempo que necesites — tu mejor progreso llega cuando mantienes el ritmo.',
+    },
     features: [
       { label: 'Clases de 60 minutos', sub: '1 a 1, en vivo por video — la hora completa es tuya.' },
       { label: 'Tu propio maestro certificado', sub: 'Asignado según tu nivel y metas, para que cada minuto sea sobre ti.' },
+      { label: 'Cuaderno IA de tus clases', sub: 'Un resumen de tu clase, el vocabulario nuevo y una nota de tu progreso — guardados para repasar cuando quieras.' },
+      { label: 'Paga con tarjeta, seguro y en la app', sub: 'Pagas aquí mismo — sin transferencias ni apps extra. Tus clases quedan listas al instante.' },
       { label: 'Las clases nunca caducan', sub: 'Úsalas a tu ritmo — sin fechas límite, sin presión.' },
       { label: 'Los paquetes se acumulan, no se renuevan', sub: 'Pagas una vez. Compras otro paquete solo cuando quieras más.' },
     ],
@@ -495,6 +507,39 @@ export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; pl
                 {tx.reassure.lead}
               </span>{' '}
               {tx.reassure.body}
+            </p>
+          </div>
+
+          {/* "Tu constancia importa" (A11) — balances "classes never expire": they
+              don't, but consistency is what drives progress. Set apart from the
+              teacher-value reassure with a hairline + a red lead. */}
+          <div
+            style={{
+              marginTop: 'clamp(22px, 3vw, 28px)',
+              paddingTop: 'clamp(22px, 3vw, 28px)',
+              borderTop: '1px solid var(--ek-border)',
+              textAlign: 'center',
+            }}
+          >
+            <p
+              style={{
+                margin: '0 auto',
+                maxWidth: '54ch',
+                fontSize: 'clamp(0.95rem, 1.4vw, 1.1rem)',
+                lineHeight: 1.55,
+                color: 'var(--ek-text-soft)',
+              }}
+            >
+              <span
+                style={{
+                  color: 'var(--ek-red)',
+                  fontWeight: 700,
+                  fontFamily: 'var(--ek-font-sans)',
+                }}
+              >
+                {tx.consistency.lead}
+              </span>{' '}
+              {tx.consistency.body}
             </p>
           </div>
         </motion.div>

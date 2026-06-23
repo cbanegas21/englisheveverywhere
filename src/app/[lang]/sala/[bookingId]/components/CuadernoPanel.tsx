@@ -17,6 +17,12 @@ interface Props {
   /** Live vocab from useLiveVocab. */
   vocab: CuadernoEntry[]
   isExtractingVocab: boolean
+  /** True before the scheduled start: the class hasn't begun, the engine is off,
+   *  and nothing is saved yet — show the warm-up state instead of live content. */
+  warmup?: boolean
+  /** Scheduled start ISO — shown in the warm-up state so the user knows when the
+   *  cuaderno will begin. */
+  scheduledAt?: string
   /** Toggle in the ControlBar to hide/show the cuaderno on smaller screens. */
   show: boolean
   /** Recognizer language toggle (es-ES / en-US). */
@@ -40,6 +46,8 @@ export function CuadernoPanel({
   listening,
   vocab,
   isExtractingVocab,
+  warmup = false,
+  scheduledAt,
   show,
   recognizerLang,
   onChangeRecognizerLang,
@@ -98,7 +106,25 @@ export function CuadernoPanel({
           >
             {tx.kicker}
           </div>
-          {supported && listening && (
+          {warmup ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontFamily: 'var(--ek-font-mono)',
+                fontSize: 10,
+                color: 'var(--ek-notebook-muted)',
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: 'rgba(120,113,92,0.10)',
+                border: '1px solid var(--ek-notebook-line)',
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ek-notebook-muted)' }} />
+              {tx.warmupBadge}
+            </span>
+          ) : supported && listening && (
             <span
               style={{
                 display: 'inline-flex',
@@ -139,10 +165,11 @@ export function CuadernoPanel({
             lineHeight: 1.1,
           }}
         >
-          {tab === 'vocab' ? tx.titleVocab(vocab.length) : tx.titleTranscript}
+          {warmup ? tx.warmupTitle : tab === 'vocab' ? tx.titleVocab(vocab.length) : tx.titleTranscript}
         </h3>
 
-        {/* Recognizer language pill */}
+        {/* Recognizer language pill — hidden during warm-up (nothing is listening yet). */}
+        {!warmup && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span
             style={{
@@ -173,9 +200,11 @@ export function CuadernoPanel({
             {recognizerLang === 'es-ES' ? 'ES' : 'EN'} ⇄
           </button>
         </div>
+        )}
       </header>
 
-      {/* Tabs */}
+      {/* Tabs — hidden during warm-up (no live content yet). */}
+      {!warmup && (
       <div
         style={{
           display: 'flex',
@@ -212,6 +241,7 @@ export function CuadernoPanel({
           )
         })}
       </div>
+      )}
 
       {/* Content */}
       <div
@@ -237,7 +267,47 @@ export function CuadernoPanel({
           }}
         />
 
-        {tab === 'vocab' && (
+        {warmup && (
+          <div style={{ paddingLeft: 30, marginTop: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 30, marginBottom: 12 }} aria-hidden="true">☕</div>
+            <p
+              style={{
+                fontFamily: 'var(--ek-font-serif)',
+                fontStyle: 'italic',
+                fontSize: 17,
+                color: 'var(--ek-notebook-ink)',
+                margin: '0 0 8px',
+                lineHeight: 1.3,
+              }}
+            >
+              {tx.warmupHeading}
+            </p>
+            <p style={{ fontSize: 12.5, color: 'var(--ek-notebook-muted)', lineHeight: 1.55, margin: 0 }}>
+              {tx.warmupBody}
+            </p>
+            {scheduledAt && !Number.isNaN(new Date(scheduledAt).getTime()) && (
+              <p
+                style={{
+                  fontFamily: 'var(--ek-font-mono)',
+                  fontSize: 10,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--ek-notebook-faint)',
+                  marginTop: 16,
+                }}
+              >
+                {tx.warmupStartsAt}{' '}
+                {new Date(scheduledAt).toLocaleTimeString(lang === 'es' ? 'es-HN' : 'en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  timeZone: 'America/Tegucigalpa',
+                })}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!warmup && tab === 'vocab' && (
           <>
             {!supported && (
               <p
@@ -337,7 +407,7 @@ export function CuadernoPanel({
           </>
         )}
 
-        {tab === 'transcript' && (
+        {!warmup && tab === 'transcript' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 30 }}>
             {!supported ? (
               <p
@@ -391,7 +461,7 @@ export function CuadernoPanel({
           flexShrink: 0,
         }}
       >
-        {tx.footer}
+        {warmup ? tx.warmupFooter : tx.footer}
       </footer>
     </>
   )
@@ -537,6 +607,12 @@ const T = {
       "Live captions don't work in this browser. Use Chrome or Edge to enable the cuaderno.",
     justNow: 'just now',
     footer: 'Saved automatically when the class ends.',
+    warmupBadge: 'warm-up',
+    warmupTitle: 'Warm-up',
+    warmupHeading: "The class hasn't started yet.",
+    warmupBody: 'Your notebook begins when class starts. Nothing is being saved yet — settle in and say hi.',
+    warmupStartsAt: 'Starts at',
+    warmupFooter: 'The cuaderno starts — and saving begins — when the class does.',
   },
   es: {
     kicker: '↳ EK escuchando',
@@ -553,5 +629,11 @@ const T = {
       'Los subtítulos en vivo no funcionan en este navegador. Usa Chrome o Edge para activar el cuaderno.',
     justNow: 'justo ahora',
     footer: 'Se guarda automáticamente al terminar la clase.',
+    warmupBadge: 'calentamiento',
+    warmupTitle: 'Calentamiento',
+    warmupHeading: 'La clase aún no empieza.',
+    warmupBody: 'Tu cuaderno comienza cuando inicia la clase. Todavía no se guarda nada — ponte cómodo y saluda.',
+    warmupStartsAt: 'Empieza a las',
+    warmupFooter: 'El cuaderno comienza —y empieza a guardarse— cuando inicia la clase.',
   },
 } as const

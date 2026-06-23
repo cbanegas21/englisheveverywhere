@@ -7,7 +7,7 @@ import {
   MoreVertical, CalendarClock, AlertOctagon, XCircle,
 } from 'lucide-react'
 import { getSessionByBookingId } from '@/app/actions/video'
-import type { SessionSummary } from '@/app/actions/video'
+import type { SessionSummary, CuadernoVocabItem } from '@/app/actions/video'
 import {
   studentCancelBooking,
   studentRescheduleBooking,
@@ -60,6 +60,8 @@ const t = {
     nextTopics: 'Next session suggestions',
     progressNote: 'Progress note',
     teacherNotes: 'Teacher notes',
+    vocab: 'New vocabulary',
+    vocabEmpty: 'No new words were captured for this class.',
     transcript: 'Transcript',
     transcriptEmpty: 'No transcript was captured for this class.',
     noSummary: 'No summary available for this session.',
@@ -134,6 +136,8 @@ const t = {
     nextTopics: 'Sugerencias para la próxima sesión',
     progressNote: 'Nota de progreso',
     teacherNotes: 'Notas del maestro',
+    vocab: 'Vocabulario nuevo',
+    vocabEmpty: 'No se capturó vocabulario nuevo para esta clase.',
     transcript: 'Transcripción',
     transcriptEmpty: 'No se capturó transcripción para esta clase.',
     noSummary: 'No hay resumen disponible para esta sesión.',
@@ -234,6 +238,7 @@ interface SessionData {
   teacher_notes: string | null
   transcript: string | null
   transcript_captured_at: string | null
+  vocabulary: CuadernoVocabItem[] | null
   started_at: string | null
   ended_at: string | null
 }
@@ -1131,6 +1136,69 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
                   </p>
                 </div>
               )}
+              <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <p
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.18em',
+                      color: 'var(--ek-text-muted)',
+                      fontFamily: 'var(--ek-font-mono)',
+                    }}
+                  >
+                    {tx.vocab}{sessionData?.vocabulary && sessionData.vocabulary.length > 0 ? ` · ${sessionData.vocabulary.length}` : ''}
+                  </p>
+                </div>
+                {sessionData?.vocabulary && sessionData.vocabulary.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {sessionData.vocabulary.map((v, i) => (
+                      <div
+                        key={`${v.word}-${i}`}
+                        style={{
+                          paddingLeft: 14,
+                          borderLeft: '3px solid var(--ek-red)',
+                        }}
+                      >
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-text)', letterSpacing: '-0.01em' }}>
+                          {v.word}
+                        </div>
+                        {v.translation && (
+                          <div style={{ fontSize: 12.5, color: 'var(--ek-ink-soft)', marginTop: 2 }}>
+                            {v.translation}
+                          </div>
+                        )}
+                        {v.example && (
+                          <div
+                            style={{
+                              fontFamily: 'var(--ek-font-serif)',
+                              fontStyle: 'italic',
+                              fontSize: 13,
+                              color: 'var(--ek-text-muted)',
+                              marginTop: 4,
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            &ldquo;{v.example}&rdquo;
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p
+                    style={{
+                      fontSize: 12,
+                      fontStyle: 'italic',
+                      color: 'var(--ek-text-muted)',
+                      fontFamily: 'var(--ek-font-serif)',
+                    }}
+                  >
+                    {tx.vocabEmpty}
+                  </p>
+                )}
+              </div>
               <div style={{ borderTop: '1px solid var(--ek-border)', paddingTop: 20 }}>
                 <div style={{ marginBottom: 10 }}>
                   <p

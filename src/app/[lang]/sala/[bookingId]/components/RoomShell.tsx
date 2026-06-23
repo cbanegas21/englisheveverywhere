@@ -20,6 +20,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useSelfViewPosition } from '../hooks/useSelfViewPosition'
 import { useLiveTranscript } from '../hooks/useLiveTranscript'
 import { useLiveVocab } from '../hooks/useLiveVocab'
+import { useHasStarted } from '../hooks/useHasStarted'
 import { TopBar } from './TopBar'
 import { VideoTile } from './VideoTile'
 import { LocalSelfView, SelfViewPill } from './LocalSelfView'
@@ -98,26 +99,37 @@ export function RoomShell({
   // for a frame (the matchMedia initializer corrects to true on a real desktop).
   const isDesktopCuaderno = useMediaQuery('(min-width: 1024px)', false)
 
+  // Warm-up gate: before the scheduled start the room is open (Zoom-style early
+  // join) but the cuaderno hasn't started and NOTHING is saved yet (Carlos). The
+  // transcript + vocab engines only run once the class is actually live, so early
+  // small-talk isn't transcribed, doesn't spend Deepgram/Anthropic credit, and
+  // never lands in the saved transcript/vocabulary. Flips to live automatically
+  // at the scheduled time without a remount.
+  const hasStarted = useHasStarted(scheduledAt)
+  const cuadernoActive = isDesktopCuaderno && hasStarted
+  const isWarmup = isDesktopCuaderno && !hasStarted
+
   // Recognizer language follows the UI locale; user can toggle ES/EN from the
   // cuaderno header (desktop) at any time.
   const [recognizerLang, setRecognizerLang] = useState<'es-ES' | 'en-US'>(
     lang === 'es' ? 'es-ES' : 'en-US'
   )
-  const transcript = useLiveTranscript({ enabled: isDesktopCuaderno, bookingId, lang: recognizerLang })
+  const transcript = useLiveTranscript({ enabled: cuadernoActive, bookingId, lang: recognizerLang })
 
   // Live AI cuaderno — extracts teaching-worthy vocab from the running transcript
-  // every ~30s via Claude haiku 4.5. Best-effort; desktop-only (gated with the
-  // transcript engine above).
+  // every ~30s via Claude haiku 4.5. Best-effort; desktop-only + only once the
+  // class is live (gated with the transcript engine above).
   const liveVocab = useLiveVocab({
     bookingId,
     finals: transcript.finals,
     uiLang: lang,
-    enabled: isDesktopCuaderno,
+    enabled: cuadernoActive,
   })
 
   const { isLeaving, leave } = useLeaveFlow({
     isTeacher, bookingId, sessionId, lang, onComplete,
     getTranscript: transcript.snapshot,
+    getVocab: liveVocab.snapshot,
   })
 
   // When the teacher clicks End Class, only THEIR LiveKit client disconnects.
@@ -692,6 +704,8 @@ export function RoomShell({
           mode={isDesktopCuaderno ? 'rail' : 'sheet'}
           bottomInset={selfViewBottomInset}
           onClose={() => setShowCuaderno(false)}
+          warmup={isWarmup}
+          scheduledAt={scheduledAt}
           finals={transcript.finals}
           interims={transcript.interims}
           supported={transcript.supported}

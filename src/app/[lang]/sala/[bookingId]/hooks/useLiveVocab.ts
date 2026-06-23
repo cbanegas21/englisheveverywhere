@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { extractLiveVocab, type CuadernoVocabItem } from '@/app/actions/video'
 import type { TranscriptLine } from './useLiveTranscript'
 
@@ -89,5 +89,12 @@ export function useLiveVocab({
     }
   }, [enabled, intervalMs, uiLang, bookingId])
 
-  return { entries, isExtracting }
+  // Snapshot for persistence (saveSessionVocab on End Class). Reads the ref so the
+  // getter is stable and always returns the latest accumulated words — strips the
+  // client-only id/timestamp down to the storable {word, translation, example}.
+  const snapshot = useCallback((): CuadernoVocabItem[] =>
+    entriesRef.current.map(({ word, translation, example }) => ({ word, translation, example })),
+  [])
+
+  return { entries, isExtracting, snapshot }
 }

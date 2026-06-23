@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useRoomContext } from '@livekit/components-react'
-import { completeSession, saveSessionTranscript, type SessionSummary } from '@/app/actions/video'
+import { completeSession, saveSessionTranscript, saveSessionVocab, type SessionSummary, type CuadernoVocabItem } from '@/app/actions/video'
 import type { Locale } from '@/lib/i18n/translations'
 
 interface UseLeaveFlowArgs {
@@ -10,6 +10,7 @@ interface UseLeaveFlowArgs {
   lang: Locale
   onComplete: (summary?: SessionSummary) => void
   getTranscript?: () => string
+  getVocab?: () => CuadernoVocabItem[]
 }
 
 // Owns the leave/end-class transition. Sets `isLeaving` BEFORE we call
@@ -23,12 +24,15 @@ export function useLeaveFlow({
   lang,
   onComplete,
   getTranscript,
+  getVocab,
 }: UseLeaveFlowArgs) {
   const room = useRoomContext()
   const [isLeaving, setIsLeaving] = useState(false)
   const leavingRef = useRef(false)
   const transcriptRef = useRef(getTranscript)
   transcriptRef.current = getTranscript
+  const vocabRef = useRef(getVocab)
+  vocabRef.current = getVocab
 
   // Teacher leave can be REFUSED by completeSession (e.g. the class hasn't
   // started). On refusal we must NOT disconnect, broadcast "ended", or show the
@@ -44,9 +48,11 @@ export function useLeaveFlow({
     setIsLeaving(true)
 
     if (isTeacher) {
-      // Snapshot the transcript BEFORE anything tears down — after disconnect the
-      // room loses buffered peer captions that arrived right before the click.
+      // Snapshot the transcript + vocab BEFORE anything tears down — after
+      // disconnect the room loses buffered peer captions / words that arrived
+      // right before the click.
       const transcriptSnapshot = transcriptRef.current ? transcriptRef.current() : ''
+      const vocabSnapshot = vocabRef.current ? vocabRef.current() : []
 
       const result = await completeSession(bookingId, sessionId, lang)
       if ('error' in result) {
@@ -57,10 +63,25 @@ export function useLeaveFlow({
         return { ok: false, error: result.error }
       }
 
-      if (transcriptSnapshot.trim()) {
-        await saveSessionTranscript(sessionId, transcriptSnapshot).catch(() => {
-          /* non-blocking — transcript is nice-to-have, not required to end */
+      // Persist transcript + vocab — best-effort and time-boxed. Both run in
+      // PARALLEL (not serially) and the whole block is capped at ~2.5s: we still
+      // fire both requests so they reach the server before teardown, but we stop
+      // waiting after the cap and proceed to disconnect, so a slow DB write can
+      // never hold the room open. A non-persist is logged, not fatal. The saves
+      // resolve the session by bookingId server-side (no trusted client id).
+      const saves: Promise<{ success: boolean }>[] = []
+      if (transcriptSnapshot.trim()) saves.push(saveSessionTranscript(bookingId, transcriptSnapshot))
+      if (vocabSnapshot.length > 0) saves.push(saveSessionVocab(bookingId, vocabSnapshot))
+      if (saves.length > 0) {
+        const settle = Promise.allSettled(saves).then((results) => {
+          results.forEach((r) => {
+            if (r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)) {
+              console.warn('[useLeaveFlow] session artifact did not persist')
+            }
+          })
         })
+        const cap = new Promise<void>((resolve) => setTimeout(resolve, 2500))
+        await Promise.race([settle, cap]).catch(() => {})
       }
       // Tell the student to leave, then disconnect, then transition to Ended.
       if (onBeforeDisconnect) await onBeforeDisconnect().catch(() => {})

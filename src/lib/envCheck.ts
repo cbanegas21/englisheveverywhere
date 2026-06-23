@@ -18,6 +18,10 @@ const CRITICAL = [
   'LIVEKIT_API_SECRET',
   'LIVEKIT_URL',
   'RESEND_API_KEY',
+  // Powers the post-class AI summary + live vocabulary cuaderno (advertised on the
+  // pricing page). Silently no-ops (generateSessionSummary/extractLiveVocab return
+  // empty) if missing/placeholder, so alert — don't fail closed.
+  'ANTHROPIC_API_KEY',
 ] as const
 
 const isPlaceholder = (v?: string) => !v || v.endsWith('_placeholder')
