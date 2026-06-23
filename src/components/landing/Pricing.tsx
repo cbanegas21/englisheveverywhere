@@ -16,11 +16,11 @@ const t = {
   en: {
     eyebrow: 'Plans',
     titleLead: 'Find the plan',
-    titleAccent: 'built for your goal.',
-    sub: 'Four sizes, one promise: a teacher who’s only yours and classes that never expire. Take the 30-second quiz and we’ll match you.',
+    titleAccent: 'for your schedule.',
+    sub: 'Four sizes, one promise: a teacher who’s only yours and classes that never expire. Pick the one that fits how many classes you can take each month.',
     anchorPrefix: '1-on-1 classes from',
-    findCta: 'Find your ideal plan',
-    findSub: 'Answer 3 quick questions — see your price when you create your account.',
+    findCta: 'Get started',
+    findSub: 'Create your account and see your exact price.',
     riskFree: 'Your first diagnostic call is free.',
     popular: 'most chosen',
     perClass: 'per class',
@@ -54,11 +54,11 @@ const t = {
   es: {
     eyebrow: 'Paquetes',
     titleLead: 'Encuentra el plan',
-    titleAccent: 'hecho para tu meta.',
-    sub: 'Cuatro tamaños, una promesa: un maestro que es solo tuyo y clases que nunca caducan. Responde el test de 30 segundos y te lo armamos.',
+    titleAccent: 'según tu disponibilidad.',
+    sub: 'Cuatro tamaños, una promesa: un maestro que es solo tuyo y clases que nunca caducan. Elige según cuántas clases puedas tomar al mes.',
     anchorPrefix: 'Clases 1-a-1 desde',
-    findCta: 'Descubre tu plan ideal',
-    findSub: 'Responde 3 preguntas rápidas — ves tu precio al crear tu cuenta.',
+    findCta: 'Empieza ahora',
+    findSub: 'Crea tu cuenta y verás tu precio exacto.',
     riskFree: 'Tu primera llamada de diagnóstico es gratis.',
     popular: 'más elegido',
     perClass: 'por clase',
@@ -168,7 +168,7 @@ export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; pl
           <p
             style={{
               textAlign: 'center',
-              fontSize: 12,
+              fontSize: 13,
               color: 'var(--ek-text-muted)',
               marginBottom: 24,
             }}
@@ -284,7 +284,7 @@ export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; pl
                 </div>
 
                 <Link
-                  href={`/${lang}/descubre`}
+                  href={`/${lang}/registro`}
                   style={{
                     marginTop: 'auto',
                     paddingTop: 28,
@@ -315,19 +315,19 @@ export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; pl
           })}
         </div>
 
-        {/* Soft anchor + the single primary CTA → the "find your plan" quiz. Only
-            the lowest per-class number is public; full plan prices are revealed
-            after signup (the gated-pricing funnel). */}
+        {/* Soft anchor + the single primary CTA → sign-up (the goal quiz was
+            removed — we convince on the page). Only the lowest per-class number is
+            public; full plan prices are revealed after signup (gated funnel). */}
         <div style={{ marginTop: 'clamp(36px, 5vw, 56px)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 13, color: 'var(--ek-text-muted)', letterSpacing: '0.02em' }}>
             {tx.anchorPrefix} <span style={{ color: 'var(--ek-text)', fontWeight: 700 }}>{anchorDisplay}</span> {tx.perClass}
           </div>
-          <Link href={`/${lang}/descubre`} style={{ textDecoration: 'none' }}>
+          <Link href={`/${lang}/registro`} style={{ textDecoration: 'none' }}>
             <span style={{ display: 'inline-block', padding: '15px 34px', background: 'var(--ek-red)', color: '#fff', fontWeight: 700, fontSize: 15, borderRadius: 999, fontFamily: 'var(--ek-font-sans)' }}>
               {tx.findCta} →
             </span>
           </Link>
-          <div style={{ fontSize: 12.5, color: 'var(--ek-text-muted)', lineHeight: 1.55, maxWidth: 400 }}>
+          <div style={{ fontSize: 13.5, color: 'var(--ek-text-muted)', lineHeight: 1.55, maxWidth: 400 }}>
             {tx.findSub}<br /><span style={{ color: 'var(--ek-red)', fontWeight: 600 }}>{tx.riskFree}</span>
           </div>
         </div>
@@ -457,7 +457,8 @@ export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; pl
                     style={{
                       fontFamily: 'var(--ek-font-serif)',
                       fontStyle: 'italic',
-                      fontSize: 15,
+                      fontSize: 16,
+                      fontWeight: 500,
                       color: 'var(--ek-text-soft)',
                       marginTop: 5,
                       lineHeight: 1.5,
@@ -500,7 +501,7 @@ export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; pl
 
         <p
           style={{
-            fontSize: 11,
+            fontSize: 13,
             marginTop: 32,
             textAlign: 'center',
             color: 'var(--ek-text-muted)',
