@@ -30,12 +30,14 @@ export default async function LandingPage({ params }: Props) {
   // the client) so role-aware CTAs work without a dead document.cookie read.
   const role = cookieStore.get('ee-role')?.value ?? null
   const isLoggedIn = !!role
+  // First-name hint for the "Conectado como {name}" nav affordance (cookie-only, no getUser).
+  const userName = cookieStore.get('ee-name')?.value ?? null
 
   // overflow-x: clip (not hidden) contains horizontal overflow WITHOUT creating
   // a scroll container — so the sticky Navbar keeps working (LK-01).
   return (
     <main style={{ background: 'var(--ek-paper-warm)', overflowX: 'clip' }}>
-      <Navbar lang={lang as Locale} isLoggedIn={isLoggedIn} />
+      <Navbar lang={lang as Locale} isLoggedIn={isLoggedIn} userName={userName} />
       <Hero lang={lang as Locale} isLoggedIn={isLoggedIn} />
       <MorningBanner lang={lang as Locale} />
       <TrustStrip lang={lang as Locale} />

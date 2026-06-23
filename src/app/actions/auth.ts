@@ -6,7 +6,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import { checkAuthRateLimit, recordLoginOutcome } from '@/lib/rateLimit'
-import { ROLE_COOKIE, SEEN_COOKIE } from '@/lib/authCookie'
+import { ROLE_COOKIE, NAME_COOKIE, SEEN_COOKIE } from '@/lib/authCookie'
 import { APP_URL } from '@/lib/email'
 import { sendWelcomeEmail } from '@/lib/welcomeEmail'
 import { safeNextPath, pathAllowedForRole } from '@/lib/safeNext'
@@ -178,6 +178,7 @@ export async function signUp(formData: FormData) {
     if (role === 'student' || role === 'teacher') {
       const cookieStore = await cookies()
       cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
+      if (firstName) cookieStore.set(NAME_COOKIE, firstName, ROLE_COOKIE_OPTS)
     }
     // Best-effort: persist phone + the detected timezone + chosen language onto
     // the profile row the DB trigger just created. The trigger doesn't coalesce
@@ -262,10 +263,13 @@ export async function signIn(formData: FormData) {
   }
 
   const role = profile?.role || user?.user_metadata?.role
+  // First name for the "Conectado como {name}" landing affordance (display hint only).
+  const displayName = ((user?.user_metadata?.first_name as string) || (user?.user_metadata?.full_name as string) || '').trim().split(/\s+/)[0] || ''
 
   const cookieStore = await cookies()
   if (role === 'teacher' || role === 'admin' || role === 'student') {
     cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
+    if (displayName) cookieStore.set(NAME_COOKIE, displayName, ROLE_COOKIE_OPTS)
   }
 
   // A validated join link wins over the default role landing page — but only
@@ -289,6 +293,7 @@ export async function signOut(lang: string = 'es') {
   await supabase.auth.signOut()
   const cookieStore = await cookies()
   cookieStore.delete(ROLE_COOKIE)
+  cookieStore.delete(NAME_COOKIE)
   // Also drop the inactivity marker so a stale `ee-seen` can't survive a
   // logout → login cycle and pre-date (and prematurely expire) the next session.
   cookieStore.delete(SEEN_COOKIE)
@@ -383,6 +388,8 @@ export async function completeGoogleSignIn(args: {
   if (role === 'teacher' || role === 'student') {
     const cookieStore = await cookies()
     cookieStore.set(ROLE_COOKIE, role, ROLE_COOKIE_OPTS)
+    const gName = ((user.user_metadata?.first_name as string) || (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || '').trim().split(/\s+/)[0] || ''
+    if (gName) cookieStore.set(NAME_COOKIE, gName, ROLE_COOKIE_OPTS)
   }
 
   // First-time Google students get the welcome greeting (the old /auth/callback

@@ -19,7 +19,8 @@ const t = {
     faq: 'Questions',
     login: 'Log in',
     cta: 'Get started',
-    dashboard: 'Go to Dashboard',
+    dashboard: 'My dashboard',
+    loggedInAs: 'Logged in as',
   },
   es: {
     how: 'Cómo funciona',
@@ -27,12 +28,13 @@ const t = {
     pricing: 'Precios',
     faq: 'Preguntas',
     login: 'Iniciar sesión',
-    cta: 'Empezar',
-    dashboard: 'Ir al Dashboard',
+    cta: 'Empieza ya',
+    dashboard: 'Mi panel',
+    loggedInAs: 'Conectado como',
   },
 }
 
-export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isLoggedIn?: boolean }) {
+export default function Navbar({ lang, isLoggedIn = false, userName = null }: { lang: Locale; isLoggedIn?: boolean; userName?: string | null }) {
   const tx = t[lang]
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
@@ -87,7 +89,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
     <header
       className="sticky top-0 z-50"
       style={{
-        background: 'rgba(251,248,243,0.92)',
+        background: 'rgba(251,248,243,0.97)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--ek-border)',
       }}
@@ -123,8 +125,9 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
           ))}
         </nav>
 
-        {/* Right actions */}
-        <div className="hidden lg:flex items-center gap-3">
+        {/* Right actions — show from md (768px) so laptops don't get the hamburger;
+            the section links stay lg-only to avoid crowding (A4). */}
+        <div className="hidden md:flex items-center gap-3">
           <CurrencySelect
             value={currency}
             onChange={changeCurrency}
@@ -187,18 +190,27 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
             </Link>
           )}
 
-          <Link
-            href={isLoggedIn ? `/${lang}/dashboard` : `/${lang}/registro`}
-            className="ek-btn ek-btn-primary"
-            style={{ padding: '10px 18px', fontSize: 13 }}
-          >
-            {isLoggedIn ? tx.dashboard : tx.cta}
-          </Link>
+          {isLoggedIn ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {userName && (
+                <span style={{ fontSize: 13, color: dim, fontFamily: 'var(--ek-font-sans)', whiteSpace: 'nowrap' }}>
+                  {tx.loggedInAs} <strong style={{ color: 'var(--ek-text)', fontWeight: 600 }}>{userName}</strong>
+                </span>
+              )}
+              <Link href={`/${lang}/dashboard`} className="ek-btn ek-btn-primary" style={{ padding: '10px 18px', fontSize: 13 }}>
+                {tx.dashboard}
+              </Link>
+            </div>
+          ) : (
+            <Link href={`/${lang}/registro`} className="ek-btn ek-btn-primary" style={{ padding: '10px 18px', fontSize: 13 }}>
+              {tx.cta}
+            </Link>
+          )}
         </div>
 
         {/* Mobile hamburger */}
         <button
-          className="lg:hidden p-2 -mr-2"
+          className="md:hidden p-2 -mr-2"
           style={{
             color: 'var(--ek-text)',
             background: 'transparent',
@@ -224,7 +236,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
           <>
             {/* Scrim — starts below the 64px header so the X stays clickable */}
             <div
-              className="lg:hidden"
+              className="md:hidden"
               onClick={() => setOpen(false)}
               aria-hidden="true"
               style={{
@@ -239,7 +251,7 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
             />
           {/* Sheet */}
           <div
-            className="lg:hidden px-6 py-5 flex flex-col gap-1"
+            className="md:hidden px-6 py-5 flex flex-col gap-1"
             style={{
               position: 'fixed',
               top: 64,
@@ -354,6 +366,11 @@ export default function Navbar({ lang, isLoggedIn = false }: { lang: Locale; isL
             </Link>
           ))}
 
+          {isLoggedIn && userName && (
+            <div style={{ marginTop: 14, fontSize: 14, color: 'var(--ek-text-soft)', fontFamily: 'var(--ek-font-sans)' }}>
+              {tx.loggedInAs} <strong style={{ color: 'var(--ek-text)', fontWeight: 600 }}>{userName}</strong>
+            </div>
+          )}
           <Link
             href={isLoggedIn ? `/${lang}/dashboard` : `/${lang}/registro`}
             onClick={() => setOpen(false)}
