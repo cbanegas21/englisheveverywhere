@@ -14,13 +14,13 @@ const t = {
       {
         n: '01',
         title: 'Take your free diagnostic call',
-        body: 'A real person, not a quiz. A short human call sets your level and goals before you spend a thing.',
+        body: 'A real person, not a quiz. A short human call sets your level and goals, and we show you how to use the platform — before you spend a thing.',
         tag: 'Always free',
       },
       {
         n: '02',
         title: 'Choose your pack',
-        body: '8, 12, 16 or 20 classes a month. One payment — no auto-renewal, and the classes never expire.',
+        body: '8, 12, 16 or 20 classes a month, to fit your schedule. One payment — no auto-renewal, and the classes never expire.',
         tag: 'One-time payment',
       },
       {
@@ -32,7 +32,7 @@ const t = {
       {
         n: '04',
         title: 'We assign your teacher — you go live',
-        body: 'After you book, we assign an available teacher to your class. 60 minutes, just the two of you, live on video.',
+        body: 'After you book, we assign an available teacher to your class. 60 minutes, just the two of you, live on video inside the platform.',
         tag: '1-to-1, 60 min',
       },
     ],
@@ -47,13 +47,13 @@ const t = {
       {
         n: '01',
         title: 'Toma tu llamada de diagnóstico gratis',
-        body: 'Una persona real, no un test. Una breve llamada humana define tu nivel y tus metas antes de gastar nada.',
+        body: 'Una persona real, no un test. Una breve llamada humana define tu nivel y tus metas, y te enseñamos a usar la plataforma — antes de gastar nada.',
         tag: 'Siempre gratis',
       },
       {
         n: '02',
         title: 'Elige tu paquete',
-        body: '8, 12, 16 o 20 clases al mes. Un solo pago — sin renovación automática, y las clases nunca caducan.',
+        body: '8, 12, 16 o 20 clases al mes, según tu horario y disponibilidad. Un solo pago — sin renovación automática, y las clases nunca caducan.',
         tag: 'Pago único',
       },
       {
@@ -65,7 +65,7 @@ const t = {
       {
         n: '04',
         title: 'Te asignamos maestro y entras en vivo',
-        body: 'Después de reservar, asignamos un maestro disponible a tu clase. 60 minutos, solo ustedes dos, en vivo por video.',
+        body: 'Después de reservar, asignamos un maestro disponible a tu clase. 60 minutos, solo ustedes dos, en vivo por video y dentro de la plataforma.',
         tag: '1 a 1, 60 min',
       },
     ],

@@ -189,14 +189,10 @@ export function RoomShell({
   const [showChat, setShowChat] = useState(false)
   const [showDevices, setShowDevices] = useState(false)
   const [showWhiteboard, setShowWhiteboard] = useState(false)
-  // Cuaderno is the editorial replacement for the prior TranscriptPanel —
-  // a paper-cream notebook on the right with both AI vocab and raw
-  // transcript tabs. The control-bar toggle collapses it. Defaults ON on
-  // desktop, but OFF on narrow screens where its fixed 360px would otherwise
-  // crush the video stage (mobile = video focus).
-  const [showCuaderno, setShowCuaderno] = useState(
-    () => typeof window === 'undefined' || window.innerWidth >= 1024
-  )
+  // Cuaderno = the AI vocab + raw transcript notebook. HIDDEN by default (Carlos):
+  // it only opens when the user clicks the control-bar toggle — never auto-shown.
+  // (The transcript ENGINE accuracy/speaker fix is B3/Fase 1.)
+  const [showCuaderno, setShowCuaderno] = useState(false)
   // Phone-width: the self-view PiP clamps to its small size and a full-width
   // panel hides it (rather than shoving it off-screen / over the panel input).
   const isCompact = useMediaQuery('(max-width: 639px)', false)
@@ -370,9 +366,11 @@ export function RoomShell({
     if (shareAudioTimerRef.current != null) window.clearTimeout(shareAudioTimerRef.current)
   }, [])
 
-  // The share notice is advisory (sound-not-shared / start-failed) — auto-clear it.
+  // Auto-clear ONLY the transient error notice. The "no sound shared" advisory
+  // (kind 'info') must PERSIST until the user closes it — it's the crucial signal
+  // that the browser audio box wasn't ticked (Carlos). Both have an × close button.
   useEffect(() => {
-    if (!shareNotice) return
+    if (!shareNotice || shareNotice.kind === 'info') return
     const t = window.setTimeout(() => setShareNotice(null), 9000)
     return () => window.clearTimeout(t)
   }, [shareNotice])
