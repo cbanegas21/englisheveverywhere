@@ -26,6 +26,9 @@ const L_MSG = {
   needPairs: { es: 'Agrega al menos dos parejas completas.', en: 'Add at least two complete pairs.' },
   notYours: { es: 'Esta pregunta no es tuya.', en: 'Not your question.' },
   questionNotFound: { es: 'Pregunta no encontrada.', en: 'Question not found.' },
+  titleRequired: { es: 'El título es obligatorio.', en: 'Title is required.' },
+  quizNotFound: { es: 'Quiz no encontrado.', en: 'Quiz not found.' },
+  noQuestions: { es: 'Agrega al menos una pregunta antes de publicar.', en: 'Add at least one question before publishing.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
 } as const
 const lm = (k: keyof typeof L_MSG, lang: string) => L_MSG[k][lang === 'en' ? 'en' : 'es']
@@ -229,6 +232,140 @@ export async function archiveBankQuestion(input: { id: string; archived: boolean
     .eq('teacher_id', teacherId)
   if (error) {
     console.error('archiveBankQuestion update failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+// ── Quiz builder actions (STEP 3, Slice A) ───────────────────────────────
+const GRADING_METHODS = ['greatest', 'average', 'first', 'last'] as const
+type GradingMethod = (typeof GRADING_METHODS)[number]
+
+interface NormalizedSettings {
+  shuffleQuestions: boolean
+  shuffleAnswers: boolean
+  attemptsAllowed: number
+  gradingMethod: GradingMethod
+  reviewAfter: boolean
+}
+function normalizeSettings(v: unknown): NormalizedSettings {
+  const r = asRecord(v)
+  const gm = typeof r.gradingMethod === 'string' && (GRADING_METHODS as readonly string[]).includes(r.gradingMethod)
+    ? (r.gradingMethod as GradingMethod)
+    : 'greatest'
+  let attempts = typeof r.attemptsAllowed === 'number' && Number.isFinite(r.attemptsAllowed) ? Math.floor(r.attemptsAllowed) : 1
+  if (attempts < 1) attempts = 1
+  if (attempts > 20) attempts = 20
+  return {
+    shuffleQuestions: r.shuffleQuestions === true,
+    shuffleAnswers: r.shuffleAnswers === true,
+    attemptsAllowed: attempts,
+    gradingMethod: gm,
+    reviewAfter: r.reviewAfter !== false,
+  }
+}
+
+// Keep only ids of NON-archived questions owned by this teacher, preserving the
+// caller's order (de-duped, capped). Stops a teacher embedding another teacher's
+// questions in a quiz.
+async function ownedQuestionIds(admin: ReturnType<typeof createAdminClient>, teacherId: string, raw: unknown): Promise<string[]> {
+  const ids = asArray(raw).map((x) => (typeof x === 'string' ? x : '')).filter((x) => x.length > 0)
+  const unique = [...new Set(ids)].slice(0, 100)
+  if (unique.length === 0) return []
+  const { data } = await admin
+    .from('lab_question_bank')
+    .select('id')
+    .eq('teacher_id', teacherId)
+    .is('archived_at', null)
+    .in('id', unique)
+  const ok = new Set((data || []).map((q: { id: string }) => q.id as string))
+  return unique.filter((id) => ok.has(id))
+}
+
+export async function createQuiz(input: { title: string; intro?: string; questionIds: unknown; settings?: unknown; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+  const title = str(input.title, 120)
+  if (!title) return { error: lm('titleRequired', lang) }
+  const question_ids = await ownedQuestionIds(admin, teacherId, input.questionIds)
+  const { data, error } = await admin
+    .from('lab_quizzes')
+    .insert({ teacher_id: teacherId, title, intro: str(input.intro, 2000), question_ids, settings: normalizeSettings(input.settings), status: 'draft' })
+    .select('id')
+    .single()
+  if (error) {
+    console.error('createQuiz insert failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const, id: data.id }
+}
+
+export async function updateQuiz(input: { id: string; title: string; intro?: string; questionIds: unknown; settings?: unknown; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+  const { data: owner } = await admin.from('lab_quizzes').select('teacher_id').eq('id', input.id).maybeSingle()
+  if (!owner) return { error: lm('quizNotFound', lang) }
+  if (owner.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+  const title = str(input.title, 120)
+  if (!title) return { error: lm('titleRequired', lang) }
+  const question_ids = await ownedQuestionIds(admin, teacherId, input.questionIds)
+  const { error } = await admin
+    .from('lab_quizzes')
+    .update({ title, intro: str(input.intro, 2000), question_ids, settings: normalizeSettings(input.settings), updated_at: new Date().toISOString() })
+    .eq('id', input.id)
+    .eq('teacher_id', teacherId)
+  if (error) {
+    console.error('updateQuiz update failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+export async function publishQuiz(input: { id: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+  const { data: quiz } = await admin.from('lab_quizzes').select('teacher_id, question_ids').eq('id', input.id).maybeSingle()
+  if (!quiz) return { error: lm('quizNotFound', lang) }
+  if (quiz.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+  const qids = Array.isArray(quiz.question_ids) ? quiz.question_ids : []
+  if (qids.length === 0) return { error: lm('noQuestions', lang) }
+  const { error } = await admin
+    .from('lab_quizzes')
+    .update({ status: 'published', updated_at: new Date().toISOString() })
+    .eq('id', input.id)
+    .eq('teacher_id', teacherId)
+  if (error) {
+    console.error('publishQuiz update failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+export async function cancelQuiz(input: { id: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+  const { data: owner } = await admin.from('lab_quizzes').select('teacher_id').eq('id', input.id).maybeSingle()
+  if (!owner) return { error: lm('quizNotFound', lang) }
+  if (owner.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+  const { error } = await admin
+    .from('lab_quizzes')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', input.id)
+    .eq('teacher_id', teacherId)
+  if (error) {
+    console.error('cancelQuiz update failed:', error.message)
     return { error: lm('saveFailed', lang) }
   }
   revalidatePath('/', 'layout')
