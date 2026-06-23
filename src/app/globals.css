@@ -28,8 +28,10 @@
      legible app-wide while still reading clearly as a secondary tone. */
   --ek-text:         #111111;
   --ek-text-soft:    #5C5648;
-  --ek-text-muted:   #6E6857;
-  --ek-text-faint:   #B4AB97;
+  /* Darkened for readability (Carlos: greyish text everywhere). muted 4.6->5.6:1,
+     faint #B4AB97 was a failing ~2:1 and carried real micro-text -> ~4.1:1. */
+  --ek-text-muted:   #615B4B;
+  --ek-text-faint:   #79725F;
 
   /* Text on dark hero */
   --ek-on-dark:           #F4EFE6;
@@ -49,8 +51,8 @@
   --ek-notebook-dash:  rgba(80,60,30,0.12);
   --ek-notebook-ink:   #2A2010;
   --ek-notebook-soft:  #5C4A28;
-  --ek-notebook-muted: #8C7A4A;
-  --ek-notebook-faint: #A89460;
+  --ek-notebook-muted: #6E5E33;
+  --ek-notebook-faint: #7A6A3C;
 
   /* Status */
   --ek-success-text:   #1F6F4D;
@@ -211,7 +213,9 @@ body {
 .ek-italic {
   font-family: var(--ek-font-serif);
   font-style: italic;
-  font-weight: 400;
+  /* weight 400 serif-italic read too thin/faint (Carlos: keep italics, make them
+     legible). 500 thickens them without changing layout. */
+  font-weight: 500;
   letter-spacing: -0.02em;
 }
 
