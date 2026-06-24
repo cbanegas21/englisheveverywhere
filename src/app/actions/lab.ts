@@ -10,6 +10,13 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { gradeAttempt, sanitizeQuestion, type BankQuestionRow } from '@/lib/lab/grading'
+
+// Postgres unique-violation — the single-attempt UNIQUE(assignment_id) guard on
+// lab_quiz_attempts surfaces this when two submits race the same assignment.
+function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === '23505' || !!error?.message?.toLowerCase().includes('duplicate')
+}
 
 // ── Localized, user-safe errors ──────────────────────────────────────────
 const L_MSG = {
@@ -33,6 +40,9 @@ const L_MSG = {
   notPublished: { es: 'Publica el quiz antes de asignarlo.', en: 'Publish the quiz before assigning it.' },
   alreadyAssigned: { es: 'Este quiz ya está asignado a este estudiante.', en: 'This quiz is already assigned to this student.' },
   assignmentNotFound: { es: 'Asignación no encontrada.', en: 'Assignment not found.' },
+  studentNotFound: { es: 'No se encontró tu perfil de estudiante.', en: 'Student record not found.' },
+  assignmentClosed: { es: 'Este quiz ya no está disponible.', en: 'This quiz is no longer available.' },
+  alreadyAttempted: { es: 'Ya enviaste este quiz.', en: 'You already submitted this quiz.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
 } as const
 const lm = (k: keyof typeof L_MSG, lang: string) => L_MSG[k][lang === 'en' ? 'en' : 'es']
@@ -442,4 +452,120 @@ export async function cancelLabAssignment(input: { id: string; lang?: string }) 
   }
   revalidatePath('/', 'layout')
   return { success: true as const }
+}
+
+// ── Student attempt (STEP 3c) ────────────────────────────────────────────
+async function requireStudent(lang: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: lm('notAuth', lang) }
+  const admin = createAdminClient()
+  const { data: student } = await admin.from('students').select('id').eq('profile_id', user.id).single()
+  if (!student?.id) return { error: lm('studentNotFound', lang) }
+  return { admin, studentId: student.id as string, userId: user.id }
+}
+
+// Bound an untrusted answer value before it's stored. Keeps the persisted blob
+// small and predictable: strings capped, arrays trimmed to scalar members.
+function clampAnswer(v: unknown): unknown {
+  if (typeof v === 'string') return v.slice(0, 5000)
+  if (typeof v === 'number' || typeof v === 'boolean') return v
+  if (Array.isArray(v)) {
+    return v
+      .slice(0, 100)
+      .map((x) => (typeof x === 'string' ? x.slice(0, 500) : typeof x === 'number' ? x : null))
+  }
+  return null
+}
+
+// Student submits a quiz. Re-reads the quiz + its UNSANITIZED questions
+// server-side and auto-grades from that source of truth — the client's answers
+// are the only thing trusted, never a client-computed score (no-show lesson).
+// One attempt per assignment (UNIQUE on assignment_id, 23505-guarded). The frozen
+// snapshot keeps answer keys ONLY when the quiz allows review-after, so even a
+// direct REST read of the student-readable attempt can't reveal a key otherwise.
+export async function submitQuizAttempt(input: { assignmentId: string; answers: unknown; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireStudent(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, studentId } = ctx
+
+  // 1. Assignment must exist, be open, and target THIS student.
+  const { data: assignment } = await admin
+    .from('lab_quiz_assignments')
+    .select('id, quiz_id, student_id, status')
+    .eq('id', input.assignmentId)
+    .maybeSingle()
+  if (!assignment || assignment.student_id !== studentId) return { error: lm('assignmentNotFound', lang) }
+  if (assignment.status !== 'open') return { error: lm('assignmentClosed', lang) }
+
+  // 2. Single attempt — friendly pre-check (the UNIQUE index is the real guard).
+  const { data: prior } = await admin
+    .from('lab_quiz_attempts')
+    .select('id')
+    .eq('assignment_id', assignment.id)
+    .maybeSingle()
+  if (prior) return { error: lm('alreadyAttempted', lang) }
+
+  // 3. Re-read the quiz + its UNSANITIZED questions, in the quiz's question order.
+  const { data: quiz } = await admin
+    .from('lab_quizzes')
+    .select('id, question_ids, settings, status')
+    .eq('id', assignment.quiz_id)
+    .maybeSingle()
+  if (!quiz) return { error: lm('quizNotFound', lang) }
+  if (quiz.status === 'cancelled') return { error: lm('assignmentClosed', lang) }
+  const orderedIds = (Array.isArray(quiz.question_ids) ? quiz.question_ids : []).filter(
+    (x): x is string => typeof x === 'string',
+  )
+  const { data: rows } = await admin
+    .from('lab_question_bank')
+    .select('id, type, prompt, payload')
+    .in('id', orderedIds.length ? orderedIds : ['00000000-0000-0000-0000-000000000000'])
+  const byId = new Map((rows || []).map((r) => [r.id as string, r as BankQuestionRow]))
+  const questions: BankQuestionRow[] = orderedIds
+    .map((id) => byId.get(id))
+    .filter((q): q is BankQuestionRow => !!q)
+
+  // 4. Keep only answers for real questions, bounded; then auto-grade server-side.
+  const raw = asRecord(input.answers)
+  const answers: Record<string, unknown> = {}
+  for (const q of questions) if (q.id in raw) answers[q.id] = clampAnswer(raw[q.id])
+  const graded = gradeAttempt(questions, answers)
+
+  // 5. Frozen snapshot — keys present only if reviewAfter (defense in depth).
+  const settings = normalizeSettings(quiz.settings)
+  const snapshot = questions
+    .map((q) => {
+      const sani = sanitizeQuestion(q, settings.reviewAfter)
+      return sani ? { ...sani, outcome: graded.outcomes[q.id] } : null
+    })
+    .filter((x) => x !== null)
+
+  // 6. Insert with the single-attempt UNIQUE guard.
+  const { data: inserted, error } = await admin
+    .from('lab_quiz_attempts')
+    .insert({
+      assignment_id: assignment.id,
+      questions_snapshot: snapshot,
+      answers,
+      auto_score: graded.autoScore,
+      max_score: graded.maxScore,
+    })
+    .select('id')
+    .single()
+  if (error) {
+    if (isUniqueViolation(error)) return { error: lm('alreadyAttempted', lang) }
+    console.error('submitQuizAttempt insert failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+
+  revalidatePath('/', 'layout')
+  return {
+    success: true as const,
+    attemptId: inserted.id,
+    autoScore: graded.autoScore,
+    maxScore: graded.maxScore,
+    pendingCount: graded.pendingCount,
+  }
 }

@@ -35,7 +35,7 @@ export default async function LabPage({ params }: Props) {
     .eq('student_id', studentId)
   const bookingIds = (bookingRows || []).map((b: { id: string }) => b.id)
 
-  const [{ data: assignments }, { count: completedCount }] = await Promise.all([
+  const [{ data: assignments }, { count: completedCount }, { data: quizAssignments }] = await Promise.all([
     admin
       .from('assignments')
       .select('id, title, status, created_at, teacher:teachers(profile:profiles(full_name))')
@@ -49,7 +49,32 @@ export default async function LabPage({ params }: Props) {
       .eq('student_id', studentId)
       .eq('type', 'class')
       .eq('status', 'completed'),
+    admin
+      .from('lab_quiz_assignments')
+      .select('id, created_at, quiz:lab_quizzes(title)')
+      .eq('student_id', studentId)
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(6),
   ])
+
+  // Which assigned quizzes already have a (single) attempt → show "review" vs "start".
+  const quizAssignmentIds = ((quizAssignments as { id: string }[]) || []).map((q) => q.id)
+  let attemptedQuizIds = new Set<string>()
+  if (quizAssignmentIds.length) {
+    const { data: attempts } = await admin
+      .from('lab_quiz_attempts')
+      .select('assignment_id')
+      .in('assignment_id', quizAssignmentIds)
+    attemptedQuizIds = new Set(((attempts as { assignment_id: string }[]) || []).map((a) => a.assignment_id))
+  }
+
+  const labQuizzes = ((quizAssignments as unknown[]) || []).map((row) => {
+    const r = row as { id: string; quiz?: unknown }
+    const quiz = Array.isArray(r.quiz) ? r.quiz[0] : r.quiz
+    const titleVal = (quiz as { title?: string | null } | null)?.title
+    return { id: r.id, title: titleVal || 'Quiz', done: attemptedQuizIds.has(r.id) }
+  })
 
   // Latest completed session that captured vocabulary (the cuaderno we now persist).
   let rawVocab: unknown = null
@@ -101,6 +126,7 @@ export default async function LabPage({ params }: Props) {
       lang={lang as Locale}
       userName={name}
       openAssignments={openAssignments}
+      labQuizzes={labQuizzes}
       lastClassVocab={lastClassVocab}
       stats={{
         completedClasses: completedCount || 0,

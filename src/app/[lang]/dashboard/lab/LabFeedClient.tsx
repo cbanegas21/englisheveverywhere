@@ -9,10 +9,12 @@ import { StatLedger } from '@/components/ui/StatLedger'
 
 interface VocabItem { word: string; translation: string; example: string }
 interface OpenAssignment { id: string; title: string; teacher_name: string }
+interface LabQuiz { id: string; title: string; done: boolean }
 interface Props {
   lang: Locale
   userName: string
   openAssignments: OpenAssignment[]
+  labQuizzes: LabQuiz[]
   lastClassVocab: VocabItem[]
   stats: { completedClasses: number; classesRemaining: number; lastClassWords: number }
 }
@@ -38,6 +40,9 @@ const t = {
     fromTeacher: 'From your teacher',
     fromTeacherEmpty: 'Your teacher has not sent anything yet — it will appear here when they do.',
     openHomework: 'Open my homework →',
+    quizTag: 'Quiz',
+    quizStart: 'Start',
+    quizReview: 'Review',
     from: 'From',
     soon: 'Coming soon',
     reviewTitle: 'To review',
@@ -71,6 +76,9 @@ const t = {
     fromTeacher: 'De parte de tu maestro·a',
     fromTeacherEmpty: 'Tu maestro aún no te ha enviado nada — aparecerá aquí cuando lo haga.',
     openHomework: 'Abrir mis tareas →',
+    quizTag: 'Quiz',
+    quizStart: 'Empezar',
+    quizReview: 'Revisar',
     from: 'De',
     soon: 'Próximamente',
     reviewTitle: 'Para repasar',
@@ -121,15 +129,23 @@ function SoonCard({ title, body, soon }: { title: string; body: string; soon: st
   )
 }
 
-export default function LabFeedClient({ lang, userName, openAssignments, lastClassVocab, stats }: Props) {
+export default function LabFeedClient({ lang, userName, openAssignments, labQuizzes, lastClassVocab, stats }: Props) {
   const tx = t[lang]
   const firstName = userName.split(' ')[0]
 
-  const hasHomework = openAssignments.length > 0
+  const firstPendingQuiz = labQuizzes.find((q) => !q.done)
+  const pendingQuizzes = labQuizzes.filter((q) => !q.done).length
+  const teacherItems = openAssignments.length + pendingQuizzes
+  const hasFromTeacher = teacherItems > 0 || labQuizzes.length > 0
   const hasVocab = lastClassVocab.length > 0
+  // Lead the hero to the most actionable thing: a pending quiz if there is one,
+  // else legacy homework.
+  const teacherHref = firstPendingQuiz
+    ? `/${lang}/dashboard/lab/q/${firstPendingQuiz.id}`
+    : `/${lang}/dashboard/tareas`
 
-  const hero = hasHomework
-    ? { title: tx.heroWithHomework(openAssignments.length), body: tx.heroBodyHomework, cta: tx.heroCtaHomework, href: `/${lang}/dashboard/tareas` }
+  const hero = teacherItems > 0
+    ? { title: tx.heroWithHomework(teacherItems), body: tx.heroBodyHomework, cta: tx.heroCtaHomework, href: teacherHref }
     : hasVocab
       ? { title: tx.heroWithVocab, body: tx.heroBodyVocab, cta: tx.heroCtaVocab, href: `/${lang}/dashboard/clases` }
       : { title: tx.heroEmpty, body: tx.heroBodyEmpty, cta: tx.heroCtaEmpty, href: `/${lang}/dashboard/agendar` }
@@ -194,9 +210,22 @@ export default function LabFeedClient({ lang, userName, openAssignments, lastCla
 
         {/* De parte de tu maestro·a */}
         <section>
-          <SectionHeader kicker="02" title={tx.fromTeacher} right={hasHomework ? <Link href={`/${lang}/dashboard/tareas`} style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-red)', textDecoration: 'none' }}>{tx.openHomework}</Link> : undefined} />
-          {hasHomework ? (
+          <SectionHeader kicker="02" title={tx.fromTeacher} right={openAssignments.length > 0 ? <Link href={`/${lang}/dashboard/tareas`} style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-red)', textDecoration: 'none' }}>{tx.openHomework}</Link> : undefined} />
+          {hasFromTeacher ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {labQuizzes.map((q) => (
+                <Link
+                  key={q.id}
+                  href={`/${lang}/dashboard/lab/q/${q.id}`}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, borderRadius: 12, border: '1px solid var(--ek-border)', background: 'var(--ek-card)', padding: '14px 18px', textDecoration: 'none' }}
+                >
+                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', border: '1px solid var(--ek-border)', borderRadius: 999, padding: '3px 9px', flexShrink: 0 }}>{tx.quizTag}</span>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-text)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.title}</div>
+                  </div>
+                  <span style={{ color: 'var(--ek-red)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{q.done ? tx.quizReview : tx.quizStart} →</span>
+                </Link>
+              ))}
               {openAssignments.map((a) => (
                 <Link
                   key={a.id}
