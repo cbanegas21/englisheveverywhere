@@ -49,33 +49,44 @@ export default async function MaestroTareasPage({ params }: Props) {
   const { data: assignments } = await admin
     .from('assignments')
     .select(`
-      id, title, instructions, due_at, status, created_at, student_id,
+      id, title, instructions, rubric, attachment_name, due_at, status, created_at, student_id,
       student:students(profile:profiles(full_name)),
-      submission:assignment_submissions(id, submitted_text, submitted_at, teacher_feedback, score, graded_at)
+      submission:assignment_submissions(id, submitted_text, submitted_at, teacher_feedback, score, graded_at, attachment_name, audio_feedback_name)
     `)
     .eq('teacher_id', teacher.id)
     .order('created_at', { ascending: false })
 
-  const rows = (assignments || []).map((a: any) => ({
-    id: a.id,
-    title: a.title,
-    instructions: a.instructions,
-    due_at: a.due_at,
-    status: a.status,
-    created_at: a.created_at,
-    student_id: a.student_id,
-    student_name: a.student?.profile?.full_name || 'Student',
-    submission: a.submission?.[0]
-      ? {
-          id: a.submission[0].id,
-          text: a.submission[0].submitted_text,
-          submitted_at: a.submission[0].submitted_at,
-          feedback: a.submission[0].teacher_feedback,
-          score: a.submission[0].score,
-          graded_at: a.submission[0].graded_at,
-        }
-      : null,
-  }))
+  const rows = (assignments || []).map((a: any) => {
+    // assignment_submissions.assignment_id is UNIQUE (migration 017), so PostgREST
+    // returns this to-one embed as an OBJECT — reading it as `a.submission?.[0]`
+    // is always undefined, so the teacher would NEVER see submissions and could
+    // not grade. The student page was fixed for this in 47f0693; mirror it here.
+    const sub = Array.isArray(a.submission) ? a.submission[0] : a.submission
+    return {
+      id: a.id,
+      title: a.title,
+      instructions: a.instructions,
+      rubric: a.rubric || null,
+      attachment_name: a.attachment_name || null,
+      due_at: a.due_at,
+      status: a.status,
+      created_at: a.created_at,
+      student_id: a.student_id,
+      student_name: a.student?.profile?.full_name || 'Student',
+      submission: sub
+        ? {
+            id: sub.id,
+            text: sub.submitted_text,
+            submitted_at: sub.submitted_at,
+            feedback: sub.teacher_feedback,
+            score: sub.score,
+            graded_at: sub.graded_at,
+            attachment_name: sub.attachment_name || null,
+            audio_feedback_name: sub.audio_feedback_name || null,
+          }
+        : null,
+    }
+  })
 
   return <TeacherTareasClient lang={lang as Locale} students={students} assignments={rows} />
 }

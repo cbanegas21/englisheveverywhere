@@ -23,9 +23,9 @@ export default async function StudentTareasPage({ params }: Props) {
   const { data: assignments } = await admin
     .from('assignments')
     .select(`
-      id, title, instructions, due_at, status, created_at,
+      id, title, instructions, rubric, attachment_name, due_at, status, created_at,
       teacher:teachers(profile:profiles(full_name)),
-      submission:assignment_submissions(id, submitted_text, submitted_at, teacher_feedback, score, graded_at)
+      submission:assignment_submissions(id, submitted_text, submitted_at, teacher_feedback, score, graded_at, attachment_name, audio_feedback_name)
     `)
     .eq('student_id', student.id)
     .order('created_at', { ascending: false })
@@ -40,6 +40,8 @@ export default async function StudentTareasPage({ params }: Props) {
       id: a.id,
       title: a.title,
       instructions: a.instructions,
+      rubric: a.rubric || null,
+      attachment_name: a.attachment_name || null,
       due_at: a.due_at,
       status: a.status,
       created_at: a.created_at,
@@ -54,6 +56,8 @@ export default async function StudentTareasPage({ params }: Props) {
             feedback: sub.teacher_feedback,
             score: sub.score,
             graded_at: sub.graded_at,
+            attachment_name: sub.attachment_name || null,
+            audio_feedback_name: sub.audio_feedback_name || null,
           }
         : null,
     }

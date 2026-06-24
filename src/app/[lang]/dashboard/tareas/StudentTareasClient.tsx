@@ -9,6 +9,7 @@ import { DashTopBar } from '@/components/ui/DashTopBar'
 import { StatLedger } from '@/components/ui/StatLedger'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Spinner } from '@/components/ui/Spinner'
+import AssignmentFileControl from '@/components/dashboard/AssignmentFileControl'
 
 const t = {
   en: {
@@ -50,6 +51,13 @@ const t = {
     score: 'Score',
     noFeedback: 'The teacher has not left written feedback.',
     cannotEdit: 'This assignment has been graded and can no longer be edited.',
+    rubricLabel: 'Marking guide',
+    teacherFileLabel: 'File from your teacher',
+    yourFileLabel: 'Attach a file (optional)',
+    yourFileView: 'Your file',
+    attachFile: 'Attach a file',
+    audioLabel: 'Audio feedback',
+    noWrittenAnswer: 'No written answer — you submitted a file.',
   },
   es: {
     title: 'Tareas',
@@ -90,6 +98,13 @@ const t = {
     score: 'Calificación',
     noFeedback: 'El maestro no ha dejado retroalimentación escrita.',
     cannotEdit: 'Esta tarea ya fue calificada y no puede editarse.',
+    rubricLabel: 'Guía de evaluación',
+    teacherFileLabel: 'Archivo de tu maestro',
+    yourFileLabel: 'Adjuntar un archivo (opcional)',
+    yourFileView: 'Tu archivo',
+    attachFile: 'Adjuntar archivo',
+    audioLabel: 'Retroalimentación en audio',
+    noWrittenAnswer: 'Sin respuesta escrita — enviaste un archivo.',
   },
 }
 
@@ -100,12 +115,16 @@ interface Submission {
   feedback: string | null
   score: string | null
   graded_at: string | null
+  attachment_name: string | null
+  audio_feedback_name: string | null
 }
 
 interface Assignment {
   id: string
   title: string
   instructions: string
+  rubric: string | null
+  attachment_name: string | null
   due_at: string | null
   status: string
   created_at: string
@@ -581,6 +600,28 @@ function DetailPanel({
             </div>
           )}
 
+          {assignment.rubric && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ek-text-muted)', marginBottom: 8 }}>
+                {tx.rubricLabel}
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--ek-text-soft)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                {assignment.rubric}
+              </p>
+            </div>
+          )}
+
+          {assignment.attachment_name && (
+            <AssignmentFileControl
+              lang={lang}
+              kind="assignment"
+              assignmentId={assignment.id}
+              fileName={assignment.attachment_name}
+              canEdit={false}
+              label={tx.teacherFileLabel}
+            />
+          )}
+
           {isGraded && assignment.submission && (
             <div>
               <div
@@ -650,6 +691,17 @@ function DetailPanel({
             </div>
           )}
 
+          {assignment.submission?.audio_feedback_name && (
+            <AssignmentFileControl
+              lang={lang}
+              kind="audio"
+              assignmentId={assignment.id}
+              fileName={assignment.submission.audio_feedback_name}
+              canEdit={false}
+              label={tx.audioLabel}
+            />
+          )}
+
           {!isCancelled && (
             <div>
               <div
@@ -663,6 +715,17 @@ function DetailPanel({
                 }}
               >
                 {tx.yourSubmission}
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <AssignmentFileControl
+                  lang={lang}
+                  kind="submission"
+                  assignmentId={assignment.id}
+                  fileName={assignment.submission?.attachment_name ?? null}
+                  canEdit={canEdit}
+                  label={canEdit ? tx.yourFileLabel : tx.yourFileView}
+                  attachCta={tx.attachFile}
+                />
               </div>
               {canEdit ? (
                 <>
@@ -717,9 +780,15 @@ function DetailPanel({
                       border: '1px solid var(--ek-border)',
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', color: 'var(--ek-text)' }}>
-                      {assignment.submission?.text || ''}
-                    </p>
+                    {assignment.submission?.text?.trim() ? (
+                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap', color: 'var(--ek-text)' }}>
+                        {assignment.submission.text}
+                      </p>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: 12, fontStyle: 'italic', color: 'var(--ek-text-muted)' }}>
+                        {tx.noWrittenAnswer}
+                      </p>
+                    )}
                   </div>
                   <p style={{ marginTop: 8, fontSize: 11, color: 'var(--ek-text-muted)' }}>{tx.cannotEdit}</p>
                 </>

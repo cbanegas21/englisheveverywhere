@@ -1,8 +1,18 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  LAB_FILES_BUCKET,
+  FILE_URL_TTL,
+  ALLOWED_FILE_TYPES,
+  checkUpload,
+  magicMatches,
+  safeSlug,
+  safeExt,
+} from '@/lib/lab/files'
 
 const VALID_SCORES = new Set(['A1','A2','B1','B2','C1','C2','needs_work','good','excellent'])
 
@@ -30,6 +40,12 @@ const A_MSG = {
   feedbackOrScore: { es: 'Proporciona retroalimentación o una calificación.', en: 'Provide feedback or a score.' },
   feedbackTooLong: { es: 'La retroalimentación es muy larga (máx. 4000 caracteres).', en: 'Feedback is too long (max 4000 characters).' },
   noSubmission: { es: 'Aún no hay entrega para calificar.', en: 'No submission to grade yet.' },
+  rubricTooLong: { es: 'La guía de evaluación es muy larga (máx. 4000 caracteres).', en: 'The rubric is too long (max 4000 characters).' },
+  fileRequired: { es: 'Selecciona un archivo.', en: 'Select a file.' },
+  fileTooLarge: { es: 'El archivo supera el límite de 25 MB.', en: 'The file exceeds the 25 MB limit.' },
+  fileType: { es: 'Tipo de archivo no permitido.', en: 'File type not allowed.' },
+  fileNotFound: { es: 'Archivo no encontrado.', en: 'File not found.' },
+  urlFailed: { es: 'No se pudo abrir el archivo. Inténtalo de nuevo.', en: 'Could not open the file. Please try again.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
 } as const
 const am = (k: keyof typeof A_MSG, lang: string) => A_MSG[k][lang === 'en' ? 'en' : 'es']
@@ -70,6 +86,7 @@ export async function createAssignment(input: {
   title: string
   instructions: string
   dueAt: string | null
+  rubric?: string
   lang?: string
 }) {
   const lang = input.lang || 'es'
@@ -83,6 +100,8 @@ export async function createAssignment(input: {
   const instructions = input.instructions.trim()
   if (!instructions) return { error: am('instrRequired', lang) }
   if (instructions.length > 4000) return { error: am('instrTooLong', lang) }
+  const rubric = (input.rubric || '').trim()
+  if (rubric.length > 4000) return { error: am('rubricTooLong', lang) }
   if (input.dueAt && isNaN(new Date(input.dueAt).getTime())) return { error: am('invalidDue', lang) }
 
   // Must have a non-cancelled booking with this student — same gate as
@@ -102,6 +121,7 @@ export async function createAssignment(input: {
       student_id: input.studentId,
       title,
       instructions,
+      rubric: rubric || null,
       due_at: input.dueAt,
       status: 'open',
     })
@@ -251,4 +271,224 @@ export async function gradeSubmission(input: {
 
   revalidatePath('/', 'layout')
   return { success: true as const }
+}
+
+// ── Assignment file attachments (STEP 4) ─────────────────────────────────
+// Files live in the private 'lab-files' bucket (migration 054); downloads go
+// through getAssignmentFileSignedUrl after an entitlement check. Three kinds:
+//   'assignment' — a file the teacher attaches to the assignment (teacher writes)
+//   'submission' — a file the student attaches to their submission (student writes)
+//   'audio'      — the teacher's audio feedback on the submission (teacher writes)
+type FileKind = 'assignment' | 'submission' | 'audio'
+function isFileKind(k: string): k is FileKind {
+  return k === 'assignment' || k === 'submission' || k === 'audio'
+}
+function assignmentFilePath(assignmentId: string, kind: FileKind, fileName: string): string {
+  const ext = safeExt(fileName)
+  return `assignments/${assignmentId}/${kind}-${randomUUID()}-${safeSlug(fileName)}${ext ? '.' + ext : ''}`
+}
+
+export async function attachAssignmentFile(formData: FormData) {
+  const lang = (formData.get('lang') as string | null) || 'es'
+  const kindRaw = (formData.get('kind') as string | null) || ''
+  const assignmentId = (formData.get('assignmentId') as string | null) || ''
+  if (!isFileKind(kindRaw)) return { error: am('saveFailed', lang) }
+  const kind: FileKind = kindRaw
+
+  const file = formData.get('file')
+  const bad = checkUpload(file)
+  if (bad) return { error: am(bad, lang) }
+  const f = file as File
+  const contentType = f.type || 'application/octet-stream'
+  if (!ALLOWED_FILE_TYPES.has(contentType)) return { error: am('fileType', lang) }
+
+  const admin = createAdminClient()
+  const { data: a } = await admin
+    .from('assignments')
+    .select('id, teacher_id, student_id, status')
+    .eq('id', assignmentId)
+    .maybeSingle()
+  if (!a) return { error: am('assignmentNotFound', lang) }
+  if (a.status !== 'open') return { error: am('notOpen', lang) }
+
+  // Role + ownership per kind.
+  if (kind === 'assignment' || kind === 'audio') {
+    const ctx = await requireTeacher(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    if (ctx.teacherId !== a.teacher_id) return { error: am('notYours', lang) }
+  } else {
+    const ctx = await requireStudent(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    if (ctx.studentId !== a.student_id) return { error: am('assignmentNotFound', lang) }
+  }
+
+  const buffer = Buffer.from(await f.arrayBuffer())
+  if (!magicMatches(buffer, contentType)) return { error: am('fileType', lang) }
+  const path = assignmentFilePath(assignmentId, kind, f.name)
+  const fileName = (f.name || 'archivo').slice(0, 200)
+  const { error: upErr } = await admin.storage.from(LAB_FILES_BUCKET).upload(path, buffer, { contentType, upsert: false })
+  if (upErr) {
+    console.error('attachAssignmentFile upload failed:', upErr.message)
+    return { error: am('saveFailed', lang) }
+  }
+  const rollback = async () => {
+    await admin.storage.from(LAB_FILES_BUCKET).remove([path])
+  }
+
+  let oldPath: string | null = null
+  if (kind === 'assignment') {
+    const { data: prev } = await admin.from('assignments').select('attachment_path').eq('id', assignmentId).maybeSingle()
+    oldPath = (prev?.attachment_path as string | null) ?? null
+    const { error } = await admin
+      .from('assignments')
+      .update({ attachment_path: path, attachment_name: fileName })
+      .eq('id', assignmentId)
+      .eq('teacher_id', a.teacher_id)
+    if (error) { await rollback(); console.error('attach assignment update failed:', error.message); return { error: am('saveFailed', lang) } }
+  } else if (kind === 'submission') {
+    const { data: sub } = await admin
+      .from('assignment_submissions')
+      .select('id, graded_at, attachment_path')
+      .eq('assignment_id', assignmentId)
+      .maybeSingle()
+    if (sub?.graded_at) { await rollback(); return { error: am('alreadyGraded', lang) } }
+    if (sub) {
+      oldPath = (sub.attachment_path as string | null) ?? null
+      const { error } = await admin
+        .from('assignment_submissions')
+        .update({ attachment_path: path, attachment_name: fileName, submitted_at: new Date().toISOString() })
+        .eq('id', sub.id)
+      if (error) { await rollback(); console.error('attach submission update failed:', error.message); return { error: am('saveFailed', lang) } }
+    } else {
+      const { error } = await admin
+        .from('assignment_submissions')
+        .insert({ assignment_id: assignmentId, submitted_text: '', attachment_path: path, attachment_name: fileName })
+      if (error) {
+        await rollback()
+        if (isUniqueViolation(error)) return { error: am('alreadySubmitted', lang) }
+        console.error('attach submission insert failed:', error.message)
+        return { error: am('saveFailed', lang) }
+      }
+    }
+  } else {
+    // audio feedback — requires an existing submission to attach to.
+    const { data: sub } = await admin
+      .from('assignment_submissions')
+      .select('id, audio_feedback_path')
+      .eq('assignment_id', assignmentId)
+      .maybeSingle()
+    if (!sub) { await rollback(); return { error: am('noSubmission', lang) } }
+    oldPath = (sub.audio_feedback_path as string | null) ?? null
+    const { error } = await admin
+      .from('assignment_submissions')
+      .update({ audio_feedback_path: path, audio_feedback_name: fileName })
+      .eq('id', sub.id)
+    if (error) { await rollback(); console.error('attach audio update failed:', error.message); return { error: am('saveFailed', lang) } }
+  }
+
+  // Best-effort cleanup of the replaced object.
+  if (oldPath && oldPath !== path) {
+    const { error: rmErr } = await admin.storage.from(LAB_FILES_BUCKET).remove([oldPath])
+    if (rmErr) console.error('attachAssignmentFile: old object remove failed', oldPath, rmErr.message)
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+export async function removeAssignmentFile(input: { assignmentId: string; kind: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  if (!isFileKind(input.kind)) return { error: am('saveFailed', lang) }
+  const kind: FileKind = input.kind
+  const admin = createAdminClient()
+  const { data: a } = await admin
+    .from('assignments')
+    .select('teacher_id, student_id')
+    .eq('id', input.assignmentId)
+    .maybeSingle()
+  if (!a) return { error: am('assignmentNotFound', lang) }
+
+  if (kind === 'assignment' || kind === 'audio') {
+    const ctx = await requireTeacher(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    if (ctx.teacherId !== a.teacher_id) return { error: am('notYours', lang) }
+  } else {
+    const ctx = await requireStudent(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    if (ctx.studentId !== a.student_id) return { error: am('assignmentNotFound', lang) }
+  }
+
+  let path: string | null = null
+  if (kind === 'assignment') {
+    const { data: row } = await admin.from('assignments').select('attachment_path').eq('id', input.assignmentId).maybeSingle()
+    path = (row?.attachment_path as string | null) ?? null
+    await admin.from('assignments').update({ attachment_path: null, attachment_name: null }).eq('id', input.assignmentId)
+  } else if (kind === 'submission') {
+    const { data: sub } = await admin.from('assignment_submissions').select('id, graded_at, attachment_path').eq('assignment_id', input.assignmentId).maybeSingle()
+    if (!sub) return { error: am('noSubmission', lang) }
+    if (sub.graded_at) return { error: am('alreadyGraded', lang) }
+    path = (sub.attachment_path as string | null) ?? null
+    await admin.from('assignment_submissions').update({ attachment_path: null, attachment_name: null }).eq('id', sub.id)
+  } else {
+    const { data: sub } = await admin.from('assignment_submissions').select('id, audio_feedback_path').eq('assignment_id', input.assignmentId).maybeSingle()
+    if (!sub) return { error: am('noSubmission', lang) }
+    path = (sub.audio_feedback_path as string | null) ?? null
+    await admin.from('assignment_submissions').update({ audio_feedback_path: null, audio_feedback_name: null }).eq('id', sub.id)
+  }
+  if (path) {
+    const { error: rmErr } = await admin.storage.from(LAB_FILES_BUCKET).remove([path])
+    if (rmErr) console.error('removeAssignmentFile remove failed', path, rmErr.message)
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+// Entitlement-gated signed URL: the assignment's teacher, its student, or an
+// admin may view ANY of its files. (Same posture as getLabFileSignedUrl.)
+export async function getAssignmentFileSignedUrl(input: { assignmentId: string; kind: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  if (!isFileKind(input.kind)) return { error: am('fileNotFound', lang) }
+  const kind: FileKind = input.kind
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: am('notAuth', lang) }
+  const admin = createAdminClient()
+  const { data: a } = await admin
+    .from('assignments')
+    .select('teacher_id, student_id')
+    .eq('id', input.assignmentId)
+    .maybeSingle()
+  if (!a) return { error: am('fileNotFound', lang) }
+
+  let entitled = false
+  const { data: teacher } = await admin.from('teachers').select('id').eq('profile_id', user.id).maybeSingle()
+  if (teacher && teacher.id === a.teacher_id) entitled = true
+  if (!entitled) {
+    const { data: student } = await admin.from('students').select('id').eq('profile_id', user.id).maybeSingle()
+    if (student && student.id === a.student_id) entitled = true
+  }
+  if (!entitled) {
+    const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (profile?.role === 'admin') entitled = true
+  }
+  if (!entitled) return { error: am('notYours', lang) }
+
+  let path: string | null = null
+  if (kind === 'assignment') {
+    const { data: row } = await admin.from('assignments').select('attachment_path').eq('id', input.assignmentId).maybeSingle()
+    path = (row?.attachment_path as string | null) ?? null
+  } else if (kind === 'submission') {
+    const { data: sub } = await admin.from('assignment_submissions').select('attachment_path').eq('assignment_id', input.assignmentId).maybeSingle()
+    path = (sub?.attachment_path as string | null) ?? null
+  } else {
+    const { data: sub } = await admin.from('assignment_submissions').select('audio_feedback_path').eq('assignment_id', input.assignmentId).maybeSingle()
+    path = (sub?.audio_feedback_path as string | null) ?? null
+  }
+  if (!path) return { error: am('fileNotFound', lang) }
+
+  const { data, error } = await admin.storage.from(LAB_FILES_BUCKET).createSignedUrl(path, FILE_URL_TTL)
+  if (error || !data) {
+    console.error('getAssignmentFileSignedUrl sign failed:', error?.message)
+    return { error: am('urlFailed', lang) }
+  }
+  return { success: true as const, url: data.signedUrl }
 }

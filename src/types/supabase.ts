@@ -21,6 +21,10 @@ export type Database = {
       assignment_submissions: {
         Row: {
           assignment_id: string
+          attachment_name: string | null
+          attachment_path: string | null
+          audio_feedback_name: string | null
+          audio_feedback_path: string | null
           graded_at: string | null
           id: string
           score: string | null
@@ -30,6 +34,10 @@ export type Database = {
         }
         Insert: {
           assignment_id: string
+          attachment_name?: string | null
+          attachment_path?: string | null
+          audio_feedback_name?: string | null
+          audio_feedback_path?: string | null
           graded_at?: string | null
           id?: string
           score?: string | null
@@ -39,6 +47,10 @@ export type Database = {
         }
         Update: {
           assignment_id?: string
+          attachment_name?: string | null
+          attachment_path?: string | null
+          audio_feedback_name?: string | null
+          audio_feedback_path?: string | null
           graded_at?: string | null
           id?: string
           score?: string | null
@@ -58,30 +70,39 @@ export type Database = {
       }
       assignments: {
         Row: {
+          attachment_name: string | null
+          attachment_path: string | null
           created_at: string
           due_at: string | null
           id: string
           instructions: string
+          rubric: string | null
           status: string
           student_id: string
           teacher_id: string
           title: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_path?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
           instructions?: string
+          rubric?: string | null
           status?: string
           student_id: string
           teacher_id: string
           title: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_path?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
           instructions?: string
+          rubric?: string | null
           status?: string
           student_id?: string
           teacher_id?: string

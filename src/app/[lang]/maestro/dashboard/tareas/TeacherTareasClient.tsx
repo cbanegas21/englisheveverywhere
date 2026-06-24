@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { SectionHeader } from '@/components/dashboard/SectionHeader'
 import Modal from '@/components/dashboard/Modal'
 import Drawer from '@/components/dashboard/Drawer'
+import AssignmentFileControl from '@/components/dashboard/AssignmentFileControl'
 
 const SCORES = ['A1','A2','B1','B2','C1','C2','needs_work','good','excellent'] as const
 
@@ -53,6 +54,15 @@ const t = {
     cancelling: 'Cancelling…',
     noStudents: 'You have no students yet. Once a booking is confirmed with a student, you can assign homework to them.',
     detailKicker: 'Assignment',
+    rubricLabel: 'Marking guide',
+    rubricOptional: 'Optional · the student sees this',
+    rubricPh: 'What you’ll look for when grading…',
+    attachmentLabel: 'Attached file',
+    attachFile: 'Attach a file',
+    studentFileLabel: 'Student’s file',
+    audioLabel: 'Audio feedback',
+    attachAudio: 'Attach audio',
+    noWrittenAnswer: 'No written answer — see the attached file.',
   },
   es: {
     title: 'Tareas',
@@ -94,6 +104,15 @@ const t = {
     cancelling: 'Cancelando…',
     noStudents: 'Aún no tienes estudiantes. Cuando una reserva sea confirmada con un estudiante, podrás asignarle tareas.',
     detailKicker: 'Tarea',
+    rubricLabel: 'Guía de evaluación',
+    rubricOptional: 'Opcional · el estudiante la ve',
+    rubricPh: 'Qué buscarás al calificar…',
+    attachmentLabel: 'Archivo adjunto',
+    attachFile: 'Adjuntar archivo',
+    studentFileLabel: 'Archivo del estudiante',
+    audioLabel: 'Retroalimentación en audio',
+    attachAudio: 'Adjuntar audio',
+    noWrittenAnswer: 'Sin respuesta escrita — revisa el archivo adjunto.',
   },
 }
 
@@ -106,12 +125,16 @@ interface Submission {
   feedback: string | null
   score: string | null
   graded_at: string | null
+  attachment_name: string | null
+  audio_feedback_name: string | null
 }
 
 interface Assignment {
   id: string
   title: string
   instructions: string
+  rubric: string | null
+  attachment_name: string | null
   due_at: string | null
   status: string
   created_at: string
@@ -248,6 +271,7 @@ function CreateModal({
   const [studentId, setStudentId] = useState('')
   const [title, setTitle] = useState('')
   const [instructions, setInstructions] = useState('')
+  const [rubric, setRubric] = useState('')
   const [dueAt, setDueAt] = useState('')
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -263,6 +287,7 @@ function CreateModal({
         studentId,
         title: title.trim(),
         instructions: instructions.trim(),
+        rubric: rubric.trim(),
         dueAt: dueAt ? new Date(dueAt).toISOString() : null,
         lang,
       })
@@ -341,6 +366,18 @@ function CreateModal({
             onChange={e => setInstructions(e.target.value)}
             disabled={isPending}
             rows={5}
+            className="ek-input w-full rounded px-3 py-2 text-[13px] outline-none resize-none"
+            style={{ background: 'var(--ek-card)', color: 'var(--ek-text)' }}
+          />
+        </Field>
+        <Field label={`${tx.rubricLabel} · ${tx.rubricOptional}`}>
+          <textarea
+            value={rubric}
+            onChange={e => setRubric(e.target.value)}
+            disabled={isPending}
+            rows={3}
+            maxLength={4000}
+            placeholder={tx.rubricPh}
             className="ek-input w-full rounded px-3 py-2 text-[13px] outline-none resize-none"
             style={{ background: 'var(--ek-card)', color: 'var(--ek-text)' }}
           />
@@ -467,6 +504,27 @@ function DetailDrawer({
               </div>
             )}
 
+            {assignment.rubric && (
+              <div>
+                <div className="ek-microlabel" style={{ marginBottom: 8 }}>{tx.rubricLabel}</div>
+                <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--ek-text-soft)' }}>
+                  {assignment.rubric}
+                </p>
+              </div>
+            )}
+
+            {assignment.status !== 'cancelled' && (
+              <AssignmentFileControl
+                lang={lang}
+                kind="assignment"
+                assignmentId={assignment.id}
+                fileName={assignment.attachment_name}
+                canEdit
+                label={tx.attachmentLabel}
+                attachCta={tx.attachFile}
+              />
+            )}
+
             {assignment.submission ? (
               <>
                 <div>
@@ -477,11 +535,28 @@ function DetailDrawer({
                     className="rounded-xl p-4"
                     style={{ background: 'var(--ek-paper)', border: '1px solid var(--ek-border)' }}
                   >
-                    <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--ek-text)' }}>
-                      {assignment.submission.text}
-                    </p>
+                    {assignment.submission.text?.trim() ? (
+                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--ek-text)' }}>
+                        {assignment.submission.text}
+                      </p>
+                    ) : (
+                      <p className="text-[12px]" style={{ color: 'var(--ek-text-muted)', fontStyle: 'italic' }}>
+                        {tx.noWrittenAnswer}
+                      </p>
+                    )}
                   </div>
                 </div>
+
+                {assignment.submission.attachment_name && (
+                  <AssignmentFileControl
+                    lang={lang}
+                    kind="submission"
+                    assignmentId={assignment.id}
+                    fileName={assignment.submission.attachment_name}
+                    canEdit={false}
+                    label={tx.studentFileLabel}
+                  />
+                )}
 
                 <div>
                   <label className="ek-microlabel block" style={{ marginBottom: 8 }}>
@@ -514,6 +589,19 @@ function DetailDrawer({
                     ))}
                   </select>
                 </div>
+
+                {assignment.status !== 'cancelled' && (
+                  <AssignmentFileControl
+                    lang={lang}
+                    kind="audio"
+                    assignmentId={assignment.id}
+                    fileName={assignment.submission.audio_feedback_name}
+                    canEdit
+                    label={tx.audioLabel}
+                    attachCta={tx.attachAudio}
+                    accept="audio/*"
+                  />
+                )}
 
                 {error && <p className="text-[12px]" style={{ color: 'var(--ek-red)' }}>{error}</p>}
               </>

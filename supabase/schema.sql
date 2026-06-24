@@ -27,6 +27,10 @@ create table public.assignment_submissions (
   teacher_feedback text,
   score text,
   graded_at timestamp with time zone,
+  attachment_path text,
+  attachment_name text,
+  audio_feedback_path text,
+  audio_feedback_name text,
   primary key (id)
 );
 
@@ -39,6 +43,9 @@ create table public.assignments (
   due_at timestamp with time zone,
   status text not null default 'open'::text,
   created_at timestamp with time zone not null default now(),
+  rubric text,
+  attachment_path text,
+  attachment_name text,
   primary key (id)
 );
 
