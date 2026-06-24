@@ -463,11 +463,13 @@ function ReviewAnswer({ q, answer, tx }: { q: RQuestion; answer: unknown; tx: (t
   }
   if (q.type === 'matching') {
     const given = Array.isArray(answer) ? (answer as (string | null)[]) : []
-    const correctByLeft = new Map((q.pairs || []).map((p) => [p.left, p.right]))
+    const pairs = q.pairs || []
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {(q.lefts || []).map((left, i) => {
-          const correct = correctByLeft.get(left)
+          // Positional — pairs[i] is aligned to lefts[i] exactly as gradeQuestion
+          // scores it; a left-text Map collapses duplicate prompts.
+          const correct = pairs[i]?.right
           const mine = given[i]
           const ok = correct !== undefined && mine === correct
           return (

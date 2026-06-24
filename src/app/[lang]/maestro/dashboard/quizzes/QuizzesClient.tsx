@@ -29,7 +29,7 @@ const t = {
     title: 'Quizzes', flourish: 'assemble & assign', sub: 'Compose quizzes from your question bank.',
     newQ: 'New quiz', empty: 'No quizzes yet.', emptySub: 'Build your first quiz from your question bank.',
     noBank: 'You have no questions yet.', noBankSub: 'Create questions first, then assemble them into a quiz.', goToBank: 'Go to the question bank →',
-    draft: 'Draft', published: 'Published', edit: 'Edit', publish: 'Publish', cancel: 'Cancel', cancelQuiz: 'Archive',
+    draft: 'Draft', published: 'Published', edit: 'Edit', publish: 'Publish', cancel: 'Cancel', cancelQuiz: 'Archive', responses: 'Responses',
     qCount: (n: number) => `${n} question${n !== 1 ? 's' : ''}`,
     fTitle: 'Title', fTitlePh: 'e.g. Unit 3 — Past tense', fIntro: 'Intro (optional)', fIntroPh: 'A short note shown before the quiz.',
     fQuestions: 'Questions', pick: 'Pick from your bank', selected: (n: number) => `${n} selected`,
@@ -43,7 +43,7 @@ const t = {
     title: 'Quizzes', flourish: 'arma y asigna', sub: 'Crea quizzes con las preguntas de tu banco.',
     newQ: 'Nuevo quiz', empty: 'Aún no tienes quizzes.', emptySub: 'Arma tu primer quiz con tu banco de preguntas.',
     noBank: 'Aún no tienes preguntas.', noBankSub: 'Crea preguntas primero y luego ármalas en un quiz.', goToBank: 'Ir al banco de preguntas →',
-    draft: 'Borrador', published: 'Publicado', edit: 'Editar', publish: 'Publicar', cancel: 'Cancelar', cancelQuiz: 'Archivar',
+    draft: 'Borrador', published: 'Publicado', edit: 'Editar', publish: 'Publicar', cancel: 'Cancelar', cancelQuiz: 'Archivar', responses: 'Respuestas',
     qCount: (n: number) => `${n} pregunta${n !== 1 ? 's' : ''}`,
     fTitle: 'Título', fTitlePh: 'ej. Unidad 3 — Pasado', fIntro: 'Introducción (opcional)', fIntroPh: 'Una nota corta antes del quiz.',
     fQuestions: 'Preguntas', pick: 'Elige de tu banco', selected: (n: number) => `${n} seleccionada${n !== 1 ? 's' : ''}`,
@@ -163,6 +163,7 @@ export default function QuizzesClient({ lang, quizzes, bank, students }: Props) 
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button onClick={() => openEdit(q)} style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-text)', background: 'transparent', border: '1px solid var(--ek-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.edit}</button>
+                    {isPub && <Link href={`/${lang}/maestro/dashboard/quizzes/${q.id}/respuestas`} style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-text)', background: 'transparent', border: '1px solid var(--ek-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', textDecoration: 'none' }}>{tx.responses}</Link>}
                     {!isPub && <button onClick={() => doPublish(q)} disabled={pending} style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: 'var(--ek-red)', border: 0, borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.publish}</button>}
                     {isPub && <button onClick={() => openAssign(q)} disabled={pending} style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: 'var(--ek-red)', border: 0, borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.assign}</button>}
                     <button onClick={() => doCancel(q)} disabled={pending} style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-text-muted)', background: 'transparent', border: '1px solid var(--ek-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.cancelQuiz}</button>

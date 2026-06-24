@@ -43,6 +43,8 @@ const L_MSG = {
   studentNotFound: { es: 'No se encontró tu perfil de estudiante.', en: 'Student record not found.' },
   assignmentClosed: { es: 'Este quiz ya no está disponible.', en: 'This quiz is no longer available.' },
   alreadyAttempted: { es: 'Ya enviaste este quiz.', en: 'You already submitted this quiz.' },
+  attemptNotFound: { es: 'Envío no encontrado.', en: 'Submission not found.' },
+  nothingToGrade: { es: 'Escribe una nota o ajusta una respuesta.', en: 'Write a note or adjust an answer.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
 } as const
 const lm = (k: keyof typeof L_MSG, lang: string) => L_MSG[k][lang === 'en' ? 'en' : 'es']
@@ -471,9 +473,11 @@ function clampAnswer(v: unknown): unknown {
   if (typeof v === 'string') return v.slice(0, 5000)
   if (typeof v === 'number' || typeof v === 'boolean') return v
   if (Array.isArray(v)) {
+    // The only array answers are matching (≤50 pairs) and mcq_multi (≤20 opts);
+    // cap to the validator's bounds so a hand-built payload can't bloat the row.
     return v
-      .slice(0, 100)
-      .map((x) => (typeof x === 'string' ? x.slice(0, 500) : typeof x === 'number' ? x : null))
+      .slice(0, 50)
+      .map((x) => (typeof x === 'string' ? x.slice(0, 200) : typeof x === 'number' ? x : null))
   }
   return null
 }
@@ -568,4 +572,106 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
     maxScore: graded.maxScore,
     pendingCount: graded.pendingCount,
   }
+}
+
+// ── Teacher attempt review (STEP 3d) ─────────────────────────────────────
+// Teacher reviews a submitted attempt: writes overall feedback and/or overrides
+// per-question outcomes (the essays + short-answers that auto-grading left
+// 'pending'). Authoritatively re-grades from the live questions, applies the
+// teacher's overrides on top, recomputes the score, and updates the frozen
+// snapshot's outcomes so the student's review reflects the human grade.
+// Ownership: attempt → assignment → must belong to this teacher.
+export async function gradeQuizAttempt(input: {
+  attemptId: string
+  feedback?: string
+  overrides?: Record<string, string> // questionId -> 'correct' | 'incorrect'
+  lang?: string
+}) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+
+  const { data: attempt } = await admin
+    .from('lab_quiz_attempts')
+    .select('id, assignment_id, questions_snapshot, answers')
+    .eq('id', input.attemptId)
+    .maybeSingle()
+  if (!attempt) return { error: lm('attemptNotFound', lang) }
+
+  const { data: assignment } = await admin
+    .from('lab_quiz_assignments')
+    .select('teacher_id')
+    .eq('id', attempt.assignment_id)
+    .maybeSingle()
+  if (!assignment || assignment.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+
+  const feedback = str(input.feedback, 4000)
+  const overridesRaw = asRecord(input.overrides)
+
+  // Grade from the FROZEN snapshot, never the live quiz/bank — migration 054's
+  // whole point is that later bank/template edits can't mutate a graded attempt.
+  // submitQuizAttempt already froze the authoritative per-question outcome here;
+  // the teacher only layers correct/incorrect overrides on top.
+  const snapArr = Array.isArray(attempt.questions_snapshot) ? attempt.questions_snapshot : []
+  const ids: string[] = []
+  const finalOutcomes: Record<string, 'correct' | 'incorrect' | 'pending'> = {}
+  for (const entry of snapArr) {
+    const e = asRecord(entry)
+    const id = typeof e.id === 'string' ? e.id : ''
+    if (!id) continue
+    ids.push(id)
+    const o = e.outcome
+    finalOutcomes[id] = o === 'correct' || o === 'incorrect' || o === 'pending' ? o : 'pending'
+  }
+
+  // Apply teacher overrides (only the two explicit verdicts are accepted).
+  let manualAdjusted = false
+  for (const id of ids) {
+    const ov = overridesRaw[id]
+    if (ov === 'correct' || ov === 'incorrect') {
+      if (finalOutcomes[id] !== ov) manualAdjusted = true
+      finalOutcomes[id] = ov
+    }
+  }
+
+  // Require an actual grading action so the student isn't locked into a graded
+  // state with nothing useful (mirrors gradeSubmission's feedbackOrScore guard).
+  if (!feedback && !manualAdjusted) return { error: lm('nothingToGrade', lang) }
+
+  let autoScore = 0
+  let maxScore = 0
+  for (const id of ids) {
+    const o = finalOutcomes[id]
+    if (o !== 'pending') {
+      maxScore++
+      if (o === 'correct') autoScore++
+    }
+  }
+
+  // Update the stored snapshot outcomes in place — never re-reveal keys (the
+  // snapshot already holds keys only if reviewAfter was on at submit).
+  const snapshot = snapArr.map((entry) => {
+    const e = asRecord(entry)
+    const id = typeof e.id === 'string' ? e.id : ''
+    return id && finalOutcomes[id] ? { ...e, outcome: finalOutcomes[id] } : e
+  })
+
+  const { error } = await admin
+    .from('lab_quiz_attempts')
+    .update({
+      teacher_feedback: feedback || null,
+      auto_score: autoScore,
+      max_score: maxScore,
+      manual_adjusted: manualAdjusted,
+      questions_snapshot: snapshot,
+      graded_at: new Date().toISOString(),
+    })
+    .eq('id', attempt.id)
+  if (error) {
+    console.error('gradeQuizAttempt update failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
 }
