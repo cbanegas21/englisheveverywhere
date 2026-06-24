@@ -7,6 +7,7 @@
 // sessions. STEP 2 = the teacher question bank; quiz engine + folder land in
 // later steps in this same file.
 
+import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -45,6 +46,11 @@ const L_MSG = {
   alreadyAttempted: { es: 'Ya enviaste este quiz.', en: 'You already submitted this quiz.' },
   attemptNotFound: { es: 'Envío no encontrado.', en: 'Submission not found.' },
   nothingToGrade: { es: 'Escribe una nota o ajusta una respuesta.', en: 'Write a note or adjust an answer.' },
+  fileRequired: { es: 'Selecciona un archivo.', en: 'Select a file.' },
+  fileTooLarge: { es: 'El archivo supera el límite de 25 MB.', en: 'The file exceeds the 25 MB limit.' },
+  fileType: { es: 'Tipo de archivo no permitido.', en: 'File type not allowed.' },
+  fileNotFound: { es: 'Archivo no encontrado.', en: 'File not found.' },
+  urlFailed: { es: 'No se pudo abrir el archivo. Inténtalo de nuevo.', en: 'Could not open the file. Please try again.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
 } as const
 const lm = (k: keyof typeof L_MSG, lang: string) => L_MSG[k][lang === 'en' ? 'en' : 'es']
@@ -674,4 +680,228 @@ export async function gradeQuizAttempt(input: {
   }
   revalidatePath('/', 'layout')
   return { success: true as const }
+}
+
+// ── Teacher folder + file share (STEP 5, §8.4) ───────────────────────────
+// Private 'lab-files' bucket (migration 054). Direct URLs 404; downloads go
+// through a service-role-minted short-lived signed URL AFTER an entitlement
+// gate (the LIB-05 lesson: getBookSignedUrl was ungated). Credit-neutral.
+const LAB_FILES_BUCKET = 'lab-files'
+const FILE_URL_TTL = 900 // 15 min
+const MAX_FILE_BYTES = 25 * 1024 * 1024
+// Allowlisted content types for shareable teacher resources.
+const ALLOWED_FILE_TYPES = new Set<string>([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/wav',
+  'audio/ogg',
+  'audio/webm',
+  'video/mp4',
+  'video/webm',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // pptx
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+  'text/plain',
+])
+
+// Defense-in-depth (the LIB-03 lesson): file.type is client-controlled, so verify
+// the bytes match the claimed type for the formats with a reliable signature.
+// Office docs are zip containers (PK\x03\x04). Types without a single reliable
+// magic number (audio/video/plain text) are allowed through — none of them
+// render as executable HTML when served inline from the private bucket.
+function magicMatches(buf: Buffer, type: string): boolean {
+  const at = (sig: number[], offset = 0) => sig.every((b, i) => buf[offset + i] === b)
+  switch (type) {
+    case 'application/pdf':
+      return buf.subarray(0, 1024).indexOf(Buffer.from('%PDF-')) !== -1
+    case 'image/png':
+      return at([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    case 'image/jpeg':
+      return at([0xff, 0xd8, 0xff])
+    case 'image/gif':
+      return at([0x47, 0x49, 0x46, 0x38]) // 'GIF8'
+    case 'image/webp':
+      return at([0x52, 0x49, 0x46, 0x46]) && at([0x57, 0x45, 0x42, 0x50], 8) // 'RIFF'…'WEBP'
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+    case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+      return at([0x50, 0x4b, 0x03, 0x04]) // zip header
+    default:
+      return true
+  }
+}
+
+export async function uploadLabFile(formData: FormData) {
+  const lang = (formData.get('lang') as string | null) || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) return { error: lm('fileRequired', lang) }
+  if (file.size > MAX_FILE_BYTES) return { error: lm('fileTooLarge', lang) }
+  const contentType = file.type || 'application/octet-stream'
+  if (!ALLOWED_FILE_TYPES.has(contentType)) return { error: lm('fileType', lang) }
+
+  const rawName = str(formData.get('fileName'), 200) || file.name || 'archivo'
+  const description = str(formData.get('description'), 1000)
+  const ext = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)
+  const slug = rawName.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').slice(0, 60) || 'archivo'
+  // Path is namespaced by teacher_id (service-role writes only, bucket private);
+  // a random token guarantees uniqueness (no same-millisecond collisions) and
+  // doesn't leak an upload timestamp.
+  const storagePath = `${teacherId}/${randomUUID()}-${slug}${ext ? '.' + ext : ''}`
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+  if (!magicMatches(buffer, contentType)) return { error: lm('fileType', lang) }
+  const { error: upErr } = await admin.storage
+    .from(LAB_FILES_BUCKET)
+    .upload(storagePath, buffer, { contentType, upsert: false })
+  if (upErr) {
+    console.error('uploadLabFile storage upload failed:', upErr.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  const { error: insErr } = await admin.from('lab_teacher_files').insert({
+    teacher_id: teacherId,
+    file_name: rawName,
+    description,
+    storage_path: storagePath,
+    mime_type: contentType,
+    size_bytes: file.size,
+  })
+  if (insErr) {
+    // Roll the orphaned object back so the bucket can't drift from the table.
+    await admin.storage.from(LAB_FILES_BUCKET).remove([storagePath])
+    console.error('uploadLabFile insert failed:', insErr.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+export async function deleteLabFile(input: { id: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+
+  const { data: f } = await admin
+    .from('lab_teacher_files')
+    .select('teacher_id, storage_path')
+    .eq('id', input.id)
+    .maybeSingle()
+  if (!f) return { error: lm('fileNotFound', lang) }
+  if (f.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+
+  // Row first (shares cascade via FK), then the object — an orphaned object is
+  // harmless, an orphaned row points at a missing file (mirrors deleteBook).
+  const { error } = await admin.from('lab_teacher_files').delete().eq('id', input.id).eq('teacher_id', teacherId)
+  if (error) {
+    console.error('deleteLabFile delete failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  const { error: rmErr } = await admin.storage.from(LAB_FILES_BUCKET).remove([f.storage_path])
+  if (rmErr) console.error('deleteLabFile: storage remove failed', f.storage_path, rmErr.message)
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+export async function shareLabFile(input: { fileId: string; studentId: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+
+  const { data: f } = await admin.from('lab_teacher_files').select('teacher_id').eq('id', input.fileId).maybeSingle()
+  if (!f) return { error: lm('fileNotFound', lang) }
+  if (f.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+  // Same booking-IDOR gate as quizzes/assignments — only share with a student
+  // you actually teach.
+  if (!(await hasBookingWith(admin, teacherId, input.studentId))) return { error: lm('noBooking', lang) }
+
+  const { error } = await admin.from('lab_file_shares').insert({ file_id: input.fileId, student_id: input.studentId })
+  if (error) {
+    if (isUniqueViolation(error)) return { success: true as const } // already shared — idempotent
+    console.error('shareLabFile insert failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+export async function unshareLabFile(input: { fileId: string; studentId: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  const ctx = await requireTeacher(lang)
+  if ('error' in ctx) return { error: ctx.error }
+  const { admin, teacherId } = ctx
+
+  // Only the owning teacher can unshare (verify ownership via the file).
+  const { data: f } = await admin.from('lab_teacher_files').select('teacher_id').eq('id', input.fileId).maybeSingle()
+  if (!f) return { error: lm('fileNotFound', lang) }
+  if (f.teacher_id !== teacherId) return { error: lm('notYours', lang) }
+
+  const { error } = await admin
+    .from('lab_file_shares')
+    .delete()
+    .eq('file_id', input.fileId)
+    .eq('student_id', input.studentId)
+  if (error) {
+    console.error('unshareLabFile delete failed:', error.message)
+    return { error: lm('saveFailed', lang) }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true as const }
+}
+
+// Entitlement-gated signed URL. Allowed callers: the owning teacher, a student
+// the file is shared with, or an admin. (The LIB-05 lesson — never mint a URL
+// for any authenticated session.) Role-agnostic: a single endpoint both the
+// teacher folder and the student feed call.
+export async function getLabFileSignedUrl(input: { fileId: string; lang?: string }) {
+  const lang = input.lang || 'es'
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: lm('notAuth', lang) }
+  const admin = createAdminClient()
+
+  const { data: f } = await admin
+    .from('lab_teacher_files')
+    .select('teacher_id, storage_path')
+    .eq('id', input.fileId)
+    .maybeSingle()
+  if (!f) return { error: lm('fileNotFound', lang) }
+
+  let entitled = false
+  const { data: teacher } = await admin.from('teachers').select('id').eq('profile_id', user.id).maybeSingle()
+  if (teacher && teacher.id === f.teacher_id) entitled = true
+  if (!entitled) {
+    const { data: student } = await admin.from('students').select('id').eq('profile_id', user.id).maybeSingle()
+    if (student) {
+      const { data: share } = await admin
+        .from('lab_file_shares')
+        .select('id')
+        .eq('file_id', input.fileId)
+        .eq('student_id', student.id)
+        .maybeSingle()
+      if (share) entitled = true
+    }
+  }
+  if (!entitled) {
+    const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (profile?.role === 'admin') entitled = true
+  }
+  if (!entitled) return { error: lm('notYours', lang) }
+
+  const { data, error } = await admin.storage.from(LAB_FILES_BUCKET).createSignedUrl(f.storage_path, FILE_URL_TTL)
+  if (error || !data) {
+    console.error('getLabFileSignedUrl sign failed:', error?.message)
+    return { error: lm('urlFailed', lang) }
+  }
+  return { success: true as const, url: data.signedUrl }
 }

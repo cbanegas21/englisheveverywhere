@@ -1,20 +1,24 @@
 'use client'
 
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { SectionHeader } from '@/components/dashboard/SectionHeader'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import { StatLedger } from '@/components/ui/StatLedger'
+import { getLabFileSignedUrl } from '@/app/actions/lab'
 
 interface VocabItem { word: string; translation: string; example: string }
 interface OpenAssignment { id: string; title: string; teacher_name: string }
 interface LabQuiz { id: string; title: string; done: boolean }
+interface SharedFile { id: string; fileName: string; description: string; mimeType: string }
 interface Props {
   lang: Locale
   userName: string
   openAssignments: OpenAssignment[]
   labQuizzes: LabQuiz[]
+  sharedFiles: SharedFile[]
   lastClassVocab: VocabItem[]
   stats: { completedClasses: number; classesRemaining: number; lastClassWords: number }
 }
@@ -43,6 +47,9 @@ const t = {
     quizTag: 'Quiz',
     quizStart: 'Start',
     quizReview: 'Review',
+    filesTitle: 'Files from your teacher',
+    filesOpen: 'Open',
+    openFailed: 'Could not open the file. Please try again.',
     from: 'From',
     soon: 'Coming soon',
     reviewTitle: 'To review',
@@ -79,6 +86,9 @@ const t = {
     quizTag: 'Quiz',
     quizStart: 'Empezar',
     quizReview: 'Revisar',
+    filesTitle: 'Archivos de tu maestro·a',
+    filesOpen: 'Abrir',
+    openFailed: 'No se pudo abrir el archivo. Inténtalo de nuevo.',
     from: 'De',
     soon: 'Próximamente',
     reviewTitle: 'Para repasar',
@@ -129,14 +139,33 @@ function SoonCard({ title, body, soon }: { title: string; body: string; soon: st
   )
 }
 
-export default function LabFeedClient({ lang, userName, openAssignments, labQuizzes, lastClassVocab, stats }: Props) {
+export default function LabFeedClient({ lang, userName, openAssignments, labQuizzes, sharedFiles, lastClassVocab, stats }: Props) {
   const tx = t[lang]
   const firstName = userName.split(' ')[0]
+  const [, startView] = useTransition()
+  const [fileError, setFileError] = useState('')
+
+  // Open a blank tab synchronously (keeps the user gesture), then point it at the
+  // entitlement-gated signed URL once it returns.
+  function openFile(fileId: string) {
+    setFileError('')
+    const w = window.open('', '_blank')
+    startView(async () => {
+      const res = await getLabFileSignedUrl({ fileId, lang })
+      if (res && 'url' in res && res.url) {
+        if (w) w.location.href = res.url
+        else window.location.href = res.url
+      } else {
+        w?.close()
+        setFileError((res && 'error' in res ? res.error : '') || tx.openFailed)
+      }
+    })
+  }
 
   const firstPendingQuiz = labQuizzes.find((q) => !q.done)
   const pendingQuizzes = labQuizzes.filter((q) => !q.done).length
   const teacherItems = openAssignments.length + pendingQuizzes
-  const hasFromTeacher = teacherItems > 0 || labQuizzes.length > 0
+  const hasFromTeacher = teacherItems > 0 || labQuizzes.length > 0 || sharedFiles.length > 0
   const hasVocab = lastClassVocab.length > 0
   // Lead the hero to the most actionable thing: a pending quiz if there is one,
   // else legacy homework.
@@ -239,10 +268,27 @@ export default function LabFeedClient({ lang, userName, openAssignments, labQuiz
                   <span aria-hidden style={{ color: 'var(--ek-red)', fontWeight: 700, flexShrink: 0 }}>→</span>
                 </Link>
               ))}
+              {sharedFiles.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => openFile(f.id)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, borderRadius: 12, border: '1px solid var(--ek-border)', background: 'var(--ek-card)', padding: '14px 18px', textAlign: 'left', cursor: 'pointer', width: '100%' }}
+                >
+                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', border: '1px solid var(--ek-border)', borderRadius: 999, padding: '3px 9px', flexShrink: 0 }}>{lang === 'es' ? 'Archivo' : 'File'}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-text)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.fileName}</div>
+                      {f.description && <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', marginTop: 2 }}>{f.description}</div>}
+                    </div>
+                  </div>
+                  <span style={{ color: 'var(--ek-red)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{tx.filesOpen} →</span>
+                </button>
+              ))}
             </div>
           ) : (
             <p style={{ margin: 0, fontSize: 13, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic' }}>{tx.fromTeacherEmpty}</p>
           )}
+          {fileError && <p role="alert" style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--ek-red)' }}>{fileError}</p>}
         </section>
 
         {/* Próximamente: Para repasar + Juegos */}

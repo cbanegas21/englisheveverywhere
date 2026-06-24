@@ -1,175 +1,81 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { DashTopBar } from '@/components/ui/DashTopBar'
-import { SectionHeader } from '@/components/dashboard/SectionHeader'
+import { createAdminClient } from '@/lib/supabase/admin'
+import MaterialesClient from './MaterialesClient'
+import type { Locale } from '@/lib/i18n/translations'
 
-interface Props {
-  params: Promise<{ lang: string }>
-}
+interface Props { params: Promise<{ lang: string }> }
 
-const resources = [
-  {
-    titleEn: 'Interchange Series',
-    titleEs: 'Serie Interchange',
-    descEn: 'Main curriculum used across all levels. Audio, exercises, and supplementary materials.',
-    descEs: 'Currículo principal usado en todos los niveles. Audio, ejercicios y materiales suplementarios.',
-    tagEn: 'Main curriculum',
-    tagEs: 'Currículo principal',
-  },
-  {
-    titleEn: 'Lesson Plan Templates',
-    titleEs: 'Plantillas de Planes de Clase',
-    descEn: 'Downloadable templates to structure your sessions by level and skill focus.',
-    descEs: 'Plantillas descargables para estructurar tus sesiones por nivel y habilidad.',
-    tagEn: 'Templates',
-    tagEs: 'Plantillas',
-  },
-  {
-    titleEn: 'CEFR Level Guide',
-    titleEs: 'Guía de Niveles CEFR',
-    descEn: 'Assessment guide for evaluating and placing students at the correct CEFR level.',
-    descEs: 'Guía de evaluación para calificar y ubicar estudiantes en el nivel CEFR correcto.',
-    tagEn: 'Assessment guide',
-    tagEs: 'Guía de evaluación',
-  },
-]
-
+// The Lab STEP 5 (§8.4) — teacher private folder + share-with-student. Files live
+// in the private 'lab-files' bucket (migration 054); downloads go through an
+// entitlement-gated signed URL (getLabFileSignedUrl). Service-role reads after
+// the maestro layout's role + is_active guard.
 export default async function MaterialesPage({ params }: Props) {
   const { lang } = await params
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(`/${lang}/login`)
 
-  const isEs = lang === 'es'
+  const admin = createAdminClient()
+  const { data: teacher } = await admin.from('teachers').select('id').eq('profile_id', user.id).maybeSingle()
+  if (!teacher) redirect(`/${lang}/maestro/dashboard`)
 
-  return (
-    <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
+  const [{ data: fileRows }, { data: bookingRows }] = await Promise.all([
+    admin
+      .from('lab_teacher_files')
+      .select('id, file_name, description, mime_type, size_bytes, created_at')
+      .eq('teacher_id', teacher.id)
+      .order('created_at', { ascending: false }),
+    admin
+      .from('bookings')
+      .select('student_id, student:students(profile:profiles(full_name))')
+      .eq('teacher_id', teacher.id)
+      .neq('status', 'cancelled'),
+  ])
 
-      <DashTopBar
-        title={isEs ? 'Materiales' : 'Materials'}
-        sub={isEs ? 'Recursos y currículo para tus clases.' : 'Resources and curriculum for your classes.'}
-      />
+  const fileIds = ((fileRows as { id: string }[]) || []).map((f) => f.id)
+  let shares: { file_id: string; student_id: string; name: string }[] = []
+  if (fileIds.length) {
+    const { data: shareData } = await admin
+      .from('lab_file_shares')
+      .select('file_id, student_id, student:students(profile:profiles(full_name))')
+      .in('file_id', fileIds)
+    shares = ((shareData as unknown[]) || []).map((row) => {
+      const r = row as Record<string, unknown>
+      const st = Array.isArray(r.student) ? r.student[0] : r.student
+      const prof = (st as { profile?: unknown } | null)?.profile
+      const profRec = Array.isArray(prof) ? prof[0] : prof
+      const name = (profRec as { full_name?: string | null } | null)?.full_name || (lang === 'es' ? 'Estudiante' : 'Student')
+      return { file_id: r.file_id as string, student_id: r.student_id as string, name }
+    })
+  }
 
-      <div className="px-4 sm:px-8 py-6 max-w-4xl mx-auto space-y-7">
+  const files = ((fileRows as unknown[]) || []).map((row) => {
+    const f = row as Record<string, unknown>
+    return {
+      id: f.id as string,
+      fileName: f.file_name as string,
+      description: (f.description as string) || '',
+      mimeType: (f.mime_type as string) || '',
+      sizeBytes: Number(f.size_bytes ?? 0),
+      sharedWith: shares.filter((s) => s.file_id === f.id).map((s) => ({ studentId: s.student_id, name: s.name })),
+    }
+  })
 
-        {/* Coming soon banner — editorial accent rule + type, no glyph tile */}
-        <div
-          style={{
-            background: 'var(--ek-card)',
-            border: '1px solid var(--ek-border)',
-            borderRadius: 'var(--ek-radius-lg)',
-            padding: '20px 22px',
-            display: 'flex',
-            gap: 18,
-            alignItems: 'stretch',
-          }}
-        >
-          <div
-            aria-hidden
-            style={{
-              width: 3,
-              alignSelf: 'stretch',
-              minHeight: 40,
-              borderRadius: 2,
-              background: 'var(--ek-red)',
-              flexShrink: 0,
-            }}
-          />
-          <div>
-            <div className="ek-microlabel" style={{ marginBottom: 6 }}>
-              {isEs ? 'En preparación' : 'In preparation'}
-            </div>
-            <div
-              style={{
-                fontFamily: 'var(--ek-font-serif)',
-                fontStyle: 'italic',
-                fontSize: 22,
-                lineHeight: 1.15,
-                color: 'var(--ek-text)',
-                marginBottom: 8,
-              }}
-            >
-              {isEs
-                ? 'Recursos y materiales en organización'
-                : 'Resources & curriculum being organized'}
-            </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ek-text-soft)', margin: 0 }}>
-              {isEs
-                ? 'El equipo de EnglishKolab está organizando todos los materiales de currículo, guías de nivel y plantillas. Aparecerán aquí cuando estén listos.'
-                : "The EnglishKolab team is organizing all curriculum materials, level guides, and templates. They'll appear here once ready."}
-            </p>
-          </div>
-        </div>
+  // Distinct booked students for the share dropdown (mirrors the quizzes page).
+  const seen = new Set<string>()
+  const students: { id: string; name: string }[] = []
+  for (const b of bookingRows || []) {
+    const sid = (b as { student_id?: string }).student_id
+    if (!sid || seen.has(sid)) continue
+    seen.add(sid)
+    const st = (b as { student?: unknown }).student
+    const stRec = Array.isArray(st) ? st[0] : st
+    const prof = (stRec as { profile?: unknown } | null)?.profile
+    const profRec = Array.isArray(prof) ? prof[0] : prof
+    const name = (profRec as { full_name?: string | null } | null)?.full_name || (lang === 'es' ? 'Estudiante' : 'Student')
+    students.push({ id: sid, name })
+  }
 
-        {/* Available resources — hairline-ruled editorial ledger, no card grid */}
-        <section>
-          <SectionHeader
-            kicker={isEs ? 'Recursos disponibles' : 'Available resources'}
-            title={isEs ? 'Currículo y guías' : 'Curriculum & guides'}
-          />
-
-          <div style={{ borderTop: '1px solid var(--ek-border-soft)' }}>
-            {resources.map(({ titleEn, titleEs, descEn, descEs, tagEn, tagEs }, i) => (
-              <div
-                key={titleEn}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '56px 1fr auto',
-                  gap: 20,
-                  alignItems: 'baseline',
-                  padding: '22px 4px',
-                  borderBottom: '1px solid var(--ek-border-soft)',
-                }}
-              >
-                {/* Index numeral */}
-                <div
-                  aria-hidden
-                  style={{
-                    fontFamily: 'var(--ek-font-serif)',
-                    fontStyle: 'italic',
-                    fontSize: 32,
-                    lineHeight: 1,
-                    color: 'var(--ek-text-faint)',
-                    fontFeatureSettings: '"tnum"',
-                  }}
-                >
-                  {String(i + 1).padStart(2, '0')}
-                </div>
-
-                {/* Title + tag eyebrow + body */}
-                <div style={{ minWidth: 0 }}>
-                  <div className="ek-microlabel" style={{ marginBottom: 6 }}>
-                    {isEs ? tagEs : tagEn}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: 'var(--ek-font-serif)',
-                      fontSize: 19,
-                      lineHeight: 1.2,
-                      color: 'var(--ek-text)',
-                      marginBottom: 6,
-                    }}
-                  >
-                    {isEs ? titleEs : titleEn}
-                  </div>
-                  <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ek-text-soft)', margin: 0, maxWidth: '52ch' }}>
-                    {isEs ? descEs : descEn}
-                  </p>
-                </div>
-
-                {/* Coming soon microlabel */}
-                <div
-                  className="ek-microlabel"
-                  style={{ whiteSpace: 'nowrap', alignSelf: 'center' }}
-                >
-                  {isEs ? 'Próximamente' : 'Coming soon'}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    </div>
-  )
+  return <MaterialesClient lang={lang as Locale} files={files} students={students} />
 }

@@ -76,6 +76,25 @@ export default async function LabPage({ params }: Props) {
     return { id: r.id, title: titleVal || 'Quiz', done: attemptedQuizIds.has(r.id) }
   })
 
+  // Files a teacher has shared with this student (§8.4) — opened read-only via an
+  // entitlement-gated signed URL.
+  const { data: sharedFileRows } = await admin
+    .from('lab_file_shares')
+    .select('shared_at, file:lab_teacher_files(id, file_name, description, mime_type)')
+    .eq('student_id', studentId)
+    .order('shared_at', { ascending: false })
+    .limit(8)
+  const sharedFiles = ((sharedFileRows as unknown[]) || [])
+    .map((row) => {
+      const r = row as { file?: unknown }
+      const f = Array.isArray(r.file) ? r.file[0] : r.file
+      const fr = f as { id?: string; file_name?: string; description?: string; mime_type?: string } | null
+      return fr && fr.id
+        ? { id: fr.id, fileName: fr.file_name || (lang === 'es' ? 'Archivo' : 'File'), description: fr.description || '', mimeType: fr.mime_type || '' }
+        : null
+    })
+    .filter((x): x is { id: string; fileName: string; description: string; mimeType: string } => x !== null)
+
   // Latest completed session that captured vocabulary (the cuaderno we now persist).
   let rawVocab: unknown = null
   if (bookingIds.length) {
@@ -127,6 +146,7 @@ export default async function LabPage({ params }: Props) {
       userName={name}
       openAssignments={openAssignments}
       labQuizzes={labQuizzes}
+      sharedFiles={sharedFiles}
       lastClassVocab={lastClassVocab}
       stats={{
         completedClasses: completedCount || 0,
