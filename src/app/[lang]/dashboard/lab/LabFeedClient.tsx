@@ -26,7 +26,7 @@ interface Props {
 
 const t = {
   en: {
-    title: 'The Lab',
+    title: 'The Workshop',
     flourish: 'your practice space',
     sub: 'Practice from your classes, at your own pace.',
     heroKicker: '↳ Pick up where you left off',
@@ -64,10 +64,10 @@ const t = {
     statBalance: 'Class balance',
     statWords: 'Words last class',
     noteKicker: '↳ A note on practice',
-    note: 'The Lab is yours to practice at your pace — no grades, no streaks to lose. If you answer with AI you only fool yourself; it is fine to get things wrong — that is how your teacher knows where to help.',
+    note: 'The Workshop is yours to practice at your pace — no grades, no streaks to lose. If you answer with AI you only fool yourself; it is fine to get things wrong — that is how your teacher knows where to help.',
   },
   es: {
-    title: 'El Lab',
+    title: 'El Taller',
     flourish: 'tu espacio para practicar',
     sub: 'Practica lo de tus clases, a tu propio ritmo.',
     heroKicker: '↳ Continúa donde lo dejaste',
@@ -105,7 +105,7 @@ const t = {
     statBalance: 'Saldo de clases',
     statWords: 'Palabras última clase',
     noteKicker: '↳ Una nota sobre la práctica',
-    note: 'El Lab es tuyo para practicar a tu ritmo — sin calificaciones, sin rachas que perder. Si respondes con IA solo te engañas a ti mismo; no importa fallar — así tu maestro sabe en qué ayudarte.',
+    note: 'El Taller es tuyo para practicar a tu ritmo — sin calificaciones, sin rachas que perder. Si respondes con IA solo te engañas a ti mismo; no importa fallar — así tu maestro sabe en qué ayudarte.',
   },
 }
 
@@ -195,7 +195,7 @@ export default function LabFeedClient({ lang, userName, openAssignments, labQuiz
 
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(20px, 4vw, 32px)', display: 'flex', flexDirection: 'column', gap: 'clamp(28px, 5vw, 40px)' }}>
         {/* Continuar hero */}
-        <DarkHeroCard ghost="Lab">
+        <DarkHeroCard ghost="Taller">
           <div className="ek-microlabel" style={{ color: 'rgba(244,239,230,0.55)', marginBottom: 10 }}>{tx.heroKicker}</div>
           <h2 style={{ margin: 0, fontSize: 'clamp(22px, 4vw, 30px)', fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.12 }}>
             {firstName ? `${firstName}, ` : ''}{hero.title.charAt(0).toLowerCase() + hero.title.slice(1)}

@@ -7,6 +7,7 @@ import TrustStrip from '@/components/landing/TrustStrip'
 import HowItWorks from '@/components/landing/HowItWorks'
 import Teachers from '@/components/landing/Teachers'
 import NotebookBanner from '@/components/landing/NotebookBanner'
+import WorkshopSection from '@/components/landing/WorkshopSection'
 import HorasGrid from '@/components/landing/HorasGrid'
 import Pricing from '@/components/landing/Pricing'
 import FAQ from '@/components/landing/FAQ'
@@ -44,6 +45,7 @@ export default async function LandingPage({ params }: Props) {
       <HowItWorks lang={lang as Locale} />
       <Teachers lang={lang as Locale} />
       <NotebookBanner lang={lang as Locale} />
+      <WorkshopSection lang={lang as Locale} />
       <HorasGrid lang={lang as Locale} />
       <Pricing lang={lang as Locale} plans={publicPlans()} minPerClass={minPerClassUsd()} />
       <FAQ lang={lang as Locale} />
