@@ -57,6 +57,8 @@ const t = {
     reviewSoon: 'Spaced review of your vocabulary — a little every day, never punishing.',
     gamesTitle: 'Games',
     gamesSoon: 'Light practice: flashcards, matching, fill-the-gap. Learning that feels easy.',
+    bookTitle: 'Interactive book',
+    bookSoon: 'Your textbook, right inside class — your teacher unlocks each unit and you work through it together on a shared whiteboard.',
     progress: 'Your progress',
     practice: 'Practice done',
     practiceSub: 'Quizzes from your teacher',
@@ -98,6 +100,8 @@ const t = {
     reviewSoon: 'Repaso espaciado de tu vocabulario — un poco cada día, sin castigos.',
     gamesTitle: 'Juegos',
     gamesSoon: 'Práctica ligera: tarjetas, parejas, llena el espacio. Aprender que se siente fácil.',
+    bookTitle: 'Libro interactivo',
+    bookSoon: 'Tu libro de texto, dentro de la clase — tu maestro desbloquea cada unidad y la trabajan juntos en una pizarra compartida.',
     progress: 'Tu progreso',
     practice: 'Práctica hecha',
     practiceSub: 'Quizzes de tu maestro',
@@ -304,6 +308,7 @@ export default function LabFeedClient({ lang, userName, openAssignments, labQuiz
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
             <SoonCard title={tx.reviewTitle} body={tx.reviewSoon} soon={tx.soon} />
             <SoonCard title={tx.gamesTitle} body={tx.gamesSoon} soon={tx.soon} />
+            <SoonCard title={tx.bookTitle} body={tx.bookSoon} soon={tx.soon} />
           </div>
         </section>
 
