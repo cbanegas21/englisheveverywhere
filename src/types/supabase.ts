@@ -467,6 +467,7 @@ export type Database = {
         Row: {
           answers: Json
           assignment_id: string
+          attempt_number: number
           auto_score: number | null
           graded_at: string | null
           id: string
@@ -479,6 +480,7 @@ export type Database = {
         Insert: {
           answers?: Json
           assignment_id: string
+          attempt_number?: number
           auto_score?: number | null
           graded_at?: string | null
           id?: string
@@ -491,6 +493,7 @@ export type Database = {
         Update: {
           answers?: Json
           assignment_id?: string
+          attempt_number?: number
           auto_score?: number | null
           graded_at?: string | null
           id?: string
@@ -504,7 +507,7 @@ export type Database = {
           {
             foreignKeyName: "lab_quiz_attempts_assignment_id_fkey"
             columns: ["assignment_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "lab_quiz_assignments"
             referencedColumns: ["id"]
           },

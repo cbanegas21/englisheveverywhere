@@ -9,7 +9,8 @@ import { Spinner } from '@/components/ui/Spinner'
 import { gradeQuizAttempt } from '@/app/actions/lab'
 
 type QType = 'mcq_single' | 'mcq_multi' | 'true_false' | 'short_answer' | 'matching' | 'essay'
-interface SOption { text: string; correct?: boolean; feedback?: string }
+type GradingMethod = 'greatest' | 'average' | 'first' | 'last'
+interface SOption { idx: number; text: string; correct?: boolean; feedback?: string }
 interface SQuestion {
   id: string
   type: QType
@@ -24,20 +25,30 @@ interface SQuestion {
   accepted?: string[]
 }
 type RQuestion = SQuestion & { outcome?: string }
-interface AttemptRow {
-  assignmentId: string
-  status: string
-  attemptId: string | null
-  submitted: boolean
+interface AttemptItem {
+  attemptId: string
+  attemptNumber: number
   autoScore: number
   maxScore: number
   graded: boolean
   teacherFeedback: string
   answers: Record<string, unknown>
   questions: RQuestion[]
-  studentName: string
 }
-interface Props { lang: Locale; quizTitle: string; attempts: AttemptRow[] }
+interface AssignmentRow {
+  assignmentId: string
+  status: string
+  studentName: string
+  attempts: AttemptItem[]
+  official: { autoScore: number; maxScore: number } | null
+}
+interface Props {
+  lang: Locale
+  quizTitle: string
+  rows: AssignmentRow[]
+  keyByQuestion: Record<string, string>
+  gradingMethod: GradingMethod
+}
 
 const t = {
   en: {
@@ -63,6 +74,9 @@ const t = {
     saving: 'Saving…',
     score: (a: number, b: number) => `${a} of ${b} correct`,
     cancelled: 'Cancelled',
+    attempt: (n: number) => `Attempt ${n}`,
+    attemptsCount: (n: number) => `${n} attempts`,
+    officialLabel: { greatest: 'best score', average: 'average score', first: 'first score', last: 'latest score' } as Record<GradingMethod, string>,
   },
   es: {
     flourish: 'respuestas',
@@ -87,6 +101,9 @@ const t = {
     saving: 'Guardando…',
     score: (a: number, b: number) => `${a} de ${b} aciertos`,
     cancelled: 'Cancelado',
+    attempt: (n: number) => `Intento ${n}`,
+    attemptsCount: (n: number) => `${n} intentos`,
+    officialLabel: { greatest: 'nota más alta', average: 'nota promedio', first: 'primera nota', last: 'última nota' } as Record<GradingMethod, string>,
   },
 }
 
@@ -96,23 +113,27 @@ const card: React.CSSProperties = {
   background: 'var(--ek-card)',
 }
 
-function fmtCorrect(q: SQuestion, tx: (typeof t)['es']): string {
+// Correct answer from the frozen snapshot (authoritative, present when review-after
+// is on); falls back to the teacher-only live-bank reference (REVIEW-02).
+function fmtCorrect(q: SQuestion, keyRef: string | undefined, tx: (typeof t)['es']): string {
+  let snap = '—'
   if (q.type === 'mcq_single' || q.type === 'mcq_multi')
-    return (q.options || []).filter((o) => o.correct).map((o) => o.text).join(', ') || '—'
-  if (q.type === 'true_false') return q.answer === undefined ? '—' : q.answer ? tx.tf_true : tx.tf_false
-  if (q.type === 'short_answer') return (q.accepted || []).join('  /  ') || '—'
-  if (q.type === 'matching') return (q.pairs || []).map((p) => `${p.left} → ${p.right}`).join(';  ') || '—'
-  return q.guidance || '—'
+    snap = (q.options || []).filter((o) => o.correct).map((o) => o.text).join(', ') || '—'
+  else if (q.type === 'true_false') snap = q.answer === undefined ? '—' : q.answer ? tx.tf_true : tx.tf_false
+  else if (q.type === 'short_answer') snap = (q.accepted || []).join('  /  ') || '—'
+  else if (q.type === 'matching') snap = (q.pairs || []).map((p) => `${p.left} → ${p.right}`).join(';  ') || '—'
+  else snap = q.guidance || '—'
+  return snap !== '—' ? snap : (keyRef || '—')
 }
 
 function fmtStudent(q: SQuestion, answer: unknown, tx: (typeof t)['es']): string {
   if (q.type === 'mcq_single') {
     const i = typeof answer === 'number' ? answer : -1
-    return (q.options || [])[i]?.text || tx.noAnswer
+    return (q.options || []).find((o) => o.idx === i)?.text || tx.noAnswer
   }
   if (q.type === 'mcq_multi') {
     const idx = Array.isArray(answer) ? (answer as number[]) : []
-    const texts = idx.map((i) => (q.options || [])[i]?.text).filter(Boolean) as string[]
+    const texts = idx.map((i) => (q.options || []).find((o) => o.idx === i)?.text).filter(Boolean) as string[]
     return texts.length ? texts.join(', ') : tx.noAnswer
   }
   if (q.type === 'true_false') return typeof answer === 'boolean' ? (answer ? tx.tf_true : tx.tf_false) : tx.noAnswer
@@ -125,7 +146,7 @@ function fmtStudent(q: SQuestion, answer: unknown, tx: (typeof t)['es']): string
   return tx.noAnswer
 }
 
-export default function TeacherReviewClient({ lang, quizTitle, attempts }: Props) {
+export default function TeacherReviewClient({ lang, quizTitle, rows, keyByQuestion, gradingMethod }: Props) {
   const tx = t[lang]
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -134,10 +155,9 @@ export default function TeacherReviewClient({ lang, quizTitle, attempts }: Props
   const [overrides, setOverrides] = useState<Record<string, 'correct' | 'incorrect'>>({})
   const [error, setError] = useState('')
 
-  const open = (row: AttemptRow) => {
-    if (!row.attemptId) return
-    setOpenId(row.attemptId === openId ? null : row.attemptId)
-    setFeedback(row.teacherFeedback)
+  const open = (a: AttemptItem) => {
+    setOpenId(a.attemptId === openId ? null : a.attemptId)
+    setFeedback(a.teacherFeedback)
     setOverrides({})
     setError('')
   }
@@ -155,12 +175,10 @@ export default function TeacherReviewClient({ lang, quizTitle, attempts }: Props
     })
   }
 
-  const badge = (row: AttemptRow) => {
-    if (!row.submitted) return { label: tx.notSubmitted, color: 'var(--ek-text-muted)' }
-    if (row.graded) return { label: `${tx.graded} · ${tx.score(row.autoScore, row.maxScore)}`, color: '#16794d' }
-    const hasPending = row.questions.some((q) => q.outcome === 'pending')
-    if (hasPending) return { label: tx.toReview, color: 'var(--ek-red)' }
-    return { label: `${tx.submitted} · ${tx.score(row.autoScore, row.maxScore)}`, color: 'var(--ek-text)' }
+  const attemptBadge = (a: AttemptItem) => {
+    if (a.graded) return { label: `${tx.graded} · ${tx.score(a.autoScore, a.maxScore)}`, color: '#16794d' }
+    if (a.questions.some((q) => q.outcome === 'pending')) return { label: tx.toReview, color: 'var(--ek-red)' }
+    return { label: `${tx.submitted} · ${tx.score(a.autoScore, a.maxScore)}`, color: 'var(--ek-text)' }
   }
 
   return (
@@ -169,114 +187,132 @@ export default function TeacherReviewClient({ lang, quizTitle, attempts }: Props
       <div style={{ maxWidth: 820, margin: '0 auto', padding: 'clamp(20px, 4vw, 32px)', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <Link href={`/${lang}/maestro/dashboard/quizzes`} style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-red)', textDecoration: 'none' }}>{tx.back}</Link>
 
-        {attempts.length === 0 ? (
+        {rows.length === 0 ? (
           <p style={{ margin: 0, fontSize: 14, color: 'var(--ek-text-muted)', fontStyle: 'italic', fontFamily: 'var(--ek-font-serif)' }}>{tx.none}</p>
         ) : (
-          attempts.map((row) => {
-            const b = badge(row)
-            const isOpen = !!row.attemptId && openId === row.attemptId
+          rows.map((row) => {
+            const cancelled = row.status === 'cancelled'
+            const multi = row.attempts.length > 1
             return (
               <div key={row.assignmentId} style={card}>
-                <button
-                  onClick={() => open(row)}
-                  disabled={!row.submitted}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 14,
-                    width: '100%',
-                    textAlign: 'left',
-                    background: 'transparent',
-                    border: 0,
-                    padding: '14px 18px',
-                    cursor: row.submitted ? 'pointer' : 'default',
-                  }}
-                >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '14px 18px' }}>
                   <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ek-text)' }}>{row.studentName}</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: b.color, fontFamily: 'var(--ek-font-mono)' }}>{row.status === 'cancelled' ? tx.cancelled : b.label}</span>
-                    {row.submitted && <span aria-hidden style={{ color: 'var(--ek-text-muted)' }}>{isOpen ? '▾' : '▸'}</span>}
+                    {cancelled ? (
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)' }}>{tx.cancelled}</span>
+                    ) : row.attempts.length === 0 ? (
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)' }}>{tx.notSubmitted}</span>
+                    ) : (
+                      <>
+                        {row.official && (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ek-text)', fontFamily: 'var(--ek-font-mono)' }}>
+                            {tx.score(row.official.autoScore, row.official.maxScore)}
+                            {multi ? ` · ${tx.officialLabel[gradingMethod]}` : ''}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </span>
-                </button>
+                </div>
 
-                {isOpen && row.attemptId && (
-                  <div style={{ borderTop: '1px solid var(--ek-border)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {row.questions.map((q, i) => {
-                      const ovVal = overrides[q.id] as 'correct' | 'incorrect' | undefined
-                      const storedVal = q.outcome as 'correct' | 'incorrect' | 'pending' | undefined
-                      const current: 'correct' | 'incorrect' | 'pending' = ovVal ?? storedVal ?? 'pending'
-                      const setOv = (v: 'correct' | 'incorrect') => setOverrides((p) => ({ ...p, [q.id]: v }))
-                      // Key fields exist in the snapshot only when the quiz allowed
-                      // review-after; otherwise there is no correct answer to show.
-                      const correct = fmtCorrect(q, tx)
+                {row.attempts.length > 0 && (
+                  <div style={{ borderTop: '1px solid var(--ek-border)', display: 'flex', flexDirection: 'column' }}>
+                    {row.attempts.map((a) => {
+                      const b = attemptBadge(a)
+                      const isOpen = openId === a.attemptId
                       return (
-                        <div key={q.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)' }}>
-                            <span style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 11, color: 'var(--ek-text-muted)', marginRight: 8 }}>{String(i + 1).padStart(2, '0')}</span>
-                            {q.prompt}
-                          </div>
-                          <div style={{ fontSize: 13, color: 'var(--ek-text)' }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ek-text-muted)' }}>{tx.studentAnswer}: </span>
-                            {fmtStudent(q, row.answers[q.id], tx)}
-                          </div>
-                          {correct !== '—' && (
-                            <div style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>
-                              <span style={{ fontSize: 12, fontWeight: 700 }}>{tx.correctAnswer}: </span>
-                              {correct}
+                        <div key={a.attemptId} style={{ borderTop: '1px solid var(--ek-border)' }}>
+                          <button
+                            onClick={() => open(a)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, width: '100%', textAlign: 'left', background: 'transparent', border: 0, padding: '12px 18px', cursor: 'pointer' }}
+                          >
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ek-text-muted)' }}>{multi ? tx.attempt(a.attemptNumber) : tx.submitted}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: b.color, fontFamily: 'var(--ek-font-mono)' }}>{b.label}</span>
+                              <span aria-hidden style={{ color: 'var(--ek-text-muted)' }}>{isOpen ? '▾' : '▸'}</span>
+                            </span>
+                          </button>
+
+                          {isOpen && (
+                            <div style={{ borderTop: '1px solid var(--ek-border)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                              {a.questions.map((q, i) => {
+                                const ovVal = overrides[q.id] as 'correct' | 'incorrect' | undefined
+                                const storedVal = q.outcome as 'correct' | 'incorrect' | 'pending' | undefined
+                                const current: 'correct' | 'incorrect' | 'pending' = ovVal ?? storedVal ?? 'pending'
+                                const setOv = (v: 'correct' | 'incorrect') => setOverrides((p) => ({ ...p, [q.id]: v }))
+                                const correct = fmtCorrect(q, keyByQuestion[q.id], tx)
+                                return (
+                                  <div key={q.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ek-text)' }}>
+                                      <span style={{ fontFamily: 'var(--ek-font-mono)', fontSize: 11, color: 'var(--ek-text-muted)', marginRight: 8 }}>{String(i + 1).padStart(2, '0')}</span>
+                                      {q.prompt}
+                                    </div>
+                                    <div style={{ fontSize: 13, color: 'var(--ek-text)' }}>
+                                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ek-text-muted)' }}>{tx.studentAnswer}: </span>
+                                      {fmtStudent(q, a.answers[q.id], tx)}
+                                    </div>
+                                    {correct !== '—' && (
+                                      <div style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>
+                                        <span style={{ fontSize: 12, fontWeight: 700 }}>{tx.correctAnswer}: </span>
+                                        {correct}
+                                      </div>
+                                    )}
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                                      {(['correct', 'incorrect'] as const).map((v) => {
+                                        const active = current === v
+                                        return (
+                                          <button
+                                            key={v}
+                                            onClick={() => setOv(v)}
+                                            style={{
+                                              fontSize: 12,
+                                              fontWeight: 700,
+                                              padding: '5px 12px',
+                                              borderRadius: 999,
+                                              cursor: 'pointer',
+                                              border: '1px solid var(--ek-border)',
+                                              background: active ? (v === 'correct' ? 'rgba(22,121,77,0.12)' : 'rgba(193,39,45,0.10)') : 'transparent',
+                                              color: active ? (v === 'correct' ? '#16794d' : 'var(--ek-red)') : 'var(--ek-text-muted)',
+                                            }}
+                                          >
+                                            {v === 'correct' ? tx.markCorrect : tx.markIncorrect}
+                                          </button>
+                                        )
+                                      })}
+                                      {current === 'pending' && <span style={{ fontSize: 12, color: 'var(--ek-red)', alignSelf: 'center', fontWeight: 600 }}>{tx.pending}</span>}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', marginBottom: 6 }}>{tx.feedback}</label>
+                                <textarea
+                                  value={feedback}
+                                  onChange={(e) => setFeedback(e.target.value)}
+                                  placeholder={tx.feedbackPh}
+                                  rows={3}
+                                  maxLength={4000}
+                                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--ek-border)', background: 'var(--ek-paper)', color: 'var(--ek-text)', fontSize: 14, fontFamily: 'var(--ek-font-sans)', resize: 'vertical' }}
+                                />
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                <button
+                                  onClick={() => save(a.attemptId)}
+                                  disabled={pending}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--ek-red)', color: '#fff', fontWeight: 700, fontSize: 14, padding: '10px 20px', borderRadius: 8, border: 0, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.7 : 1 }}
+                                >
+                                  {pending && <Spinner size={14} stroke="#fff" />}
+                                  {pending ? tx.saving : tx.save}
+                                </button>
+                                {error && <span role="alert" style={{ fontSize: 13, color: 'var(--ek-red)' }}>{error}</span>}
+                              </div>
                             </div>
                           )}
-                          <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-                            {(['correct', 'incorrect'] as const).map((v) => {
-                              const active = current === v
-                              return (
-                                <button
-                                  key={v}
-                                  onClick={() => setOv(v)}
-                                  style={{
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    padding: '5px 12px',
-                                    borderRadius: 999,
-                                    cursor: 'pointer',
-                                    border: '1px solid var(--ek-border)',
-                                    background: active ? (v === 'correct' ? 'rgba(22,121,77,0.12)' : 'rgba(193,39,45,0.10)') : 'transparent',
-                                    color: active ? (v === 'correct' ? '#16794d' : 'var(--ek-red)') : 'var(--ek-text-muted)',
-                                  }}
-                                >
-                                  {v === 'correct' ? tx.markCorrect : tx.markIncorrect}
-                                </button>
-                              )
-                            })}
-                            {current === 'pending' && <span style={{ fontSize: 12, color: 'var(--ek-red)', alignSelf: 'center', fontWeight: 600 }}>{tx.pending}</span>}
-                          </div>
                         </div>
                       )
                     })}
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', marginBottom: 6 }}>{tx.feedback}</label>
-                      <textarea
-                        value={feedback}
-                        onChange={(e) => setFeedback(e.target.value)}
-                        placeholder={tx.feedbackPh}
-                        rows={3}
-                        maxLength={4000}
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--ek-border)', background: 'var(--ek-paper)', color: 'var(--ek-text)', fontSize: 14, fontFamily: 'var(--ek-font-sans)', resize: 'vertical' }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <button
-                        onClick={() => save(row.attemptId!)}
-                        disabled={pending}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--ek-red)', color: '#fff', fontWeight: 700, fontSize: 14, padding: '10px 20px', borderRadius: 8, border: 0, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.7 : 1 }}
-                      >
-                        {pending && <Spinner size={14} stroke="#fff" />}
-                        {pending ? tx.saving : tx.save}
-                      </button>
-                      {error && <span role="alert" style={{ fontSize: 13, color: 'var(--ek-red)' }}>{error}</span>}
-                    </div>
                   </div>
                 )}
               </div>

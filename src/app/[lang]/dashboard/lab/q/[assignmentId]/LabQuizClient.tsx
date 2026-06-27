@@ -9,7 +9,8 @@ import { Spinner } from '@/components/ui/Spinner'
 import { submitQuizAttempt } from '@/app/actions/lab'
 
 type QType = 'mcq_single' | 'mcq_multi' | 'true_false' | 'short_answer' | 'matching' | 'essay'
-interface SOption { text: string; correct?: boolean; feedback?: string }
+type GradingMethod = 'greatest' | 'average' | 'first' | 'last'
+interface SOption { idx: number; text: string; correct?: boolean; feedback?: string }
 interface SQuestion {
   id: string
   type: QType
@@ -31,6 +32,12 @@ interface ReviewData {
   maxScore: number
   teacherFeedback: string | null
   graded: boolean
+  reviewAfter: boolean
+  pendingCount: number
+  attemptCount: number
+  attemptsAllowed: number
+  gradingMethod: GradingMethod
+  canRetry: boolean
 }
 interface Props {
   lang: Locale
@@ -41,6 +48,8 @@ interface Props {
   teacherName: string
   questions?: SQuestion[]
   review?: ReviewData
+  attemptNumber?: number
+  attemptsAllowed?: number
 }
 
 const t = {
@@ -72,6 +81,13 @@ const t = {
     oIncorrect: 'Review this',
     oPending: 'With your teacher',
     teacherNote: 'A note from your teacher',
+    attemptOf: (n: number, m: number) => `Attempt ${n} of ${m}`,
+    retake: 'Try again',
+    retakeLeft: (n: number) => `${n} attempt${n !== 1 ? 's' : ''} left`,
+    lastAttempt: 'Your last attempt',
+    reviewHidden: 'Your teacher chose not to show the answers for this quiz.',
+    gm: { greatest: 'best of', average: 'average of', first: 'first of', last: 'latest of' } as Record<GradingMethod, string>,
+    ofAttempts: (label: string, n: number) => `${label} ${n} attempts`,
   },
   es: {
     flourish: 'quiz de práctica',
@@ -101,6 +117,13 @@ const t = {
     oIncorrect: 'Para repasar',
     oPending: 'Con tu maestro',
     teacherNote: 'Una nota de tu maestro',
+    attemptOf: (n: number, m: number) => `Intento ${n} de ${m}`,
+    retake: 'Intentar de nuevo',
+    retakeLeft: (n: number) => `${n} intento${n !== 1 ? 's' : ''} restante${n !== 1 ? 's' : ''}`,
+    lastAttempt: 'Tu último intento',
+    reviewHidden: 'Tu maestro decidió no mostrar las respuestas de este quiz.',
+    gm: { greatest: 'mejor de', average: 'promedio de', first: 'primero de', last: 'último de' } as Record<GradingMethod, string>,
+    ofAttempts: (label: string, n: number) => `${label} ${n} intentos`,
   },
 }
 
@@ -172,9 +195,10 @@ function OutcomeBadge({ outcome, tx }: { outcome?: string; tx: (typeof t)['es'] 
   )
 }
 
-export default function LabQuizClient({ lang, mode, assignmentId, title, intro, teacherName, questions, review }: Props) {
+export default function LabQuizClient({ lang, mode, assignmentId, title, intro, teacherName, questions, review, attemptNumber, attemptsAllowed }: Props) {
   const tx = t[lang]
   const router = useRouter()
+  const cleanUrl = `/${lang}/dashboard/lab/q/${assignmentId}`
   const [pending, startTransition] = useTransition()
   const [answers, setAnswers] = useState<Record<string, unknown>>({})
   const [error, setError] = useState('')
@@ -199,7 +223,12 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
     startTransition(async () => {
       const res = await submitQuizAttempt({ assignmentId, answers, lang })
       if (res && 'error' in res) setError(res.error ?? '')
-      else router.refresh() // page re-renders in review mode (attempt now exists)
+      else {
+        // Land on the clean URL (drops ?intentar=1) so the page renders the new
+        // attempt's review instead of immediately offering another retake.
+        router.push(cleanUrl)
+        router.refresh()
+      }
     })
   }
 
@@ -237,6 +266,9 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
   // ── review ────────────────────────────────────────────────────────────
   if (mode === 'review' && review) {
     const hasAuto = review.maxScore > 0
+    const multi = review.attemptCount > 1
+    const retakeHref = `${cleanUrl}?intentar=1`
+    const remaining = Math.max(0, review.attemptsAllowed - review.attemptCount)
     return (
       <div style={{ background: 'var(--ek-paper)', minHeight: '100%' }}>
         {Header}
@@ -247,9 +279,14 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
             <div style={{ fontSize: 'clamp(22px, 4vw, 28px)', fontWeight: 800, color: 'var(--ek-text)', letterSpacing: '-0.02em' }}>
               {hasAuto ? tx.reviewScore(review.autoScore, review.maxScore) : tx.done}
             </div>
-            {review.questions.some((q) => q.outcome === 'pending') && (
+            {multi && hasAuto && (
+              <div style={{ fontSize: 12, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', letterSpacing: '0.02em' }}>
+                {tx.ofAttempts(tx.gm[review.gradingMethod], review.attemptCount)}
+              </div>
+            )}
+            {review.pendingCount > 0 && (
               <div style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>
-                {hasAuto ? tx.pending(review.questions.filter((q) => q.outcome === 'pending').length) : tx.reviewNoAuto}
+                {hasAuto ? tx.pending(review.pendingCount) : tx.reviewNoAuto}
               </div>
             )}
             {review.graded && review.teacherFeedback && (
@@ -258,20 +295,43 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
                 <p style={{ margin: 0, fontSize: 14, color: 'var(--ek-text)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{review.teacherFeedback}</p>
               </div>
             )}
+            {review.canRetry && (
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <Link
+                  href={retakeHref}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--ek-red)', color: '#fff', fontWeight: 700, fontSize: 13, padding: '9px 18px', borderRadius: 8, textDecoration: 'none' }}
+                >
+                  {tx.retake}
+                </Link>
+                <span style={{ fontSize: 12, color: 'var(--ek-text-muted)' }}>{tx.retakeLeft(remaining)}</span>
+              </div>
+            )}
           </div>
 
-          {review.questions.map((q, i) => (
-            <div key={q.id} style={card}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-                <span style={numStyle}>{String(i + 1).padStart(2, '0')}</span>
-                <OutcomeBadge outcome={q.outcome} tx={tx} />
-              </div>
-              <div style={promptStyle}>{q.prompt}</div>
-              <div style={{ marginTop: 12, fontSize: 14, color: 'var(--ek-text)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <ReviewAnswer q={q} answer={review.answers[q.id]} tx={tx} />
-              </div>
-            </div>
-          ))}
+          {/* Per-question review is gated on reviewAfter — that toggle IS "let the
+              student review answers after", so with it off we never render the
+              breakdown (which would otherwise leak correctness by inference — GRADE-02). */}
+          {review.reviewAfter ? (
+            <>
+              {multi && (
+                <div className="ek-microlabel" style={{ marginTop: 2 }}>↳ {tx.lastAttempt}</div>
+              )}
+              {review.questions.map((q, i) => (
+                <div key={q.id} style={card}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+                    <span style={numStyle}>{String(i + 1).padStart(2, '0')}</span>
+                    <OutcomeBadge outcome={q.outcome} tx={tx} />
+                  </div>
+                  <div style={promptStyle}>{q.prompt}</div>
+                  <div style={{ marginTop: 12, fontSize: 14, color: 'var(--ek-text)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <ReviewAnswer q={q} answer={review.answers[q.id]} tx={tx} />
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic', lineHeight: 1.55 }}>{tx.reviewHidden}</p>
+          )}
 
           <div>{backLink}</div>
         </div>
@@ -285,7 +345,14 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
     <div style={{ background: 'var(--ek-paper)', minHeight: '100%' }}>
       {Header}
       <div style={{ maxWidth: 760, margin: '0 auto', padding: 'clamp(20px, 4vw, 32px)', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.from} {teacherName}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 13, color: 'var(--ek-text-muted)' }}>{tx.from} {teacherName}</div>
+          {attemptsAllowed && attemptsAllowed > 1 && attemptNumber && (
+            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--ek-font-mono)', letterSpacing: '0.04em', color: 'var(--ek-text-muted)', border: '1px solid var(--ek-border)', borderRadius: 999, padding: '3px 10px' }}>
+              {tx.attemptOf(attemptNumber, attemptsAllowed)}
+            </span>
+          )}
+        </div>
         {intro && (
           <p style={{ margin: 0, fontSize: 14, color: 'var(--ek-text)', lineHeight: 1.55 }}>{intro}</p>
         )}
@@ -302,9 +369,12 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
             {(q.type === 'mcq_single' || q.type === 'mcq_multi') && (
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {(q.options || []).map((o, oi) => {
+                  // Value is the option's ORIGINAL bank index (o.idx), not its
+                  // display position — so shuffleAnswers can reorder options here
+                  // without the server grader ever caring.
                   const checked = q.type === 'mcq_single'
-                    ? answers[q.id] === oi
-                    : Array.isArray(answers[q.id]) && (answers[q.id] as number[]).includes(oi)
+                    ? answers[q.id] === o.idx
+                    : Array.isArray(answers[q.id]) && (answers[q.id] as number[]).includes(o.idx)
                   return (
                     <label key={oi} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, color: 'var(--ek-text)' }}>
                       <input
@@ -313,8 +383,8 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
                         checked={!!checked}
                         onChange={() =>
                           q.type === 'mcq_single'
-                            ? setAnswers((p) => ({ ...p, [q.id]: oi }))
-                            : toggleMulti(q.id, oi)
+                            ? setAnswers((p) => ({ ...p, [q.id]: o.idx }))
+                            : toggleMulti(q.id, o.idx)
                         }
                       />
                       <span>{o.text}</span>
@@ -431,7 +501,7 @@ function ReviewAnswer({ q, answer, tx }: { q: RQuestion; answer: unknown; tx: (t
     const picked = q.type === 'mcq_single'
       ? typeof answer === 'number' ? [answer] : []
       : Array.isArray(answer) ? (answer as number[]) : []
-    const chosenText = picked.map((i) => opts[i]?.text).filter(Boolean)
+    const chosenText = picked.map((i) => opts.find((o) => o.idx === i)?.text).filter(Boolean)
     const correctText = opts.filter((o) => o.correct).map((o) => o.text)
     return (
       <>

@@ -7,6 +7,7 @@ import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import { SectionHeader } from '@/components/dashboard/SectionHeader'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import { StatLedger } from '@/components/ui/StatLedger'
+import { ProgressRing } from '@/components/ui/ProgressRing'
 import { getLabFileSignedUrl } from '@/app/actions/lab'
 
 interface VocabItem { word: string; translation: string; example: string }
@@ -57,6 +58,8 @@ const t = {
     gamesTitle: 'Games',
     gamesSoon: 'Light practice: flashcards, matching, fill-the-gap. Learning that feels easy.',
     progress: 'Your progress',
+    practice: 'Practice done',
+    practiceSub: 'Quizzes from your teacher',
     statClasses: 'Classes taken',
     statBalance: 'Class balance',
     statWords: 'Words last class',
@@ -80,13 +83,13 @@ const t = {
     lastClass: 'De tu última clase',
     lastClassEmpty: 'Después de tu próxima clase, aquí verás el vocabulario nuevo de tu cuaderno IA para repasar.',
     seeAll: 'Ver en mis clases →',
-    fromTeacher: 'De parte de tu maestro·a',
+    fromTeacher: 'De parte de tu maestro',
     fromTeacherEmpty: 'Tu maestro aún no te ha enviado nada — aparecerá aquí cuando lo haga.',
     openHomework: 'Abrir mis tareas →',
     quizTag: 'Quiz',
     quizStart: 'Empezar',
     quizReview: 'Revisar',
-    filesTitle: 'Archivos de tu maestro·a',
+    filesTitle: 'Archivos de tu maestro',
     filesOpen: 'Abrir',
     openFailed: 'No se pudo abrir el archivo. Inténtalo de nuevo.',
     from: 'De',
@@ -96,6 +99,8 @@ const t = {
     gamesTitle: 'Juegos',
     gamesSoon: 'Práctica ligera: tarjetas, parejas, llena el espacio. Aprender que se siente fácil.',
     progress: 'Tu progreso',
+    practice: 'Práctica hecha',
+    practiceSub: 'Quizzes de tu maestro',
     statClasses: 'Clases tomadas',
     statBalance: 'Saldo de clases',
     statWords: 'Palabras última clase',
@@ -164,6 +169,8 @@ export default function LabFeedClient({ lang, userName, openAssignments, labQuiz
 
   const firstPendingQuiz = labQuizzes.find((q) => !q.done)
   const pendingQuizzes = labQuizzes.filter((q) => !q.done).length
+  const quizzesTotal = labQuizzes.length
+  const quizzesDone = labQuizzes.filter((q) => q.done).length
   const teacherItems = openAssignments.length + pendingQuizzes
   const hasFromTeacher = teacherItems > 0 || labQuizzes.length > 0 || sharedFiles.length > 0
   const hasVocab = lastClassVocab.length > 0
@@ -237,7 +244,7 @@ export default function LabFeedClient({ lang, userName, openAssignments, labQuiz
           )}
         </section>
 
-        {/* De parte de tu maestro·a */}
+        {/* De parte de tu maestro */}
         <section>
           <SectionHeader kicker="02" title={tx.fromTeacher} right={openAssignments.length > 0 ? <Link href={`/${lang}/dashboard/tareas`} style={{ fontSize: 13, fontWeight: 700, color: 'var(--ek-red)', textDecoration: 'none' }}>{tx.openHomework}</Link> : undefined} />
           {hasFromTeacher ? (
@@ -303,6 +310,17 @@ export default function LabFeedClient({ lang, userName, openAssignments, labQuiz
         {/* Tu progreso */}
         <section>
           <SectionHeader kicker="04" title={tx.progress} />
+          {quizzesTotal > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0 24px' }}>
+              <ProgressRing
+                value={quizzesDone}
+                max={quizzesTotal}
+                center={`${quizzesDone}/${quizzesTotal}`}
+                label={tx.practice}
+                caption={tx.practiceSub}
+              />
+            </div>
+          )}
           <StatLedger
             items={[
               { kicker: tx.statClasses, value: stats.completedClasses },

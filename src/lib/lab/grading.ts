@@ -41,8 +41,9 @@ function isType(t: string): t is LabQuestionType {
 // TS narrowing pain. Key fields (correct / answer / accepted / pairs) appear
 // ONLY when `reveal` is true.
 export interface SanitizedOption {
-  text: string
-  correct?: boolean
+  idx: number // ORIGINAL bank position — the value the student submits + the grader
+  text: string // indexes against the unsanitized bank, so display order can be
+  correct?: boolean // shuffled (shuffleAnswers) without ever touching gradeQuestion
   feedback?: string
 }
 export interface SanitizedQuestion {
@@ -68,9 +69,9 @@ export function sanitizeQuestion(q: BankQuestionRow, reveal: boolean): Sanitized
   const base = { id: q.id, prompt: s(q.prompt) }
 
   if (q.type === 'mcq_single' || q.type === 'mcq_multi') {
-    const options: SanitizedOption[] = arr(p.options).map((o) => {
+    const options: SanitizedOption[] = arr(p.options).map((o, i) => {
       const r = rec(o)
-      const opt: SanitizedOption = { text: s(r.text) }
+      const opt: SanitizedOption = { idx: i, text: s(r.text) }
       if (reveal) {
         opt.correct = r.correct === true
         if (s(r.feedback)) opt.feedback = s(r.feedback)
@@ -104,11 +105,17 @@ export function sanitizeQuestion(q: BankQuestionRow, reveal: boolean): Sanitized
     const pairs = arr(p.pairs)
       .map((x) => ({ left: s(rec(x).left), right: s(rec(x).right) }))
       .filter((x) => x.left.length > 0 && x.right.length > 0)
+    // rights is the answer POOL, not the key — grading is by right-side TEXT
+    // (gradeQuestion), so order is irrelevant to correctness. We sort it here so
+    // rights[i] is NEVER aligned to lefts[i]: that alignment IS the key, and the
+    // frozen snapshot reuses this output without the play page's extra shuffle
+    // (GRADE-01 — the gated-pricing "data-in-bundle" lesson). The play page may
+    // still shuffle on top for presentation.
     const out: SanitizedQuestion = {
       ...base,
       type: 'matching',
       lefts: pairs.map((x) => x.left),
-      rights: pairs.map((x) => x.right),
+      rights: pairs.map((x) => x.right).sort((a, b) => a.localeCompare(b)),
     }
     if (reveal) out.pairs = pairs
     return out
@@ -215,4 +222,59 @@ export function gradeAttempt(
     }
   }
   return { autoScore, maxScore, pendingCount, outcomes }
+}
+
+// ── multi-attempt aggregation ───────────────────────────────────────────────
+// "retake always allowed" (gentle/anti-IA constraint): a student may attempt up
+// to the quiz's attempts_allowed. The teacher's grading_method picks which score
+// is the OFFICIAL one. Score is always "x de y aciertos", never a grade.
+export const LAB_GRADING_METHODS = ['greatest', 'average', 'first', 'last'] as const
+export type GradingMethod = (typeof LAB_GRADING_METHODS)[number]
+export function isGradingMethod(v: unknown): v is GradingMethod {
+  return typeof v === 'string' && (LAB_GRADING_METHODS as readonly string[]).includes(v)
+}
+
+export interface AttemptScore {
+  autoScore: number
+  maxScore: number
+}
+
+const attemptRatio = (a: AttemptScore) => (a.maxScore > 0 ? a.autoScore / a.maxScore : 0)
+
+// `attempts` MUST be ordered oldest→newest (by attempt_number) for first/last.
+// Ratio-based so a differing denominator (a blank short-answer left pending in
+// one attempt) can't skew the average. maxScore for the headline is the largest
+// seen, so "x de y" reads sensibly.
+export function aggregateAttempts(attempts: AttemptScore[], method: GradingMethod): AttemptScore {
+  if (attempts.length === 0) return { autoScore: 0, maxScore: 0 }
+  if (attempts.length === 1) return { autoScore: attempts[0].autoScore, maxScore: attempts[0].maxScore }
+  if (method === 'first') return { autoScore: attempts[0].autoScore, maxScore: attempts[0].maxScore }
+  if (method === 'last') {
+    const a = attempts[attempts.length - 1]
+    return { autoScore: a.autoScore, maxScore: a.maxScore }
+  }
+  if (method === 'greatest') {
+    const best = attempts.reduce((b, a) => (attemptRatio(a) > attemptRatio(b) ? a : b), attempts[0])
+    return { autoScore: best.autoScore, maxScore: best.maxScore }
+  }
+  // average — exclude all-pending attempts (maxScore===0): they auto-graded nothing,
+  // so counting them as 0% would understate the score (MA-01).
+  const scored = attempts.filter((a) => a.maxScore > 0)
+  if (scored.length === 0) return { autoScore: 0, maxScore: 0 }
+  const maxScore = Math.max(...scored.map((a) => a.maxScore))
+  const avgRatio = scored.reduce((sum, a) => sum + attemptRatio(a), 0) / scored.length
+  return { autoScore: Math.round(avgRatio * maxScore), maxScore }
+}
+
+// Index of the attempt whose answers should be shown in review — the one the
+// aggregate actually scored (MA-02), so the per-question detail matches the
+// headline. 'average' has no single attempt, so show the latest as representative.
+export function scoringAttemptIndex(attempts: AttemptScore[], method: GradingMethod): number {
+  if (attempts.length === 0) return -1
+  if (method === 'first') return 0
+  if (method === 'last' || method === 'average') return attempts.length - 1
+  // greatest
+  let best = 0
+  for (let i = 1; i < attempts.length; i++) if (attemptRatio(attempts[i]) > attemptRatio(attempts[best])) best = i
+  return best
 }

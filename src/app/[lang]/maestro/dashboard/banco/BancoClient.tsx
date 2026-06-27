@@ -45,6 +45,7 @@ const t = {
     options: 'Options',
     correct: 'Correct',
     addOption: 'Add option',
+    remove: 'Remove',
     answer: 'Correct answer',
     true: 'True',
     false: 'False',
@@ -87,6 +88,7 @@ const t = {
     options: 'Opciones',
     correct: 'Correcta',
     addOption: 'Agregar opción',
+    remove: 'Quitar',
     answer: 'Respuesta correcta',
     true: 'Verdadero',
     false: 'Falso',
@@ -305,7 +307,7 @@ export default function BancoClient({ lang, questions }: Props) {
                     />
                     <input value={o.text} onChange={(e) => upd({ options: form.options.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)) })} style={inputStyle} />
                     {form.options.length > 2 && (
-                      <button onClick={() => upd({ options: form.options.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }} title="Remove"><Trash2 size={16} /></button>
+                      <button onClick={() => upd({ options: form.options.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }} title={tx.remove} aria-label={tx.remove}><Trash2 size={16} /></button>
                     )}
                   </div>
                 ))}
@@ -334,12 +336,12 @@ export default function BancoClient({ lang, questions }: Props) {
                 {form.accepted.map((a, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input value={a.text} onChange={(e) => upd({ accepted: form.accepted.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)) })} style={inputStyle} />
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--ek-text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      <input type="checkbox" checked={a.caseSensitive} onChange={(e) => upd({ accepted: form.accepted.map((x, j) => (j === i ? { ...x, caseSensitive: e.target.checked } : x)) })} style={{ accentColor: 'var(--ek-red)' }} />
+                    <label title={tx.caseSensitive} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--ek-text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      <input type="checkbox" aria-label={tx.caseSensitive} checked={a.caseSensitive} onChange={(e) => upd({ accepted: form.accepted.map((x, j) => (j === i ? { ...x, caseSensitive: e.target.checked } : x)) })} style={{ accentColor: 'var(--ek-red)' }} />
                       Aa
                     </label>
                     {form.accepted.length > 1 && (
-                      <button onClick={() => upd({ accepted: form.accepted.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }}><Trash2 size={16} /></button>
+                      <button onClick={() => upd({ accepted: form.accepted.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }} title={tx.remove} aria-label={tx.remove}><Trash2 size={16} /></button>
                     )}
                   </div>
                 ))}
@@ -358,7 +360,7 @@ export default function BancoClient({ lang, questions }: Props) {
                     <span aria-hidden style={{ color: 'var(--ek-text-muted)', flexShrink: 0 }}>↔</span>
                     <input value={pr.right} placeholder={tx.right} onChange={(e) => upd({ pairs: form.pairs.map((x, j) => (j === i ? { ...x, right: e.target.value } : x)) })} style={inputStyle} />
                     {form.pairs.length > 2 && (
-                      <button onClick={() => upd({ pairs: form.pairs.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }}><Trash2 size={16} /></button>
+                      <button onClick={() => upd({ pairs: form.pairs.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }} title={tx.remove} aria-label={tx.remove}><Trash2 size={16} /></button>
                     )}
                   </div>
                 ))}

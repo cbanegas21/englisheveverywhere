@@ -152,6 +152,7 @@ create table public.lab_quiz_attempts (
   manual_adjusted boolean not null default false,
   submitted_at timestamp with time zone not null default now(),
   graded_at timestamp with time zone,
+  attempt_number integer not null default 1,
   primary key (id)
 );
 
@@ -445,7 +446,7 @@ alter table public.teacher_payouts add constraint teacher_payouts_status_check C
 alter table public.assignment_submissions add constraint assignment_submissions_assignment_id_key UNIQUE (assignment_id);
 alter table public.lab_file_shares add constraint lab_file_shares_file_id_student_id_key UNIQUE (file_id, student_id);
 alter table public.lab_progress add constraint lab_progress_student_id_item_type_item_id_key UNIQUE (student_id, item_type, item_id);
-alter table public.lab_quiz_attempts add constraint lab_quiz_attempts_assignment_id_key UNIQUE (assignment_id);
+alter table public.lab_quiz_attempts add constraint lab_quiz_attempts_assignment_attempt_key UNIQUE (assignment_id, attempt_number);
 alter table public.payments add constraint payments_stripe_payment_intent_id_key UNIQUE (stripe_payment_intent_id);
 alter table public.student_purchases add constraint student_purchases_stripe_session_id_key UNIQUE (stripe_session_id);
 alter table public.students add constraint students_profile_id_key UNIQUE (profile_id);

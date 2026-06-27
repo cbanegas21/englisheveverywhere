@@ -45,6 +45,7 @@ const L_MSG = {
   studentNotFound: { es: 'No se encontró tu perfil de estudiante.', en: 'Student record not found.' },
   assignmentClosed: { es: 'Este quiz ya no está disponible.', en: 'This quiz is no longer available.' },
   alreadyAttempted: { es: 'Ya enviaste este quiz.', en: 'You already submitted this quiz.' },
+  attemptsExhausted: { es: 'Ya usaste todos tus intentos en este quiz.', en: 'You have used all your attempts on this quiz.' },
   attemptNotFound: { es: 'Envío no encontrado.', en: 'Submission not found.' },
   nothingToGrade: { es: 'Escribe una nota o ajusta una respuesta.', en: 'Write a note or adjust an answer.' },
   fileRequired: { es: 'Selecciona un archivo.', en: 'Select a file.' },
@@ -510,15 +511,7 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
   if (!assignment || assignment.student_id !== studentId) return { error: lm('assignmentNotFound', lang) }
   if (assignment.status !== 'open') return { error: lm('assignmentClosed', lang) }
 
-  // 2. Single attempt — friendly pre-check (the UNIQUE index is the real guard).
-  const { data: prior } = await admin
-    .from('lab_quiz_attempts')
-    .select('id')
-    .eq('assignment_id', assignment.id)
-    .maybeSingle()
-  if (prior) return { error: lm('alreadyAttempted', lang) }
-
-  // 3. Re-read the quiz + its UNSANITIZED questions, in the quiz's question order.
+  // 2. Re-read the quiz first (its settings gate how many attempts are allowed).
   const { data: quiz } = await admin
     .from('lab_quizzes')
     .select('id, question_ids, settings, status')
@@ -526,6 +519,20 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
     .maybeSingle()
   if (!quiz) return { error: lm('quizNotFound', lang) }
   if (quiz.status === 'cancelled') return { error: lm('assignmentClosed', lang) }
+  const settings = normalizeSettings(quiz.settings)
+
+  // 3. Retake-always-allowed UP TO attempts_allowed (PLAN-01). Count prior attempts;
+  //    the composite UNIQUE(assignment_id, attempt_number) is the real race guard.
+  const { data: priorAttempts } = await admin
+    .from('lab_quiz_attempts')
+    .select('attempt_number')
+    .eq('assignment_id', assignment.id)
+    .order('attempt_number', { ascending: false })
+  const priorList = (priorAttempts as { attempt_number: number }[] | null) || []
+  if (priorList.length >= settings.attemptsAllowed) return { error: lm('attemptsExhausted', lang) }
+  const nextNumber = (priorList[0]?.attempt_number || 0) + 1
+
+  // 4. Read the quiz's UNSANITIZED questions, in the quiz's question order.
   const orderedIds = (Array.isArray(quiz.question_ids) ? quiz.question_ids : []).filter(
     (x): x is string => typeof x === 'string',
   )
@@ -538,14 +545,13 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
     .map((id) => byId.get(id))
     .filter((q): q is BankQuestionRow => !!q)
 
-  // 4. Keep only answers for real questions, bounded; then auto-grade server-side.
+  // 5. Keep only answers for real questions, bounded; then auto-grade server-side.
   const raw = asRecord(input.answers)
   const answers: Record<string, unknown> = {}
   for (const q of questions) if (q.id in raw) answers[q.id] = clampAnswer(raw[q.id])
   const graded = gradeAttempt(questions, answers)
 
-  // 5. Frozen snapshot — keys present only if reviewAfter (defense in depth).
-  const settings = normalizeSettings(quiz.settings)
+  // 6. Frozen snapshot — keys present only if reviewAfter (defense in depth).
   const snapshot = questions
     .map((q) => {
       const sani = sanitizeQuestion(q, settings.reviewAfter)
@@ -553,23 +559,32 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
     })
     .filter((x) => x !== null)
 
-  // 6. Insert with the single-attempt UNIQUE guard.
-  const { data: inserted, error } = await admin
-    .from('lab_quiz_attempts')
-    .insert({
-      assignment_id: assignment.id,
-      questions_snapshot: snapshot,
-      answers,
-      auto_score: graded.autoScore,
-      max_score: graded.maxScore,
-    })
-    .select('id')
-    .single()
-  if (error) {
-    if (isUniqueViolation(error)) return { error: lm('alreadyAttempted', lang) }
+  // 7. Insert. The composite UNIQUE(assignment_id, attempt_number) is the real
+  //    concurrency guard: on a race two submits compute the same number, one wins,
+  //    the loser bumps + retries once (and re-checks the cap so it can't exceed it).
+  let inserted: { id: string } | null = null
+  let usedNumber = nextNumber
+  for (let i = 0; i < 2 && !inserted; i++) {
+    usedNumber = nextNumber + i
+    if (usedNumber > settings.attemptsAllowed) return { error: lm('attemptsExhausted', lang) }
+    const { data, error } = await admin
+      .from('lab_quiz_attempts')
+      .insert({
+        assignment_id: assignment.id,
+        attempt_number: usedNumber,
+        questions_snapshot: snapshot,
+        answers,
+        auto_score: graded.autoScore,
+        max_score: graded.maxScore,
+      })
+      .select('id')
+      .single()
+    if (!error) { inserted = data; break }
+    if (isUniqueViolation(error)) continue // race on attempt_number — bump + retry
     console.error('submitQuizAttempt insert failed:', error.message)
     return { error: lm('saveFailed', lang) }
   }
+  if (!inserted) return { error: lm('attemptsExhausted', lang) }
 
   revalidatePath('/', 'layout')
   return {
@@ -578,6 +593,8 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
     autoScore: graded.autoScore,
     maxScore: graded.maxScore,
     pendingCount: graded.pendingCount,
+    attemptNumber: usedNumber,
+    attemptsRemaining: Math.max(0, settings.attemptsAllowed - usedNumber),
   }
 }
 
@@ -601,7 +618,7 @@ export async function gradeQuizAttempt(input: {
 
   const { data: attempt } = await admin
     .from('lab_quiz_attempts')
-    .select('id, assignment_id, questions_snapshot, answers')
+    .select('id, assignment_id, questions_snapshot, answers, manual_adjusted')
     .eq('id', input.attemptId)
     .maybeSingle()
   if (!attempt) return { error: lm('attemptNotFound', lang) }
@@ -633,18 +650,23 @@ export async function gradeQuizAttempt(input: {
   }
 
   // Apply teacher overrides (only the two explicit verdicts are accepted).
-  let manualAdjusted = false
+  let requestAdjusted = false
   for (const id of ids) {
     const ov = overridesRaw[id]
     if (ov === 'correct' || ov === 'incorrect') {
-      if (finalOutcomes[id] !== ov) manualAdjusted = true
+      if (finalOutcomes[id] !== ov) requestAdjusted = true
       finalOutcomes[id] = ov
     }
   }
 
   // Require an actual grading action so the student isn't locked into a graded
   // state with nothing useful (mirrors gradeSubmission's feedbackOrScore guard).
-  if (!feedback && !manualAdjusted) return { error: lm('nothingToGrade', lang) }
+  if (!feedback && !requestAdjusted) return { error: lm('nothingToGrade', lang) }
+
+  // manual_adjusted is STICKY: a later feedback-only re-grade sends no overrides,
+  // but a prior override is still baked into the snapshot outcome + score, so the
+  // flag must stay true once set (REVIEW-01).
+  const manualAdjusted = attempt.manual_adjusted === true || requestAdjusted
 
   let autoScore = 0
   let maxScore = 0

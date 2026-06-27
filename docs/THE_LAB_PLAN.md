@@ -50,7 +50,7 @@ Supabase Management API (never `db push`/`reset`), then `pnpm gen-types` +
 | `lab_question_bank` | Teacher-private pool. ONE table, JSONB `payload` per `type` (P1: `mcq_single`, `mcq_multi`, `true_false`, `short_answer`, `matching`, `essay`). | teacher-owns, admin. **No student.** |
 | `lab_quizzes` | Teacher quiz template: `title`, `intro`, `settings` jsonb (shuffle, attempts_allowed, grading_method greatest/avg/first/last, review_options), `question_ids uuid[]`, `status` draft/published/cancelled. | teacher-owns, admin. |
 | `lab_quiz_assignments` | Bridge — teacher assigns a quiz to a student (`quiz_id`, `student_id`, `due_at`, `status` open/cancelled). Creating it = the quiz appears in the student's Lab. | teacher-owns, student-target, admin. |
-| `lab_quiz_attempts` | Student submission: `assignment_id` UNIQUE, `questions_snapshot` jsonb (frozen so later bank edits don't mutate a live attempt), `answers` jsonb, `auto_score`, `max_score`, `teacher_feedback`, `manual_adjusted`, `submitted_at`, `graded_at`. | teacher (via assignment→quiz), student-target, admin. |
+| `lab_quiz_attempts` | Student submission: `(assignment_id, attempt_number)` UNIQUE — **multi-attempt** since migration 056 (honors "retake always allowed"; grading_method picks the official score at read time via `aggregateAttempts`). `questions_snapshot` jsonb (frozen so later bank edits don't mutate a live attempt), `answers` jsonb, `auto_score`, `max_score`, `teacher_feedback`, `manual_adjusted` (sticky), `submitted_at`, `graded_at`. | teacher (via assignment→quiz), student-target, admin. |
 | `lab_teacher_files` | §8.4 private folder metadata; bytes in a NEW private `lab-files` bucket (clone 018 books bucket + signed-URL viewer). | teacher-owns, admin. **No student.** |
 | `lab_file_shares` | §8.4 per-file share-with-one-student (`file_id`, `student_id`, UNIQUE). | teacher (via file), student-target, admin. |
 | `lab_progress` | XP + "palabras dominadas" + progress rings NOW; SM-2 SRS seam (nullable `ease_factor`/`interval_days`/`repetitions`/`due_at`) for P2 — no schema change to wire SRS later (intervals only lengthen, enforced in the action). Polymorphic `(item_type, item_id)`. | student-target, admin. **No streak/league/leaderboard columns.** |
@@ -92,7 +92,9 @@ inherit BOTH maestro role + `is_active` guards.
   + `gradeQuizAttempt`. Wire the live "De parte de tu maestro·a" section.
 - **STEP 4 — assignment upgrade:** extend 017 `assignments`/`assignment_submissions`
   additively (file attachment + rubric/marking-guide + audio feedback), keep gentle copy.
-- **STEP 5 — teacher folder + share (§8.4):** private bucket + `/maestro/dashboard/carpeta`
+- **STEP 5 — teacher folder + share (§8.4):** private bucket + folder UI shipped at
+  `/maestro/dashboard/materiales` (replaced the coming-soon placeholder; the planned
+  `/carpeta` route was folded into the existing Materiales nav)
   + upload/share/unshare + `getLabFileSignedUrl` (entitlement gate clones
   `getBookSignedUrl`); surface shared files read-only in the student feed.
 - **STEP 6 — P1 closeout:** bilingual anti-IA copy pass, `ProgressRing`, responsive/a11y,
