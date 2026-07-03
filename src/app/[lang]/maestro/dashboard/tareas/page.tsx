@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isValidTimeZone } from '@/lib/timezone'
 import TeacherTareasClient from './TeacherTareasClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -14,10 +15,18 @@ export default async function MaestroTareasPage({ params }: Props) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, timezone')
     .eq('id', user.id)
     .single()
   if (profile?.role !== 'teacher') redirect(`/${lang}/dashboard`)
+
+  // Due dates render in the VIEWER's tz (Carlos's call 2026-07-03) — guarded,
+  // a corrupt stored tz must not crash the page (DASH-01 class).
+  const rawTimezone =
+    (profile as { timezone?: string | null } | null)?.timezone ||
+    (user.user_metadata?.timezone as string) ||
+    'America/Tegucigalpa'
+  const timeZone = isValidTimeZone(rawTimezone) ? rawTimezone : 'America/Tegucigalpa'
 
   const admin = createAdminClient()
   const { data: teacher } = await admin
@@ -88,5 +97,5 @@ export default async function MaestroTareasPage({ params }: Props) {
     }
   })
 
-  return <TeacherTareasClient lang={lang as Locale} students={students} assignments={rows} />
+  return <TeacherTareasClient lang={lang as Locale} students={students} assignments={rows} timeZone={timeZone} />
 }

@@ -157,13 +157,16 @@ interface Props {
   lang: Locale
   students: Student[]
   assignments: Assignment[]
+  timeZone: string
 }
 
 type StatusVariant = 'completed' | 'neutral' | 'cancelled' | 'confirmed'
 
-function formatDate(iso: string, lang: Locale) {
+// timeZone = the VIEWER's validated profile tz (page-level isValidTimeZone
+// guard) — a due date shown in Honduras time reads a day off elsewhere.
+function formatDate(iso: string, lang: Locale, timeZone: string) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-CO' : 'en-US', {
-    timeZone: 'America/Tegucigalpa', year: 'numeric', month: 'short', day: 'numeric',
+    timeZone, year: 'numeric', month: 'short', day: 'numeric',
   })
 }
 
@@ -175,7 +178,7 @@ function getStatus(a: Assignment, tx: typeof t['en']): { variant: StatusVariant;
   return { variant: 'confirmed', label: tx.open }
 }
 
-export default function TeacherTareasClient({ lang, students, assignments }: Props) {
+export default function TeacherTareasClient({ lang, students, assignments, timeZone }: Props) {
   const tx = t[lang]
   const [showCreate, setShowCreate] = useState(false)
   const [detail, setDetail] = useState<Assignment | null>(null)
@@ -249,7 +252,7 @@ export default function TeacherTareasClient({ lang, students, assignments }: Pro
                         <div className="flex items-center gap-3 mt-0.5">
                           <span className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>{a.student_name}</span>
                           <span className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>
-                            {a.due_at ? `${tx.due}: ${formatDate(a.due_at, lang)}` : tx.noDue}
+                            {a.due_at ? `${tx.due}: ${formatDate(a.due_at, lang, timeZone)}` : tx.noDue}
                           </span>
                         </div>
                       </div>
@@ -275,6 +278,7 @@ export default function TeacherTareasClient({ lang, students, assignments }: Pro
       <DetailDrawer
         lang={lang}
         assignment={detail}
+        timeZone={timeZone}
         onClose={() => setDetail(null)}
       />
     </div>
@@ -423,8 +427,8 @@ function CreateModal({
 }
 
 function DetailDrawer({
-  lang, assignment, onClose,
-}: { lang: Locale; assignment: Assignment | null; onClose: () => void }) {
+  lang, assignment, timeZone, onClose,
+}: { lang: Locale; assignment: Assignment | null; timeZone: string; onClose: () => void }) {
   const tx = t[lang]
   const [feedback, setFeedback] = useState(assignment?.submission?.feedback || '')
   const [score, setScore] = useState<string>(assignment?.submission?.score || '')
@@ -513,7 +517,7 @@ function DetailDrawer({
                 {assignment.student_name}
               </span>
               <span className="text-[11px]" style={{ color: 'var(--ek-text-muted)' }}>
-                {assignment.due_at ? `${tx.due}: ${formatDate(assignment.due_at, lang)}` : tx.noDue}
+                {assignment.due_at ? `${tx.due}: ${formatDate(assignment.due_at, lang, timeZone)}` : tx.noDue}
               </span>
             </div>
 
@@ -641,7 +645,9 @@ function DetailDrawer({
               </>
             )}
 
-            {assignment.status !== 'cancelled' && (
+            {/* No cancel once the student submitted — cancelling would hide
+                their own work from them (server enforces the same rule). */}
+            {assignment.status !== 'cancelled' && !assignment.submission && (
               <button
                 onClick={() => setConfirmCancel(true)}
                 disabled={isCancelPending}

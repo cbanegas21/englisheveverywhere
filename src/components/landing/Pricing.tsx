@@ -103,9 +103,9 @@ const t = {
   },
 }
 
-export default function Pricing({ lang, plans, minPerClass }: { lang: Locale; plans: PublicPlan[]; minPerClass: number }) {
+export default function Pricing({ lang, plans, minPerClass, geoCurrency = null }: { lang: Locale; plans: PublicPlan[]; minPerClass: number; geoCurrency?: string | null }) {
   const tx = t[lang]
-  const { convert, currency, loading } = useCurrency()
+  const { convert, currency, loading } = useCurrency({ geoCurrency })
   const isUsd = currency === 'USD'
   // Until FX rates load, convert() falls back to a 1:1 rate, which would render a
   // non-USD currency at the USD magnitude (e.g. "L 129" instead of ~"L 3,200") —

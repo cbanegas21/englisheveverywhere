@@ -45,6 +45,24 @@ export function getCurrency(code: string): Currency {
   return CURRENCY_MAP[code] || CURRENCY_MAP.USD
 }
 
+// Eurozone members that should resolve to EUR (the CURRENCIES entry uses the
+// pseudo-country 'eu'). Spain matters most for this product's audience.
+const EURO_COUNTRIES = new Set(['es', 'fr', 'de', 'it', 'pt', 'nl', 'be', 'at', 'ie', 'fi', 'gr', 'lu'])
+
+/**
+ * Map an ISO-3166 alpha-2 country (e.g. Vercel's x-vercel-ip-country) to a
+ * supported currency code, or null when we don't carry that country's currency
+ * (caller falls back to USD). Dollarized countries (EC/SV/PA-in-practice) fall
+ * through to null → USD, which is correct.
+ */
+export function currencyForCountry(iso2: string | null | undefined): string | null {
+  if (!iso2) return null
+  const c = iso2.toLowerCase()
+  if (c === 'us') return 'USD'
+  if (EURO_COUNTRIES.has(c)) return 'EUR'
+  return CURRENCIES.find(cur => cur.country === c)?.code ?? null
+}
+
 export function formatAmount(amount: number, code: string): string {
   const c = getCurrency(code)
   if (!Number.isFinite(amount)) return `${c.symbol}0`

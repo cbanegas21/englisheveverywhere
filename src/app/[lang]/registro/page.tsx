@@ -12,7 +12,7 @@ import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { Turnstile } from '@/components/Turnstile'
 import { Spinner, LoadingOverlay } from '@/components/ui/Spinner'
-import { PhoneInput } from 'react-international-phone'
+import { PhoneInput, defaultCountries, parseCountry } from 'react-international-phone'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import 'react-international-phone/style.css'
 
@@ -160,6 +160,26 @@ function RegistroContent({ lang }: { lang: Locale }) {
   const searchParams = useSearchParams()
   const errorMsg = searchParams.get('error')
   const successParam = searchParams.get('success')
+
+  // Geo phone-prefix autodetect (Carlos 2026-07-03): adopt the visitor's dial
+  // code AFTER mount — SSR renders the +504 default so hydration stays stable —
+  // and never clobber a number the user already started typing.
+  useEffect(() => {
+    fetch('/api/geo')
+      .then((r) => r.json())
+      .then(({ country }: { country: string | null }) => {
+        if (!country || typeof country !== 'string') return
+        const iso = country.toLowerCase()
+        if (iso === 'hn') return
+        const match = defaultCountries.map(parseCountry).find((c) => c.iso2 === iso)
+        if (!match) return
+        setPhone((prev) => {
+          const p = prev.trim()
+          return p === '' || p === '+504' ? `+${match.dialCode}` : prev
+        })
+      })
+      .catch(() => { /* geo is a nicety — keep the default */ })
+  }, [])
 
   // Land on the right step after a redirect: success → confirm screen; a signup
   // error (e.g. "email already exists") → keep the user on the FORM with the

@@ -50,6 +50,7 @@ const A_MSG = {
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
   tooManyUploads: { es: 'Demasiadas subidas en poco tiempo. Espera unos minutos.', en: 'Too many uploads in a short time. Wait a few minutes.' },
   submissionTooLong: { es: 'La entrega es muy larga (máx. 20000 caracteres).', en: 'The submission is too long (max 20000 characters).' },
+  cancelBlockedSubmitted: { es: 'El estudiante ya entregó esta tarea — califícala en lugar de cancelarla.', en: 'The student already submitted this assignment — grade it instead of cancelling.' },
 } as const
 const am = (k: keyof typeof A_MSG, lang: string) => A_MSG[k][lang === 'en' ? 'en' : 'es']
 
@@ -150,6 +151,16 @@ export async function cancelAssignment(assignmentId: string, lang: string = 'es'
     .eq('id', assignmentId)
     .single()
   if (!owner || owner.teacher_id !== teacherId) return { error: am('notYours', lang) }
+
+  // A submitted assignment can't be cancelled: the student's cancelled-state
+  // card hides their own submission, so cancelling post-entrega would make
+  // their work vanish from view (Carlos's call 2026-07-03).
+  const { data: sub } = await admin
+    .from('assignment_submissions')
+    .select('id')
+    .eq('assignment_id', assignmentId)
+    .maybeSingle()
+  if (sub) return { error: am('cancelBlockedSubmitted', lang) }
 
   const { error } = await admin
     .from('assignments')

@@ -1,6 +1,7 @@
 import { locales, type Locale } from '@/lib/i18n/translations'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { currencyForCountry } from '@/lib/currencies'
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
 import MorningBanner from '@/components/landing/MorningBanner'
@@ -39,12 +40,16 @@ export default async function LandingPage({ params }: Props) {
   const isLoggedIn = !!role
   // First-name hint for the "Conectado como {name}" nav affordance (cookie-only, no getUser).
   const userName = cookieStore.get('ee-name')?.value ?? null
+  // Geo currency hint (Vercel edge header) — first render shows the visitor's
+  // local currency; an explicit saved choice still wins post-mount (useCurrency).
+  const hdrs = await headers()
+  const geoCurrency = currencyForCountry(hdrs.get('x-vercel-ip-country'))
 
   // overflow-x: clip (not hidden) contains horizontal overflow WITHOUT creating
   // a scroll container — so the sticky Navbar keeps working (LK-01).
   return (
     <main style={{ background: 'var(--ek-paper-warm)', overflowX: 'clip' }}>
-      <Navbar lang={lang as Locale} isLoggedIn={isLoggedIn} userName={userName} />
+      <Navbar lang={lang as Locale} isLoggedIn={isLoggedIn} userName={userName} geoCurrency={geoCurrency} />
       <Hero lang={lang as Locale} isLoggedIn={isLoggedIn} />
       <MorningBanner lang={lang as Locale} />
       <TrustStrip lang={lang as Locale} />
@@ -53,7 +58,7 @@ export default async function LandingPage({ params }: Props) {
       <NotebookBanner lang={lang as Locale} />
       <WorkshopSection lang={lang as Locale} />
       <HorasGrid lang={lang as Locale} />
-      <Pricing lang={lang as Locale} plans={publicPlans()} minPerClass={minPerClassUsd()} />
+      <Pricing lang={lang as Locale} plans={publicPlans()} minPerClass={minPerClassUsd()} geoCurrency={geoCurrency} />
       <FAQ lang={lang as Locale} />
       <FinalCTA lang={lang as Locale} isLoggedIn={isLoggedIn} role={role} />
       <Footer lang={lang as Locale} />

@@ -34,13 +34,13 @@ const t = {
   },
 }
 
-export default function Navbar({ lang, isLoggedIn = false, userName = null }: { lang: Locale; isLoggedIn?: boolean; userName?: string | null }) {
+export default function Navbar({ lang, isLoggedIn = false, userName = null, geoCurrency = null }: { lang: Locale; isLoggedIn?: boolean; userName?: string | null; geoCurrency?: string | null }) {
   const tx = t[lang]
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
   const [mounted, setMounted] = useState(false)
   const other = lang === 'en' ? 'es' : 'en'
-  const { currency, changeCurrency } = useCurrency()
+  const { currency, changeCurrency } = useCurrency({ geoCurrency })
   const pathname = usePathname()
   const router = useRouter()
   const otherLocalePath = pathname.replace(`/${lang}`, `/${other}`)

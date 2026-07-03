@@ -24,16 +24,23 @@ const CURRENCY_CHANGE_EVENT = 'ee-currency-change'
 
 interface UseCurrencyOptions {
   initialCurrency?: string
+  // Soft server-side geo hint (x-vercel-ip-country → currencyForCountry): used
+  // for the first render, but an explicit saved choice (localStorage) beats it
+  // after mount. Unlike initialCurrency it is NOT authoritative.
+  geoCurrency?: string | null
   onPersist?: (code: string) => void | Promise<void>
 }
 
 export function useCurrency(opts: UseCurrencyOptions = {}) {
-  const { initialCurrency, onPersist } = opts
-  // Priority: server-provided initial → localStorage → 'USD'.
+  const { initialCurrency, geoCurrency, onPersist } = opts
+  // Priority: server-provided initial → geo hint → localStorage (post-mount) → 'USD'.
   // localStorage is read in an effect, NOT the initializer: the server renders
-  // 'USD', so the first client render must too or hydration fails whenever a
-  // visitor has a saved non-USD currency (Sentry ENGLISHKOLAB-7).
-  const [currency, setCurrency] = useState<Currency>(() => initialCurrency ?? 'USD')
+  // the same initial/geo/USD value, so the first client render must too or
+  // hydration fails whenever a visitor has a saved non-USD currency
+  // (Sentry ENGLISHKOLAB-7). geoCurrency is server-computed → both sides match.
+  const [currency, setCurrency] = useState<Currency>(
+    () => initialCurrency ?? (geoCurrency && CURRENCY_MAP[geoCurrency] ? geoCurrency : 'USD'),
+  )
   const [loading, setLoading] = useState(true)
   const [, forceRender] = useState(0)
 

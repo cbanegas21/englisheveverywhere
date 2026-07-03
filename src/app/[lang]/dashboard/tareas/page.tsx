@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isValidTimeZone } from '@/lib/timezone'
 import StudentTareasClient from './StudentTareasClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -63,5 +64,18 @@ export default async function StudentTareasPage({ params }: Props) {
     }
   })
 
-  return <StudentTareasClient lang={lang as Locale} assignments={rows} />
+  // Due dates render in the VIEWER's tz (Carlos's call 2026-07-03) — guarded,
+  // a corrupt stored tz must not crash the page (DASH-01 class).
+  const { data: profileRow } = await admin
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const rawTimezone =
+    (profileRow as { timezone?: string | null } | null)?.timezone ||
+    (user.user_metadata?.timezone as string) ||
+    'America/Tegucigalpa'
+  const timeZone = isValidTimeZone(rawTimezone) ? rawTimezone : 'America/Tegucigalpa'
+
+  return <StudentTareasClient lang={lang as Locale} assignments={rows} timeZone={timeZone} />
 }

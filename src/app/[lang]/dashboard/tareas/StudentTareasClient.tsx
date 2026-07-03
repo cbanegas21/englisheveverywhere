@@ -133,11 +133,13 @@ interface Assignment {
   submission: Submission | null
 }
 
-interface Props { lang: Locale; assignments: Assignment[] }
+interface Props { lang: Locale; assignments: Assignment[]; timeZone: string }
 
-function formatDate(iso: string, lang: Locale) {
+// timeZone = the VIEWER's validated profile tz (page-level isValidTimeZone
+// guard) — a due date shown in Honduras time reads a day off elsewhere.
+function formatDate(iso: string, lang: Locale, timeZone: string) {
   return new Date(iso).toLocaleDateString(lang === 'es' ? 'es-HN' : 'en-US', {
-    timeZone: 'America/Tegucigalpa', month: 'short', day: 'numeric',
+    timeZone, month: 'short', day: 'numeric',
   })
 }
 
@@ -161,7 +163,7 @@ function getStatusLabel(a: Assignment, tx: typeof t['en'], now: number | null): 
   return tx.open
 }
 
-export default function StudentTareasClient({ lang, assignments }: Props) {
+export default function StudentTareasClient({ lang, assignments, timeZone }: Props) {
   const tx = t[lang]
   const accent = 'var(--ek-red)'
   const [detail, setDetail] = useState<Assignment | null>(null)
@@ -360,7 +362,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
             </div>
             <div style={{ display: 'grid', gap: 12 }}>
               {pending.map((a) => (
-                <TaskCard key={a.id} a={a} tx={tx} lang={lang} now={now} onOpen={() => setDetail(a)} />
+                <TaskCard key={a.id} a={a} tx={tx} lang={lang} now={now} timeZone={timeZone} onOpen={() => setDetail(a)} />
               ))}
             </div>
           </section>
@@ -383,7 +385,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
             </div>
             <div style={{ display: 'grid', gap: 12 }}>
               {completed.map((a) => (
-                <TaskCard key={a.id} a={a} tx={tx} lang={lang} now={now} onOpen={() => setDetail(a)} />
+                <TaskCard key={a.id} a={a} tx={tx} lang={lang} now={now} timeZone={timeZone} onOpen={() => setDetail(a)} />
               ))}
             </div>
           </section>
@@ -392,7 +394,7 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
 
       <AnimatePresence>
         {detail && (
-          <DetailPanel lang={lang} assignment={detail} now={now} onClose={() => setDetail(null)} />
+          <DetailPanel lang={lang} assignment={detail} now={now} timeZone={timeZone} onClose={() => setDetail(null)} />
         )}
       </AnimatePresence>
     </div>
@@ -404,12 +406,14 @@ function TaskCard({
   tx,
   lang,
   now,
+  timeZone,
   onOpen,
 }: {
   a: Assignment
   tx: typeof t['en']
   lang: Locale
   now: number | null
+  timeZone: string
   onOpen: () => void
 }) {
   const variant = getStatusVariant(a)
@@ -450,7 +454,7 @@ function TaskCard({
           </span>
           <span style={{ color: 'var(--ek-border-mid)', fontSize: 11 }}>·</span>
           <span style={{ fontSize: 11.5, color: 'var(--ek-text-muted)', fontFeatureSettings: '"tnum"' }}>
-            {a.due_at ? `${tx.due} ${formatDate(a.due_at, lang)}` : tx.noDue}
+            {a.due_at ? `${tx.due} ${formatDate(a.due_at, lang, timeZone)}` : tx.noDue}
           </span>
         </div>
       </div>
@@ -481,11 +485,13 @@ function DetailPanel({
   lang,
   assignment,
   now,
+  timeZone,
   onClose,
 }: {
   lang: Locale
   assignment: Assignment
   now: number | null
+  timeZone: string
   onClose: () => void
 }) {
   const tx = t[lang]
@@ -584,7 +590,7 @@ function DetailPanel({
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <StatusBadge variant={variant}>{label}</StatusBadge>
             <span style={{ fontSize: 11, color: 'var(--ek-text-muted)' }}>
-              {assignment.due_at ? `${tx.due}: ${formatDate(assignment.due_at, lang)}` : tx.noDue}
+              {assignment.due_at ? `${tx.due}: ${formatDate(assignment.due_at, lang, timeZone)}` : tx.noDue}
             </span>
           </div>
 
