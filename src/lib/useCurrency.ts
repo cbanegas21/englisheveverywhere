@@ -30,20 +30,20 @@ interface UseCurrencyOptions {
 export function useCurrency(opts: UseCurrencyOptions = {}) {
   const { initialCurrency, onPersist } = opts
   // Priority: server-provided initial → localStorage → 'USD'.
-  // Lazy init so we read localStorage exactly once on first client render.
-  const [currency, setCurrency] = useState<Currency>(() => {
-    if (initialCurrency) return initialCurrency
-    if (typeof window === 'undefined') return 'USD'
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY)
-      if (saved && CURRENCY_MAP[saved]) return saved
-    } catch { /* ignore */ }
-    return 'USD'
-  })
+  // localStorage is read in an effect, NOT the initializer: the server renders
+  // 'USD', so the first client render must too or hydration fails whenever a
+  // visitor has a saved non-USD currency (Sentry ENGLISHKOLAB-7).
+  const [currency, setCurrency] = useState<Currency>(() => initialCurrency ?? 'USD')
   const [loading, setLoading] = useState(true)
   const [, forceRender] = useState(0)
 
   useEffect(() => {
+    if (!initialCurrency) {
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY)
+        if (saved && CURRENCY_MAP[saved]) setCurrency(saved)
+      } catch { /* ignore */ }
+    }
     prefetchRates('USD').then(() => {
       setLoading(false)
       forceRender(n => n + 1)
@@ -57,7 +57,7 @@ export function useCurrency(opts: UseCurrencyOptions = {}) {
     }
     window.addEventListener(CURRENCY_CHANGE_EVENT, handler)
     return () => window.removeEventListener(CURRENCY_CHANGE_EVENT, handler)
-  }, [])
+  }, [initialCurrency])
 
   const changeCurrency = useCallback((c: Currency) => {
     if (!CURRENCY_MAP[c]) return

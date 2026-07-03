@@ -208,18 +208,16 @@ export default function Navbar({ lang, isLoggedIn = false, userName = null }: { 
           )}
         </div>
 
-        {/* Mobile hamburger */}
+        {/* Mobile hamburger — display MUST come from classes, not inline style:
+            an inline display beats the md:hidden class and shows it on desktop. */}
         <button
-          className="md:hidden p-2 -mr-2"
+          className="inline-flex md:hidden items-center justify-center p-2 -mr-2"
           style={{
             color: 'var(--ek-text)',
             background: 'transparent',
             border: 0,
             minWidth: 44,
             minHeight: 44,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
           }}
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"

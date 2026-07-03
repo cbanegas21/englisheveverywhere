@@ -1,5 +1,6 @@
-import type { Locale } from '@/lib/i18n/translations'
+import { locales, type Locale } from '@/lib/i18n/translations'
 import { cookies } from 'next/headers'
+import { notFound } from 'next/navigation'
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
 import MorningBanner from '@/components/landing/MorningBanner'
@@ -19,6 +20,11 @@ type Props = { params: Promise<{ lang: string }> }
 
 export default async function LandingPage({ params }: Props) {
   const { lang } = await params
+  // The [lang]/layout.tsx notFound() guard is NOT enough here: Next renders
+  // page and layout in parallel, so a dotted-path fallthrough from the proxy
+  // (/apple-touch-icon.png, /wp-login.php, …) still executes this page with an
+  // invalid lang and crashes the landing sections (Sentry ENGLISHKOLAB-3/4/G).
+  if (!locales.includes(lang as Locale)) notFound()
   // Cookie-only login check on the landing page. supabase.auth.getUser()
   // makes a network round-trip to the Supabase auth server on every
   // request — unacceptable latency for a public marketing page that
