@@ -1,5 +1,13 @@
 # EnglishKolab — Deep Audit Synthesis Report
 
+> **STATUS 2026-07-03: ALL findings resolved & live-verified.** CRITICAL RLS-1 +
+> HIGH + all 7 MEDIUM shipped in `a7a23a6` (migrations 059/060). All 18 LOW + 2
+> INFO + hygiene plausibles shipped in `c06e8b4` (migrations 061/062). Accepted-
+> as-is: SALA-3 (documented — needs a client connect-time attendance stamp),
+> OPS-4 (cdnjs KEPT — react-international-phone loads flag SVGs from it), OPS-5
+> (already fails closed). RACE-2's dead `bulkAssignTeacher` was fixed anyway.
+
+
 ## 1. Executive summary
 
 Overall the platform is in good shape: most money, auth, and hydration invariants are correctly guarded, and the audit confirmed the existing defenses hold in almost every area. **There is 1 confirmed CRITICAL and it IS a launch-blocker** — a student can mint themselves unlimited free class credits by inserting their own `students` row directly through the API (RLS-1). Below that: **1 high** (an admin "assign" action can silently resurrect a cancelled+refunded booking into a free class), **7 medium** (mostly wrong-language error text, one email bug, one double credit-subtraction, and two ops/monitoring gaps), **~18 low**, and **2 info**. Everything except RLS-1 can ship-and-patch, but RLS-1 must be fixed before launch.
