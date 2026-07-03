@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PRICING_MAP } from '@/lib/pricing'
@@ -213,11 +213,14 @@ export async function POST(req: NextRequest) {
             if (apiKey && apiKey !== 're_placeholder') {
               const { data: prof } = await supabase
                 .from('profiles')
-                .select('email, full_name, preferred_language')
+                .select('email, full_name, preferred_language, email_suppressed')
                 .eq('id', userId)
                 .maybeSingle()
               const toEmail = prof?.email || (session.object.customer_email as string | undefined)
-              if (toEmail) {
+              // EML-2: respect the bounce/complaint suppression flag (as
+              // reminders.ts does) — skip the receipt for an address Resend
+              // flagged as bounced/complained to protect sender reputation.
+              if (toEmail && !prof?.email_suppressed) {
                 const elang = (metadata?.lang === 'en' || prof?.preferred_language === 'en') ? 'en' : 'es'
                 const firstName = (prof?.full_name || '').split(' ')[0]
                 const amountStr = `$${(expectedCents / 100).toFixed(2)} USD`
@@ -237,11 +240,18 @@ export async function POST(req: NextRequest) {
                 const text = elang === 'es'
                   ? `¡Pago recibido! Agregamos ${classes} clases a tu cuenta. Monto: ${amountStr}. Reserva: ${dash}`
                   : `Payment received! We added ${classes} classes to your account. Amount: ${amountStr}. Book: ${dash}`
-                fetch('https://api.resend.com/emails', {
-                  method: 'POST',
-                  headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ from: EMAIL_FROM, to: toEmail, subject, html, text }),
-                }).catch(() => {})
+                // EML-3: run the send via next/server after() so it is GUARANTEED
+                // to complete after the 200 instead of being frozen/dropped when the
+                // serverless instance suspends (a plain un-awaited fetch was at risk).
+                // Non-blocking — a send failure never touches the response. Falls back
+                // to inline best-effort if after() is unavailable (no request context).
+                const sendReceipt = () =>
+                  fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from: EMAIL_FROM, to: toEmail, subject, html, text }),
+                  }).catch(() => {})
+                try { after(sendReceipt) } catch { sendReceipt() }
               }
             }
           } catch (e) {
@@ -310,9 +320,25 @@ export async function POST(req: NextRequest) {
             // booking/refund/grant updates between the read and the write
             // (AG-MONEY-09). decrement_classes_by is SECURITY DEFINER and
             // service_role-only (migration 043) — never browser-callable.
+            //
+            // MON-2: reverse EXACTLY what was credited at purchase time — the
+            // durable count recorded in student_purchases.classes_added — not
+            // CLASS_COUNTS re-resolved from a pricing.ts that may have changed a
+            // pack's class count since. The charge carries no checkout-session id,
+            // so key by student_id + plan_key (most recent purchase); fall back to
+            // CLASS_COUNTS only when no purchase row is found.
+            const { data: purchase } = await supabase
+              .from('student_purchases')
+              .select('classes_added')
+              .eq('student_id', student.id)
+              .eq('plan_key', planKey)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            const reverseCount = purchase?.classes_added ?? CLASS_COUNTS[planKey]
             const { error: decErr } = await supabase.rpc('decrement_classes_by', {
               p_student_id: student.id,
-              p_count: CLASS_COUNTS[planKey],
+              p_count: reverseCount,
             })
             if (decErr) {
               processingError = `refund credit decrement failed: ${decErr.message}`
@@ -375,12 +401,25 @@ export async function POST(req: NextRequest) {
               .from('students').select('id').eq('profile_id', userId).maybeSingle()
             if (lookupErr) { processingError = `dispute student lookup failed: ${lookupErr.message}`; break }
             if (student) {
+              // MON-2: reverse exactly what was credited at purchase time
+              // (student_purchases.classes_added), not the possibly-changed
+              // CLASS_COUNTS. Key by student_id + plan_key (most recent purchase);
+              // fall back to CLASS_COUNTS only when no purchase row is found.
+              const { data: purchase } = await supabase
+                .from('student_purchases')
+                .select('classes_added')
+                .eq('student_id', student.id)
+                .eq('plan_key', planKey)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+              const reverseCount = purchase?.classes_added ?? CLASS_COUNTS[planKey]
               const { error: decErr } = await supabase.rpc('decrement_classes_by', {
                 p_student_id: student.id,
-                p_count: CLASS_COUNTS[planKey],
+                p_count: reverseCount,
               })
               if (decErr) processingError = `dispute credit decrement failed: ${decErr.message}`
-              else Sentry.captureMessage(`Stripe dispute: reversed ${CLASS_COUNTS[planKey]} credits for student ${student.id} (charge ${chargeId})`, 'warning')
+              else Sentry.captureMessage(`Stripe dispute: reversed ${reverseCount} credits for student ${student.id} (charge ${chargeId})`, 'warning')
             }
           } else {
             Sentry.captureMessage(`Stripe dispute on charge ${chargeId} has no user_id/plan_key metadata — manual credit reversal needed`, 'error')

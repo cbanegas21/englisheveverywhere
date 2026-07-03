@@ -94,14 +94,14 @@ interface StudentSummary {
   lastSessionDate: string
 }
 
-function groupByStudent(bookings: Booking[]): StudentSummary[] {
+function groupByStudent(bookings: Booking[], lang: Locale): StudentSummary[] {
   const map = new Map<string, StudentSummary>()
 
   for (const b of bookings) {
     const sid = b.student_id
     const existing = map.get(sid)
     const s = b.student as any
-    const name = s?.profile?.full_name || 'Student'
+    const name = s?.profile?.full_name || (lang === 'es' ? 'Estudiante' : 'Student')
 
     if (!existing) {
       map.set(sid, {
@@ -142,7 +142,7 @@ interface Props { lang: Locale; bookings: Booking[] }
 
 export default function EstudiantesClient({ lang, bookings }: Props) {
   const tx = t[lang]
-  const [localStudents, setLocalStudents] = useState(() => groupByStudent(bookings))
+  const [localStudents, setLocalStudents] = useState(() => groupByStudent(bookings, lang))
   const students = localStudents
   const totalSessionsAll = bookings.length
   const [detailStudent, setDetailStudent] = useState<StudentSummary | null>(null)
@@ -170,7 +170,7 @@ export default function EstudiantesClient({ lang, bookings }: Props) {
     const targetId = detailStudent.student_id
     const targetLevel = levelInput
     startLevelTransition(async () => {
-      const result = await teacherSetStudentLevel(targetId, targetLevel)
+      const result = await teacherSetStudentLevel(targetId, targetLevel, lang)
       if (result?.error) {
         setLevelError(result.error)
         return

@@ -113,7 +113,10 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
   // Cap the bio (deep-audit INJ-1): onboarding only enforced a MINIMUM, so a
   // ~1MB bio could be stored whole and shipped in the admin list + student
   // profile. Match the 2000-char ceiling updateTeacherProfile applies.
-  const bio = ((formData.get('bio') as string | null) || '').slice(0, 2000)
+  // typeof guard (INJ-4): a File posted as 'bio' is a Blob (has .slice but no
+  // .trim), so the later bio.trim() would throw; coerce non-strings to ''.
+  const bioRaw = formData.get('bio')
+  const bio = (typeof bioRaw === 'string' ? bioRaw : '').slice(0, 2000)
   // Guard the client-supplied JSON — malformed input would otherwise throw an
   // unhandled error. Normalize to bounded arrays of non-empty strings.
   let specializations: string[]

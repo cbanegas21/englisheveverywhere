@@ -70,15 +70,20 @@ export default async function VideoRoomPage({ params }: Props) {
   const controlPeerIds = [teacherProfileId, studentProfileId, conductorProfileId]
     .filter((id): id is string => !!id && id !== user.id)
 
+  // Localized generic fallbacks (deep-audit I18N-6) — names resolve via the
+  // admin fetch above, so these only show for a profile with no name set.
+  const fbTeacher = lang === 'es' ? 'Maestro' : 'Teacher'
+  const fbStudent = lang === 'es' ? 'Estudiante' : 'Student'
+  const fbAdmin = lang === 'es' ? 'Admin' : 'Admin'
   const isTeacher = user.id === teacherProfileId
   const myName = isTeacher
-    ? (booking.teacher as any)?.profile?.full_name || 'Teacher'
+    ? (booking.teacher as any)?.profile?.full_name || fbTeacher
     : user.id === studentProfileId
-      ? (booking.student as any)?.profile?.full_name || 'Student'
-      : `${callerProfile?.full_name || 'Admin'} (Admin)`
+      ? (booking.student as any)?.profile?.full_name || fbStudent
+      : `${callerProfile?.full_name || fbAdmin} (Admin)`
   const otherName = isTeacher
-    ? (booking.student as any)?.profile?.full_name || 'Student'
-    : (booking.teacher as any)?.profile?.full_name || 'Teacher'
+    ? (booking.student as any)?.profile?.full_name || fbStudent
+    : (booking.teacher as any)?.profile?.full_name || fbTeacher
 
   return (
     <VideoRoomClient

@@ -463,6 +463,7 @@ CREATE INDEX idx_assignments_teacher ON public.assignments USING btree (teacher_
 CREATE INDEX auth_attempts_email_action_time_idx ON public.auth_attempts USING btree (email, action, attempted_at DESC);
 CREATE INDEX auth_attempts_ip_action_time_idx ON public.auth_attempts USING btree (ip, action, attempted_at DESC);
 CREATE INDEX idx_availability_teacher ON public.availability_slots USING btree (teacher_id);
+CREATE UNIQUE INDEX bookings_one_live_placement_per_student ON public.bookings USING btree (student_id) WHERE ((type = 'placement_test'::text) AND (status = ANY (ARRAY['pending'::text, 'confirmed'::text])));
 CREATE UNIQUE INDEX bookings_student_time_unique ON public.bookings USING btree (student_id, scheduled_at) WHERE (status <> 'cancelled'::text);
 CREATE UNIQUE INDEX bookings_teacher_time_unique ON public.bookings USING btree (teacher_id, scheduled_at) WHERE ((status = 'confirmed'::text) AND (teacher_id IS NOT NULL));
 CREATE INDEX idx_bookings_pending_class_assignment ON public.bookings USING btree (scheduled_at) WHERE ((type = 'class'::text) AND (teacher_id IS NULL) AND (status <> 'cancelled'::text));
@@ -549,9 +550,6 @@ create policy "student reads own assignments" on public.assignments for select u
 create policy "teacher reads own assignments" on public.assignments for select using ((teacher_id IN ( SELECT teachers.id
    FROM teachers
   WHERE (teachers.profile_id = auth.uid()))));
-create policy "Teachers manage own availability" on public.availability_slots for all using ((auth.uid() = ( SELECT teachers.profile_id
-   FROM teachers
-  WHERE (teachers.id = availability_slots.teacher_id))));
 create policy "Students see own bookings" on public.bookings for select to authenticated using ((student_id = auth_student_id()));
 create policy "Teachers see own bookings" on public.bookings for select using ((auth.uid() = ( SELECT teachers.profile_id
    FROM teachers
@@ -625,27 +623,11 @@ create policy "reschedule_admin_all" on public.reschedule_requests for all using
   WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text))))) with check ((EXISTS ( SELECT 1
    FROM profiles p
   WHERE ((p.id = auth.uid()) AND (p.role = 'admin'::text)))));
-create policy "reschedule_student_insert" on public.reschedule_requests for insert with check ((EXISTS ( SELECT 1
-   FROM (bookings b
-     JOIN students s ON ((s.id = b.student_id)))
-  WHERE ((b.id = reschedule_requests.booking_id) AND (s.profile_id = auth.uid())))));
 create policy "reschedule_student_select" on public.reschedule_requests for select using ((EXISTS ( SELECT 1
    FROM (bookings b
      JOIN students s ON ((s.id = b.student_id)))
   WHERE ((b.id = reschedule_requests.booking_id) AND (s.profile_id = auth.uid())))));
-create policy "reschedule_student_update" on public.reschedule_requests for update using ((EXISTS ( SELECT 1
-   FROM (bookings b
-     JOIN students s ON ((s.id = b.student_id)))
-  WHERE ((b.id = reschedule_requests.booking_id) AND (s.profile_id = auth.uid())))));
-create policy "reschedule_teacher_insert" on public.reschedule_requests for insert with check ((EXISTS ( SELECT 1
-   FROM (bookings b
-     JOIN teachers t ON ((t.id = b.teacher_id)))
-  WHERE ((b.id = reschedule_requests.booking_id) AND (t.profile_id = auth.uid())))));
 create policy "reschedule_teacher_select" on public.reschedule_requests for select using ((EXISTS ( SELECT 1
-   FROM (bookings b
-     JOIN teachers t ON ((t.id = b.teacher_id)))
-  WHERE ((b.id = reschedule_requests.booking_id) AND (t.profile_id = auth.uid())))));
-create policy "reschedule_teacher_update" on public.reschedule_requests for update using ((EXISTS ( SELECT 1
    FROM (bookings b
      JOIN teachers t ON ((t.id = b.teacher_id)))
   WHERE ((b.id = reschedule_requests.booking_id) AND (t.profile_id = auth.uid())))));

@@ -126,6 +126,17 @@ export async function bookPlacementCall(
     .single()
 
   if (error) {
+    // The unique index (added separately) is the DB backstop for the
+    // check-then-insert above: a racing double-submit that slips past the
+    // pre-check trips a 23505 here, so surface the same clean "already
+    // scheduled" message instead of a raw failure.
+    if (error.code === '23505') {
+      return {
+        error: lang === 'es'
+          ? 'Ya tienes una llamada de diagnóstico agendada.'
+          : 'You already have a diagnostic call scheduled.',
+      }
+    }
     console.error('bookPlacementCall insert failed:', error.message)
     return { error: lang === 'es' ? 'No se pudo agendar. Inténtalo de nuevo.' : 'Could not schedule. Please try again.' }
   }
@@ -392,7 +403,7 @@ function sendPlacementEmails(params: {
 // who moved their call heard nothing back). Renders the time in the STUDENT's own
 // timezone (timeZoneName 'short' for an unambiguous offset), falling back to HN if
 // their saved zone is invalid. Best-effort, never throws into the caller.
-function sendStudentPlacementConfirmation(params: {
+async function sendStudentPlacementConfirmation(params: {
   studentEmail: string
   studentName: string
   scheduledAt: string
@@ -401,6 +412,23 @@ function sendStudentPlacementConfirmation(params: {
 }) {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey || apiKey === 're_placeholder' || !params.studentEmail) return
+
+  // P2-9 (EML-2): skip an address Resend flagged as bounced/complained
+  // (profiles.email_suppressed, migration 051) — mirrors reminders.ts so we stop
+  // emailing dead/complaining inboxes and protect sender reputation. Best-effort:
+  // if the lookup itself fails, fall through and still send the confirmation.
+  try {
+    const { data: recipient } = await createAdminClient()
+      .from('profiles')
+      .select('email_suppressed')
+      .eq('email', params.studentEmail)
+      .maybeSingle()
+    if (recipient?.email_suppressed) {
+      console.log('[sendStudentPlacementConfirmation] skipping suppressed address:', params.studentEmail)
+      return
+    }
+  } catch { /* best-effort — send anyway if the suppression check fails */ }
+
   const safeTz = (tz: string) => { try { new Date().toLocaleString('en-US', { timeZone: tz }); return tz } catch { return 'America/Tegucigalpa' } }
   const isEs = params.lang === 'es'
   const studentFormatted = new Date(params.scheduledAt).toLocaleString(isEs ? 'es-HN' : 'en-US', {
@@ -451,9 +479,9 @@ const VALID_CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
 // Teacher sets a student's CEFR level post-assessment. Gated on the caller
 // being a teacher role AND having a booking relationship with the student
 // (mirrors the RLS SELECT policy on students for teacher access).
-export async function teacherSetStudentLevel(studentId: string, level: string) {
+export async function teacherSetStudentLevel(studentId: string, level: string, lang: string = 'es') {
   if (!VALID_CEFR.has(level)) {
-    return { error: 'Invalid CEFR level' }
+    return { error: lang === 'es' ? 'Nivel inválido.' : 'Invalid CEFR level' }
   }
 
   const supabase = await createClient()
@@ -466,7 +494,7 @@ export async function teacherSetStudentLevel(studentId: string, level: string) {
     .eq('id', user.id)
     .single()
   if (profile?.role !== 'teacher') {
-    return { error: 'Only teachers can set a student level from this flow' }
+    return { error: lang === 'es' ? 'Solo los maestros pueden asignar el nivel desde este flujo.' : 'Only teachers can set a student level from this flow' }
   }
 
   const admin = createAdminClient()
@@ -476,10 +504,10 @@ export async function teacherSetStudentLevel(studentId: string, level: string) {
     .select('id, is_active')
     .eq('profile_id', user.id)
     .single()
-  if (!teacher?.id) return { error: 'Teacher record not found' }
+  if (!teacher?.id) return { error: lang === 'es' ? 'No se encontró el registro del maestro.' : 'Teacher record not found' }
   // A deactivated/un-approved teacher must not mutate student data, even via a
   // historical booking relationship (mirrors the requireTeacher is_active gate).
-  if (!teacher.is_active) return { error: 'Teacher account is not active' }
+  if (!teacher.is_active) return { error: lang === 'es' ? 'La cuenta de maestro no está activa.' : 'Teacher account is not active' }
 
   // Must have at least one booking with this student (any status except
   // cancelled). Otherwise the teacher isn't supposed to see the student.
@@ -490,7 +518,7 @@ export async function teacherSetStudentLevel(studentId: string, level: string) {
     .eq('student_id', studentId)
     .neq('status', 'cancelled')
   if (!count) {
-    return { error: 'You have no booking with this student' }
+    return { error: lang === 'es' ? 'No tienes ninguna clase con este estudiante.' : 'You have no booking with this student' }
   }
 
   const { error } = await admin
@@ -499,7 +527,7 @@ export async function teacherSetStudentLevel(studentId: string, level: string) {
     .eq('id', studentId)
   // Don't reflect the raw Postgres string to the browser — log it, return a
   // generic message (mirrors the rest of the codebase).
-  if (error) { console.error('[teacherSetStudentLevel] update failed:', error.message); return { error: 'Could not save. Please try again.' } }
+  if (error) { console.error('[teacherSetStudentLevel] update failed:', error.message); return { error: lang === 'es' ? 'No se pudo guardar. Inténtalo de nuevo.' : 'Could not save. Please try again.' } }
 
   revalidatePath('/', 'layout')
   return { success: true }

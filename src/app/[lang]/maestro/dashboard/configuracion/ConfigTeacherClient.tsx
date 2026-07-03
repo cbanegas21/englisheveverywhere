@@ -24,6 +24,7 @@ const t = {
     save: 'Save changes',
     saving: 'Saving…',
     saved: 'Changes saved',
+    saveError: 'Could not save. Please try again.',
     namePlaceholder: 'Your full name',
     bioPlaceholder: 'Tell students about yourself, your teaching style, and experience...',
   },
@@ -43,6 +44,7 @@ const t = {
     save: 'Guardar cambios',
     saving: 'Guardando…',
     saved: 'Cambios guardados',
+    saveError: 'Error al guardar.',
     namePlaceholder: 'Tu nombre completo',
     bioPlaceholder: 'Cuéntales a los estudiantes sobre ti, tu estilo de enseñanza y experiencia...',
   },
@@ -74,10 +76,10 @@ export default function ConfigTeacherClient({ lang, fullName, bio, specializatio
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)
       } else {
-        setSaveError(result.error || 'Error al guardar')
+        setSaveError(result.error || tx.saveError)
       }
     } catch {
-      setSaveError('Error al guardar')
+      setSaveError(tx.saveError)
     } finally {
       setSaving(false)
     }

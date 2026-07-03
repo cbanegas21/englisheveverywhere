@@ -291,7 +291,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
     setReschedError('')
     setReschedSubmitting(true)
     startTransition(async () => {
-      const result = await requestReschedule(rescheduleFor.id, proposed.toISOString(), reschedReason)
+      const result = await requestReschedule(rescheduleFor.id, proposed.toISOString(), reschedReason, lang)
       setReschedSubmitting(false)
       if (result?.error) {
         setReschedError(result.error)
@@ -318,7 +318,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
 
   function handleCancelReschedule(requestId: string, bookingId: string) {
     startTransition(async () => {
-      const result = await cancelRescheduleRequest(requestId)
+      const result = await cancelRescheduleRequest(requestId, lang)
       if (!result?.error) {
         setConfirmed(prev =>
           prev.map(b => (b.id === bookingId ? { ...b, reschedule_request: null } : b)),
@@ -460,7 +460,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <div className="text-[13px] font-semibold" style={{ color: 'var(--ek-text)' }}>
-                              {booking.student?.profile?.full_name || 'Student'}
+                              {booking.student?.profile?.full_name || (lang === 'es' ? 'Estudiante' : 'Student')}
                             </div>
                             {typeLabel(booking.type, tx) && (
                               <TypeChip>{typeLabel(booking.type, tx)}</TypeChip>
@@ -535,7 +535,7 @@ export default function AgendaClient({ lang, timezone, pendingBookings, confirme
                           <div className="flex-1 min-w-[140px]">
                             <div className="flex items-center gap-2 flex-wrap">
                               <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--ek-text)' }}>
-                                {booking.student?.profile?.full_name || 'Student'}
+                                {booking.student?.profile?.full_name || (lang === 'es' ? 'Estudiante' : 'Student')}
                               </div>
                               {badge && <TypeChip>{badge}</TypeChip>}
                             </div>

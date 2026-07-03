@@ -241,6 +241,17 @@ export async function getRoomAccess(bookingId: string): Promise<
     // start onward). The join link / lobby is reachable up to 24h early, so stamping
     // on ANY entry let a far-early click mark a later NO-SHOW as "attended" — which
     // would pay the teacher for a class the student skipped (defeating migration 045).
+    //
+    // SALA-3 (residual, intentionally left as-is): this stamps on ACCESS-GRANT /
+    // page-load within the grace window, NOT on an actual LiveKit connect. A student
+    // who opens the reminder link inside the window and reaches only the pre-start
+    // lobby (countdown) — then bails without ever connecting — is still recorded as
+    // "attended", so the teacher can be paid for a no-show. student_joined_at is
+    // written ONLY here (no LiveKit ParticipantConnected webhook / connect signal
+    // exists server-side), so a true fix needs a connect-time stamp fired from the
+    // client on RoomEvent.Connected — client work, out of scope for this money-path
+    // edit. The ≤grace-window boundary itself is an intended design call and is
+    // deliberately unchanged.
     const scheduledMs = new Date(booking.scheduled_at).getTime()
     const ATTEND_GRACE_MS = 10 * 60 * 1000
     if (!isNaN(scheduledMs) && Date.now() >= scheduledMs - ATTEND_GRACE_MS) {
@@ -467,14 +478,6 @@ export async function completeSession(
     .maybeSingle()
   const sid = sessionRow?.id || null
 
-  if (sid) {
-    const { error: sessionErr } = await adminClient
-      .from('sessions')
-      .update({ ended_at: new Date().toISOString() })
-      .eq('id', sid)
-    if (sessionErr) console.error('[completeSession] session ended_at update failed:', sessionErr.message)
-  }
-
   // Attendance gate (migration 045): the teacher is paid only for a class the
   // STUDENT actually opened (getRoomAccess stamps sessions.student_joined_at on
   // the student's first room entry). A no-show — student never reached the room —
@@ -497,6 +500,18 @@ export async function completeSession(
   // Success-path signal at the meaningful granularity (the status flip that
   // triggers payout + summary), so completions stay observable in logs.
   if (justCompleted) console.info('[completeSession] booking completed', { bookingId })
+
+  // SALA-2: stamp ended_at ONLY on the first-time completion flip (justCompleted),
+  // gated by the same status check as the payout below — never unconditionally.
+  // A replay on an already-completed booking (justCompleted === false) must be a
+  // no-op here so it can't overwrite the true end time with a later timestamp.
+  if (sid && justCompleted) {
+    const { error: sessionErr } = await adminClient
+      .from('sessions')
+      .update({ ended_at: new Date().toISOString() })
+      .eq('id', sid)
+    if (sessionErr) console.error('[completeSession] session ended_at update failed:', sessionErr.message)
+  }
 
   const teacherId = (booking.teacher as any)?.id
   const studentId = (booking.student as any)?.id
@@ -532,7 +547,10 @@ export async function completeSession(
       // Canonical class length is 60 min (one credit = one 60-min class). Fall
       // back to 60 (not 50) when duration_minutes is missing so a null duration
       // never under-prices the teacher's payout.
-      const sessionRate = Math.round(hourlyRate * ((booking.duration_minutes || 60) / 60))
+      // PAY-1: round to CENTS, not whole dollars — teacher rates carry 2 decimals
+      // (e.g. $22.50), and amount_usd/teacher_payout_usd are 2-decimal USD like the
+      // Stripe/earnings paths. Whole-dollar rounding paid $23 for a $22.50 rate.
+      const sessionRate = Math.round(hourlyRate * ((booking.duration_minutes || 60) / 60) * 100) / 100
 
       const { error: payErr } = await adminClient.from('payments').insert({
         booking_id: bookingId,

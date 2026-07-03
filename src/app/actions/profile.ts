@@ -108,7 +108,16 @@ export async function updateStudentProfile(data: {
     if (code.length === 3) patch.preferred_currency = code
   }
   if (data.notificationPreferences !== undefined) {
-    patch.notification_preferences = data.notificationPreferences
+    // Normalize the client-supplied jsonb (deep-audit INJ-2): whitelist the known
+    // boolean keys + coerce to real booleans, so an arbitrary/oversized blob can't
+    // be persisted verbatim into notification_preferences (the TS interface is not
+    // enforced at the RPC boundary).
+    const src = (data.notificationPreferences ?? {}) as Record<string, unknown>
+    const norm: NotificationPreferences = {}
+    for (const k of ['email', 'sms', 'whatsapp', 'before24h', 'before1h'] as const) {
+      if (src[k] !== undefined) norm[k] = src[k] === true
+    }
+    patch.notification_preferences = norm
   }
 
   // Auth validated. Admin client for writes (RLS-edge fix).

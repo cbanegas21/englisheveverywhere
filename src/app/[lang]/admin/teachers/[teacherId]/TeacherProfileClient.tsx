@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { TeacherDetail } from './page'
 import {
@@ -279,6 +279,12 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
   // Schedule state
   const [weekOffset, setWeekOffset] = useState(0)
 
+  // "Now" for the This-Month stat — null on the server and the first client paint
+  // (stable placeholder), then set after mount so the month bucket resolves without a
+  // hydration mismatch (#418).
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => { setNow(new Date()) }, [])
+
   function showToast(msg: string, type: 'success' | 'error' = 'success') {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
@@ -335,12 +341,14 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
   const statusBadge = teacher.is_active ? { bg: 'rgba(5,150,105,0.1)', color: '#059669', label: t.active }
     : { bg: 'rgba(245,158,11,0.1)', color: '#D97706', label: t.pending }
 
-  const sessionsThisMonth = teacher.bookings.filter(b => {
-    if (b.status !== 'completed') return false
-    const d = new Date(b.scheduled_at)
-    const now = new Date()
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  }).length
+  // Bucket the month in the business timezone (America/Tegucigalpa) so a UTC server and
+  // an admin-local client pick the same month; null until `now` is seeded on mount so the
+  // stat shows a stable placeholder first and never mismatches on hydration.
+  const monthKey = (d: Date) =>
+    d.toLocaleDateString('en-US', { timeZone: 'America/Tegucigalpa', year: 'numeric', month: '2-digit' })
+  const sessionsThisMonth = now === null
+    ? null
+    : teacher.bookings.filter(b => b.status === 'completed' && monthKey(new Date(b.scheduled_at)) === monthKey(now)).length
 
   const cardStyle: React.CSSProperties = { background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 20 }
   const labelStyle: React.CSSProperties = {
@@ -441,7 +449,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {[
             { label: t.totalSessions, value: teacher.total_sessions ?? 0 },
-            { label: t.thisMonth, value: sessionsThisMonth },
+            { label: t.thisMonth, value: sessionsThisMonth ?? '—' },
             { label: t.activeStudents, value: teacher.activeStudentCount },
             { label: t.rating, value: teacher.rating ? Number(teacher.rating).toFixed(1) : '—' },
           ].map(c => (

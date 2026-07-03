@@ -162,14 +162,20 @@ export async function cancelAssignment(assignmentId: string, lang: string = 'es'
     .maybeSingle()
   if (sub) return { error: am('cancelBlockedSubmitted', lang) }
 
-  const { error } = await admin
+  // RACE-3: re-assert status='open' in the UPDATE so a concurrent grade/cancel
+  // between the checks above and here can't be clobbered (TOCTOU). Zero matched
+  // rows means the assignment is no longer open — report notOpen, not success.
+  const { data: cancelled, error } = await admin
     .from('assignments')
     .update({ status: 'cancelled' })
     .eq('id', assignmentId)
+    .eq('status', 'open')
+    .select('id')
   if (error) {
     console.error('cancelAssignment update failed:', error.message)
     return { error: am('saveFailed', lang) }
   }
+  if (!cancelled?.length) return { error: am('notOpen', lang) }
 
   revalidatePath('/', 'layout')
   return { success: true as const }

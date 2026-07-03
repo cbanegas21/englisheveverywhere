@@ -211,8 +211,18 @@ export async function createBooking(formData: FormData) {
     .single()
 
   if (error) {
-    // Insert failed after the credit was consumed — give it back.
-    await admin.rpc('increment_classes', { p_student_id: student.id })
+    // Insert failed after the credit was consumed — give it back. Capture the
+    // compensating refund's result: if THIS also fails (double transient failure),
+    // a paid credit was just silently eaten, so log it to make the loss observable
+    // instead of fire-and-forget (MON-3). Happy path is unchanged.
+    const { error: refundErr } = await admin.rpc('increment_classes', { p_student_id: student.id })
+    if (refundErr) {
+      console.error(
+        'createBooking: compensating refund failed after insert error for student',
+        student.id,
+        refundErr.message,
+      )
+    }
     // A unique-constraint violation means a concurrent insert already claimed this
     // slot (the pre-check above can lose a race). Surface the same friendly
     // "already booked" copy instead of a raw Postgres string (BOOKING-08).
@@ -384,6 +394,7 @@ export async function requestReschedule(
   bookingId: string,
   proposedScheduledAtIso: string,
   reason: string,
+  lang: string = 'es',
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -409,13 +420,19 @@ export async function requestReschedule(
   if (!booking) return { error: 'Booking not found' }
   if (booking.teacher_id !== teacher.id) return { error: 'Not your booking' }
   if (booking.status !== 'confirmed' && booking.status !== 'pending') {
-    return { error: 'Cannot reschedule a completed or cancelled booking' }
+    return {
+      error: lang === 'es'
+        ? 'No se puede reagendar una clase completada o cancelada.'
+        : 'Cannot reschedule a completed or cancelled booking.',
+    }
   }
 
   const proposed = new Date(proposedScheduledAtIso)
   if (isNaN(proposed.getTime())) return { error: 'Invalid proposed time' }
   // Don't let teachers propose a past time.
-  if (proposed.getTime() < Date.now()) return { error: 'Proposed time is in the past' }
+  if (proposed.getTime() < Date.now()) {
+    return { error: lang === 'es' ? 'La hora propuesta está en el pasado.' : 'Proposed time is in the past.' }
+  }
 
   const { error: insertErr } = await admin.from('reschedule_requests').insert({
     booking_id: bookingId,
@@ -423,22 +440,35 @@ export async function requestReschedule(
     requested_by_role: 'teacher',
     original_scheduled_at: booking.scheduled_at,
     proposed_scheduled_at: proposed.toISOString(),
-    reason: reason.trim() || null,
+    // Cap the free-text reason (matches the 2000-char bound used elsewhere) so a
+    // crafted/replayed payload can't persist an unbounded string (AUTHZ-RESCHED-2).
+    reason: reason.trim().slice(0, 2000) || null,
     status: 'pending',
   })
   if (insertErr) {
     // Unique index violation → there's already a pending request.
     if (insertErr.message.toLowerCase().includes('duplicate')) {
-      return { error: 'A reschedule request is already pending for this booking' }
+      return {
+        error: lang === 'es'
+          ? 'Ya hay una solicitud de reagendamiento pendiente para esta clase.'
+          : 'A reschedule request is already pending for this booking.',
+      }
     }
-    return { error: insertErr.message }
+    // Any other DB error: log the raw detail server-side, return a generic
+    // localized message so no internal error string leaks to the client (AUTHZ-RESCHED-2).
+    console.error('requestReschedule insert failed:', insertErr.message)
+    return {
+      error: lang === 'es'
+        ? 'No se pudo enviar la solicitud. Inténtalo de nuevo.'
+        : 'Could not submit the request. Please try again.',
+    }
   }
 
   revalidatePath('/', 'layout')
   return { success: true }
 }
 
-export async function cancelRescheduleRequest(requestId: string) {
+export async function cancelRescheduleRequest(requestId: string, lang: string = 'es') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
@@ -458,7 +488,16 @@ export async function cancelRescheduleRequest(requestId: string) {
     .from('reschedule_requests')
     .update({ status: 'cancelled' })
     .eq('id', requestId)
-  if (error) return { error: error.message }
+  if (error) {
+    // Log the raw detail server-side, return a generic localized message so no
+    // internal error string leaks to the client (AUTHZ-RESCHED-2).
+    console.error('cancelRescheduleRequest update failed:', error.message)
+    return {
+      error: lang === 'es'
+        ? 'No se pudo cancelar la solicitud. Inténtalo de nuevo.'
+        : 'Could not cancel the request. Please try again.',
+    }
+  }
 
   revalidatePath('/', 'layout')
   return { success: true }
@@ -536,7 +575,7 @@ async function notifyAdminOfCancel(params: {
 export async function studentCancelBooking(bookingId: string, lang: string = 'es') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { error: lang === 'es' ? 'Tu sesión expiró. Inicia sesión de nuevo.' : 'Your session expired. Please log in again.' }
 
   const admin = createAdminClient()
 
@@ -545,15 +584,15 @@ export async function studentCancelBooking(bookingId: string, lang: string = 'es
     .select('id')
     .eq('profile_id', user.id)
     .single()
-  if (!student) return { error: 'Student profile not found' }
+  if (!student) return { error: lang === 'es' ? 'No encontramos tu perfil de estudiante.' : 'Student profile not found.' }
 
   const { data: booking } = await admin
     .from('bookings')
     .select('id, scheduled_at, status, type, student_id, teacher_id')
     .eq('id', bookingId)
     .single()
-  if (!booking) return { error: 'Booking not found' }
-  if (booking.student_id !== student.id) return { error: 'Not your booking' }
+  if (!booking) return { error: lang === 'es' ? 'No encontramos esta reserva.' : 'Booking not found.' }
+  if (booking.student_id !== student.id) return { error: lang === 'es' ? 'Esta reserva no es tuya.' : 'This booking is not yours.' }
   if (booking.status !== 'pending' && booking.status !== 'confirmed') {
     return { error: lang === 'es' ? 'Esta clase ya no se puede cancelar.' : 'This class can no longer be cancelled.' }
   }
@@ -644,7 +683,7 @@ export async function studentRescheduleBooking(
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { error: lang === 'es' ? 'Tu sesión expiró. Inicia sesión de nuevo.' : 'Your session expired. Please log in again.' }
 
   const admin = createAdminClient()
 
@@ -653,15 +692,15 @@ export async function studentRescheduleBooking(
     .select('id')
     .eq('profile_id', user.id)
     .single()
-  if (!student) return { error: 'Student profile not found' }
+  if (!student) return { error: lang === 'es' ? 'No encontramos tu perfil de estudiante.' : 'Student profile not found.' }
 
   const { data: booking } = await admin
     .from('bookings')
     .select('id, scheduled_at, duration_minutes, status, type, student_id, teacher_id')
     .eq('id', bookingId)
     .single()
-  if (!booking) return { error: 'Booking not found' }
-  if (booking.student_id !== student.id) return { error: 'Not your booking' }
+  if (!booking) return { error: lang === 'es' ? 'No encontramos esta reserva.' : 'Booking not found.' }
+  if (booking.student_id !== student.id) return { error: lang === 'es' ? 'Esta reserva no es tuya.' : 'This booking is not yours.' }
   if (booking.status !== 'pending' && booking.status !== 'confirmed') {
     return { error: lang === 'es' ? 'Esta clase ya no se puede reagendar.' : 'This class can no longer be rescheduled.' }
   }
@@ -676,7 +715,7 @@ export async function studentRescheduleBooking(
   }
 
   const newDate = new Date(newScheduledAtIso)
-  if (isNaN(newDate.getTime())) return { error: 'Invalid new time' }
+  if (isNaN(newDate.getTime())) return { error: lang === 'es' ? 'El nuevo horario no es válido.' : 'Invalid new time.' }
   if (newDate.getTime() - Date.now() < DAY_MS) {
     return {
       error: lang === 'es'
@@ -750,7 +789,7 @@ export async function studentRescheduleBooking(
 export async function reportTeacherNoShow(bookingId: string, lang: string = 'es') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { error: lang === 'es' ? 'Tu sesión expiró. Inicia sesión de nuevo.' : 'Your session expired. Please log in again.' }
 
   const admin = createAdminClient()
 
@@ -759,15 +798,15 @@ export async function reportTeacherNoShow(bookingId: string, lang: string = 'es'
     .select('id')
     .eq('profile_id', user.id)
     .single()
-  if (!student) return { error: 'Student profile not found' }
+  if (!student) return { error: lang === 'es' ? 'No encontramos tu perfil de estudiante.' : 'Student profile not found.' }
 
   const { data: booking } = await admin
     .from('bookings')
     .select('id, scheduled_at, duration_minutes, status, student_id, teacher_id, type')
     .eq('id', bookingId)
     .single()
-  if (!booking) return { error: 'Booking not found' }
-  if (booking.student_id !== student.id) return { error: 'Not your booking' }
+  if (!booking) return { error: lang === 'es' ? 'No encontramos esta reserva.' : 'Booking not found.' }
+  if (booking.student_id !== student.id) return { error: lang === 'es' ? 'Esta reserva no es tuya.' : 'This booking is not yours.' }
   if (booking.status === 'completed' || booking.status === 'cancelled') {
     return { error: lang === 'es' ? 'Esta clase ya está cerrada.' : 'This class is already closed.' }
   }

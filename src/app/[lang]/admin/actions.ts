@@ -290,6 +290,27 @@ export async function assignAndConfirmBooking(
     throw new Error('This booking is no longer active (it was cancelled or completed) and cannot be assigned.')
   }
 
+  // Deactivation guard (RACE-5): never drop a NEW assignment onto a deactivated
+  // teacher. toggleTeacherActive snapshots a teacher's live bookings BEFORE it
+  // writes is_active=false (to re-queue them for a backup); an assign committing
+  // in that window is not in the snapshot, so it would leave a confirmed booking
+  // stranded on a teacher who can no longer teach it — and it never gets
+  // re-queued. Read is_active fresh via the admin client and refuse. Respects
+  // force like the availability/primary-teacher guards below, so a deliberate
+  // admin override (options.force) still gets through; a plain assign does not.
+  if (!force) {
+    const { data: targetTeacher } = await admin
+      .from('teachers')
+      .select('is_active')
+      .eq('id', teacherId)
+      .single()
+    if (targetTeacher && targetTeacher.is_active === false) {
+      throw new Error(
+        'This teacher is deactivated and cannot receive new assignments. Reactivate the teacher first.',
+      )
+    }
+  }
+
   // Accepting-students gate: a paused teacher (accepting_students=false) is
   // excluded from NEW student assignments, but can still be re-assigned to a
   // student they already serve. Not force-overridable — pausing intake is the
@@ -1008,7 +1029,10 @@ async function _completeBooking(bookingId: string) {
       await admin.rpc('increment_teacher_sessions', { p_teacher_id: teacher.id })
       const { data: existingPayment } = await admin.from('payments').select('id').eq('booking_id', bookingId).maybeSingle()
       if (!existingPayment) {
-        const rate = Math.round((teacher.hourly_rate || 0) * ((booking.duration_minutes || 60) / 60))
+        // 2-decimal precision (parity with actions/video.ts completeSession) —
+        // a plain Math.round() would drop the cents from a 2-decimal teacher rate
+        // (e.g. $22.50/h → the payments row would understate the real payout).
+        const rate = Math.round((teacher.hourly_rate || 0) * ((booking.duration_minutes || 60) / 60) * 100) / 100
         const { error: payErr } = await admin.from('payments').insert({
           booking_id: bookingId, student_id: booking.student_id, teacher_id: teacher.id,
           amount_usd: rate, teacher_payout_usd: rate, platform_fee_usd: 0, status: 'completed',
@@ -1384,7 +1408,21 @@ export async function createAdminBooking(
     .select()
     .single()
   if (error) {
-    if (creditConsumed) await admin.rpc('increment_classes', { p_student_id: studentId })
+    if (creditConsumed) {
+      // Compensating refund for the credit we decremented before the failed
+      // insert. This is the ONLY thing standing between a failed booking and a
+      // silently-eaten PAID credit, so its RPC result must be observed: a
+      // fire-and-forget here could swallow a refund failure and leave the
+      // student short a class with no trace. Log (don't throw) so the original
+      // insert error still surfaces below.
+      const { error: refundErr } = await admin.rpc('increment_classes', { p_student_id: studentId })
+      if (refundErr) {
+        console.error(
+          '[createAdminBooking] compensating credit refund FAILED after booking-insert error — student may have lost a paid credit:',
+          { studentId, refundError: refundErr.message, insertError: error.message },
+        )
+      }
+    }
     // 23505 = a confirmed-slot unique index (teacher or student) — the slot was
     // taken between the pre-check and the insert. Hard invariant; not forceable.
     if (error.code === '23505') {
