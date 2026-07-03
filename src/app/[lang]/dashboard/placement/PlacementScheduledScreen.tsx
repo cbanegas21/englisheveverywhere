@@ -601,7 +601,7 @@ export default function PlacementScheduledScreen({
             lang={lang}
             variant="card"
             initialValues={notificationPreferences}
-            onSave={async (next) => await updateStudentProfile({ notificationPreferences: next })}
+            onSave={async (next) => await updateStudentProfile({ notificationPreferences: next, lang })}
           />
 
           {/* Prep checklist — 3px red hairline left-rule rows, no icon-in-square */}

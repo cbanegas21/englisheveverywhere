@@ -411,7 +411,7 @@ alter table public.teachers add constraint teachers_profile_id_fkey foreign key 
 
 alter table public.assignment_submissions add constraint assignment_submissions_score_check CHECK (((score IS NULL) OR (score = ANY (ARRAY['A1'::text, 'A2'::text, 'B1'::text, 'B2'::text, 'C1'::text, 'C2'::text, 'needs_work'::text, 'good'::text, 'excellent'::text]))));
 alter table public.assignments add constraint assignments_status_check CHECK ((status = ANY (ARRAY['open'::text, 'cancelled'::text])));
-alter table public.auth_attempts add constraint auth_attempts_action_check CHECK ((action = ANY (ARRAY['login'::text, 'signup'::text, 'reset'::text, 'createBooking'::text, 'bookPlacementCall'::text, 'reschedulePlacementCall'::text, 'requestEmailChange'::text, 'updateStudentProfile'::text, 'updateTeacherProfile'::text, 'transcribe'::text, 'extractVocab'::text, 'teacherOnboarding'::text, 'uploadLabFile'::text, 'attachAssignmentFile'::text])));
+alter table public.auth_attempts add constraint auth_attempts_action_check CHECK ((action = ANY (ARRAY['login'::text, 'signup'::text, 'reset'::text, 'createBooking'::text, 'bookPlacementCall'::text, 'reschedulePlacementCall'::text, 'requestEmailChange'::text, 'updateStudentProfile'::text, 'updateTeacherProfile'::text, 'saveTeacherVeemPayout'::text, 'transcribe'::text, 'extractVocab'::text, 'teacherOnboarding'::text, 'uploadLabFile'::text, 'attachAssignmentFile'::text])));
 alter table public.availability_slots add constraint availability_slots_day_of_week_check CHECK (((day_of_week >= 0) AND (day_of_week <= 6)));
 alter table public.bookings add constraint bookings_cancellation_reason_check CHECK ((cancellation_reason = ANY (ARRAY['early'::text, 'late'::text, 'no_show_teacher'::text, 'no_show_student'::text, 'teacher_decline'::text, 'admin_refund'::text, 'other'::text])));
 alter table public.bookings add constraint bookings_cancelled_by_check CHECK ((cancelled_by = ANY (ARRAY['student'::text, 'teacher'::text, 'admin'::text, 'system'::text])));
@@ -663,8 +663,6 @@ create policy "Students can read own sessions" on public.sessions for select usi
      JOIN students s ON ((s.id = b.student_id)))
   WHERE ((b.id = sessions.booking_id) AND (s.profile_id = auth.uid())))));
 create policy "Students read own purchases" on public.student_purchases for select to authenticated using ((student_id = auth_student_id()));
-create policy "Students can insert own record" on public.students for insert to authenticated with check ((auth.uid() = profile_id));
-create policy "Students can update own record" on public.students for update using ((auth.uid() = profile_id));
 create policy "Students can view own record" on public.students for select using ((auth.uid() = profile_id));
 create policy "Teachers can read student intake" on public.students for select using ((auth.uid() IN ( SELECT t.profile_id
    FROM (teachers t

@@ -344,8 +344,29 @@ export async function POST(req: NextRequest) {
           break
         }
         chargeGuardId = `dispute-${chargeId}`
+        // If this charge was ALREADY fully refunded, its credits were already
+        // reversed — decrementing again here would silently consume credits from
+        // a DIFFERENT, un-refunded pack (decrement_classes_by floors at 0). The
+        // refund and dispute guards are independent sentinels, so cross-check the
+        // sibling before subtracting (deep-audit MON-1). Stripe allows a dispute
+        // on an already-refunded charge (e.g. duplicate-processing chargebacks).
+        const { data: alreadyRefunded } = await supabase
+          .from('processed_stripe_events')
+          .select('id')
+          .eq('id', `refund-${chargeId}`)
+          .maybeSingle()
+        if (alreadyRefunded) {
+          Sentry.captureMessage(`Stripe dispute on charge ${chargeId} that was already fully refunded — credits already reversed, skipping second decrement.`, 'warning')
+          break
+        }
         try {
           const charge = await stripe.charges.retrieve(chargeId)
+          // Belt-and-suspenders: if Stripe reports the charge as refunded, don't
+          // double-reverse even if our refund sentinel is somehow absent.
+          if (charge?.refunded) {
+            Sentry.captureMessage(`Stripe dispute on charge ${chargeId} reported refunded by Stripe — skipping second credit decrement.`, 'warning')
+            break
+          }
           const meta = (charge?.metadata as Record<string, string> | undefined) ?? {}
           const userId = meta.user_id
           const planKey = meta.plan_key

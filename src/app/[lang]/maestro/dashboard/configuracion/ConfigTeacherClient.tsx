@@ -69,7 +69,7 @@ export default function ConfigTeacherClient({ lang, fullName, bio, specializatio
     setSaving(true)
     setSaveError('')
     try {
-      const result = await updateTeacherProfile({ fullName: name, bio: bioVal, specializations: specsVal })
+      const result = await updateTeacherProfile({ fullName: name, bio: bioVal, specializations: specsVal, lang })
       if (result.success) {
         setSaved(true)
         setTimeout(() => setSaved(false), 3000)

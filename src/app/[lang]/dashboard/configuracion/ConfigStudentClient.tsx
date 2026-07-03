@@ -509,7 +509,7 @@ export default function ConfigStudentClient({
                 variant="panel"
                 initialValues={notificationPreferences}
                 onSave={async (next) => {
-                  return await updateStudentProfile({ notificationPreferences: next })
+                  return await updateStudentProfile({ notificationPreferences: next, lang })
                 }}
               />
             )}
@@ -637,7 +637,7 @@ function ProfilePanel({
     setSaving(true)
     setError('')
     try {
-      const res = await updateStudentProfile({ fullName: name, phone: phone || null })
+      const res = await updateStudentProfile({ fullName: name, phone: phone || null, lang })
       if (res.success) {
         setSaved(true)
         setTimeout(() => setSaved(false), 2500)
@@ -816,7 +816,7 @@ function AccountPanel({
     setSaving(true)
     setError('')
     try {
-      const res = await updateStudentProfile({ timezone, preferredLanguage: language })
+      const res = await updateStudentProfile({ timezone, preferredLanguage: language, lang })
       if (res.success) {
         setSaved(true)
         setTimeout(() => setSaved(false), 2500)

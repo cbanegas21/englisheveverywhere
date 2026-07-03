@@ -38,6 +38,10 @@ const CRITICAL = [
   // The alerting channel itself — if the DSN drifts, every OTHER alert here
   // falls back to console-only.
   'NEXT_PUBLIC_SENTRY_DSN',
+  // Google sign-in: GoogleButton renders NOTHING when unset, so an env drift
+  // silently removes the only login method for Google-signup students (no
+  // password) until they reset — with zero alert (deep-audit OPS-2).
+  'NEXT_PUBLIC_GOOGLE_CLIENT_ID',
 ] as const
 
 const isPlaceholder = (v?: string) => !v || v.endsWith('_placeholder')

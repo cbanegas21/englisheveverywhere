@@ -110,7 +110,10 @@ export async function completeTeacherOnboarding(formData: FormData): Promise<{ s
   }
 
   const timezone = (formData.get('timezone') as string | null) || ''
-  const bio = (formData.get('bio') as string | null) || ''
+  // Cap the bio (deep-audit INJ-1): onboarding only enforced a MINIMUM, so a
+  // ~1MB bio could be stored whole and shipped in the admin list + student
+  // profile. Match the 2000-char ceiling updateTeacherProfile applies.
+  const bio = ((formData.get('bio') as string | null) || '').slice(0, 2000)
   // Guard the client-supplied JSON — malformed input would otherwise throw an
   // unhandled error. Normalize to bounded arrays of non-empty strings.
   let specializations: string[]

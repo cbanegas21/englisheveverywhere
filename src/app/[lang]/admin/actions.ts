@@ -276,9 +276,19 @@ export async function assignAndConfirmBooking(
   // Load the booking once — both guards need it.
   const { data: booking } = await admin
     .from('bookings')
-    .select('student_id, scheduled_at, duration_minutes')
+    .select('student_id, scheduled_at, duration_minutes, status')
     .eq('id', bookingId)
     .single()
+
+  // Only a live (pending/confirmed) booking may be assigned. Without this, an
+  // admin working from a stale list could re-confirm a booking the student
+  // already CANCELLED (credit refunded) — resurrecting it into a free class +
+  // credit inflation (deep-audit RACE-1 / AUTHZ-BULK-1). Every sibling write
+  // (completeBooking, cancelBookingWithRefund, adminRescheduleBooking) is
+  // status-gated; this was the lone exception.
+  if (booking && booking.status !== 'pending' && booking.status !== 'confirmed') {
+    throw new Error('This booking is no longer active (it was cancelled or completed) and cannot be assigned.')
+  }
 
   // Accepting-students gate: a paused teacher (accepting_students=false) is
   // excluded from NEW student assignments, but can still be re-assigned to a
@@ -326,10 +336,15 @@ export async function assignAndConfirmBooking(
     }
   }
 
-  const { error } = await admin
+  // Re-assert status in the WHERE clause so a cancel/complete that lands between
+  // the read above and this write can't be clobbered (TOCTOU) — and require a
+  // row to have matched.
+  const { data: updated, error } = await admin
     .from('bookings')
     .update({ teacher_id: teacherId, status: 'confirmed' })
     .eq('id', bookingId)
+    .in('status', ['pending', 'confirmed'])
+    .select('id')
 
   if (error) {
     // 23505 = unique_violation on bookings_teacher_time_unique (migration 027):
@@ -341,6 +356,9 @@ export async function assignAndConfirmBooking(
       )
     }
     throw new Error(error.message)
+  }
+  if (!updated?.length) {
+    throw new Error('This booking is no longer active and cannot be assigned.')
   }
 
   // First-class continuity lock: if the student has no primary teacher yet,
@@ -1626,10 +1644,15 @@ export async function bulkAssignTeacher(
     }
   }
 
+  // Status-gate the batch update so a cancelled/completed booking in the set
+  // can't be resurrected into a free confirmed class (deep-audit RACE-2, same
+  // root as RACE-1). Only live rows flip to confirmed; already-dead ones are
+  // silently skipped rather than resurrected.
   const { error } = await admin
     .from('bookings')
     .update({ teacher_id: teacherId, status: 'confirmed' })
     .in('id', bookingIds)
+    .in('status', ['pending', 'confirmed'])
   if (error) {
     // 23505 = a concurrent assign grabbed one of these slots first (hard invariant).
     if (error.code === '23505') {

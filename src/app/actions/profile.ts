@@ -19,6 +19,24 @@ export interface NotificationPreferences {
   before1h?: boolean
 }
 
+// Localized, user-safe errors (deep-audit I18N-1) — updateStudent/TeacherProfile
+// previously returned English-only strings (+ a raw Postgres message) that the
+// ES settings pages showed verbatim. Never reflect raw PG text.
+const P_MSG = {
+  notAuth: { es: 'No autenticado.', en: 'Not authenticated.' },
+  rateLimited: { es: 'Demasiados intentos. Espera unos minutos.', en: 'Too many attempts. Please wait a few minutes.' },
+  nameRequired: { es: 'El nombre es obligatorio.', en: 'Name is required.' },
+  nameTooLong: { es: 'El nombre es muy largo.', en: 'Name is too long.' },
+  nameInvalid: { es: 'El nombre tiene caracteres no permitidos.', en: 'Name contains invalid characters.' },
+  invalidTz: { es: 'Zona horaria inválida.', en: 'Invalid timezone.' },
+  invalidPhone: { es: 'Número de teléfono inválido.', en: 'Invalid phone number.' },
+  invalidAvatar: { es: 'URL de avatar inválida.', en: 'Invalid avatar URL.' },
+  notTeacher: { es: 'Esta no es una cuenta de maestro.', en: 'Not a teacher account.' },
+  teacherInactive: { es: 'Tu cuenta de maestro no está activa.', en: 'Teacher account is not active.' },
+  saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
+} as const
+const pm = (k: keyof typeof P_MSG, lang?: string) => P_MSG[k][lang === 'en' ? 'en' : 'es']
+
 export async function updateStudentProfile(data: {
   fullName?: string
   timezone?: string
@@ -27,16 +45,18 @@ export async function updateStudentProfile(data: {
   preferredLanguage?: 'es' | 'en'
   preferredCurrency?: string
   notificationPreferences?: NotificationPreferences
+  lang?: 'es' | 'en'
 }): Promise<{ success: boolean; error?: string }> {
+  const lang = data.lang
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return { success: false, error: 'Not authenticated' }
+  if (authError || !user) return { success: false, error: pm('notAuth', lang) }
 
   // Per-user throttle (DASH-07) — caps scripted hammering of the profile mutation.
   // Generous ceiling so a real user adjusting settings never trips it.
   const rl = await checkUserActionLimit(user.id, 'updateStudentProfile', 30)
-  if (!rl.ok) return { success: false, error: 'Too many attempts. Please wait a few minutes.' }
+  if (!rl.ok) return { success: false, error: pm('rateLimited', lang) }
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -46,23 +66,23 @@ export async function updateStudentProfile(data: {
     // admin client and later interpolated into email HTML, so cap length and
     // reject markup to close a stored-XSS + unbounded-length gap.
     const name = (data.fullName || '').trim()
-    if (name.length === 0) return { success: false, error: 'Name is required' }
-    if (name.length > 120) return { success: false, error: 'Name is too long' }
+    if (name.length === 0) return { success: false, error: pm('nameRequired', lang) }
+    if (name.length > 120) return { success: false, error: pm('nameTooLong', lang) }
     // Reject markup AND CR/LF (the latter is an email-subject header-injection surface).
-    if (/[<>\r\n]/.test(name)) return { success: false, error: 'Name contains invalid characters' }
+    if (/[<>\r\n]/.test(name)) return { success: false, error: pm('nameInvalid', lang) }
     patch.full_name = name
   }
   if (data.timezone !== undefined) {
     // Reject an invalid IANA zone — persisting it would throw a RangeError in a
     // later toLocale*/Intl call across the app (DASH-01).
-    if (!isValidTimeZone(data.timezone)) return { success: false, error: 'Invalid timezone' }
+    if (!isValidTimeZone(data.timezone)) return { success: false, error: pm('invalidTz', lang) }
     patch.timezone = data.timezone
   }
   if (data.phone !== undefined) {
     if (data.phone === null) patch.phone = null
     else {
       const phone = String(data.phone).trim()
-      if (phone.length > 32 || /[<>]/.test(phone)) return { success: false, error: 'Invalid phone number' }
+      if (phone.length > 32 || /[<>]/.test(phone)) return { success: false, error: pm('invalidPhone', lang) }
       patch.phone = phone
     }
   }
@@ -75,12 +95,14 @@ export async function updateStudentProfile(data: {
       const url = String(data.avatarUrl)
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
       if (url.length > 512 || !base || !url.startsWith(`${base}/storage/`)) {
-        return { success: false, error: 'Invalid avatar URL' }
+        return { success: false, error: pm('invalidAvatar', lang) }
       }
       patch.avatar_url = url
     }
   }
-  if (data.preferredLanguage !== undefined)    patch.preferred_language = data.preferredLanguage
+  // Runtime-validate preferredLanguage — the 'es'|'en' TS type is not enforced
+  // at the RPC boundary, and an out-of-set value would be persisted (INJ-3).
+  if (data.preferredLanguage !== undefined && (data.preferredLanguage === 'es' || data.preferredLanguage === 'en')) patch.preferred_language = data.preferredLanguage
   if (data.preferredCurrency !== undefined) {
     const code = data.preferredCurrency.toUpperCase()
     if (code.length === 3) patch.preferred_currency = code
@@ -96,7 +118,9 @@ export async function updateStudentProfile(data: {
     .update(patch)
     .eq('id', user.id)
 
-  if (error) return { success: false, error: error.message }
+  // Log the raw PG string, return one generic localized message (INJ-3 — was
+  // reflecting error.message to the browser).
+  if (error) { console.error('[updateStudentProfile] update failed:', error.message); return { success: false, error: pm('saveFailed', lang) } }
 
   revalidatePath('/', 'layout')
   return { success: true }
@@ -106,11 +130,13 @@ export async function updateTeacherProfile(data: {
   fullName: string
   bio: string
   specializations: string
+  lang?: 'es' | 'en'
 }): Promise<{ success: boolean; error?: string }> {
+  const lang = data.lang
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return { success: false, error: 'Not authenticated' }
+  if (authError || !user) return { success: false, error: pm('notAuth', lang) }
 
   const admin = createAdminClient()
 
@@ -125,21 +151,21 @@ export async function updateTeacherProfile(data: {
     .select('id, is_active')
     .eq('profile_id', user.id)
     .maybeSingle()
-  if (!teacherRow) return { success: false, error: 'Not a teacher account' }
-  if (!teacherRow.is_active) return { success: false, error: 'Teacher account is not active' }
+  if (!teacherRow) return { success: false, error: pm('notTeacher', lang) }
+  if (!teacherRow.is_active) return { success: false, error: pm('teacherInactive', lang) }
 
   // Per-user throttle (mirrors updateStudentProfile) — caps scripted hammering of
   // this RLS-bypassing admin write. Action is allowlisted in auth_attempts (migr 047).
   const rl = await checkUserActionLimit(user.id, 'updateTeacherProfile', 30)
-  if (!rl.ok) return { success: false, error: 'Too many attempts. Please wait a moment.' }
+  if (!rl.ok) return { success: false, error: pm('rateLimited', lang) }
 
   // Validate/sanitize free text (written via the RLS-bypassing admin client and
   // later shown to admins/students + interpolated into emails). Mirrors the
   // student-side guards: cap length, reject markup, bound the arrays.
   const name = (data.fullName || '').trim()
-  if (name.length === 0) return { success: false, error: 'Name is required' }
-  if (name.length > 120) return { success: false, error: 'Name is too long' }
-  if (/[<>]/.test(name)) return { success: false, error: 'Name contains invalid characters' }
+  if (name.length === 0) return { success: false, error: pm('nameRequired', lang) }
+  if (name.length > 120) return { success: false, error: pm('nameTooLong', lang) }
+  if (/[<>]/.test(name)) return { success: false, error: pm('nameInvalid', lang) }
   const bio = (data.bio || '').slice(0, 2000)
 
   const { error: profileError } = await admin
@@ -149,7 +175,7 @@ export async function updateTeacherProfile(data: {
 
   // Never reflect the raw Postgres/Supabase string to the browser — log it,
   // return one generic message (mirrors the rest of the codebase).
-  if (profileError) { console.error('[updateTeacherProfile] profile update failed:', profileError.message); return { success: false, error: 'Could not save. Please try again.' } }
+  if (profileError) { console.error('[updateTeacherProfile] profile update failed:', profileError.message); return { success: false, error: pm('saveFailed', lang) } }
 
   const specs = data.specializations
     .split(',')
@@ -163,7 +189,7 @@ export async function updateTeacherProfile(data: {
     .update({ bio, specializations: specs })
     .eq('profile_id', user.id)
 
-  if (teacherError) { console.error('[updateTeacherProfile] teacher update failed:', teacherError.message); return { success: false, error: 'Could not save. Please try again.' } }
+  if (teacherError) { console.error('[updateTeacherProfile] teacher update failed:', teacherError.message); return { success: false, error: pm('saveFailed', lang) } }
   return { success: true }
 }
 

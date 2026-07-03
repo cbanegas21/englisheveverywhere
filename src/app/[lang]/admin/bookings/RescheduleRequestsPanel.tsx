@@ -64,11 +64,15 @@ const t = {
 }
 
 function formatDateTime(iso: string, lang: string) {
+  // Normalize the NBSP/narrow-NBSP before am/pm — Node's ICU and the browser
+  // emit different spacing there, which mismatches at hydration (#418). Every
+  // sibling formatter on this page already does this; this one was missed
+  // (deep-audit HYD-1).
   return new Date(iso).toLocaleString(lang === 'es' ? 'es-HN' : 'en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
     timeZone: 'America/Tegucigalpa',
-  })
+  }).replace(/[  ]/g, ' ')
 }
 
 export default function RescheduleRequestsPanel({ lang, requests }: Props) {

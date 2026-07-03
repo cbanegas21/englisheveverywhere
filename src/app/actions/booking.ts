@@ -729,11 +729,14 @@ export async function studentRescheduleBooking(
     .eq('status', 'pending')
   if (rrCancelErr) console.error('studentRescheduleBooking: failed to cancel open reschedule requests for', bookingId, rrCancelErr.message)
 
-  // P2-4: re-schedule reminders (+ a corrected .ics) for the NEW time rather than
-  // just wiping them. scheduleBookingReminders cancels the stale ones first, so the
-  // student isn't left with ZERO reminders and a stale calendar invite while the
-  // teacher re-confirms. Idempotent; works whether or not a teacher is still assigned.
-  scheduleBookingReminders(bookingId).catch(() => {})
+  // A student reschedule ALWAYS drops the booking to 'pending' (line above) — the
+  // teacher must re-confirm. scheduleBookingReminders unconditionally sends a
+  // "your class is confirmed" email, so calling it here fired a FALSE confirmation
+  // for a not-yet-confirmed class (and a duplicate when the teacher re-confirms) —
+  // deep-audit EML-1. Instead WIPE the stale reminders/.ics for the old time; the
+  // teacher's confirmBooking re-schedules fresh reminders for the new time on
+  // re-confirm (mirrors the admin reschedule path's pending branch).
+  cancelBookingReminders(bookingId).catch(() => {})
 
   revalidatePath('/', 'layout')
   return {
