@@ -38,7 +38,9 @@ export default function TimezoneSelect({ value, onChange, lang = 'es', inputStyl
   const tx = translations[lang as keyof typeof translations] ?? translations.es
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
-  const [now, setNow] = useState(new Date())
+  // Seeded post-mount: rendering a server-time clock string mismatches the
+  // client's minute and hydration fails intermittently (#418 class).
+  const [now, setNow] = useState<Date | null>(null)
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const [mounted, setMounted] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -47,6 +49,7 @@ export default function TimezoneSelect({ value, onChange, lang = 'es', inputStyl
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
+    setNow(new Date())
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
   }, [])
@@ -81,6 +84,7 @@ export default function TimezoneSelect({ value, onChange, lang = 'es', inputStyl
   }, [allTimezones])
 
   function offsetOf(tz: string): string {
+    if (!now) return ''
     try {
       const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(now)
       return parts.find(p => p.type === 'timeZoneName')?.value ?? ''
@@ -93,6 +97,7 @@ export default function TimezoneSelect({ value, onChange, lang = 'es', inputStyl
   }
 
   function timeOf(tz: string): string {
+    if (!now) return ''
     try {
       return new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }).format(now)
     } catch { return '' }
@@ -107,6 +112,7 @@ export default function TimezoneSelect({ value, onChange, lang = 'es', inputStyl
   }
 
   function getLocalTime(tz: string) {
+    if (!now) return ''
     try {
       return new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, weekday: 'short' }).format(now)
     } catch { return '' }

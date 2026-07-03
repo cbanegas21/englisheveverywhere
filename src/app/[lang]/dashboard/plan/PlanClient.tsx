@@ -192,29 +192,34 @@ export default function PlanClient({
   const [selectedPlan, setSelectedPlan] = useState<(typeof PRICING_PLANS)[number] | null>(null)
   const [pendingPlan, setPendingPlan] = useState<(typeof PRICING_PLANS)[number] | null>(null)
   const [showAddMoreConfirm, setShowAddMoreConfirm] = useState(false)
-  const [purchaseResult] = useState<PurchaseResult | null>(() => {
-    if (typeof window === 'undefined') return null
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('success') !== '1') return null
-    const plan = PRICING_PLANS.find((p) => p.key === params.get('plan'))
-    if (!plan) return null
-    return {
-      classesAdded: plan.classes,
-      // Show the REAL balance the server just fetched (this success screen is a
-      // fresh server render after the ?success=1 redirect, so classesRemaining
-      // already reflects the webhook credit). The old `classesRemaining +
-      // plan.classes` DOUBLE-counted once the webhook had credited.
-      newTotal: classesRemaining,
-      planName: lang === 'es' ? plan.nameEs : plan.nameEn,
-    }
-  })
+  const [purchaseResult, setPurchaseResult] = useState<PurchaseResult | null>(null)
   const [error, setError] = useState('')
   // P3: a cancelled Stripe checkout returned silently. Capture ?cancelled=1 at mount
   // (the effect below strips it from the URL) to show a calm "you weren't charged" note.
-  const [cancelled, setCancelled] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return new URLSearchParams(window.location.search).get('cancelled') === '1'
-  })
+  const [cancelled, setCancelled] = useState(false)
+  // Checkout-return params are read AFTER mount: reading window.location in a
+  // useState initializer renders a different tree than the server (success
+  // screen vs plan page) and failed hydration on every Stripe return (#418).
+  // Runs before the URL-strip effect below (declaration order).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === '1') {
+      const plan = PRICING_PLANS.find((p) => p.key === params.get('plan'))
+      if (plan) {
+        setPurchaseResult({
+          classesAdded: plan.classes,
+          // Show the REAL balance the server just fetched (this success screen is a
+          // fresh server render after the ?success=1 redirect, so classesRemaining
+          // already reflects the webhook credit). The old `classesRemaining +
+          // plan.classes` DOUBLE-counted once the webhook had credited.
+          newTotal: classesRemaining,
+          planName: lang === 'es' ? plan.nameEs : plan.nameEn,
+        })
+      }
+    }
+    if (params.get('cancelled') === '1') setCancelled(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [, forceRender] = useState(0)
 

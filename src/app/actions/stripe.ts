@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import { PRICING_PLANS } from '@/lib/pricing'
+import { APP_URL } from '@/lib/email'
 
 const IS_PROD = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production'
 
@@ -92,7 +93,10 @@ export async function createCheckoutSession(planKey: string, lang: string = 'es'
     }
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  // Centralized APP_URL (lib/email) falls back to the real domain, never
+  // localhost — a drifted env var must not strand a PAID customer's
+  // success_url on a dead localhost link.
+  const appUrl = APP_URL
 
   try {
     const session = await stripe.checkout.sessions.create({

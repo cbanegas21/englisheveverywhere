@@ -40,7 +40,7 @@ export default async function MaestroTareasPage({ params }: Props) {
     const s = (b as any).student
     if (!s?.id) continue
     if (!studentMap.has(s.id)) {
-      studentMap.set(s.id, { id: s.id, name: s.profile?.full_name || 'Student' })
+      studentMap.set(s.id, { id: s.id, name: s.profile?.full_name || (lang === 'en' ? 'Student' : 'Estudiante') })
     }
   }
   const students = Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name))
@@ -72,7 +72,7 @@ export default async function MaestroTareasPage({ params }: Props) {
       status: a.status,
       created_at: a.created_at,
       student_id: a.student_id,
-      student_name: a.student?.profile?.full_name || 'Student',
+      student_name: a.student?.profile?.full_name || (lang === 'en' ? 'Student' : 'Estudiante'),
       submission: sub
         ? {
             id: sub.id,

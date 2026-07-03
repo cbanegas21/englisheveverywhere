@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import OnboardingClient from './OnboardingClient'
-import type { Locale } from '@/lib/i18n/translations'
+import { locales, type Locale } from '@/lib/i18n/translations'
 
 interface OnboardingPageProps {
   params: Promise<{ lang: string }>
@@ -9,6 +9,10 @@ interface OnboardingPageProps {
 
 export default async function OnboardingPage({ params }: OnboardingPageProps) {
   const { lang } = await params
+  // Layout notFound() does not protect pages (they render in parallel) — a
+  // dotted path skips the locale proxy and lands here with an invalid lang
+  // (same class as the landing eyebrow crash, Sentry ENGLISHKOLAB-3/4/G).
+  if (!locales.includes(lang as Locale)) notFound()
   const supabase = await createClient()
 
   const { data: { user }, error } = await supabase.auth.getUser()

@@ -646,7 +646,7 @@ export default function TeacherProfileClient({ teacher, lang }: Props) {
                           cursor: 'default',
                         }}
                       >
-                        {new Date(b.scheduled_at).toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}
+                        {new Date(b.scheduled_at).toLocaleTimeString(t.locale, { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' }).replace(/[  ]/g, ' ')}
                         <br />
                         <span style={{ fontWeight: 400 }}>{b.studentName || '—'}</span>
                       </div>

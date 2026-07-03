@@ -160,13 +160,20 @@ export default function LabFeedClient({ lang, userName, openAssignments, labQuiz
     setFileError('')
     const w = window.open('', '_blank')
     startView(async () => {
-      const res = await getLabFileSignedUrl({ fileId, lang })
-      if (res && 'url' in res && res.url) {
-        if (w) w.location.href = res.url
-        else window.location.href = res.url
-      } else {
+      // try/catch: a thrown rejection would strand the pre-opened blank tab
+      // forever and never surface an error.
+      try {
+        const res = await getLabFileSignedUrl({ fileId, lang })
+        if (res && 'url' in res && res.url) {
+          if (w) w.location.href = res.url
+          else window.location.href = res.url
+        } else {
+          w?.close()
+          setFileError((res && 'error' in res ? res.error : '') || tx.openFailed)
+        }
+      } catch {
         w?.close()
-        setFileError((res && 'error' in res ? res.error : '') || tx.openFailed)
+        setFileError(tx.openFailed)
       }
     })
   }

@@ -10,6 +10,7 @@ import { StatLedger } from '@/components/ui/StatLedger'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Spinner } from '@/components/ui/Spinner'
 import AssignmentFileControl from '@/components/dashboard/AssignmentFileControl'
+import { scoreLabel } from '@/app/[lang]/maestro/dashboard/tareas/TeacherTareasClient'
 
 const t = {
   en: {
@@ -167,6 +168,13 @@ export default function StudentTareasClient({ lang, assignments }: Props) {
   // Seeded post-mount so the overdue label is hydration-stable (#418).
   const [now, setNow] = useState<number | null>(null)
   useEffect(() => { setNow(Date.now()) }, [])
+
+  // router.refresh() after attach/submit replaces `assignments`, but the open
+  // panel held the pre-refresh object — re-point it at the fresh row so a
+  // successful upload doesn't look like it failed.
+  useEffect(() => {
+    setDetail(d => (d ? assignments.find(a => a.id === d.id) ?? d : d))
+  }, [assignments])
 
   const pending = assignments.filter((a) => !a.submission && a.status !== 'cancelled')
   // "Completed" = anything the student actually submitted. A cancelled assignment
@@ -683,7 +691,7 @@ function DetailPanel({
                         color: '#fff',
                       }}
                     >
-                      {assignment.submission.score}
+                      {scoreLabel(assignment.submission.score, lang)}
                     </span>
                   </div>
                 )}

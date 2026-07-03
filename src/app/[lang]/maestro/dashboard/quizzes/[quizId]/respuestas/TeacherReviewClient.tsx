@@ -166,11 +166,17 @@ export default function TeacherReviewClient({ lang, quizTitle, rows, keyByQuesti
     if (pending) return
     setError('')
     startTransition(async () => {
-      const res = await gradeQuizAttempt({ attemptId, feedback, overrides, lang })
-      if (res && 'error' in res) setError(res.error ?? '')
-      else {
-        setOpenId(null)
-        router.refresh()
+      // try/catch: a thrown rejection must not unmount the form and lose the
+      // typed grading feedback.
+      try {
+        const res = await gradeQuizAttempt({ attemptId, feedback, overrides, lang })
+        if (res && 'error' in res) setError(res.error ?? '')
+        else {
+          setOpenId(null)
+          router.refresh()
+        }
+      } catch {
+        setError(lang === 'en' ? 'Could not save. Check your connection and try again.' : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.')
       }
     })
   }

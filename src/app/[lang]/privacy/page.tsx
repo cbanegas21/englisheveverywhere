@@ -1,4 +1,5 @@
-import type { Locale } from '@/lib/i18n/translations'
+import { locales, type Locale } from '@/lib/i18n/translations'
+import { notFound } from 'next/navigation'
 import Navbar from '@/components/landing/Navbar'
 import Footer from '@/components/landing/Footer'
 
@@ -152,6 +153,10 @@ const t = {
 
 export default async function PrivacyPage({ params }: { params: Promise<{ lang: Locale }> }) {
   const { lang } = await params
+  // Layout notFound() does not protect pages (they render in parallel) — a
+  // dotted path skips the locale proxy and lands here with an invalid lang
+  // (same class as the landing eyebrow crash, Sentry ENGLISHKOLAB-3/4/G).
+  if (!locales.includes(lang as Locale)) notFound()
   const tx = t[lang]
 
   return (

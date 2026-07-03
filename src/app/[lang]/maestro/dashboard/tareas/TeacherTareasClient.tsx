@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { createAssignment, cancelAssignment, gradeSubmission } from '@/app/actions/assignments'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar } from '@/components/ui/DashTopBar'
@@ -12,6 +12,16 @@ import Drawer from '@/components/dashboard/Drawer'
 import AssignmentFileControl from '@/components/dashboard/AssignmentFileControl'
 
 const SCORES = ['A1','A2','B1','B2','C1','C2','needs_work','good','excellent'] as const
+
+// The word scores are stored in English enum form (needs_work/good/excellent) —
+// never render them raw. CEFR codes pass through.
+const SCORE_LABELS: Record<Locale, Record<string, string>> = {
+  en: { needs_work: 'Needs work', good: 'Good', excellent: 'Excellent' },
+  es: { needs_work: 'Necesita trabajo', good: 'Bien', excellent: 'Excelente' },
+}
+export function scoreLabel(s: string, lang: Locale): string {
+  return SCORE_LABELS[lang]?.[s] ?? s
+}
 
 const t = {
   en: {
@@ -170,6 +180,13 @@ export default function TeacherTareasClient({ lang, students, assignments }: Pro
   const [showCreate, setShowCreate] = useState(false)
   const [detail, setDetail] = useState<Assignment | null>(null)
 
+  // router.refresh() after attach/remove/grade replaces `assignments`, but the
+  // open drawer held the pre-refresh object — re-point it at the fresh row so
+  // a successful upload doesn't look like it failed.
+  useEffect(() => {
+    setDetail(d => (d ? assignments.find(a => a.id === d.id) ?? d : d))
+  }, [assignments])
+
   return (
     <div className="min-h-full" style={{ background: 'var(--ek-paper)' }}>
 
@@ -276,6 +293,12 @@ function CreateModal({
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
 
+  // The modal stays mounted between opens — without a reset, reopening after a
+  // create shows the previous student/title/text and invites a wrong-student duplicate.
+  function resetForm() {
+    setStudentId(''); setTitle(''); setInstructions(''); setRubric(''); setDueAt(''); setError('')
+  }
+
   function handleSubmit() {
     if (!studentId || !title.trim()) {
       setError(lang === 'es' ? 'Estudiante y título son requeridos' : 'Student and title are required')
@@ -295,6 +318,7 @@ function CreateModal({
         setError(res.error)
         return
       }
+      resetForm()
       onClose()
     })
   }
@@ -585,7 +609,7 @@ function DetailDrawer({
                   >
                     <option value="">{tx.noScore}</option>
                     {SCORES.map(s => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>{scoreLabel(s, lang)}</option>
                     ))}
                   </select>
                 </div>

@@ -13,6 +13,7 @@ import {
   safeSlug,
   safeExt,
 } from '@/lib/lab/files'
+import { checkUserActionLimit } from '@/lib/rateLimit'
 
 const VALID_SCORES = new Set(['A1','A2','B1','B2','C1','C2','needs_work','good','excellent'])
 
@@ -47,6 +48,8 @@ const A_MSG = {
   fileNotFound: { es: 'Archivo no encontrado.', en: 'File not found.' },
   urlFailed: { es: 'No se pudo abrir el archivo. Inténtalo de nuevo.', en: 'Could not open the file. Please try again.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
+  tooManyUploads: { es: 'Demasiadas subidas en poco tiempo. Espera unos minutos.', en: 'Too many uploads in a short time. Wait a few minutes.' },
+  submissionTooLong: { es: 'La entrega es muy larga (máx. 20000 caracteres).', en: 'The submission is too long (max 20000 characters).' },
 } as const
 const am = (k: keyof typeof A_MSG, lang: string) => A_MSG[k][lang === 'en' ? 'en' : 'es']
 
@@ -169,6 +172,9 @@ export async function submitAssignment(input: { assignmentId: string; text: stri
 
   const text = input.text.trim()
   if (!text) return { error: am('emptySubmission', lang) }
+  // Every sibling text field is capped (title 120, instructions/rubric/feedback
+  // 4000) — an uncapped submission rides along in every list query for both users.
+  if (text.length > 20000) return { error: am('submissionTooLong', lang) }
 
   // Verify the assignment targets this student AND is still open.
   const { data: a } = await admin
@@ -192,14 +198,19 @@ export async function submitAssignment(input: { assignmentId: string; text: stri
   }
 
   if (existing) {
-    const { error } = await admin
+    // .is('graded_at', null) closes the TOCTOU window: without it a resubmit
+    // in flight while the teacher grades would overwrite the graded text.
+    const { data: updated, error } = await admin
       .from('assignment_submissions')
       .update({ submitted_text: text, submitted_at: new Date().toISOString() })
       .eq('id', existing.id)
+      .is('graded_at', null)
+      .select('id')
     if (error) {
       console.error('submitAssignment update failed:', error.message)
       return { error: am('saveFailed', lang) }
     }
+    if (!updated?.length) return { error: am('alreadyGraded', lang) }
   } else {
     const { error } = await admin
       .from('assignment_submissions')
@@ -234,10 +245,7 @@ export async function gradeSubmission(input: {
     return { error: am('invalidScore', lang) }
   }
 
-  // Require something to grade with — empty feedback AND no score would lock the
-  // student into read-only with nothing useful (ASSIGN-03).
   const feedback = input.feedback.trim()
-  if (!feedback && !input.score) return { error: am('feedbackOrScore', lang) }
   if (feedback.length > 4000) return { error: am('feedbackTooLong', lang) }
 
   const { data: a } = await admin
@@ -251,10 +259,17 @@ export async function gradeSubmission(input: {
 
   const { data: submission } = await admin
     .from('assignment_submissions')
-    .select('id')
+    .select('id, audio_feedback_path')
     .eq('assignment_id', input.assignmentId)
     .maybeSingle()
   if (!submission) return { error: am('noSubmission', lang) }
+
+  // Require something to grade with — empty feedback AND no score would lock the
+  // student into read-only with nothing useful (ASSIGN-03). Attached audio
+  // feedback counts: an audio-only grade must be able to finalize.
+  if (!feedback && !input.score && !submission.audio_feedback_path) {
+    return { error: am('feedbackOrScore', lang) }
+  }
 
   const { error } = await admin
     .from('assignment_submissions')
@@ -302,6 +317,28 @@ export async function attachAssignmentFile(formData: FormData) {
   const contentType = f.type || 'application/octet-stream'
   if (!ALLOWED_FILE_TYPES.has(contentType)) return { error: am('fileType', lang) }
 
+  // Auth FIRST — before touching the assignment row, so an unauthenticated
+  // caller can't probe ids for existence/status via differentiated errors.
+  let callerTeacherId: string | null = null
+  let callerStudentId: string | null = null
+  let callerUserId: string
+  if (kind === 'assignment' || kind === 'audio') {
+    const ctx = await requireTeacher(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    callerTeacherId = ctx.teacherId
+    callerUserId = ctx.userId
+  } else {
+    const ctx = await requireStudent(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    callerStudentId = ctx.studentId
+    callerUserId = ctx.userId
+  }
+
+  // Storage uploads cost real money if looped — cap per user (allowlisted in
+  // auth_attempts via migration 058; without that the limit no-ops).
+  const rl = await checkUserActionLimit(callerUserId, 'attachAssignmentFile', 20)
+  if (!rl.ok) return { error: am('tooManyUploads', lang) }
+
   const admin = createAdminClient()
   const { data: a } = await admin
     .from('assignments')
@@ -311,16 +348,9 @@ export async function attachAssignmentFile(formData: FormData) {
   if (!a) return { error: am('assignmentNotFound', lang) }
   if (a.status !== 'open') return { error: am('notOpen', lang) }
 
-  // Role + ownership per kind.
-  if (kind === 'assignment' || kind === 'audio') {
-    const ctx = await requireTeacher(lang)
-    if ('error' in ctx) return { error: ctx.error }
-    if (ctx.teacherId !== a.teacher_id) return { error: am('notYours', lang) }
-  } else {
-    const ctx = await requireStudent(lang)
-    if ('error' in ctx) return { error: ctx.error }
-    if (ctx.studentId !== a.student_id) return { error: am('assignmentNotFound', lang) }
-  }
+  // Ownership per kind.
+  if (callerTeacherId && callerTeacherId !== a.teacher_id) return { error: am('notYours', lang) }
+  if (callerStudentId && callerStudentId !== a.student_id) return { error: am('assignmentNotFound', lang) }
 
   const buffer = Buffer.from(await f.arrayBuffer())
   if (!magicMatches(buffer, contentType)) return { error: am('fileType', lang) }
@@ -354,11 +384,16 @@ export async function attachAssignmentFile(formData: FormData) {
     if (sub?.graded_at) { await rollback(); return { error: am('alreadyGraded', lang) } }
     if (sub) {
       oldPath = (sub.attachment_path as string | null) ?? null
-      const { error } = await admin
+      // .is('graded_at', null) closes the TOCTOU window vs a concurrent grade
+      // (same guard as submitAssignment's resubmit path).
+      const { data: updated, error } = await admin
         .from('assignment_submissions')
         .update({ attachment_path: path, attachment_name: fileName, submitted_at: new Date().toISOString() })
         .eq('id', sub.id)
+        .is('graded_at', null)
+        .select('id')
       if (error) { await rollback(); console.error('attach submission update failed:', error.message); return { error: am('saveFailed', lang) } }
+      if (!updated?.length) { await rollback(); return { error: am('alreadyGraded', lang) } }
     } else {
       const { error } = await admin
         .from('assignment_submissions')
@@ -399,6 +434,21 @@ export async function removeAssignmentFile(input: { assignmentId: string; kind: 
   const lang = input.lang || 'es'
   if (!isFileKind(input.kind)) return { error: am('saveFailed', lang) }
   const kind: FileKind = input.kind
+
+  // Auth FIRST — before touching the assignment row (same id-probing rationale
+  // as attachAssignmentFile).
+  let callerTeacherId: string | null = null
+  let callerStudentId: string | null = null
+  if (kind === 'assignment' || kind === 'audio') {
+    const ctx = await requireTeacher(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    callerTeacherId = ctx.teacherId
+  } else {
+    const ctx = await requireStudent(lang)
+    if ('error' in ctx) return { error: ctx.error }
+    callerStudentId = ctx.studentId
+  }
+
   const admin = createAdminClient()
   const { data: a } = await admin
     .from('assignments')
@@ -407,15 +457,8 @@ export async function removeAssignmentFile(input: { assignmentId: string; kind: 
     .maybeSingle()
   if (!a) return { error: am('assignmentNotFound', lang) }
 
-  if (kind === 'assignment' || kind === 'audio') {
-    const ctx = await requireTeacher(lang)
-    if ('error' in ctx) return { error: ctx.error }
-    if (ctx.teacherId !== a.teacher_id) return { error: am('notYours', lang) }
-  } else {
-    const ctx = await requireStudent(lang)
-    if ('error' in ctx) return { error: ctx.error }
-    if (ctx.studentId !== a.student_id) return { error: am('assignmentNotFound', lang) }
-  }
+  if (callerTeacherId && callerTeacherId !== a.teacher_id) return { error: am('notYours', lang) }
+  if (callerStudentId && callerStudentId !== a.student_id) return { error: am('assignmentNotFound', lang) }
 
   let path: string | null = null
   if (kind === 'assignment') {

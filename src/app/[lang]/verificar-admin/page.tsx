@@ -1,12 +1,16 @@
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import VerifyAdminClient from './VerifyAdminClient'
-import type { Locale } from '@/lib/i18n/translations'
+import { locales, type Locale } from '@/lib/i18n/translations'
 
 // AAL1 -> AAL2 step-up for admins with 2FA enrolled. Sits OUTSIDE /admin so the
 // admin layout's 2FA gate can't loop back into it.
 export default async function VerifyAdminPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params
+  // Layout notFound() does not protect pages (they render in parallel) — a
+  // dotted path skips the locale proxy and lands here with an invalid lang
+  // (same class as the landing eyebrow crash, Sentry ENGLISHKOLAB-3/4/G).
+  if (!locales.includes(lang as Locale)) notFound()
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()

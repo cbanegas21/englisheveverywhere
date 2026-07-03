@@ -44,7 +44,7 @@ export default function VerifyAdminClient({ lang }: { lang: Locale }) {
       const totp = data?.totp?.find((f) => f.status === 'verified') || data?.totp?.[0]
       if (totp) setFactorId(totp.id)
       else setErr(tx.noFactor)
-    })
+    }).catch(() => setErr(tx.noFactor))
     inputRef.current?.focus()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

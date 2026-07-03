@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSessionUser } from '@/lib/session'
 import { activeBookingCutoffIso } from '@/lib/bookingWindow'
-import { hnStartOfMonthUtc } from '@/lib/timezone'
+import { hnStartOfMonthUtc, isValidTimeZone } from '@/lib/timezone'
 import TeacherDashboardClient from './TeacherDashboardClient'
 import type { Locale } from '@/lib/i18n/translations'
 
@@ -73,10 +73,13 @@ export default async function TeacherDashboardPage({ params }: Props) {
   ])
 
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
-  const timezone =
+  const rawTimezone =
     (profileRow as { timezone?: string | null } | null)?.timezone ||
     (user.user_metadata?.timezone as string) ||
     'America/Tegucigalpa'
+  // A corrupt stored tz throws RangeError mid-render and crashes the page —
+  // same guard as dashboard/agendar/placement (DASH-01).
+  const timezone = isValidTimeZone(rawTimezone) ? rawTimezone : 'America/Tegucigalpa'
 
   return (
     <TeacherDashboardClient

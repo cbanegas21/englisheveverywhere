@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Globe, Clock, Check, Upload, FileText, X } from 'lucide-react'
@@ -140,12 +140,14 @@ export default function OnboardingClient({ lang, role, userId }: Props) {
   const [step, setStep] = useState(1)
   const [done, setDone] = useState(false)
 
-  const [timezone, setTimezone] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota'
-    }
-    return 'America/Bogota'
-  })
+  // Detected tz is adopted AFTER mount, not in the initializer: the server
+  // renders 'America/Bogota', so the first client render must too or hydration
+  // fails for every visitor in another tz (the useCurrency ENGLISHKOLAB-7 class).
+  const [timezone, setTimezone] = useState('America/Bogota')
+  useEffect(() => {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (detected) setTimezone(detected)
+  }, [])
   const [preferredLang, setPreferredLang] = useState<'es' | 'en'>(lang)
   const [specs, setSpecs] = useState<string[]>([])
   const [bio, setBio] = useState('')

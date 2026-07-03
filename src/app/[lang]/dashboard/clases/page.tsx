@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isValidTimeZone } from '@/lib/timezone'
 import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import ClasesClient from './ClasesClient'
 import type { Locale } from '@/lib/i18n/translations'
@@ -51,10 +52,13 @@ export default async function ClasesPage({ params }: Props) {
     .order('scheduled_at', { ascending: false })
     .limit(30)
 
-  const timezone =
+  const rawTimezone =
     (profileRow as { timezone?: string | null } | null)?.timezone ||
     (user.user_metadata?.timezone as string) ||
-    'America/Tegucigalpa' // canonical business fallback — matches Agendar/Placement
+    'America/Tegucigalpa'
+  // A corrupt stored tz throws RangeError mid-render and crashes the page —
+  // same guard as dashboard/agendar/placement (DASH-01).
+  const timezone = isValidTimeZone(rawTimezone) ? rawTimezone : 'America/Tegucigalpa'
 
   return (
     <ClasesClient

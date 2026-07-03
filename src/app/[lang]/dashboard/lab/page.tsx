@@ -38,11 +38,14 @@ export default async function LabPage({ params }: Props) {
   const [{ data: assignments }, { count: completedCount }, { data: quizAssignments }] = await Promise.all([
     admin
       .from('assignments')
-      .select('id, title, status, created_at, teacher:teachers(profile:profiles(full_name))')
+      // The submission embed lets us drop already-submitted homework below:
+      // status stays 'open' after submit/grade (only cancel changes it), so
+      // status alone would count finished homework as pending forever.
+      .select('id, title, status, created_at, submission:assignment_submissions(id), teacher:teachers(profile:profiles(full_name))')
       .eq('student_id', studentId)
       .eq('status', 'open')
       .order('created_at', { ascending: false })
-      .limit(4),
+      .limit(10),
     admin
       .from('bookings')
       .select('id', { count: 'exact', head: true })
@@ -122,7 +125,15 @@ export default async function LabPage({ params }: Props) {
 
   // The teacher→profile embed comes back as nested arrays from PostgREST; normalize
   // either shape (mirrors the dashboard home's conductor/teacher name handling).
-  const openAssignments = ((assignments as unknown[]) || []).map((row) => {
+  const openAssignments = ((assignments as unknown[]) || [])
+    .filter((row) => {
+      // Already-submitted homework is done from the student's side — it must
+      // not sit in "de parte de tu maestro" (nor the hero count) forever.
+      const sub = (row as { submission?: unknown }).submission
+      return !(Array.isArray(sub) ? sub[0] : sub)
+    })
+    .slice(0, 4)
+    .map((row) => {
     const a = row as { id: string; title: string; teacher?: unknown }
     const teacher = Array.isArray(a.teacher) ? a.teacher[0] : a.teacher
     const profileRaw = (teacher as { profile?: unknown } | null)?.profile

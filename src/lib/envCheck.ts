@@ -22,6 +22,22 @@ const CRITICAL = [
   // pricing page). Silently no-ops (generateSessionSummary/extractLiveVocab return
   // empty) if missing/placeholder, so alert — don't fail closed.
   'ANTHROPIC_API_KEY',
+  // Live-vocab transcription — the other half of the cuaderno pair above.
+  'DEEPGRAM_API_KEY',
+  // CAPTCHA pair. Secret unset → verifyTurnstile no-ops = bot signups reopen
+  // silently. Site key unset while the secret IS set → the widget never renders,
+  // no token is minted, and the server rejects EVERY signup — a full signup
+  // outage. Both drifts are invisible without this alert.
+  'TURNSTILE_SECRET_KEY',
+  'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
+  // Bounce/complaint suppression webhook — unset means /api/resend/webhook 503s
+  // until Resend pauses the endpoint and sender reputation loses its shield.
+  'RESEND_WEBHOOK_SECRET',
+  // GitHub-Actions crons (weekly payouts, payment reconcile) 503 without it.
+  'CRON_SECRET',
+  // The alerting channel itself — if the DSN drifts, every OTHER alert here
+  // falls back to console-only.
+  'NEXT_PUBLIC_SENTRY_DSN',
 ] as const
 
 const isPlaceholder = (v?: string) => !v || v.endsWith('_placeholder')

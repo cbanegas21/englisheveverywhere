@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { gradeAttempt, sanitizeQuestion, type BankQuestionRow } from '@/lib/lab/grading'
 import { LAB_FILES_BUCKET, FILE_URL_TTL, MAX_FILE_BYTES, ALLOWED_FILE_TYPES, magicMatches } from '@/lib/lab/files'
+import { checkUserActionLimit } from '@/lib/rateLimit'
 
 // Postgres unique-violation — the single-attempt UNIQUE(assignment_id) guard on
 // lab_quiz_attempts surfaces this when two submits race the same assignment.
@@ -54,6 +55,7 @@ const L_MSG = {
   fileNotFound: { es: 'Archivo no encontrado.', en: 'File not found.' },
   urlFailed: { es: 'No se pudo abrir el archivo. Inténtalo de nuevo.', en: 'Could not open the file. Please try again.' },
   saveFailed: { es: 'No se pudo guardar. Inténtalo de nuevo.', en: 'Could not save. Please try again.' },
+  tooManyUploads: { es: 'Demasiadas subidas en poco tiempo. Espera unos minutos.', en: 'Too many uploads in a short time. Wait a few minutes.' },
 } as const
 const lm = (k: keyof typeof L_MSG, lang: string) => L_MSG[k][lang === 'en' ? 'en' : 'es']
 
@@ -717,6 +719,11 @@ export async function uploadLabFile(formData: FormData) {
   const ctx = await requireTeacher(lang)
   if ('error' in ctx) return { error: ctx.error }
   const { admin, teacherId } = ctx
+
+  // Storage uploads cost real money if looped — cap per teacher (allowlisted
+  // in auth_attempts via migration 058; without that the limit no-ops).
+  const rl = await checkUserActionLimit(ctx.userId, 'uploadLabFile', 20)
+  if (!rl.ok) return { error: lm('tooManyUploads', lang) }
 
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0) return { error: lm('fileRequired', lang) }

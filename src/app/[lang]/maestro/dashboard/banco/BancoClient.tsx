@@ -200,19 +200,32 @@ export default function BancoClient({ lang, questions }: Props) {
     setError('')
     const payload = buildPayload(form)
     startTransition(async () => {
-      const res = editingId
-        ? await updateBankQuestion({ id: editingId, type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, lang })
-        : await createBankQuestion({ type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, lang })
-      if (res && 'error' in res) { setError(res.error ?? ''); return }
-      setOpen(false)
-      router.refresh()
+      // try/catch: a thrown rejection (offline, 500) must land in the visible
+      // error slot, not the route error boundary (which loses the typed form).
+      try {
+        const res = editingId
+          ? await updateBankQuestion({ id: editingId, type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, lang })
+          : await createBankQuestion({ type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, lang })
+        if (res && 'error' in res) { setError(res.error ?? ''); return }
+        setOpen(false)
+        router.refresh()
+      } catch {
+        setError(lang === 'en' ? 'Could not save. Check your connection and try again.' : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.')
+      }
     })
   }
 
   function toggleArchive(q: BankQuestion) {
+    setError('')
     startTransition(async () => {
-      const res = await archiveBankQuestion({ id: q.id, archived: !q.archived, lang })
-      if (res && !('error' in res)) router.refresh()
+      // Surface the {error} result — a silent no-op reads as a broken button.
+      try {
+        const res = await archiveBankQuestion({ id: q.id, archived: !q.archived, lang })
+        if (res && 'error' in res) { setError(res.error ?? ''); return }
+        router.refresh()
+      } catch {
+        setError(lang === 'en' ? 'Could not save. Check your connection and try again.' : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.')
+      }
     })
   }
 

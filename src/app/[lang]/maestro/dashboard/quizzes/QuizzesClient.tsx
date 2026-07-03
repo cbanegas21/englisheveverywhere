@@ -106,21 +106,31 @@ export default function QuizzesClient({ lang, quizzes, bank, students }: Props) 
       lang,
     }
     startTransition(async () => {
-      const res = editingId ? await updateQuiz({ id: editingId, ...payload }) : await createQuiz(payload)
-      if (res && 'error' in res) { setError(res.error ?? ''); return }
-      setOpen(false); router.refresh()
+      try {
+        const res = editingId ? await updateQuiz({ id: editingId, ...payload }) : await createQuiz(payload)
+        if (res && 'error' in res) { setError(res.error ?? ''); return }
+        setOpen(false); router.refresh()
+      } catch {
+        setError(lang === 'en' ? 'Could not save. Check your connection and try again.' : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.')
+      }
     })
   }
-  function doPublish(q: Quiz) { startTransition(async () => { const r = await publishQuiz({ id: q.id, lang }); if (r && !('error' in r)) router.refresh() }) }
-  function doCancel(q: Quiz) { startTransition(async () => { const r = await cancelQuiz({ id: q.id, lang }); if (r && !('error' in r)) router.refresh() }) }
+  // Publish/cancel surface their {error} (and catch throws) — a silent no-op on
+  // Publicar reads as a broken button while the quiz quietly stays draft.
+  function doPublish(q: Quiz) { setError(''); startTransition(async () => { try { const r = await publishQuiz({ id: q.id, lang }); if (r && 'error' in r) { setError(r.error ?? ''); return } router.refresh() } catch { setError(lang === 'en' ? 'Could not save. Check your connection and try again.' : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.') } }) }
+  function doCancel(q: Quiz) { setError(''); startTransition(async () => { try { const r = await cancelQuiz({ id: q.id, lang }); if (r && 'error' in r) { setError(r.error ?? ''); return } router.refresh() } catch { setError(lang === 'en' ? 'Could not save. Check your connection and try again.' : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.') } }) }
   function openAssign(q: Quiz) { setAssignQuiz(q); setAssignStudent(students[0]?.id ?? ''); setAssignDue(''); setAssignError('') }
   function doAssign() {
     if (!assignQuiz || !assignStudent) return
     setAssignError('')
     startTransition(async () => {
-      const r = await assignQuizToStudent({ quizId: assignQuiz.id, studentId: assignStudent, dueAt: assignDue || null, lang })
-      if (r && 'error' in r) { setAssignError(r.error ?? ''); return }
-      setAssignQuiz(null); router.refresh()
+      try {
+        const r = await assignQuizToStudent({ quizId: assignQuiz.id, studentId: assignStudent, dueAt: assignDue || null, lang })
+        if (r && 'error' in r) { setAssignError(r.error ?? ''); return }
+        setAssignQuiz(null); router.refresh()
+      } catch {
+        setAssignError(lang === 'en' ? 'Could not save. Check your connection and try again.' : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.')
+      }
     })
   }
 

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isValidTimeZone } from '@/lib/timezone'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n/translations'
-import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
+import { DashTopBar } from '@/components/ui/DashTopBar'
 import { DarkHeroCard } from '@/components/ui/DarkHeroCard'
 import { StatLedger } from '@/components/ui/StatLedger'
 
@@ -33,8 +33,7 @@ interface TeacherQueryResult {
 const t = {
   en: {
     title: 'My teacher',
-    flourish: 'yours',
-    subtitle: 'Hand-matched to your level and schedule · One teacher · Yours',
+    subtitle: 'Hand-matched to your level and schedule',
     assignedKicker: '↳ Your assigned teacher',
     specialties: 'Specialties',
     bioKicker: 'Bio',
@@ -62,8 +61,7 @@ const t = {
   },
   es: {
     title: 'Mi maestro',
-    flourish: 'el tuyo',
-    subtitle: 'Emparejado a mano con tu nivel y horario · Un maestro · El tuyo',
+    subtitle: 'Emparejado a mano con tu nivel y horario',
     assignedKicker: '↳ Tu maestro asignado',
     specialties: 'Especialidades',
     bioKicker: 'Bio',
@@ -296,11 +294,7 @@ export default async function MiMaestroPage({ params }: Props) {
     return (
       <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
         <DashTopBar
-          title={
-            <span>
-              {tx.title} <TitleFlourish>{tx.flourish}</TitleFlourish>
-            </span>
-          }
+          title={tx.title}
           sub={tx.subtitle}
         />
 

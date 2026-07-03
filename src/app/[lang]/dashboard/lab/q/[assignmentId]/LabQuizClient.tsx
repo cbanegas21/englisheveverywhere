@@ -221,13 +221,19 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
     if (pending) return
     setError('')
     startTransition(async () => {
-      const res = await submitQuizAttempt({ assignmentId, answers, lang })
-      if (res && 'error' in res) setError(res.error ?? '')
-      else {
-        // Land on the clean URL (drops ?intentar=1) so the page renders the new
-        // attempt's review instead of immediately offering another retake.
-        router.push(cleanUrl)
-        router.refresh()
+      // try/catch: a thrown rejection (offline, 500) would otherwise escape to
+      // the error boundary and throw away everything the student typed.
+      try {
+        const res = await submitQuizAttempt({ assignmentId, answers, lang })
+        if (res && 'error' in res) setError(res.error ?? '')
+        else {
+          // Land on the clean URL (drops ?intentar=1) so the page renders the new
+          // attempt's review instead of immediately offering another retake.
+          router.push(cleanUrl)
+          router.refresh()
+        }
+      } catch {
+        setError(lang === 'en' ? 'Could not submit. Check your connection and try again.' : 'No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.')
       }
     })
   }
