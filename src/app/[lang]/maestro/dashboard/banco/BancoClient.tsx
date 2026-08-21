@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n/translations'
 import { DashTopBar, TitleFlourish } from '@/components/ui/DashTopBar'
 import Modal from '@/components/dashboard/Modal'
@@ -59,6 +59,11 @@ const t = {
     guidance: 'Guidance for the student (optional)',
     generalFeedback: 'General feedback (optional)',
     feedbackPh: 'Shown after answering — encouraging, gentle.',
+    optFeedbackPh: 'Why this option is right/wrong (optional)',
+    answerFeedback: 'Feedback (optional)',
+    answerFeedbackPh: 'Shown to the student after they answer.',
+    tagsLabel: 'Tags (optional)',
+    tagsPh: 'grammar, unit-3 …',
     cancel: 'Cancel',
     save: 'Save',
     saving: 'Saving…',
@@ -102,6 +107,11 @@ const t = {
     guidance: 'Guía para el estudiante (opcional)',
     generalFeedback: 'Retroalimentación general (opcional)',
     feedbackPh: 'Se muestra después de responder — gentil y motivadora.',
+    optFeedbackPh: 'Por qué esta opción es correcta/incorrecta (opcional)',
+    answerFeedback: 'Retroalimentación (opcional)',
+    answerFeedbackPh: 'Se muestra al estudiante después de responder.',
+    tagsLabel: 'Etiquetas (opcional)',
+    tagsPh: 'gramática, unidad-3 …',
     cancel: 'Cancelar',
     save: 'Guardar',
     saving: 'Guardando…',
@@ -121,24 +131,30 @@ const ALL_TYPES: QType[] = ['mcq_single', 'mcq_multi', 'true_false', 'short_answ
 interface FormState {
   type: QType
   prompt: string
-  options: { text: string; correct: boolean }[]
+  options: { text: string; correct: boolean; feedback: string }[]
   tfAnswer: boolean
+  tfFeedback: string
   accepted: { text: string; caseSensitive: boolean }[]
+  shortFeedback: string
   pairs: { left: string; right: string }[]
   guidance: string
   generalFeedback: string
+  tags: string[]
 }
 
 function blankForm(): FormState {
   return {
     type: 'mcq_single',
     prompt: '',
-    options: [{ text: '', correct: true }, { text: '', correct: false }],
+    options: [{ text: '', correct: true, feedback: '' }, { text: '', correct: false, feedback: '' }],
     tfAnswer: true,
+    tfFeedback: '',
     accepted: [{ text: '', caseSensitive: false }],
+    shortFeedback: '',
     pairs: [{ left: '', right: '' }, { left: '', right: '' }],
     guidance: '',
     generalFeedback: '',
+    tags: [],
   }
 }
 
@@ -147,10 +163,15 @@ function formFromQuestion(q: BankQuestion): FormState {
   f.type = (ALL_TYPES.includes(q.type as QType) ? q.type : 'mcq_single') as QType
   f.prompt = q.prompt
   f.generalFeedback = q.generalFeedback
+  f.tags = Array.isArray(q.tags) ? q.tags : []
   const p = rec(q.payload)
-  const opts = arr(p.options).map((o) => ({ text: s(rec(o).text), correct: rec(o).correct === true }))
+  const opts = arr(p.options).map((o) => ({ text: s(rec(o).text), correct: rec(o).correct === true, feedback: s(rec(o).feedback) }))
   if (opts.length) f.options = opts
   if (typeof p.answer === 'boolean') f.tfAnswer = p.answer
+  // tf + short_answer both store a single question-level `feedback` in payload;
+  // seed both slots from it (only the one matching `type` is ever saved/shown).
+  f.tfFeedback = s(p.feedback)
+  f.shortFeedback = s(p.feedback)
   const acc = arr(p.accepted).map((a) => ({ text: s(rec(a).text), caseSensitive: rec(a).caseSensitive === true }))
   if (acc.length) f.accepted = acc
   const prs = arr(p.pairs).map((x) => ({ left: s(rec(x).left), right: s(rec(x).right) }))
@@ -163,11 +184,11 @@ function buildPayload(f: FormState): unknown {
   switch (f.type) {
     case 'mcq_single':
     case 'mcq_multi':
-      return { options: f.options.filter((o) => o.text.trim()).map((o) => ({ text: o.text, correct: o.correct })) }
+      return { options: f.options.filter((o) => o.text.trim()).map((o) => ({ text: o.text, correct: o.correct, feedback: o.feedback })) }
     case 'true_false':
-      return { answer: f.tfAnswer }
+      return { answer: f.tfAnswer, feedback: f.tfFeedback }
     case 'short_answer':
-      return { accepted: f.accepted.filter((a) => a.text.trim()).map((a) => ({ text: a.text, caseSensitive: a.caseSensitive })) }
+      return { accepted: f.accepted.filter((a) => a.text.trim()).map((a) => ({ text: a.text, caseSensitive: a.caseSensitive })), feedback: f.shortFeedback }
     case 'matching':
       return { pairs: f.pairs.filter((x) => x.left.trim() && x.right.trim()) }
     case 'essay':
@@ -179,6 +200,8 @@ const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--ek-border)',
   background: 'var(--ek-paper)', color: 'var(--ek-text)', fontSize: 14, fontFamily: 'var(--ek-font-sans)',
 }
+// A quieter input for the per-answer feedback fields (visually secondary to the answer itself).
+const feedbackInputStyle: React.CSSProperties = { ...inputStyle, fontSize: 12.5, padding: '7px 10px' }
 const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
   color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)', marginBottom: 6,
@@ -204,8 +227,8 @@ export default function BancoClient({ lang, questions }: Props) {
       // error slot, not the route error boundary (which loses the typed form).
       try {
         const res = editingId
-          ? await updateBankQuestion({ id: editingId, type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, lang })
-          : await createBankQuestion({ type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, lang })
+          ? await updateBankQuestion({ id: editingId, type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, tags: form.tags, lang })
+          : await createBankQuestion({ type: form.type, prompt: form.prompt, payload, generalFeedback: form.generalFeedback, tags: form.tags, lang })
         if (res && 'error' in res) { setError(res.error ?? ''); return }
         setOpen(false)
         router.refresh()
@@ -261,6 +284,13 @@ export default function BancoClient({ lang, questions }: Props) {
                     {q.archived && <span style={{ fontSize: 10, color: 'var(--ek-text-muted)', fontFamily: 'var(--ek-font-mono)' }}>· {tx.archived}</span>}
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ek-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.prompt}</div>
+                  {q.tags.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                      {q.tags.map((tg) => (
+                        <span key={tg} style={{ fontSize: 10, color: 'var(--ek-text-muted)', background: 'var(--ek-paper)', border: '1px solid var(--ek-border)', borderRadius: 999, padding: '1px 8px', fontFamily: 'var(--ek-font-mono)' }}>{tg}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button onClick={() => openEdit(q)} style={{ fontSize: 12, fontWeight: 600, color: 'var(--ek-text)', background: 'transparent', border: '1px solid var(--ek-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>{tx.edit}</button>
@@ -305,27 +335,30 @@ export default function BancoClient({ lang, questions }: Props) {
           {(form.type === 'mcq_single' || form.type === 'mcq_multi') && (
             <div>
               <label style={labelStyle}>{tx.options}</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {form.options.map((o, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <input
-                      type={form.type === 'mcq_single' ? 'radio' : 'checkbox'}
-                      checked={o.correct}
-                      onChange={() => {
-                        if (form.type === 'mcq_single') upd({ options: form.options.map((x, j) => ({ ...x, correct: j === i })) })
-                        else upd({ options: form.options.map((x, j) => (j === i ? { ...x, correct: !x.correct } : x)) })
-                      }}
-                      title={tx.correct}
-                      style={{ accentColor: 'var(--ek-red)', width: 18, height: 18, flexShrink: 0 }}
-                    />
-                    <input value={o.text} onChange={(e) => upd({ options: form.options.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)) })} style={inputStyle} />
-                    {form.options.length > 2 && (
-                      <button onClick={() => upd({ options: form.options.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }} title={tx.remove} aria-label={tx.remove}><Trash2 size={16} /></button>
-                    )}
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type={form.type === 'mcq_single' ? 'radio' : 'checkbox'}
+                        checked={o.correct}
+                        onChange={() => {
+                          if (form.type === 'mcq_single') upd({ options: form.options.map((x, j) => ({ ...x, correct: j === i })) })
+                          else upd({ options: form.options.map((x, j) => (j === i ? { ...x, correct: !x.correct } : x)) })
+                        }}
+                        title={tx.correct}
+                        style={{ accentColor: 'var(--ek-red)', width: 18, height: 18, flexShrink: 0 }}
+                      />
+                      <input value={o.text} onChange={(e) => upd({ options: form.options.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)) })} style={inputStyle} />
+                      {form.options.length > 2 && (
+                        <button onClick={() => upd({ options: form.options.filter((_, j) => j !== i) })} style={{ background: 'transparent', border: 0, cursor: 'pointer', color: 'var(--ek-text-muted)', flexShrink: 0 }} title={tx.remove} aria-label={tx.remove}><Trash2 size={16} /></button>
+                      )}
+                    </div>
+                    <input value={o.feedback} onChange={(e) => upd({ options: form.options.map((x, j) => (j === i ? { ...x, feedback: e.target.value } : x)) })} placeholder={tx.optFeedbackPh} aria-label={tx.optFeedbackPh} style={{ ...feedbackInputStyle, marginLeft: 26 }} />
                   </div>
                 ))}
               </div>
-              <button onClick={() => upd({ options: [...form.options, { text: '', correct: false }] })} style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--ek-red)', background: 'transparent', border: 0, cursor: 'pointer' }}><Plus size={14} /> {tx.addOption}</button>
+              <button onClick={() => upd({ options: [...form.options, { text: '', correct: false, feedback: '' }] })} style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--ek-red)', background: 'transparent', border: 0, cursor: 'pointer' }}><Plus size={14} /> {tx.addOption}</button>
             </div>
           )}
 
@@ -339,6 +372,7 @@ export default function BancoClient({ lang, questions }: Props) {
                   </button>
                 ))}
               </div>
+              <input value={form.tfFeedback} onChange={(e) => upd({ tfFeedback: e.target.value })} placeholder={tx.answerFeedbackPh} aria-label={tx.answerFeedback} style={{ ...feedbackInputStyle, marginTop: 8 }} />
             </div>
           )}
 
@@ -360,6 +394,7 @@ export default function BancoClient({ lang, questions }: Props) {
                 ))}
               </div>
               <button onClick={() => upd({ accepted: [...form.accepted, { text: '', caseSensitive: false }] })} style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--ek-red)', background: 'transparent', border: 0, cursor: 'pointer' }}><Plus size={14} /> {tx.addAccepted}</button>
+              <input value={form.shortFeedback} onChange={(e) => upd({ shortFeedback: e.target.value })} placeholder={tx.answerFeedbackPh} aria-label={tx.answerFeedback} style={{ ...feedbackInputStyle, marginTop: 10 }} />
             </div>
           )}
 
@@ -392,6 +427,16 @@ export default function BancoClient({ lang, questions }: Props) {
           <div>
             <label style={labelStyle}>{tx.generalFeedback}</label>
             <textarea value={form.generalFeedback} onChange={(e) => upd({ generalFeedback: e.target.value })} placeholder={tx.feedbackPh} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+
+          <div>
+            <label style={labelStyle}>{tx.tagsLabel}</label>
+            <input
+              value={form.tags.join(', ')}
+              onChange={(e) => upd({ tags: e.target.value.split(',').map((tg) => tg.trimStart()).slice(0, 20) })}
+              placeholder={tx.tagsPh}
+              style={inputStyle}
+            />
           </div>
         </div>
       </Modal>

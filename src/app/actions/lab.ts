@@ -540,7 +540,7 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
   )
   const { data: rows } = await admin
     .from('lab_question_bank')
-    .select('id, type, prompt, payload')
+    .select('id, type, prompt, payload, general_feedback')
     .in('id', orderedIds.length ? orderedIds : ['00000000-0000-0000-0000-000000000000'])
   const byId = new Map((rows || []).map((r) => [r.id as string, r as BankQuestionRow]))
   const questions: BankQuestionRow[] = orderedIds
@@ -554,10 +554,14 @@ export async function submitQuizAttempt(input: { assignmentId: string; answers: 
   const graded = gradeAttempt(questions, answers)
 
   // 6. Frozen snapshot — keys present only if reviewAfter (defense in depth).
+  //    general_feedback (a separate column, not in payload) is display-only and
+  //    also gated behind reviewAfter, then frozen so the student's review shows it.
   const snapshot = questions
     .map((q) => {
       const sani = sanitizeQuestion(q, settings.reviewAfter)
-      return sani ? { ...sani, outcome: graded.outcomes[q.id] } : null
+      if (!sani) return null
+      const gf = settings.reviewAfter ? str(q.general_feedback, 1000) : ''
+      return gf ? { ...sani, outcome: graded.outcomes[q.id], generalFeedback: gf } : { ...sani, outcome: graded.outcomes[q.id] }
     })
     .filter((x) => x !== null)
 

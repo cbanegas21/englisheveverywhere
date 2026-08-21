@@ -24,6 +24,7 @@ export interface BankQuestionRow {
   type: string
   prompt: string
   payload: unknown
+  general_feedback?: string | null
 }
 
 // ── untrusted coercers (mirror lab.ts) ───────────────────────────────────

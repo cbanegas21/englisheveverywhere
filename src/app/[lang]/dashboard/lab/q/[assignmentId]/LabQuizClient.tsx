@@ -23,8 +23,30 @@ interface SQuestion {
   answer?: boolean
   feedback?: string
   accepted?: string[]
+  generalFeedback?: string
 }
 type RQuestion = SQuestion & { outcome?: string }
+
+// Feedback the teacher wrote, surfaced to the student on review (reveal-gated at
+// the server, so these fields are only present when reviewAfter was on): the
+// picked option's note (mcq), the true/false or short-answer note, plus any
+// general feedback for the question.
+function collectFeedback(q: RQuestion, answer: unknown): string[] {
+  const out: string[] = []
+  if (q.type === 'mcq_single' || q.type === 'mcq_multi') {
+    const picked = q.type === 'mcq_single'
+      ? (typeof answer === 'number' ? [answer] : [])
+      : (Array.isArray(answer) ? (answer as number[]) : [])
+    for (const i of picked) {
+      const fb = (q.options || []).find((o) => o.idx === i)?.feedback
+      if (fb) out.push(fb)
+    }
+  } else if (q.feedback) {
+    out.push(q.feedback)
+  }
+  if (q.generalFeedback) out.push(q.generalFeedback)
+  return out
+}
 interface ReviewData {
   questions: RQuestion[]
   answers: Record<string, unknown>
@@ -332,6 +354,14 @@ export default function LabQuizClient({ lang, mode, assignmentId, title, intro, 
                   <div style={{ marginTop: 12, fontSize: 14, color: 'var(--ek-text)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <ReviewAnswer q={q} answer={review.answers[q.id]} tx={tx} />
                   </div>
+                  {collectFeedback(q, review.answers[q.id]).length > 0 && (
+                    <div style={{ marginTop: 12, borderLeft: '3px solid var(--ek-red)', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div className="ek-microlabel">↳ {tx.teacherNote}</div>
+                      {collectFeedback(q, review.answers[q.id]).map((fb, k) => (
+                        <p key={k} style={{ margin: 0, fontSize: 13.5, color: 'var(--ek-text)', lineHeight: 1.5, fontFamily: 'var(--ek-font-serif)', fontStyle: 'italic' }}>{fb}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </>
