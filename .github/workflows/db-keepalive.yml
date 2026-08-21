@@ -1,0 +1,50 @@
+name: Health check + DB keep-alive
+
+# Hits /api/cron/health, which issues a real Supabase data-API read.
+#
+# Two reasons this runs. (1) KEEP-ALIVE: free-tier Supabase auto-pauses a project
+# after ~7 idle days, and in Aug 2026 that took the production database down for
+# four weeks — no other scheduled job guarantees a database request (the daily
+# reconciliation only queries inside its loop over paid Stripe sessions, which is
+# empty at launch volume). (2) ALERTING: `curl -fsS` fails the step on any
+# non-2xx, so an outage turns this run RED and GitHub emails the repo owner.
+# Every other cron reported green throughout that outage.
+#
+# Requires the repo secret CRON_SECRET (must match the Vercel env var).
+# Twice daily gives ~7x margin on the idle window even if one run is dropped.
+
+on:
+  schedule:
+    # 06:15 and 18:15 UTC — offset from the other crons so failures are unambiguous.
+    - cron: '15 6,18 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: db-keepalive
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: Health check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check secret
+        id: check
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET secret not set — the keep-alive cannot run and the database will idle out. Add it at Settings → Secrets → Actions (must match the Vercel env var)."
+            exit 1
+          fi
+
+      - name: Probe health endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          BASE="${APP_URL:-https://englishkolab.com}"
+          # -f turns a 503 (a down plane) into a non-zero exit → red run → email.
+          curl -fsS --max-time 30 -X POST "$BASE/api/cron/health" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json"

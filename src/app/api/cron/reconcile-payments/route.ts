@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { probeDatabase } from '@/lib/health'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +28,18 @@ async function run(req: NextRequest) {
   if (!stripeKey || stripeKey.endsWith('_placeholder')) {
     Sentry.captureMessage('reconcile-payments: STRIPE_SECRET_KEY missing — cannot reconcile', 'error')
     return NextResponse.json({ error: 'stripe not configured' }, { status: 503 })
+  }
+
+  // Prove the database answers BEFORE reconciling. Without this the job reads as
+  // healthy during a total outage: with zero paid sessions the loop below never
+  // runs, so it returned {ok:true} every day of the Aug 2026 four-week pause.
+  const db = await probeDatabase()
+  if (!db.ok) {
+    Sentry.captureMessage(
+      `reconcile-payments: database unreachable — reconciliation did NOT run and paid-but-uncredited customers would go undetected. ${db.error}`,
+      'fatal',
+    )
+    return NextResponse.json({ error: 'database unreachable', detail: db.error }, { status: 503 })
   }
 
   try {
