@@ -81,9 +81,25 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
         const { data } = await supabase.auth.getSession()
         return !!data.session
       }
-      // Hash-fragment flow: createBrowserClient auto-parses #access_token — just check.
-      const { data } = await supabase.auth.getSession()
-      return !!data.session
+      // Hash-fragment flow: createBrowserClient auto-parses #access_token.
+      //
+      // SECURITY (CWE-620, Unverified Password Change): this used to return
+      // `!!session` — i.e. ANY ordinary logged-in session satisfied the gate that
+      // is supposed to prove possession of a recovery link. A borrowed unlocked
+      // browser could set a new password with no current-password check and no
+      // token, permanently taking the account over and evicting the real owner.
+      // Nothing in the app links here (Configuración routes users through the
+      // emailed reset link), so requiring real proof costs no legitimate path.
+      //
+      // The hash flow is still honoured two ways: the fragment may survive to
+      // here, and if Supabase already consumed+stripped it, the PASSWORD_RECOVERY
+      // listener below (subscribed BEFORE this runs) flips sessionReady.
+      const hash = typeof window !== 'undefined' ? window.location.hash : ''
+      if (/access_token|type=recovery/.test(hash)) {
+        const { data } = await supabase.auth.getSession()
+        return !!data.session
+      }
+      return false
     }
 
     if (!establishRef.current) establishRef.current = establish()
@@ -101,7 +117,9 @@ function NewPasswordForm({ lang }: { lang: Locale }) {
 
     // Supabase emits PASSWORD_RECOVERY once it parses a recovery URL (hash flow).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
-      if (active && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN')) {
+      // NOT SIGNED_IN: that fires for an ordinary login too and would re-open the
+      // hole closed above. PASSWORD_RECOVERY is emitted only for a recovery URL.
+      if (active && event === 'PASSWORD_RECOVERY') {
         setSessionReady(true)
         setStatus(prev => (prev === 'error' ? 'idle' : prev))
       }
