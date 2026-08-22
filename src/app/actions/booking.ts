@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scheduleBookingReminders, cancelBookingReminders } from '@/lib/reminders'
@@ -14,7 +15,10 @@ const CANCEL_REASON_LABELS: Record<string, { en: string; es: string }> = {
   late: { en: 'Late cancellation (within 24h)', es: 'Cancelación tardía (dentro de 24h)' },
   early: { en: 'Early cancellation (24h+ notice)', es: 'Cancelación anticipada (24h+ de aviso)' },
   no_show_teacher: { en: 'Teacher no-show', es: 'Ausencia del maestro' },
+  no_show_student: { en: 'Student no-show', es: 'Ausencia del estudiante' },
   teacher_decline: { en: 'Teacher declined the assignment', es: 'El maestro rechazó la asignación' },
+  admin_refund: { en: 'Cancelled by admin (class credit returned)', es: 'Cancelada por admin (clase devuelta)' },
+  other: { en: 'Other', es: 'Otro' },
 }
 
 function cancelReasonLabel(reason: string, lang: string): string {
@@ -949,6 +953,26 @@ export async function saveAvailabilitySlots(
     }
     arr.push({ start, end })
     slotsByDay.set(s.day_of_week, arr)
+  }
+
+  // Tripwire: replace-all is destructive, so a save that clears a NON-empty
+  // schedule is either a deliberate "I'm unavailable" or a symptom of the editor
+  // having rendered empty when it should not have. That second case actually
+  // happened — migration 062 silently killed this table's SELECT, the editor
+  // showed no slots, and the next save would have wiped them with no error
+  // anywhere. Clearing stays allowed (a teacher may genuinely want no
+  // availability); we just refuse to let it happen silently again.
+  if (slots.length === 0) {
+    const { count: existing } = await admin
+      .from('availability_slots')
+      .select('id', { count: 'exact', head: true })
+      .eq('teacher_id', teacher.id)
+    if (existing && existing > 0) {
+      Sentry.captureMessage(
+        `saveAvailabilitySlots: teacher ${teacher.id} cleared ALL availability (${existing} slot(s) removed). Deliberate, or did the editor render empty?`,
+        'warning',
+      )
+    }
   }
 
   // P3: atomic replace-all (migration 052) — the old delete-then-insert wiped a

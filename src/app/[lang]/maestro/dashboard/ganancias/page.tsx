@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveStudentNames, attachStudentName } from '@/lib/teacher/studentNames'
 import { computeTeacherAvailable, sessionPayoutUsd, isClearedAt } from '@/lib/teacherEarnings'
 import { hnStartOfMonthUtc } from '@/lib/timezone'
 import GananciasClient from './GananciasClient'
@@ -47,7 +48,7 @@ export default async function GananciasPage({ params }: Props) {
   const { data: allSessions } = await supabase
     .from('bookings')
     .select(`
-      id, scheduled_at, duration_minutes, status,
+      id, scheduled_at, duration_minutes, status, student_id,
       student:students(profile:profiles(full_name)),
       payments(teacher_payout_usd, status)
     `)
@@ -60,10 +61,15 @@ export default async function GananciasPage({ params }: Props) {
     scheduled_at: string
     duration_minutes: number
     status: string
+    student_id: string | null
     student: { profile: { full_name: string } | null } | null
     payments: { teacher_payout_usd: number; status: string }[] | null
   }
-  const rows = (allSessions as RawSession[] | null) || []
+  // Same RLS-null embed as the teacher home: without this the ESTUDIANTE column
+  // rendered an em dash on every row. Ownership already scoped by teacher_id above.
+  const rawRows = (allSessions as RawSession[] | null) || []
+  const earningNames = await resolveStudentNames(rawRows.map((r) => r.student_id))
+  const rows = rawRows.map((r) => attachStudentName(r, earningNames)) as RawSession[]
   const now = Date.now()
 
   const sessions = rows.map(s => {

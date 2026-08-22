@@ -32,6 +32,9 @@ const t = {
     title: 'Schedule',
     flourish: 'whenever you want',
     sub: 'Pick a 60-minute slot at least 24h ahead · times in your local zone',
+    noCreditsTitle: 'You have no classes left',
+    noCreditsSub: 'Add classes to your balance and you can book again right away.',
+    noCreditsCta: 'See plans',
     saldoKicker: 'Available balance',
     saldoSub: (n: number) => `${n} ${n === 1 ? 'class' : 'classes'} · never expire${n === 1 ? 's' : ''}`,
     repeatKicker: 'Repeat last week',
@@ -74,6 +77,9 @@ const t = {
     title: 'Agenda',
     flourish: 'cuando quieras',
     sub: 'Elige un horario de 60 min con al menos 24h de anticipación · horas en tu zona local',
+    noCreditsTitle: 'No te quedan clases',
+    noCreditsSub: 'Agrega clases a tu saldo y podrás reservar de nuevo al instante.',
+    noCreditsCta: 'Ver planes',
     saldoKicker: 'Saldo disponible',
     saldoSub: (n: number) => `${n} clase${n === 1 ? '' : 's'} · no expira${n === 1 ? '' : 'n'}`,
     repeatKicker: 'Repetir semana pasada',
@@ -286,6 +292,36 @@ export default function AgendarClient({ lang, classesRemaining, existingBookings
   function selectSlot(cell: SelectedCell) {
     setSelected(cell)
     setError('')
+  }
+
+  // ── No credits ─────────────────────────────────────────────────
+  // Replaces the old server-side redirect to /plan. Ordered AFTER nothing and
+  // BEFORE the grid, but the `if (booked)` below is checked first in practice
+  // because `booked` implies this render came from a successful booking — see
+  // the ordering note: we explicitly test `!booked` here.
+  if (!booked && remaining <= 0) {
+    return (
+      <div style={{ minHeight: '100%', background: 'var(--ek-paper)' }}>
+        <DashTopBar
+          title={<span>{tx.title} <TitleFlourish>{tx.flourish}</TitleFlourish></span>}
+        />
+        <div style={{ maxWidth: 560, margin: '0 auto', padding: '48px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ek-text)', marginBottom: 10 }}>
+            {tx.noCreditsTitle}
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--ek-text-soft)', lineHeight: 1.55, marginBottom: 24 }}>
+            {tx.noCreditsSub}
+          </div>
+          <button
+            onClick={() => router.push(`/${lang}/dashboard/plan`)}
+            className="ek-btn ek-btn-red ek-btn-square"
+            style={{ padding: '12px 26px', fontSize: 13 }}
+          >
+            {tx.noCreditsCta}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // ── Success screen ─────────────────────────────────────────────

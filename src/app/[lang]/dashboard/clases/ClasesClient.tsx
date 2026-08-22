@@ -14,6 +14,7 @@ import {
   reportTeacherNoShow,
 } from '@/app/actions/booking'
 import type { Locale } from '@/lib/i18n/translations'
+import { getZonedParts, zonedWallTimeToUtc } from '@/lib/timezone'
 import { Spinner, LoadingOverlay } from '@/components/ui/Spinner'
 import JoinSessionButton from '@/components/JoinSessionButton'
 import { DashTopBar } from '@/components/ui/DashTopBar'
@@ -343,11 +344,13 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
     setActionStatus('idle')
     setActionError(null)
     if (kind === 'reschedule') {
+      // Seed the picker with a wall-clock in the STUDENT'S PROFILE zone. Using
+      // getFullYear/getHours here read the BROWSER's zone, so the prefilled value
+      // disagreed with every other time on this page (which renders in `timezone`).
       const baseMs = (nowTick ?? nowSnapshotMs) + 25 * 60 * 60 * 1000
-      const d = new Date(baseMs)
-      d.setMinutes(0, 0, 0)
+      const parts = getZonedParts(new Date(baseMs), timezone)
       const pad = (n: number) => String(n).padStart(2, '0')
-      const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+      const local = `${parts.year}-${pad(parts.month + 1)}-${pad(parts.day)}T${pad(parts.hour)}:00`
       setRescheduleNewIso(local)
     }
     setOpenMenuFor(null)
@@ -365,7 +368,19 @@ export default function ClasesClient({ lang, timezone, upcomingBookings, pastBoo
         res = await studentCancelBooking(actionTarget.booking.id, lang)
       } else if (actionTarget.kind === 'reschedule') {
         if (!rescheduleNewIso) { setActionStatus('error'); setActionError(tx.actionFailed); return }
-        const iso = new Date(rescheduleNewIso).toISOString()
+        // `new Date('2026-09-02T15:00')` parses a naked datetime-local string in the
+        // BROWSER's zone, while the rest of this page — and the server — treat times
+        // as profile-zone canonical. A student in a different zone from their profile
+        // typed 15:00 and silently moved a paid class by the offset delta (proven:
+        // same typed string stored 19:00Z from New York vs 21:00Z from Tegucigalpa).
+        // Interpret the wall-clock in `timezone`, same as the /agendar grid does.
+        const [datePart, timePart] = rescheduleNewIso.split('T')
+        const [yy, mm, dd] = (datePart || '').split('-').map(Number)
+        const [hh, mi] = (timePart || '').split(':').map(Number)
+        if (![yy, mm, dd, hh, mi].every(Number.isFinite)) {
+          setActionStatus('error'); setActionError(tx.actionFailed); return
+        }
+        const iso = zonedWallTimeToUtc(yy, mm - 1, dd, hh, mi, timezone).toISOString()
         res = await studentRescheduleBooking(actionTarget.booking.id, iso, lang)
       } else if (actionTarget.kind === 'no_show') {
         res = await reportTeacherNoShow(actionTarget.booking.id, lang)

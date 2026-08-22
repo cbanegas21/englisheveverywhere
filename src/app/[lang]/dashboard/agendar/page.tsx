@@ -23,10 +23,13 @@ export default async function AgendarPage({ params }: Props) {
   // (the dashboard would just bounce here too) — one hop, not two (AG-GUARD-05).
   if (!student) redirect(`/${lang}/onboarding`)
 
-  // No classes → buy first
-  if ((student.classes_remaining || 0) <= 0) {
-    redirect(`/${lang}/dashboard/plan`)
-  }
+  // NOTE: deliberately NO redirect on a 0 balance. Next.js re-renders the current
+  // route on EVERY Server Action response, so this guard re-ran the instant
+  // createBooking succeeded — and a student spending their LAST credit was thrown
+  // to /dashboard/plan before the "¡Reservada!" screen ever painted. The booking
+  // existed and the credit was gone, but they were never told, and no student
+  // email is sent at this point either. AgendarClient renders a 0-credit empty
+  // state instead (and still shows the success screen when it has just booked).
 
   // Intake not done → complete profile first
   if (!student.intake_done) {

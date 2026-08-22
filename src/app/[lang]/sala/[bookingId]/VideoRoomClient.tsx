@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { MotionConfig } from 'framer-motion'
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react'
+import { DisconnectReason } from 'livekit-client'
 import { getRoomAccess, completeSession } from '@/app/actions/video'
 import type { SessionSummary } from '@/app/actions/video'
 import type { Locale } from '@/lib/i18n/translations'
@@ -164,7 +165,12 @@ export default function VideoRoomClient({
               console.error('[livekit] room error:', err?.message || err)
               if (!endedRef.current) { setErrorCode('connection'); setPhase('error') }
             }}
-            onConnected={() => { rejoinAttempts.current = 0 }}
+            // NOTE: deliberately does NOT reset rejoinAttempts. It used to, which
+            // made the 1-attempt cap unreachable: every rejoin that succeeded for a
+            // moment zeroed the budget, so a disconnect loop could run forever. The
+            // counter is now monotonic for the life of the room, bounding ANY
+            // disconnect loop, not just the duplicate-tab one below.
+            onConnected={() => {}}
             // P2-7 / CALL-mobile: only a real end (teacher End-Class → broadcast →
             // handleComplete, a self leave, or an already-completed booking) goes to
             // the ended screen. An INVOLUNTARY drop (after LiveKit exhausts its own
@@ -173,8 +179,20 @@ export default function VideoRoomClient({
             // or a fresh-token reconnect if it was just a mobile blip/backgrounding).
             // Only after that retry fails does it surface the connection error +
             // rejoin button, instead of ejecting the user on the first hiccup.
-            onDisconnected={() => {
+            onDisconnected={(reason) => {
               if (endedRef.current || status === 'completed') return
+              // The token is minted with `identity: user.id` (video.ts), so opening
+              // the same class in a second tab makes LiveKit evict the incumbent with
+              // DUPLICATE_IDENTITY. Rejoining then evicts the other tab, which rejoins
+              // and evicts this one — the two tabs fought indefinitely and the peer
+              // saw "waiting for the other participant" while both tabs died. Never
+              // auto-rejoin this reason: say what happened and let the user choose
+              // which tab keeps the class (Reintentar re-runs init() and claims it).
+              if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
+                setErrorCode('duplicate')
+                setPhase('error')
+                return
+              }
               if (rejoinAttempts.current < 1) {
                 rejoinAttempts.current += 1
                 void init()

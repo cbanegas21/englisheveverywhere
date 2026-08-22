@@ -14,6 +14,9 @@ export type RoomErrorCode =
   | 'init-failed'
   | 'token-failed'
   | 'connection'
+  // Not from getRoomAccess: raised client-side when LiveKit evicts this tab
+  // because the same identity joined elsewhere (DisconnectReason.DUPLICATE_IDENTITY).
+  | 'duplicate'
 
 type ErrorMessages = Record<RoomErrorCode, string> & { errorFallback: string }
 
@@ -148,6 +151,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
       'init-failed': "We couldn't start the session. Please try again.",
       'token-failed': "We couldn't connect you to the room. Please try again.",
       'connection': 'Your connection to the class dropped. Check your internet and rejoin.',
+      'duplicate': 'You opened this class in another tab or on another device. Close the other one, then press Rejoin to use the class here.',
       errorFallback: "We couldn't connect to your session. Please try again.",
     },
   },
@@ -253,6 +257,7 @@ export const VIDEO_T: Record<Locale, Strings> = {
       'init-failed': 'No pudimos iniciar la sesión. Inténtalo de nuevo.',
       'token-failed': 'No pudimos conectarte a la sala. Inténtalo de nuevo.',
       'connection': 'Se perdió la conexión con la clase. Revisa tu internet y vuelve a entrar.',
+      'duplicate': 'Abriste esta clase en otra pestaña o en otro dispositivo. Cierra la otra y pulsa Reintentar para usarla aquí.',
       errorFallback: 'No pudimos conectarte a tu sesión. Inténtalo de nuevo.',
     },
   },

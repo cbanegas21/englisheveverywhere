@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { resolveStudentNames, attachStudentName } from '@/lib/teacher/studentNames'
 import { getSessionUser } from '@/lib/session'
 import { activeBookingCutoffIso } from '@/lib/bookingWindow'
 import { hnStartOfMonthUtc, isValidTimeZone } from '@/lib/timezone'
@@ -49,7 +50,7 @@ export default async function TeacherDashboardPage({ params }: Props) {
     supabase
       .from('bookings')
       .select(`
-      id, scheduled_at, duration_minutes, status,
+      id, scheduled_at, duration_minutes, status, student_id,
       student:students(profile:profiles(full_name))
     `)
       .eq('teacher_id', teacher.id)
@@ -72,6 +73,14 @@ export default async function TeacherDashboardPage({ params }: Props) {
       .maybeSingle(),
   ])
 
+  // The student:profiles embed above resolves to NULL under RLS (no teacher ->
+  // student-profile SELECT policy), and the client swallows it as "Estudiante".
+  // Re-resolve via the service-role client, scoped to the bookings we already
+  // filtered by teacher_id. See src/lib/teacher/studentNames.ts.
+  const upcomingRows = (upcomingSessions ?? []) as { student_id?: string | null }[]
+  const studentNames = await resolveStudentNames(upcomingRows.map((b) => b.student_id))
+  const upcomingNamed = upcomingRows.map((b) => attachStudentName(b, studentNames))
+
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Teacher'
   const rawTimezone =
     (profileRow as { timezone?: string | null } | null)?.timezone ||
@@ -92,7 +101,7 @@ export default async function TeacherDashboardPage({ params }: Props) {
       accepting={teacher?.accepting_students ?? true}
       specializations={teacher?.specializations || []}
       thisMonthSessions={thisMonthCount || 0}
-      upcomingSessions={(upcomingSessions as any) || []}
+      upcomingSessions={(upcomingNamed as any) || []}
     />
   )
 }

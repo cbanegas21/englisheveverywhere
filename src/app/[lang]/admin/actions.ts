@@ -1066,7 +1066,14 @@ async function _cancelBookingWithRefund(bookingId: string) {
     .update({
       status: 'cancelled',
       cancelled_by: 'admin',
-      cancellation_reason: 'admin_cancel',
+      // MUST be a value allowed by bookings_cancellation_reason_check (migration
+      // 025): early | late | no_show_teacher | no_show_student | teacher_decline
+      // | admin_refund | other. This previously wrote 'admin_cancel', which is
+      // NOT in that list, so every admin cancel raised 23514 and threw at the
+      // `if (error)` below — before the credit refund AND before the placement
+      // reset. The flow was 100% dead from every entry point in production.
+      // 'admin_refund' is the same value profile.ts:349 already uses for this.
+      cancellation_reason: 'admin_refund',
       cancelled_at: new Date().toISOString(),
     })
     .eq('id', bookingId)
