@@ -18,11 +18,11 @@
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.1",
     "@hello-pangea/dnd": "^18.0.1",
-    "@livekit/components-react": "^2.9.20",
+    "@livekit/components-react": "^2.9.24",
     "@livekit/components-styles": "^1.2.0",
     "@sentry/nextjs": "^10.49.0",
     "@stripe/stripe-js": "^9.0.1",
-    "@supabase/ssr": "^0.10.0",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.101.1",
     "@tabler/icons-react": "^3.41.1",
     "clsx": "^2.1.1",
@@ -31,16 +31,16 @@
     "libphonenumber-js": "^1.13.5",
     "livekit-client": "^2.18.1",
     "livekit-server-sdk": "^2.15.0",
-    "lucide-react": "^1.7.0",
+    "lucide-react": "^1.33.0",
     "motion": "^12.38.0",
     "next": "16.2.9",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-international-phone": "^4.8.0",
     "react-timezone-select": "^3.3.3",
     "resend": "^6.10.0",
     "stripe": "^22.0.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
@@ -49,7 +49,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.2",
+    "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
