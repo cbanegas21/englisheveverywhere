@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Locale } from '@/lib/i18n/translations'
+import { revealPlanPricing, type PlanPricing } from '@/app/actions/pricing'
 
-// Price-free plan shape passed from the SERVER page — no priceUsd reaches this
-// 'use client' bundle (gated funnel). Only names + class counts cross the boundary.
-type QuizPlan = { nameEn: string; nameEs: string; classes: number }
+// Still price-free across the SERVER->CLIENT boundary: no priceUsd is baked into
+// this bundle. The recommended plan's price is fetched at runtime by the
+// revealPlanPricing server action once the quiz finishes, so all four packs are
+// never scrapeable at once from the static JS (see actions/pricing.ts).
+type QuizPlan = { key: string; nameEn: string; nameEs: string; classes: number }
 
 // Lowercase a phrase for natural mid-sentence use BUT keep all-caps tokens
 // (acronyms) intact — otherwise "An exam (TOEFL, IELTS…)" became "...(toefl, ielts…)".
@@ -37,10 +40,16 @@ const T = {
     classes: 'clases',
     resultBody: '1 a 1 con tu propio maestro, en vivo por video. Las clases nunca caducan — avanzas a tu ritmo.',
     bullets: ['Tu propio maestro, solo para ti', 'Clases de 60 minutos en vivo', 'Las clases nunca caducan'],
-    cta: 'Crea tu cuenta para empezar',
-    ctaSub: 'Crea tu cuenta para ver el precio y reservar tu primera clase.',
+    cta: 'Empieza con tu llamada gratis',
+    ctaSub: 'Crea tu cuenta y agenda tu llamada de diagnóstico. Gratis, sin tarjeta.',
     riskFree: 'Tu primera llamada de diagnóstico es gratis.',
     retake: 'Empezar de nuevo',
+    perClass: (n: number) => `$${n} por clase`,
+    totalLine: (price: number, classes: number) => `$${price} en total · ${classes} clases · pago único`,
+    priceLabel: 'Lo que cuesta',
+    compare: 'Open English y EF cobran $83–139 al mes, con contrato anual.',
+    compareUs: 'Aquí no hay contrato, y tus clases no expiran.',
+    oneToOne: 'Siempre 1 a 1. Nunca en un grupo de 20.',
   },
   en: {
     kicker: '↳ Find your plan',
@@ -60,10 +69,16 @@ const T = {
     classes: 'classes',
     resultBody: '1-on-1 with your own teacher, live on video. Classes never expire — you move at your own pace.',
     bullets: ['Your own teacher, just for you', '60-minute live classes', 'Classes never expire'],
-    cta: 'Create your account to start',
-    ctaSub: 'Create your account to see the price and book your first class.',
+    cta: 'Start with your free call',
+    ctaSub: 'Create your account and book your diagnostic call. Free, no card.',
     riskFree: 'Your first diagnostic call is free.',
     retake: 'Start over',
+    perClass: (n: number) => `$${n} per class`,
+    totalLine: (price: number, classes: number) => `$${price} total · ${classes} classes · one-time`,
+    priceLabel: 'What it costs',
+    compare: 'Open English and EF charge $83–139 a month, on annual contracts.',
+    compareUs: 'No contract here, and your classes never expire.',
+    oneToOne: 'Always 1-on-1. Never a group of 20.',
   },
 }
 
@@ -106,11 +121,25 @@ export default function DescubreClient({ lang, plans }: { lang: Locale; plans: Q
     if (phase === 'result' || phase === 'building') { setPhase('quiz'); setAnswers(a => a.slice(0, -1)); return }
     setAnswers(a => a.slice(0, -1))
   }
-  function retake() { setAnswers([]); setPhase('quiz') }
+  function retake() { setAnswers([]); setPhase('quiz'); setPricing(null) }
 
   // Recommend a plan from the weekly-frequency answer (q3): 1-2→Partida, 3→Trayecto,
   // 4→Ascenso, daily→Cumbre. PRICING_PLANS is ordered small→large.
   const plan = plans[Math.min(answers[2] ?? 0, plans.length - 1)]
+  // Ask the server for THIS plan's price once we land on the result. Deliberately
+  // not a prop: keeping it a runtime fetch is what stops all four pack prices
+  // living in the public bundle. A failure just hides the price block — the
+  // recommendation and the free-call CTA still stand on their own.
+  const [pricing, setPricing] = useState<PlanPricing | null>(null)
+  useEffect(() => {
+    if (phase !== 'result' || !plan?.key) return
+    let live = true
+    revealPlanPricing(plan.key)
+      .then(r => { if (live) setPricing(r) })
+      .catch(() => { if (live) setPricing(null) })
+    return () => { live = false }
+  }, [phase, plan?.key])
+
   const planName = lang === 'es' ? plan.nameEs : plan.nameEn
   const freqLabel = tx.questions[2].opts[answers[2] ?? 0] ?? ''
 
@@ -224,6 +253,25 @@ export default function DescubreClient({ lang, plans }: { lang: Locale; plans: Q
                   <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{tx.classes}</span>
                 </div>
                 <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.55, margin: '14px 0 0' }}>{tx.resultBody}</p>
+
+                {/* The price, revealed here rather than behind signup. Lead with the
+                    per-class figure — it is the honest framing of a prepaid pack and
+                    the number people actually compare against a group academy. */}
+                {pricing && (
+                  <div className="ek-q-fade" style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.14)' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>{tx.priceLabel}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{tx.perClass(pricing.perClassUsd)}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.62)', marginTop: 6, fontFeatureSettings: '"tnum"' }}>{tx.totalLine(pricing.priceUsd, pricing.classes)}</div>
+                    <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.82)', lineHeight: 1.55, margin: '14px 0 0' }}>
+                      <strong style={{ fontWeight: 700 }}>{tx.oneToOne}</strong><br />
+                      {tx.compare}<br />
+                      <span style={{ color: '#fff' }}>{tx.compareUs}</span>
+                    </p>
+                  </div>
+                )}
+
                 <div style={{ height: 1, background: 'rgba(255,255,255,0.14)', margin: '20px 0' }} />
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {tx.bullets.map((b, i) => (
