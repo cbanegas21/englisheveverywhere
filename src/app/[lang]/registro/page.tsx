@@ -26,6 +26,10 @@ const t = {
     studentBenefits: ['Pay once per pack — no auto-renewal', 'Teacher matched to your level', 'Live 1-on-1 classes'],
     teacherBenefits: ['Set your own schedule', 'Competitive pay structure', 'Professional platform'],
     rolePrompt: 'How do you want to use the platform?',
+    freeKicker: 'Free diagnostic call',
+    headlineFree: 'Create your free account',
+    freeSub: 'No card needed. Create your account and book your free diagnostic call — you will find out your real level in 30 minutes.',
+    planNoted: (p: string) => `We saved your ${p} recommendation.`,
     headline: 'Sign up as a student',
     headlineTeacher: 'Sign up as a teacher',
     alreadyAccount: 'Already have an account?',
@@ -66,6 +70,10 @@ const t = {
     studentBenefits: ['Pago único por paquete, sin renovación', 'Maestro asignado a tu nivel', 'Clases 1 a 1 en vivo'],
     teacherBenefits: ['Define tu propio horario', 'Esquema de pago competitivo', 'Plataforma profesional'],
     rolePrompt: '¿Cómo quieres usar la plataforma?',
+    freeKicker: 'Llamada de diagnóstico gratis',
+    headlineFree: 'Crea tu cuenta gratis',
+    freeSub: 'Sin tarjeta. Crea tu cuenta y agenda tu llamada de diagnóstico gratis — en 30 minutos sabrás tu nivel real.',
+    planNoted: (p: string) => `Guardamos tu recomendación de ${p}.`,
     headline: 'Regístrate como estudiante',
     headlineTeacher: 'Regístrate como maestro',
     alreadyAccount: '¿Ya tienes cuenta?',
@@ -160,6 +168,10 @@ function RegistroContent({ lang }: { lang: Locale }) {
   const searchParams = useSearchParams()
   const errorMsg = searchParams.get('error')
   const successParam = searchParams.get('success')
+  // Came straight from the /descubre quiz: role is known, a plan was recommended,
+  // and the button they pressed promised a FREE diagnostic call.
+  const fromQuiz = searchParams.get('from') === 'descubre'
+  const planLabel = searchParams.get('plan') || ''
 
   // Geo phone-prefix autodetect (Carlos 2026-07-03): adopt the visitor's dial
   // code AFTER mount — SSR renders the +504 default so hydration stays stable —
@@ -186,11 +198,14 @@ function RegistroContent({ lang }: { lang: Locale }) {
   // error visible instead of silently bouncing back to the role step.
   useEffect(() => {
     if (successParam === 'confirm') { setStep('success'); return }
-    if (errorMsg) {
-      const r = searchParams.get('role')
-      if (r === 'student' || r === 'teacher') setRole(r)
-      setStep('form')
-    }
+    const r = searchParams.get('role')
+    const knownRole = r === 'student' || r === 'teacher'
+    if (knownRole) setRole(r as Role)
+    // Arriving from /descubre we ALREADY know they are a student — they just took
+    // a student quiz. Asking "¿Estudiante o Maestro?" at that point reads as if the
+    // site forgot what they just did, and it sat between the person and the free
+    // call they had clicked for. Skip straight to the form whenever the role is known.
+    if (knownRole || errorMsg) setStep('form')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [successParam, errorMsg])
 
@@ -324,13 +339,22 @@ function RegistroContent({ lang }: { lang: Locale }) {
       <div className="w-full max-w-[400px]" style={{ animation: 'fade-up 0.5s ease both' }}>
         <div className="flex items-start justify-between mb-6">
           <div>
-            <span className="ek-kicker" style={{ color: 'var(--ek-red)' }}>{role === 'teacher' ? tx.teacherRole : tx.studentRole}</span>
+            <span className="ek-kicker" style={{ color: 'var(--ek-red)' }}>{fromQuiz ? tx.freeKicker : role === 'teacher' ? tx.teacherRole : tx.studentRole}</span>
             <h1 className="mt-3 font-black" style={{ fontSize: '1.55rem', letterSpacing: '-0.025em', lineHeight: 1.1, color: 'var(--ek-text)' }}>
-              {role === 'teacher' ? tx.headlineTeacher : tx.headline}
+              {fromQuiz ? tx.headlineFree : role === 'teacher' ? tx.headlineTeacher : tx.headline}
             </h1>
+            {/* The CTA they clicked promised a free diagnostic call, and this page
+                used to say nothing about it — it just re-pitched the product they
+                had already decided on. Carry the promise through. */}
+            {fromQuiz && (
+              <p className="mt-2" style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--ek-text-soft)' }}>
+                {tx.freeSub}{planLabel ? ` ${tx.planNoted(planLabel)}` : ''}
+              </p>
+            )}
           </div>
           <button
             onClick={() => setStep('role')}
+            hidden={fromQuiz}
             className="text-[12px] rounded-md px-3 py-2 mt-1 transition-colors flex-shrink-0"
             style={{ border: '1px solid var(--ek-border)', color: 'var(--ek-text-muted)' }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--ek-text)'; e.currentTarget.style.borderColor = 'var(--ek-text)' }}

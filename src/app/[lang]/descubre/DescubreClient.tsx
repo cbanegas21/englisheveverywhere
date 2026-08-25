@@ -44,6 +44,8 @@ const T = {
     ctaSub: 'Crea tu cuenta y agenda tu llamada de diagnóstico. Gratis, sin tarjeta.',
     riskFree: 'Tu primera llamada de diagnóstico es gratis.',
     retake: 'Empezar de nuevo',
+    chooseLabel: 'Tú eliges cuántas clases',
+    recommendedTag: 'Recomendado',
     perClass: (n: number) => `$${n} por clase`,
     totalLine: (price: number, classes: number) => `$${price} en total · ${classes} clases · pago único`,
     priceLabel: 'Lo que cuesta',
@@ -73,6 +75,8 @@ const T = {
     ctaSub: 'Create your account and book your diagnostic call. Free, no card.',
     riskFree: 'Your first diagnostic call is free.',
     retake: 'Start over',
+    chooseLabel: 'You choose how many classes',
+    recommendedTag: 'Recommended',
     perClass: (n: number) => `$${n} per class`,
     totalLine: (price: number, classes: number) => `$${price} total · ${classes} classes · one-time`,
     priceLabel: 'What it costs',
@@ -131,16 +135,52 @@ export default function DescubreClient({ lang, plans }: { lang: Locale; plans: Q
   // living in the public bundle. A failure just hides the price block — the
   // recommendation and the free-call CTA still stand on their own.
   const [pricing, setPricing] = useState<PlanPricing | null>(null)
+  // The quiz RECOMMENDS a pack; it must not IMPOSE one. Someone who arrived ready
+  // to buy 20 classes was being handed 12 and the difference was lost, and someone
+  // who found it expensive had no way down except leaving. Selection starts on the
+  // recommendation and the person can move in either direction.
+  const [chosenKey, setChosenKey] = useState<string | null>(null)
+  const chosen = plans.find(pl => pl.key === chosenKey) ?? plan
+  useEffect(() => { if (phase === 'result' && !chosenKey && plan?.key) setChosenKey(plan.key) }, [phase, plan?.key, chosenKey])
   useEffect(() => {
-    if (phase !== 'result' || !plan?.key) return
+    if (phase !== 'result' || !chosen?.key) return
     let live = true
-    revealPlanPricing(plan.key)
+    setPricing(null)
+    // Still ONE plan per request — swapping packs asks for that pack's price, so
+    // the four are never handed over together.
+    revealPlanPricing(chosen.key)
       .then(r => { if (live) setPricing(r) })
       .catch(() => { if (live) setPricing(null) })
     return () => { live = false }
-  }, [phase, plan?.key])
+  }, [phase, chosen?.key])
 
-  const planName = lang === 'es' ? plan.nameEs : plan.nameEn
+  // Survive the browser Back button. Pressing Back from /registro remounted this
+  // component and wiped all three answers, so the person had to retake the whole
+  // quiz to get back to the price they had just been shown. Read in an effect,
+  // never in a useState initializer — that is the hydration-mismatch trap.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('ek-descubre')
+      if (!raw) return
+      const st = JSON.parse(raw) as { answers?: number[]; phase?: string; chosenKey?: string }
+      if (Array.isArray(st.answers) && st.answers.length === 3 && st.phase === 'result') {
+        setAnswers(st.answers)
+        setChosenKey(st.chosenKey ?? null)
+        setPhase('result')
+      }
+    } catch { /* private mode / disabled storage — quiz just starts fresh */ }
+  }, [])
+  useEffect(() => {
+    try {
+      if (phase === 'result' && answers.length === 3) {
+        sessionStorage.setItem('ek-descubre', JSON.stringify({ answers, phase, chosenKey }))
+      } else if (phase === 'quiz' && answers.length === 0) {
+        sessionStorage.removeItem('ek-descubre')
+      }
+    } catch { /* ignore */ }
+  }, [phase, answers, chosenKey])
+
+  const planName = lang === 'es' ? chosen.nameEs : chosen.nameEn
   const freqLabel = tx.questions[2].opts[answers[2] ?? 0] ?? ''
 
   return (
@@ -249,7 +289,7 @@ export default function DescubreClient({ lang, plans }: { lang: Locale; plans: Q
               <div style={{ background: 'var(--ek-ink)', color: '#fff', borderRadius: 'var(--ek-radius-lg)', padding: '26px 26px 24px' }}>
                 <div style={{ fontSize: 'clamp(2rem, 6vw, 2.6rem)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1 }}>{planName}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 12 }}>
-                  <span style={{ fontSize: 40, fontWeight: 800, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>{plan.classes}</span>
+                  <span style={{ fontSize: 40, fontWeight: 800, fontFeatureSettings: '"tnum"', lineHeight: 1 }}>{chosen.classes}</span>
                   <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{tx.classes}</span>
                 </div>
                 <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.55, margin: '14px 0 0' }}>{tx.resultBody}</p>
@@ -272,6 +312,39 @@ export default function DescubreClient({ lang, plans }: { lang: Locale; plans: Q
                   </div>
                 )}
 
+                {/* Recommend, don't impose — and show the biggest pack, so the
+                    largest number is the one that sets the frame. */}
+                <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.14)' }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>{tx.chooseLabel}</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {plans.map(pl => {
+                      const active = pl.key === chosen.key
+                      return (
+                        <button
+                          key={pl.key}
+                          onClick={() => setChosenKey(pl.key)}
+                          aria-pressed={active}
+                          style={{
+                            flex: '1 1 100px', cursor: 'pointer', textAlign: 'left',
+                            padding: '10px 12px', borderRadius: 10,
+                            background: active ? 'var(--ek-red)' : 'rgba(255,255,255,0.06)',
+                            border: `1px solid ${active ? 'var(--ek-red)' : 'rgba(255,255,255,0.18)'}`,
+                            color: '#fff', fontFamily: 'var(--ek-font-sans)',
+                          }}
+                        >
+                          <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>{pl.classes}</div>
+                          <div style={{ fontSize: 11, color: active ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.6)', marginTop: 3 }}>
+                            {lang === 'es' ? pl.nameEs : pl.nameEn}
+                          </div>
+                          {pl.key === plan.key && (
+                            <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 5, color: active ? '#fff' : 'var(--ek-red-light, #E8526A)' }}>{tx.recommendedTag}</div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 <div style={{ height: 1, background: 'rgba(255,255,255,0.14)', margin: '20px 0' }} />
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {tx.bullets.map((b, i) => (
@@ -282,7 +355,7 @@ export default function DescubreClient({ lang, plans }: { lang: Locale; plans: Q
                 </ul>
               </div>
 
-              <Link href={`/${lang}/registro`} style={{ textDecoration: 'none', display: 'block', marginTop: 18 }}>
+              <Link href={`/${lang}/registro?role=student&from=descubre&plan=${encodeURIComponent(planName)}`} style={{ textDecoration: 'none', display: 'block', marginTop: 18 }}>
                 <span style={{ display: 'block', width: '100%', textAlign: 'center', padding: '15px 0', background: 'var(--ek-red)', color: '#fff', fontWeight: 700, fontSize: 15, borderRadius: 999 }}>{tx.cta}</span>
               </Link>
               <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--ek-text-muted)', margin: '10px 0 0', lineHeight: 1.5 }}>
