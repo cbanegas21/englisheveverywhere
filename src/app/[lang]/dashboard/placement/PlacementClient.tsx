@@ -897,6 +897,11 @@ export default function PlacementClient({
                     return (
                       <button
                         key={opt.id}
+                        // Test hook (repo convention, cf. data-ek-id / data-ek-col):
+                        // the free-diagnostic survey is the most important funnel we
+                        // have and it had no stable selector, so driving it end to end
+                        // meant guessing at option text and mis-clicking the sidebar.
+                        data-ek-opt={opt.id}
                         onClick={() => {
                           if (currentQ.type === 'multi') toggleMulti(currentQ.id, opt.id)
                           else setSingle(currentQ.id, opt.id)
