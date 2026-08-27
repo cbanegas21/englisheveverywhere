@@ -384,7 +384,19 @@ Generate a structured post-class summary. Respond in ${langLabel} with valid JSO
       }),
     })
 
-    if (!response.ok) return null
+    if (!response.ok) {
+      // Was a bare `return null`, which hid a total outage: the Anthropic account
+      // ran out of credit and EVERY class summary silently produced nothing for
+      // months (0 of 10 sessions had one). An AI feature that fails quietly looks
+      // identical to one nobody used, so surface it.
+      const detail = await response.text().catch(() => '')
+      console.error('[generateSessionSummary] Anthropic API error', response.status, detail.slice(0, 300))
+      Sentry.captureMessage(
+        `AI class summary failed (HTTP ${response.status}) — students and teachers are getting no post-class summary. ${detail.slice(0, 200)}`,
+        'error',
+      )
+      return null
+    }
 
     const data = await response.json()
     const text: string = data.content?.[0]?.text || ''
@@ -865,7 +877,15 @@ ${known || '(none yet)'}`
         messages: [{ role: 'user', content: prompt }],
       }),
     })
-    if (!response.ok) return []
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      console.error('[extractVocabulary] Anthropic API error', response.status, detail.slice(0, 300))
+      Sentry.captureMessage(
+        `AI vocabulary extraction failed (HTTP ${response.status}) — the cuaderno stays empty. ${detail.slice(0, 200)}`,
+        'error',
+      )
+      return []
+    }
     const data = await response.json()
     const raw: string = data.content?.[0]?.text || '[]'
     const cleaned = raw.replace(/```(?:json)?\n?/g, '').replace(/```\n?/g, '').trim()
